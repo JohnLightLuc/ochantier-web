@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="./ochantier-tokens.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..24,400..600,0..1,0&display=block">
+<style>.material-symbols-rounded{font-variation-settings:'FILL' 1,'wght' 500,'opsz' 24;user-select:none}</style>
+</helmet>
+<span title="{{ name }}" style="width:{{ s }};height:{{ s }};flex:none;display:inline-grid;place-items:center;border-radius:{{ r }};background:{{ bg }};color:{{ fg }};font-family:var(--font-sans);font-size:{{ fs }};font-weight:var(--fw-bold);line-height:1">{{ text }}<sc-if value="{{ hasIcon }}"><span class="material-symbols-rounded" style="font-size:{{ is }}">{{ icon }}</span></sc-if></span>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:120,&quot;height&quot;:100},&quot;name&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Koffi Adjoumani&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;kind&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;person&quot;,&quot;team&quot;,&quot;org&quot;,&quot;brand&quot;],&quot;default&quot;:&quot;person&quot;,&quot;tsType&quot;:&quot;'person'|'team'|'org'|'brand'&quot;},&quot;size&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;sm&quot;,&quot;md&quot;,&quot;lg&quot;],&quot;default&quot;:&quot;md&quot;,&quot;tsType&quot;:&quot;'sm'|'md'|'lg'&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props, name = p.fullName || '', kind = p.kind || 'person', size = p.size || 'md';
+    let h = 0; for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    const tones = ['success', 'warning', 'danger', 'info', 'purple'];
+    const t = tones[h % tones.length];
+    const ini = name.replace(/[’']/g, ' ').split(' ').filter(Boolean).map(w => w[0]).slice(-2).join('').toUpperCase();
+    const S = { sm: ['var(--avatar-sm)', 'var(--fs-xs)', 'var(--icon-xs)'], md: ['var(--avatar-md)', 'var(--fs-sm)', 'var(--icon-sm)'], lg: ['var(--avatar-lg)', 'var(--fs-3xl)', 'var(--icon-lg)'] }[size];
+    const K = {
+      person: [`var(--c-${t}-bg)`, `var(--c-${t}-fg)`, 'var(--radius-round)', ini, ''],
+      team: ['var(--c-primary-100)', 'var(--c-primary-600)', 'var(--radius-lg)', '', 'groups'],
+      org: ['var(--c-neutral-bg)', 'var(--c-ink-2)', 'var(--radius-lg)', '', 'apartment'],
+      brand: ['var(--c-primary-strong)', 'var(--c-accent)', 'var(--radius-round)', 'O’', '']
+    }[kind] || [];
+    return { name, s: S[0], fs: S[1], is: S[2], bg: K[0], fg: K[1], r: K[2], text: K[3], icon: K[4], hasIcon: !!K[4] };
+  }
+}
+</script>
+</body>
+</html>

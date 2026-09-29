@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="./ochantier-tokens.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..24,400..600,0..1,0&display=block">
+<style>.material-symbols-rounded{font-variation-settings:'FILL' 1,'wght' 500,'opsz' 24;user-select:none}</style>
+</helmet>
+<button type="{{ type }}" onClick="{{ onClick }}" disabled="{{ disabled }}" style="display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);height:{{ h }};padding:0 {{ px }};width:{{ w }};border-radius:var(--radius-lg);border:1px solid {{ border }};background:{{ bg }};color:{{ fg }};font-family:var(--font-sans);font-size:{{ fs }};font-weight:var(--fw-semibold);white-space:nowrap;cursor:{{ cursor }};opacity:{{ op }};box-shadow:{{ shadow }};transition:background var(--dur-fast),border-color var(--dur-fast),filter var(--dur-fast)" style-hover="filter:brightness(.95)" style-focus="outline:none;box-shadow:var(--ring-focus)">
+  <sc-if value="{{ hasIcon }}"><span class="material-symbols-rounded" style="font-size:var(--icon-sm)">{{ icon }}</span></sc-if>
+  <sc-if value="{{ hasLabel }}"><span>{{ label }}</span></sc-if>
+  <sc-if value="{{ hasIconRight }}"><span class="material-symbols-rounded" style="font-size:var(--icon-sm)">{{ iconRight }}</span></sc-if>
+</button>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:260,&quot;height&quot;:80},&quot;label&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Ajouter un promoteur&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;icon&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;add&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;iconRight&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;variant&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;primary&quot;,&quot;secondary&quot;,&quot;ghost&quot;,&quot;accent&quot;,&quot;danger&quot;,&quot;danger-soft&quot;],&quot;default&quot;:&quot;primary&quot;,&quot;tsType&quot;:&quot;'primary'|'secondary'|'ghost'|'accent'|'danger'|'danger-soft'&quot;},&quot;size&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;sm&quot;,&quot;md&quot;,&quot;lg&quot;],&quot;default&quot;:&quot;md&quot;,&quot;tsType&quot;:&quot;'sm'|'md'|'lg'&quot;},&quot;full&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;disabled&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;type&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;button&quot;,&quot;submit&quot;],&quot;default&quot;:&quot;button&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;onClick&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const V = {
+      primary: ['var(--c-primary)', 'var(--c-on-dark)', 'var(--c-primary)'],
+      secondary: ['var(--c-surface)', 'var(--c-ink)', 'var(--c-line-strong)'],
+      ghost: ['transparent', 'var(--c-primary-600)', 'transparent'],
+      accent: ['var(--c-accent)', 'var(--c-primary-strong)', 'var(--c-accent)'],
+      danger: ['var(--c-danger)', 'var(--c-on-dark)', 'var(--c-danger)'],
+      'danger-soft': ['var(--c-danger-bg)', 'var(--c-danger-fg)', 'var(--c-danger-bg)']
+    }[p.variant || 'secondary'] || [];
+    const size = p.size || 'md';
+    const iconOnly = !p.label;
+    return {
+      type: p.type || 'button', onClick: p.onClick, disabled: !!p.disabled,
+      bg: V[0], fg: V[1], border: V[2],
+      h: { sm: 'var(--control-xs)', md: 'var(--control-md)', lg: 'var(--control-lg)' }[size],
+      px: iconOnly ? '0' : ({ sm: 'var(--space-3)', md: 'var(--space-4)', lg: 'var(--space-6)' }[size]),
+      w: p.full ? '100%' : (iconOnly ? ({ sm: 'var(--control-xs)', md: 'var(--control-md)', lg: 'var(--control-lg)' }[size]) : 'auto'),
+      fs: { sm: 'var(--fs-sm)', md: 'var(--fs-base)', lg: 'var(--fs-xl)' }[size],
+      shadow: p.variant === 'primary' && size === 'lg' ? 'var(--shadow-primary)' : 'none',
+      cursor: p.disabled ? 'not-allowed' : 'pointer', op: p.disabled ? 0.5 : 1,
+      icon: p.icon, hasIcon: !!p.icon, label: p.label, hasLabel: !!p.label, iconRight: p.iconRight, hasIconRight: !!p.iconRight
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="./ochantier-tokens.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..24,400..600,0..1,0&display=block">
+<style>.material-symbols-rounded{font-variation-settings:'FILL' 1,'wght' 500,'opsz' 24;user-select:none}</style>
+</helmet>
+<div style="height:100%;display:flex;gap:var(--space-4);align-items:flex-start;padding:var(--space-5);border-radius:var(--radius-2xl);background:{{ cardBg }};border:1px solid {{ cardLine }};box-shadow:var(--shadow-xs);font-family:var(--font-sans);color:var(--c-ink);min-width:0">
+  <div style="width:var(--control-lg);height:var(--control-lg);border-radius:var(--radius-xl);flex:none;display:grid;place-items:center;background:{{ iconBg }}"><span class="material-symbols-rounded" style="font-size:var(--icon-lg);color:{{ iconFg }}">{{ icon }}</span></div>
+  <div style="min-width:0;flex:1">
+    <div style="font-size:var(--fs-base);font-weight:var(--fw-medium);color:var(--c-ink-2)">{{ label }}</div>
+    <div style="display:flex;align-items:baseline;gap:var(--space-1_5);margin-top:var(--space-1);white-space:nowrap;min-width:0"><span style="font-size:{{ valueFs }};font-weight:var(--fw-bold);letter-spacing:-.5px;line-height:var(--lh-tight);font-variant-numeric:tabular-nums;white-space:nowrap">{{ value }}</span><sc-if value="{{ hasUnit }}"><span style="font-size:var(--fs-lg);font-weight:var(--fw-bold);white-space:nowrap">{{ unit }}</span></sc-if></div>
+    <sc-if value="{{ hasDelta }}"><div style="display:flex;align-items:center;gap:var(--space-1_5);margin-top:var(--space-1_5);font-size:var(--fs-sm);flex-wrap:wrap"><span style="display:flex;align-items:center;gap:var(--space-0_5);font-weight:var(--fw-bold);color:{{ deltaC }}"><span class="material-symbols-rounded" style="font-size:var(--icon-xs)">{{ deltaIcon }}</span>{{ delta }}</span><span style="color:var(--c-muted)">{{ compare }}</span></div></sc-if>
+    <sc-if value="{{ hasHint }}"><div style="margin-top:var(--space-1_5);font-size:var(--fs-sm);color:var(--c-muted)">{{ hint }}</div></sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:320,&quot;height&quot;:130},&quot;label&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Total promoteurs&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;value&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;248&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;unit&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;icon&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;apartment&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tone&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;success&quot;,&quot;warning&quot;,&quot;orange&quot;,&quot;danger&quot;,&quot;info&quot;,&quot;purple&quot;,&quot;neutral&quot;],&quot;default&quot;:&quot;success&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;delta&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;+12 %&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;deltaTone&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;success&quot;,&quot;warning&quot;,&quot;danger&quot;],&quot;default&quot;:&quot;success&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;deltaIcon&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;north_east&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;compare&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;vs mois dernier&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;hint&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;highlight&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const alias = { g: 'success', a: 'warning', o: 'orange', r: 'danger', b: 'info', p: 'purple', n: 'neutral' };
+    const t = alias[p.tone] || p.tone || 'success';
+    const dt = alias[p.deltaTone] || p.deltaTone || 'success';
+    return {
+      label: p.label, value: p.value, valueFs: String(p.value || '').length + (p.unit ? p.unit.length + 1 : 0) > 12 ? 'var(--fs-3xl)' : 'var(--fs-4xl)', unit: p.unit, hasUnit: !!p.unit, icon: p.icon || 'insights',
+      iconBg: `var(--c-${t}-bg)`, iconFg: `var(--c-${t}-fg)`,
+      deltaIcon: p.deltaIcon || 'north_east', delta: p.delta, hasDelta: !!p.delta, deltaC: `var(--c-${dt}-fg)`, compare: p.compare || 'vs mois dernier',
+      hint: p.hint, hasHint: !!p.hint,
+      cardBg: p.highlight ? 'var(--c-warning-surface)' : 'var(--c-surface)', cardLine: p.highlight ? 'var(--c-warning-line)' : 'var(--c-line)'
+    };
+  }
+}
+</script>
+</body>
+</html>

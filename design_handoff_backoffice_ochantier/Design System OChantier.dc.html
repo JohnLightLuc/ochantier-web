@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="./ochantier-tokens.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..24,400..600,0..1,0&display=block">
+<style>
+html,body{margin:0;background:var(--c-bg);color:var(--c-ink);font-family:var(--font-sans);font-size:var(--fs-md);-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+button,input{font-family:inherit;font-size:inherit;color:inherit}
+a{color:var(--c-primary-600);text-underline-offset:2px}
+a:hover{color:var(--c-primary-strong)}
+@keyframes och-shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+@keyframes och-spin{to{transform:rotate(360deg)}}
+.material-symbols-rounded{font-variation-settings:'FILL' 1,'wght' 500,'opsz' 24;user-select:none}
+</style>
+</helmet>
+<div style="max-width:var(--content-max);margin:0 auto;padding:var(--space-10) var(--space-8) var(--space-14);display:flex;flex-direction:column;gap:var(--space-10)">
+
+  <header style="display:flex;flex-wrap:wrap;gap:var(--space-6);align-items:flex-end;justify-content:space-between">
+    <div>
+      <div style="font-weight:var(--fw-black);font-size:var(--fs-logo);line-height:1"><span style="color:var(--c-accent)">O’</span><span style="color:var(--c-primary-500)">CHANTIER</span> <span style="font-size:var(--fs-lg);font-weight:var(--fw-semibold);color:var(--c-muted);letter-spacing:.3em">DESIGN SYSTEM</span></div>
+      <h1 style="margin:var(--space-3) 0 0;font-size:var(--fs-5xl);letter-spacing:-.6px">Fondations du back-office · v1.0</h1>
+      <p style="margin:var(--space-2) 0 0;font-size:var(--fs-lg);color:var(--c-muted);max-width:760px;text-wrap:pretty">Source unique : <b>ochantier-tokens.css</b> (variables) + composants partagés. Tous les écrans de <a href="Back Office OChantier.dc.html">Back Office OChantier</a> référencent uniquement ces variables.</p>
+    </div>
+    <nav style="display:flex;flex-wrap:wrap;gap:var(--space-2)">
+      <sc-for list="{{ toc }}" as="t" hint-placeholder-count="5"><a href="{{ t.href }}" style="height:var(--control-xs);padding:0 var(--space-3);display:flex;align-items:center;border:1px solid var(--c-line-strong);border-radius:var(--radius-pill);background:var(--c-surface);font-weight:var(--fw-semibold);font-size:var(--fs-sm);text-decoration:none;color:var(--c-ink)">{{ t.label }}</a></sc-for>
+    </nav>
+  </header>
+
+  <!-- 1. VARIABLES -->
+  <section id="variables" style="display:flex;flex-direction:column;gap:var(--space-6)">
+    <h2 style="margin:0;font-size:var(--fs-4xl)">1 · Variables</h2>
+    <div style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-6)">
+      <sc-for list="{{ colorGroups }}" as="g" hint-placeholder-count="4">
+        <div>
+          <h3 style="margin:0 0 var(--space-3);font-size:var(--fs-xl)">{{ g.title }}</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--space-3)">
+            <sc-for list="{{ g.items }}" as="c"><div style="border:1px solid var(--c-line);border-radius:var(--radius-xl);overflow:hidden"><div style="height:56px;background:{{ c.v }}"></div><div style="padding:var(--space-2) var(--space-3)"><div style="font-size:var(--fs-sm);font-weight:var(--fw-semibold)">{{ c.n }}</div><div style="font-size:var(--fs-xs);color:var(--c-muted);font-family:ui-monospace,Menlo,monospace">{{ c.hex }}</div></div></div></sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:var(--space-5)">
+      <div style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+        <h3 style="margin:0 0 var(--space-4);font-size:var(--fs-xl)">Typographie · Source Sans 3</h3>
+        <sc-for list="{{ typeScale }}" as="t" hint-placeholder-count="10"><div style="display:flex;align-items:baseline;gap:var(--space-4);padding:var(--space-1_5) 0;border-bottom:1px solid var(--c-line-soft)"><code style="width:110px;flex:none;font-size:var(--fs-xs);color:var(--c-muted)">{{ t.n }}</code><span style="font-size:{{ t.v }};font-weight:{{ t.w }};line-height:var(--lh-snug);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.sample }}</span></div></sc-for>
+        <div style="display:flex;gap:var(--space-4);flex-wrap:wrap;margin-top:var(--space-4);font-size:var(--fs-sm);color:var(--c-muted)"><span style="font-weight:var(--fw-regular)">400 regular</span><span style="font-weight:var(--fw-medium)">500 medium</span><span style="font-weight:var(--fw-semibold)">600 semibold</span><span style="font-weight:var(--fw-bold)">700 bold</span><span style="font-weight:var(--fw-black)">800 logo</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-5)">
+        <div style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+          <h3 style="margin:0 0 var(--space-4);font-size:var(--fs-xl)">Espacements · base 4 px</h3>
+          <sc-for list="{{ spaces }}" as="s" hint-placeholder-count="13"><div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-0_5) 0"><code style="width:110px;font-size:var(--fs-xs);color:var(--c-muted)">{{ s.n }}</code><div style="height:10px;border-radius:var(--radius-xs);background:var(--c-primary-400);width:{{ s.v }}"></div><span style="font-size:var(--fs-xs);color:var(--c-muted)">{{ s.px }}</span></div></sc-for>
+        </div>
+        <div style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+          <h3 style="margin:0 0 var(--space-4);font-size:var(--fs-xl)">Rayons</h3>
+          <div style="display:flex;flex-wrap:wrap;gap:var(--space-3)"><sc-for list="{{ radii }}" as="r" hint-placeholder-count="9"><div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-1_5)"><div style="width:56px;height:56px;background:var(--c-primary-100);border:1.5px solid var(--c-primary-400);border-radius:{{ r.v }}"></div><code style="font-size:var(--fs-2xs);color:var(--c-muted)">{{ r.n }}</code></div></sc-for></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:var(--space-5)">
+      <div style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+        <h3 style="margin:0 0 var(--space-4);font-size:var(--fs-xl)">Ombres</h3>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:var(--space-4)"><sc-for list="{{ shadows }}" as="s" hint-placeholder-count="6"><div style="height:64px;border-radius:var(--radius-xl);background:var(--c-surface);box-shadow:{{ s.v }};display:grid;place-items:center"><code style="font-size:var(--fs-2xs);color:var(--c-muted)">{{ s.n }}</code></div></sc-for></div>
+      </div>
+      <div style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+        <h3 style="margin:0 0 var(--space-4);font-size:var(--fs-xl)">Icônes · Material Symbols Rounded</h3>
+        <div style="display:flex;align-items:flex-end;gap:var(--space-5);flex-wrap:wrap"><sc-for list="{{ icons }}" as="i" hint-placeholder-count="5"><div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-1_5)"><span class="material-symbols-rounded" style="font-size:{{ i.v }};color:var(--c-primary)">construction</span><code style="font-size:var(--fs-2xs);color:var(--c-muted)">{{ i.n }}</code></div></sc-for></div>
+        <p style="margin:var(--space-4) 0 0;font-size:var(--fs-sm);color:var(--c-muted)">Remplissage 1 par défaut ; contour (FILL 0) pour mail, lock, notifications, help, filter_alt et les actions de ligne.</p>
+      </div>
+      <div style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+        <h3 style="margin:0 0 var(--space-4);font-size:var(--fs-xl)">Contrôles &amp; conteneurs</h3>
+        <sc-for list="{{ sizes }}" as="s" hint-placeholder-count="12"><div style="display:flex;justify-content:space-between;gap:var(--space-3);padding:var(--space-1_5) 0;border-bottom:1px solid var(--c-line-soft);font-size:var(--fs-sm)"><code>{{ s.n }}</code><span style="color:var(--c-muted)">{{ s.v }} · {{ s.use }}</span></div></sc-for>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. COMPOSANTS -->
+  <section id="composants" style="display:flex;flex-direction:column;gap:var(--space-6)">
+    <h2 style="margin:0;font-size:var(--fs-4xl)">2 · Composants</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:var(--space-5)">
+
+      <article style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+        <div style="display:flex;justify-content:space-between;gap:var(--space-3);align-items:baseline;margin-bottom:var(--space-4)"><h3 style="margin:0;font-size:var(--fs-xl)">Button</h3><code style="font-size:var(--fs-xs);color:var(--c-muted)">Button.dc.html · label, icon, iconRight, variant, size, full, disabled</code></div>
+        <div style="display:flex;flex-wrap:wrap;gap:var(--space-2_5);align-items:center">
+          <dc-import name="Button" label="Ajouter un ouvrier" icon="add" variant="primary" hint-size="180px,44px"></dc-import>
+          <dc-import name="Button" label="Exporter" icon="download" variant="secondary" hint-size="120px,44px"></dc-import>
+          <dc-import name="Button" label="Voir tous" variant="ghost" hint-size="100px,44px"></dc-import>
+          <dc-import name="Button" label="Valider" icon="done_all" variant="accent" hint-size="110px,44px"></dc-import>
+          <dc-import name="Button" label="Suspendre" icon="block" variant="danger" hint-size="130px,44px"></dc-import>
+          <dc-import name="Button" label="Retirer" variant="danger-soft" hint-size="90px,44px"></dc-import>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:var(--space-2_5);align-items:center;margin-top:var(--space-4)">
+          <dc-import name="Button" label="Petit · sm" variant="secondary" size="sm" hint-size="100px,32px"></dc-import>
+          <dc-import name="Button" label="Moyen · md" variant="secondary" size="md" hint-size="120px,44px"></dc-import>
+          <dc-import name="Button" label="Grand · lg" icon-right="arrow_forward" variant="primary" size="lg" hint-size="160px,52px"></dc-import>
+          <dc-import name="Button" icon="more_horiz" variant="secondary" hint-size="44px,44px"></dc-import>
+          <dc-import name="Button" label="Désactivé" variant="primary" disabled="{{ true }}" hint-size="120px,44px"></dc-import>
+        </div>
+      </article>
+
+      <article style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+        <div style="display:flex;justify-content:space-between;gap:var(--space-3);align-items:baseline;margin-bottom:var(--space-4)"><h3 style="margin:0;font-size:var(--fs-xl)">Champs de formulaire</h3><code style="font-size:var(--fs-xs);color:var(--c-muted)">TextField · états défaut, focus, erreur, désactivé</code></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--space-4)">
+          <sc-for list="{{ fields }}" as="f" hint-placeholder-count="4">
+            <label style="display:block">
+              <span style="display:block;font-weight:var(--fw-semibold);font-size:var(--fs-md);margin-bottom:var(--space-1_5)">{{ f.label }}</span>
+              <span style="display:flex;align-items:center;gap:var(--space-2_5);height:var(--control-md);padding:0 var(--space-3);border:1.5px solid {{ f.border }};border-radius:var(--radius-lg);background:{{ f.bg }};box-shadow:{{ f.ring }};opacity:{{ f.op }}"><span class="material-symbols-rounded" style="font-size:var(--icon-sm);color:var(--c-muted);font-variation-settings:'FILL' 0">{{ f.icon }}</span><input value="{{ f.value }}" placeholder="{{ f.ph }}" readOnly="{{ true }}" style="flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:var(--fs-base)"></span>
+              <span style="display:block;margin-top:var(--space-1);font-size:var(--fs-xs);color:{{ f.helpC }}">{{ f.help }}</span>
+            </label>
+          </sc-for>
+        </div>
+      </article>
+
+      <article style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+        <div style="display:flex;justify-content:space-between;gap:var(--space-3);align-items:baseline;margin-bottom:var(--space-4)"><h3 style="margin:0;font-size:var(--fs-xl)">Filtres &amp; listes déroulantes</h3><code style="font-size:var(--fs-xs);color:var(--c-muted)">FilterBar · Select · Dropdown</code></div>
+        <div style="display:flex;flex-wrap:wrap;gap:var(--space-2_5)">
+          <div style="flex:2 1 220px;display:flex;align-items:center;gap:var(--space-2_5);height:var(--control-md);padding:0 var(--space-3);border:1px solid var(--c-line-strong);border-radius:var(--radius-lg);background:var(--c-surface-2)"><span class="material-symbols-rounded" style="font-size:var(--icon-sm);color:var(--c-muted)">search</span><span style="color:var(--c-muted)">Rechercher par nom…</span></div>
+          <button onClick="{{ toggleDd }}" style="flex:1 1 140px;display:flex;align-items:center;justify-content:space-between;height:var(--control-md);padding:0 var(--space-3);border:1px solid {{ ddBorder }};border-radius:var(--radius-lg);background:var(--c-surface);cursor:pointer">{{ ddLabel }}<span class="material-symbols-rounded" style="font-size:var(--icon-sm);color:var(--c-muted)">{{ ddIcon }}</span></button>
+          <button style="display:flex;align-items:center;gap:var(--space-2);height:var(--control-md);padding:0 var(--space-4);border:1px solid var(--c-line-strong);border-radius:var(--radius-lg);background:var(--c-surface);font-weight:var(--fw-semibold);cursor:pointer"><span class="material-symbols-rounded" style="font-size:var(--icon-sm);font-variation-settings:'FILL' 0">filter_alt</span>Plus de filtres</button>
+        </div>
+        <sc-if value="{{ ddOpen }}">
+          <div style="margin-top:var(--space-2);width:240px;background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-xl);box-shadow:var(--shadow-popover);padding:var(--space-1_5)">
+            <sc-for list="{{ ddOptions }}" as="o"><button onClick="{{ o.pick }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) var(--space-3);border:0;border-radius:var(--radius-md);background:{{ o.bg }};cursor:pointer;text-align:left;font-weight:{{ o.fw }}" style-hover="background:var(--c-surface-3)">{{ o.label }}<span class="material-symbols-rounded" style="font-size:var(--icon-xs);color:var(--c-primary)">{{ o.check }}</span></button></sc-for>
+          </div>
+        </sc-if>
+        <div style="display:flex;flex-wrap:wrap;gap:var(--space-2);margin-top:var(--space-4)"><sc-for list="{{ chips }}" as="c"><span style="display:inline-flex;align-items:center;gap:var(--space-1);height:28px;padding:0 var(--space-2) 0 var(--space-3);border-radius:var(--radius-pill);background:var(--c-primary-50);border:1px solid var(--c-primary-200);color:var(--c-primary);font-size:var(--fs-sm);font-weight:var(--fw-semibold)">{{ c }}<span class="material-symbols-rounded" style="font-size:var(--icon-xs)">close</span></span></sc-for><button style="border:0;background:transparent;color:var(--c-primary-600);font-weight:var(--fw-semibold);font-size:var(--fs-sm);cursor:pointer">Réinitialiser</button></div>
+      </article>
+
+      <article style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+        <div style="display:flex;justify-content:space-between;gap:var(--space-3);align-items:baseline;margin-bottom:var(--space-4)"><h3 style="margin:0;font-size:var(--fs-xl)">Onglets &amp; pagination</h3><code style="font-size:var(--fs-xs);color:var(--c-muted)">Tabs (avec compteurs) · Pagination</code></div>
+        <div style="display:flex;gap:var(--space-1);border-bottom:1px solid var(--c-line);overflow-x:auto">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.go }}" style="display:flex;align-items:center;gap:var(--space-2);height:var(--control-md);padding:0 var(--space-4);border:0;border-bottom:2.5px solid {{ t.line }};margin-bottom:-1px;background:transparent;cursor:pointer;font-weight:var(--fw-semibold);font-size:var(--fs-base);color:{{ t.fg }};white-space:nowrap">{{ t.label }}<span style="padding:1px var(--space-1_5);border-radius:var(--radius-pill);font-size:var(--fs-xs);background:{{ t.cBg }};color:{{ t.cFg }}">{{ t.count }}</span></button></sc-for>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap;margin-top:var(--space-6)">
+          <span style="font-size:var(--fs-md);color:var(--c-muted)">1–6 sur 248</span>
+          <div style="display:flex;gap:var(--space-1_5)"><button style="width:var(--control-sm);height:var(--control-sm);border:1px solid var(--c-line-strong);border-radius:var(--radius-md);background:var(--c-surface);display:grid;place-items:center;color:var(--c-subtle)"><span class="material-symbols-rounded" style="font-size:var(--icon-sm)">chevron_left</span></button><sc-for list="{{ pages }}" as="p"><button style="min-width:var(--control-sm);height:var(--control-sm);border-radius:var(--radius-md);font-weight:var(--fw-semibold);border:1px solid {{ p.border }};background:{{ p.bg }};color:{{ p.fg }}">{{ p.n }}</button></sc-for><button style="width:var(--control-sm);height:var(--control-sm);border:1px solid var(--c-line-strong);border-radius:var(--radius-md);background:var(--c-surface);display:grid;place-items:center"><span class="material-symbols-rounded" style="font-size:var(--icon-sm)">chevron_right</span></button></div>
+        </div>
+      </article>
+
+      <article style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+        <div style="display:flex;justify-content:space-between;gap:var(--space-3);align-items:baseline;margin-bottom:var(--space-4)"><h3 style="margin:0;font-size:var(--fs-xl)">StatusBadge &amp; Avatar</h3><code style="font-size:var(--fs-xs);color:var(--c-muted)">StatusBadge.dc.html · Avatar.dc.html</code></div>
+        <div style="display:flex;flex-wrap:wrap;gap:var(--space-2)"><sc-for list="{{ badges }}" as="b" hint-placeholder-count="8"><dc-import name="StatusBadge" label="{{ b.l }}" tone="{{ b.t }}" icon="{{ b.i }}" hint-size="90px,26px"></dc-import></sc-for></div>
+        <div style="display:flex;flex-wrap:wrap;gap:var(--space-4);align-items:center;margin-top:var(--space-5)">
+          <dc-import name="Avatar" full-name="Koffi Adjoumani" size="sm" hint-size="32px,32px"></dc-import>
+          <dc-import name="Avatar" full-name="Mariam Koné" size="md" hint-size="36px,36px"></dc-import>
+          <dc-import name="Avatar" full-name="Issa Traoré" size="lg" hint-size="72px,72px"></dc-import>
+          <dc-import name="Avatar" full-name="Équipe Bâtir Pro" kind="team" hint-size="36px,36px"></dc-import>
+          <dc-import name="Avatar" full-name="SICOGI" kind="org" hint-size="36px,36px"></dc-import>
+          <dc-import name="Avatar" full-name="O’CHANTIER" kind="brand" hint-size="36px,36px"></dc-import>
+          <span style="font-size:var(--fs-sm);color:var(--c-muted)">person (teinte dérivée du nom) · team · org · brand</span>
+        </div>
+      </article>
+
+      <article style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+        <div style="display:flex;justify-content:space-between;gap:var(--space-3);align-items:baseline;margin-bottom:var(--space-4)"><h3 style="margin:0;font-size:var(--fs-xl)">StatCard</h3><code style="font-size:var(--fs-xs);color:var(--c-muted)">StatCard.dc.html · label, value, unit, icon, tone, delta, deltaTone, compare, hint, highlight</code></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--space-3)">
+          <dc-import name="StatCard" label="Total chantiers" value="156" icon="construction" tone="success" delta="+12 %" hint-size="100%,116px"></dc-import>
+          <dc-import name="StatCard" label="À valider" value="17" icon="warning" tone="warning" delta="+21 %" delta-tone="warning" highlight="{{ true }}" hint-size="100%,116px"></dc-import>
+          <dc-import name="StatCard" label="Paiements en attente" value="12 450 000" unit="FCFA" icon="account_balance_wallet" tone="info" hint="7 opérations" hint-size="100%,116px"></dc-import>
+        </div>
+      </article>
+
+      <article style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6);grid-column:1 / -1">
+        <div style="display:flex;justify-content:space-between;gap:var(--space-3);align-items:baseline;margin-bottom:var(--space-4)"><h3 style="margin:0;font-size:var(--fs-xl)">DataTable</h3><code style="font-size:var(--fs-xs);color:var(--c-muted)">en-tête triable · sélection · cellules typées (texte, personne, vignette, pile, lieu, badge, progression, note, heure, justificatifs) · actions de ligne</code></div>
+        <div style="overflow-x:auto;border:1px solid var(--c-line-soft);border-radius:var(--radius-lg)">
+          <table style="width:100%;border-collapse:collapse;font-size:var(--fs-md);min-width:720px">
+            <thead><tr style="background:var(--c-surface-3);text-align:left"><th style="width:44px;padding:var(--space-3)"><span style="display:block;width:var(--checkbox);height:var(--checkbox);border-radius:var(--radius-sm);border:1.5px solid var(--c-line-hover);background:var(--c-surface)"></span></th><sc-for list="{{ tCols }}" as="c"><th style="padding:var(--space-3);font-weight:var(--fw-semibold);font-size:var(--fs-sm);color:var(--c-ink-2);white-space:nowrap">{{ c }}<span class="material-symbols-rounded" style="font-size:var(--icon-xs);color:var(--c-subtle);vertical-align:-3px">unfold_more</span></th></sc-for><th style="padding:var(--space-3);font-size:var(--fs-sm);color:var(--c-ink-2);text-align:center">Actions</th></tr></thead>
+            <tbody><sc-for list="{{ tRows }}" as="r" hint-placeholder-count="3"><tr style="background:{{ r.bg }};border-top:1px solid var(--c-line-soft)">
+              <td style="padding:var(--space-3)"><span style="width:var(--checkbox);height:var(--checkbox);border-radius:var(--radius-sm);display:grid;place-items:center;border:1.5px solid {{ r.cb }};background:{{ r.cbBg }}"><span class="material-symbols-rounded" style="font-size:var(--icon-xs);color:var(--c-on-dark)">{{ r.cbI }}</span></span></td>
+              <td style="padding:var(--space-3)"><div style="display:flex;align-items:center;gap:var(--space-2_5)"><dc-import name="Avatar" full-name="{{ r.name }}" hint-size="36px,36px"></dc-import><div><div style="font-weight:var(--fw-semibold)">{{ r.name }}</div><div style="font-size:var(--fs-xs);color:var(--c-muted)">{{ r.job }}</div></div></div></td>
+              <td style="padding:var(--space-3)"><span style="display:flex;align-items:center;gap:var(--space-1)"><span class="material-symbols-rounded" style="font-size:var(--icon-xs);color:var(--c-primary-600)">location_on</span>{{ r.loc }}</span></td>
+              <td style="padding:var(--space-3)"><div style="display:flex;align-items:center;gap:var(--space-2_5)"><b style="width:38px">{{ r.pL }}</b><div style="width:96px;height:7px;border-radius:var(--radius-xs);background:var(--c-line-soft);overflow:hidden"><div style="height:100%;background:{{ r.barC }};width:{{ r.w }}"></div></div></div></td>
+              <td style="padding:var(--space-3)"><dc-import name="StatusBadge" label="{{ r.st }}" tone="{{ r.tn }}" icon="" hint-size="90px,26px"></dc-import></td>
+              <td style="padding:var(--space-2)"><div style="display:flex;justify-content:center;gap:var(--space-0_5)"><sc-for list="{{ rowActs }}" as="i"><span style="width:var(--control-xs);height:var(--control-xs);display:grid;place-items:center;border-radius:var(--radius-md);color:var(--c-ink-2)"><span class="material-symbols-rounded" style="font-size:var(--icon-sm);font-variation-settings:'FILL' 0">{{ i }}</span></span></sc-for></div></td>
+            </tr></sc-for></tbody>
+          </table>
+        </div>
+        <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin-top:var(--space-3);padding:var(--space-2_5) var(--space-4);border-radius:var(--radius-lg);background:var(--c-primary);color:var(--c-on-dark)"><b>1 élément sélectionné</b><span style="flex:1"></span><span style="font-size:var(--fs-sm);color:var(--c-on-dark-muted)">BulkActionBar : Exporter · Valider (→ confirmation) · Désélectionner</span></div>
+      </article>
+
+      <article style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+        <div style="display:flex;justify-content:space-between;gap:var(--space-3);align-items:baseline;margin-bottom:var(--space-4)"><h3 style="margin:0;font-size:var(--fs-xl)">Alertes</h3><code style="font-size:var(--fs-xs);color:var(--c-muted)">Alert · success, info, warning, danger</code></div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-2_5)"><sc-for list="{{ alerts }}" as="a" hint-placeholder-count="4"><div role="alert" style="display:flex;gap:var(--space-3);align-items:flex-start;padding:var(--space-3) var(--space-4);border-radius:var(--radius-lg);background:{{ a.bg }};color:{{ a.fg }}"><span class="material-symbols-rounded" style="font-size:var(--icon-sm)">{{ a.icon }}</span><div style="flex:1"><b style="display:block;font-size:var(--fs-md)">{{ a.t }}</b><span style="font-size:var(--fs-sm)">{{ a.d }}</span></div></div></sc-for></div>
+      </article>
+
+      <article style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+        <div style="display:flex;justify-content:space-between;gap:var(--space-3);align-items:baseline;margin-bottom:var(--space-4)"><h3 style="margin:0;font-size:var(--fs-xl)">Notifications &amp; toast</h3><code style="font-size:var(--fs-xs);color:var(--c-muted)">NotificationPanel · Toast</code></div>
+        <div style="max-width:var(--popover-w);border:1px solid var(--c-line);border-radius:var(--radius-xl);box-shadow:var(--shadow-popover);overflow:hidden">
+          <div style="display:flex;justify-content:space-between;padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--c-line-soft)"><b>Notifications</b><span style="color:var(--c-primary-600);font-weight:var(--fw-semibold);font-size:var(--fs-sm)">Tout marquer comme lu</span></div>
+          <sc-for list="{{ notifs }}" as="n"><div style="display:flex;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--c-line-soft);background:{{ n.bg }}"><span style="width:var(--control-xs);height:var(--control-xs);border-radius:var(--radius-round);display:grid;place-items:center;background:{{ n.iBg }}"><span class="material-symbols-rounded" style="font-size:var(--icon-xs);color:{{ n.iFg }}">{{ n.icon }}</span></span><span><b style="display:block;font-size:var(--fs-md)">{{ n.t }}</b><span style="font-size:var(--fs-sm);color:var(--c-muted)">{{ n.when }}</span></span></div></sc-for>
+        </div>
+        <div style="display:flex;align-items:center;gap:var(--space-3);margin-top:var(--space-5);padding:var(--space-3) var(--space-4);max-width:420px;background:var(--c-primary-strong);color:var(--c-on-dark);border-radius:var(--radius-xl);box-shadow:var(--shadow-popover)"><span class="material-symbols-rounded" style="font-size:var(--icon-sm);color:var(--c-brand-green)">check_circle</span><span style="flex:1;font-weight:var(--fw-medium)">2 éléments validés avec succès.</span><span class="material-symbols-rounded" style="font-size:var(--icon-sm);color:var(--c-on-dark-muted)">close</span></div>
+      </article>
+
+      <article style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+        <div style="display:flex;justify-content:space-between;gap:var(--space-3);align-items:baseline;margin-bottom:var(--space-4)"><h3 style="margin:0;font-size:var(--fs-xl)">Modale de confirmation</h3><code style="font-size:var(--fs-xs);color:var(--c-muted)">ConfirmModal · défaut / destructive</code></div>
+        <div style="position:relative;border-radius:var(--radius-xl);background:var(--c-scrim);padding:var(--space-8) var(--space-6);display:grid;place-items:center">
+          <div style="width:100%;max-width:var(--modal-w);background:var(--c-surface);border-radius:var(--radius-2xl);box-shadow:var(--shadow-modal);padding:var(--space-6)">
+            <div style="display:flex;gap:var(--space-4)"><span style="width:var(--control-md);height:var(--control-md);border-radius:var(--radius-round);flex:none;display:grid;place-items:center;background:var(--c-danger-bg)"><span class="material-symbols-rounded" style="font-size:var(--icon-md);color:var(--c-danger-fg)">block</span></span><div><h4 style="margin:0;font-size:var(--fs-2xl)">Suspendre ce promoteur ?</h4><p style="margin:var(--space-2) 0 0;color:var(--c-muted);font-size:var(--fs-base);line-height:var(--lh-normal)">Serge Aka ne pourra plus publier de besoin. Ses chantiers en cours restent visibles.</p></div></div>
+            <div style="display:flex;justify-content:flex-end;gap:var(--space-2_5);margin-top:var(--space-6)"><dc-import name="Button" label="Annuler" variant="secondary" hint-size="100px,44px"></dc-import><dc-import name="Button" label="Suspendre" icon="block" variant="danger" hint-size="130px,44px"></dc-import></div>
+          </div>
+        </div>
+      </article>
+
+      <article style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+        <div style="display:flex;justify-content:space-between;gap:var(--space-3);align-items:baseline;margin-bottom:var(--space-4)"><h3 style="margin:0;font-size:var(--fs-xl)">Graphiques</h3><code style="font-size:var(--fs-xs);color:var(--c-muted)">LineChart · BarChart · Donut · Ring · Sparkline</code></div>
+        <div style="display:flex;gap:var(--space-5);flex-wrap:wrap;align-items:center">
+          <div style="flex:1 1 220px;position:relative;height:120px;background-image:linear-gradient(var(--c-line-soft) 1px,transparent 1px);background-size:100% 25%;border-bottom:1px solid var(--c-line-strong)">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible"><path d="{{ chart.a }}" fill="none" style="stroke:var(--c-primary-500)" stroke-width="2.5" vector-effect="non-scaling-stroke"></path><path d="{{ chart.b }}" fill="none" style="stroke:var(--c-accent-600)" stroke-width="2.5" vector-effect="non-scaling-stroke"></path></svg>
+          </div>
+          <div style="height:120px;display:flex;align-items:flex-end;gap:var(--space-1_5)"><sc-for list="{{ chart.bars }}" as="b"><div style="width:12px;border-radius:var(--radius-xs) var(--radius-xs) 0 0;background:{{ b.c }};height:{{ b.h }}"></div></sc-for></div>
+          <div style="width:110px;height:110px;border-radius:var(--radius-round);display:grid;place-items:center;background:conic-gradient(var(--c-primary) 0 32%,var(--c-accent-600) 32% 56%,var(--c-info) 56% 74%,var(--c-purple) 74% 88%,var(--c-neutral) 88% 100%)"><div style="width:62px;height:62px;border-radius:var(--radius-round);background:var(--c-surface)"></div></div>
+          <div style="width:62px;height:62px;border-radius:var(--radius-round);display:grid;place-items:center;background:conic-gradient(var(--c-primary-500) 0 92%,var(--c-primary-200) 92% 100%)"><div style="width:50px;height:50px;border-radius:var(--radius-round);background:var(--c-surface);display:grid;place-items:center;font-weight:var(--fw-bold)">92 %</div></div>
+        </div>
+        <p style="margin:var(--space-4) 0 0;font-size:var(--fs-sm);color:var(--c-muted)">Série 1 : --c-primary-500 · Série 2 : --c-accent-600 · Catégories : primary, accent-600, info, purple, neutral.</p>
+      </article>
+
+      <article style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6);grid-column:1 / -1">
+        <div style="display:flex;justify-content:space-between;gap:var(--space-3);align-items:baseline;margin-bottom:var(--space-4)"><h3 style="margin:0;font-size:var(--fs-xl)">États système</h3><code style="font-size:var(--fs-xs);color:var(--c-muted)">EmptyState · Loading (squelette + spinner) · ErrorState · SuccessState</code></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--space-4)">
+          <div style="border:1px dashed var(--c-line-strong);border-radius:var(--radius-xl);padding:var(--space-8) var(--space-5);text-align:center"><span class="material-symbols-rounded" style="font-size:var(--icon-xl);color:var(--c-subtle)">search_off</span><b style="display:block;margin-top:var(--space-2)">Aucun résultat</b><p style="margin:var(--space-1) 0 var(--space-4);font-size:var(--fs-sm);color:var(--c-muted)">Modifiez vos filtres ou votre recherche.</p><dc-import name="Button" label="Réinitialiser" size="sm" variant="secondary" hint-size="110px,32px"></dc-import></div>
+          <div style="border:1px solid var(--c-line);border-radius:var(--radius-xl);padding:var(--space-5);display:flex;flex-direction:column;gap:var(--space-2_5)"><sc-for list="{{ skel }}" as="x"><div style="height:{{ x.h }};width:{{ x.w }};border-radius:var(--radius-md);background:linear-gradient(90deg,var(--c-surface-3) 25%,var(--c-line-soft) 50%,var(--c-surface-3) 75%);background-size:200% 100%;animation:och-shimmer 1.2s linear infinite"></div></sc-for><div style="display:flex;align-items:center;gap:var(--space-2);margin-top:var(--space-2);font-size:var(--fs-sm);color:var(--c-muted)"><span style="width:var(--icon-sm);height:var(--icon-sm);border-radius:var(--radius-round);border:2.5px solid var(--c-primary-200);border-top-color:var(--c-primary);animation:och-spin .8s linear infinite"></span>Chargement…</div></div>
+          <div style="border:1px solid var(--c-danger-bg);background:var(--c-surface);border-radius:var(--radius-xl);padding:var(--space-8) var(--space-5);text-align:center"><span class="material-symbols-rounded" style="font-size:var(--icon-xl);color:var(--c-danger)">cloud_off</span><b style="display:block;margin-top:var(--space-2)">Impossible de charger les données</b><p style="margin:var(--space-1) 0 var(--space-4);font-size:var(--fs-sm);color:var(--c-muted)">Vérifiez votre connexion puis réessayez. Code : 503</p><dc-import name="Button" label="Réessayer" icon="refresh" size="sm" variant="secondary" hint-size="110px,32px"></dc-import></div>
+          <div style="border:1px solid var(--c-success-bg);border-radius:var(--radius-xl);padding:var(--space-8) var(--space-5);text-align:center"><span class="material-symbols-rounded" style="font-size:var(--icon-xl);color:var(--c-success)">task_alt</span><b style="display:block;margin-top:var(--space-2)">Affectation confirmée</b><p style="margin:var(--space-1) 0 var(--space-4);font-size:var(--fs-sm);color:var(--c-muted)">Koffi Adjoumani a été notifié par SMS.</p><dc-import name="Button" label="Voir l’affectation" size="sm" variant="primary" hint-size="140px,32px"></dc-import></div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- 3. LAYOUTS -->
+  <section id="layouts" style="display:flex;flex-direction:column;gap:var(--space-6)">
+    <h2 style="margin:0;font-size:var(--fs-4xl)">3 · Layouts</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:var(--space-5)">
+      <article style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+        <h3 style="margin:0 0 var(--space-1);font-size:var(--fs-xl)">AuthenticationLayout</h3>
+        <p style="margin:0 0 var(--space-4);font-size:var(--fs-sm);color:var(--c-muted)">Connexion · Mot de passe oublié · Lien envoyé · OTP (2 étapes). Panneau marque partagé, carte formulaire interchangeable.</p>
+        <div style="display:flex;height:240px;border:1px solid var(--c-line);border-radius:var(--radius-xl);overflow:hidden;font-size:var(--fs-xs)">
+          <div style="flex:1.05;background:var(--c-primary-strong);color:var(--c-on-dark);padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-2)"><b>AuthBrandPanel</b><span style="color:var(--c-on-dark-muted)">logo · titre display · photo BTP plein cadre · 3 atouts · signature</span><span style="margin-top:auto;color:var(--c-on-dark-muted)">flex 1 1 520px</span></div>
+          <div style="flex:1;background:var(--c-surface-2);padding:var(--space-4);display:flex;flex-direction:column;align-items:center;gap:var(--space-2)"><span style="align-self:flex-end;border:1px solid var(--c-line);border-radius:var(--radius-sm);padding:var(--space-0_5) var(--space-2)">Langue</span><div style="margin:auto 0;width:80%;border:1.5px dashed var(--c-primary-400);border-radius:var(--radius-lg);padding:var(--space-4);text-align:center;color:var(--c-primary)"><b>AuthCard</b><br>max --auth-card-w (520)</div><span style="color:var(--c-muted)">pied légal</span></div>
+        </div>
+      </article>
+      <article style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+        <h3 style="margin:0 0 var(--space-1);font-size:var(--fs-xl)">AdminLayout</h3>
+        <p style="margin:0 0 var(--space-4);font-size:var(--fs-sm);color:var(--c-muted)">Toutes les pages du back-office. Contenu limité à --content-max (1560) ; overlays globaux (modale, toast) au niveau du layout.</p>
+        <div style="display:flex;height:240px;border:1px solid var(--c-line);border-radius:var(--radius-xl);overflow:hidden;font-size:var(--fs-xs)">
+          <div style="width:26%;background:var(--c-sidebar-top);color:var(--c-on-dark);padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-1_5)"><b>Sidebar</b><span style="color:var(--c-on-dark-muted)">252 / 76 px</span><span style="height:14px;border-radius:var(--radius-xs);background:var(--c-primary-500)"></span><span style="height:14px;border-radius:var(--radius-xs);background:var(--c-on-dark-hover)"></span><span style="height:14px;border-radius:var(--radius-xs);background:var(--c-on-dark-hover)"></span></div>
+          <div style="flex:1;background:var(--c-bg);padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2)">
+            <div style="display:flex;justify-content:space-between;background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-sm);padding:var(--space-1_5) var(--space-2)"><b>Topbar · PageHeader</b><span>recherche · notifications · aide · profil</span></div>
+            <div style="align-self:flex-end;border:1px solid var(--c-line);background:var(--c-surface);border-radius:var(--radius-sm);padding:var(--space-1) var(--space-2)">PageActions</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-1_5)"><span style="height:26px;background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-sm)"></span><span style="height:26px;background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-sm)"></span><span style="height:26px;background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-sm)"></span><span style="height:26px;background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-sm)"></span></div>
+            <div style="flex:1;background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-sm);padding:var(--space-1_5) var(--space-2)"><b>ListPanel</b> : titre · Tabs · FilterBar · DataTable · Pagination</div>
+            <div style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-sm);padding:var(--space-1_5) var(--space-2)"><b>ActionStrip</b> : 3 raccourcis + CTA</div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- 4. INVENTAIRE -->
+  <section id="inventaire" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:var(--space-5)">
+    <article style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+      <h2 style="margin:0 0 var(--space-4);font-size:var(--fs-3xl)">4 · Inventaire des composants</h2>
+      <sc-for list="{{ inventory }}" as="c" hint-placeholder-count="12"><div style="display:grid;grid-template-columns:170px 1fr auto;gap:var(--space-3);align-items:baseline;padding:var(--space-2) 0;border-bottom:1px solid var(--c-line-soft);font-size:var(--fs-sm)"><b style="font-size:var(--fs-md)">{{ c.n }}</b><span style="color:var(--c-muted)">{{ c.d }}</span><dc-import name="StatusBadge" label="{{ c.kind }}" tone="{{ c.tone }}" icon="" hint-size="70px,26px"></dc-import></div></sc-for>
+    </article>
+    <article style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-6)">
+      <h2 style="margin:0 0 var(--space-4);font-size:var(--fs-3xl)">5 · Incohérences corrigées</h2>
+      <sc-for list="{{ fixes }}" as="x" hint-placeholder-count="10"><div style="display:flex;gap:var(--space-2_5);padding:var(--space-2) 0;border-bottom:1px solid var(--c-line-soft);font-size:var(--fs-md)"><span class="material-symbols-rounded" style="font-size:var(--icon-sm);color:var(--c-success)">check_circle</span><span>{{ x }}</span></div></sc-for>
+      <h3 style="margin:var(--space-6) 0 var(--space-2);font-size:var(--fs-xl)">Réutilisation pour les sous-pages</h3>
+      <sc-for list="{{ next }}" as="x"><div style="display:flex;gap:var(--space-2_5);padding:var(--space-1_5) 0;font-size:var(--fs-md)"><span class="material-symbols-rounded" style="font-size:var(--icon-sm);color:var(--c-primary-600)">arrow_right_alt</span><span>{{ x }}</span></div></sc-for>
+    </article>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { dd: false, ddVal: 'Statut', tab: 0 };
+  path(vals, max) {
+    const n = vals.length, p = vals.map((v, i) => [i / (n - 1) * 100, 100 - v / max * 100]);
+    let d = `M${p[0][0]},${p[0][1]}`;
+    for (let i = 0; i < n - 1; i++) { const a = p[i - 1] || p[i], b = p[i], c = p[i + 1], e = p[i + 2] || c; d += ` C${b[0] + (c[0] - a[0]) / 6},${b[1] + (c[1] - a[1]) / 6} ${c[0] - (e[0] - b[0]) / 6},${c[1] - (e[1] - b[1]) / 6} ${c[0]},${c[1]}`; }
+    return d;
+  }
+  renderVals() {
+    const s = this.state;
+    const sw = (n, hex) => ({ n, hex, v: `var(${n})` });
+    const colorGroups = [
+      { title: 'Marque', items: [sw('--c-primary', '#0E4D3A'), sw('--c-primary-strong', '#0A3B2D'), sw('--c-primary-600', '#146B4F'), sw('--c-primary-500', '#1E7A57'), sw('--c-primary-400', '#4FA57C'), sw('--c-primary-200', '#D7EDE1'), sw('--c-primary-100', '#E4F4EA'), sw('--c-primary-50', '#F1F8F4'), sw('--c-brand-green', '#2FC08E'), sw('--c-accent', '#F2B01E'), sw('--c-accent-600', '#E3A21A'), sw('--c-sidebar-top', '#0C4535')] },
+      { title: 'Neutres', items: [sw('--c-ink', '#12231C'), sw('--c-ink-2', '#2F3E37'), sw('--c-muted', '#5E6E67'), sw('--c-subtle', '#8A968F'), sw('--c-line-hover', '#B9C6BF'), sw('--c-line-strong', '#D8E0DB'), sw('--c-line', '#E4E9E6'), sw('--c-line-soft', '#EDF1EE'), sw('--c-hover', '#E9F1EC'), sw('--c-bg', '#F3F6F4'), sw('--c-surface-2', '#F8FAF9'), sw('--c-surface', '#FFFFFF')] },
+      { title: 'Sémantique · texte / fond', items: ['success', 'warning', 'orange', 'danger', 'info', 'purple', 'neutral'].flatMap(t => [{ n: `--c-${t}-fg`, hex: 'texte', v: `var(--c-${t}-fg)` }, { n: `--c-${t}-bg`, hex: 'fond', v: `var(--c-${t}-bg)` }]) },
+      { title: 'Sémantique · plein (graphiques, icônes)', items: ['success', 'warning', 'orange', 'danger', 'info', 'purple', 'neutral'].map(t => ({ n: `--c-${t}`, hex: 'plein', v: `var(--c-${t})` })) }
+    ];
+    const T = [['--fs-display', 52, 700, 'Pilotez vos chantiers'], ['--fs-5xl', 34, 700, 'Heureux de vous revoir'], ['--fs-4xl', 28, 700, 'Gestion des chantiers · 1 248'], ['--fs-3xl', 22, 700, '12 450 000 FCFA'], ['--fs-2xl', 20, 700, 'Liste des promoteurs'], ['--fs-xl', 18, 700, 'Titre de carte'], ['--fs-lg', 16, 400, 'Sous-titre de page'], ['--fs-base', 15, 500, 'Libellé, bouton, onglet'], ['--fs-md', 14, 400, 'Texte courant, cellule de tableau'], ['--fs-sm', 13, 600, 'Badge, méta, aide'], ['--fs-xs', 12, 400, 'Axe de graphique, légende'], ['--fs-2xs', 11, 600, 'Compteur, raccourci clavier']];
+    const typeScale = T.map(([n, px, w, sample]) => ({ n: `${n} · ${px}`, v: `var(${n})`, w, sample }));
+    const spaces = [['0_5', 2], ['1', 4], ['1_5', 6], ['2', 8], ['2_5', 10], ['3', 12], ['4', 16], ['5', 20], ['6', 24], ['8', 32], ['10', 40], ['12', 48], ['14', 56]].map(([k, px]) => ({ n: `--space-${k}`, v: `var(--space-${k})`, px: px + 'px' }));
+    const radii = ['xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl', 'pill', 'round'].map(k => ({ n: k, v: `var(--radius-${k})` }));
+    const shadows = ['xs', 'md', 'lg', 'popover', 'modal', 'primary'].map(k => ({ n: `--shadow-${k}`, v: `var(--shadow-${k})` }));
+    const icons = [['xs', 16], ['sm', 20], ['md', 24], ['lg', 28], ['xl', 36]].map(([k, px]) => ({ n: `--icon-${k} · ${px}`, v: `var(--icon-${k})` }));
+    const sizes = [['--control-xs', '32', 'bouton sm, action de ligne'], ['--control-sm', '36', 'pagination, icône'], ['--control-md', '44', 'champ, filtre, bouton'], ['--control-lg', '52', 'auth, tuile icône KPI'], ['--checkbox', '18', 'case à cocher'], ['--avatar-md', '36', 'avatar tableau'], ['--sidebar-w', '252', 'menu déployé'], ['--sidebar-w-collapsed', '76', 'menu réduit'], ['--content-max', '1560', 'zone de contenu'], ['--auth-card-w', '520', 'carte auth'], ['--modal-w', '480', 'modale'], ['--popover-w', '340', 'notifications']].map(([n, v, use]) => ({ n, v: v + 'px', use }));
+    const fields = [
+      { label: 'Adresse e-mail', icon: 'mail', ph: 'nom@entreprise.com', value: '', border: 'var(--c-line-strong)', bg: 'var(--c-surface)', ring: 'none', op: 1, help: 'Défaut', helpC: 'var(--c-muted)' },
+      { label: 'Téléphone', icon: 'call', ph: '', value: '+225 07 08 25 14 63', border: 'var(--c-primary)', bg: 'var(--c-surface)', ring: 'var(--ring-focus)', op: 1, help: 'Focus', helpC: 'var(--c-muted)' },
+      { label: 'Mot de passe', icon: 'lock', ph: '', value: '••••', border: 'var(--c-danger)', bg: 'var(--c-surface)', ring: 'none', op: 1, help: '8 caractères minimum.', helpC: 'var(--c-danger-fg)' },
+      { label: 'Référence', icon: 'tag', ph: '', value: 'PAY-260922-1842', border: 'var(--c-line)', bg: 'var(--c-surface-3)', ring: 'none', op: 0.6, help: 'Désactivé', helpC: 'var(--c-muted)' }
+    ];
+    const opts = ['Statut', 'Actif', 'À valider', 'Suspendu'];
+    const tabsL = [['Toutes', 6], ['À valider', 2], ['Confirmées', 2], ['En cours', 2]];
+    const R = [['Koffi Adjoumani', 'Maçon', 'Cocody', 75, 'En cours', 'success', true], ['Mamadou Koné', 'Plombier', 'Marcory', 20, 'À démarrer', 'warning', false], ['Aïcha Traoré', 'Peintre', 'Bingerville', 35, 'En retard', 'danger', false]];
+    return {
+      toc: [['#variables', 'Variables'], ['#composants', 'Composants'], ['#layouts', 'Layouts'], ['#inventaire', 'Inventaire']].map(([href, label]) => ({ href, label })),
+      colorGroups, typeScale, spaces, radii, shadows, icons, sizes, fields,
+      ddOpen: s.dd, toggleDd: () => this.setState({ dd: !s.dd }), ddLabel: s.ddVal, ddIcon: s.dd ? 'expand_less' : 'expand_more', ddBorder: s.dd ? 'var(--c-primary)' : 'var(--c-line-strong)',
+      ddOptions: opts.map(o => ({ label: o === 'Statut' ? 'Tous les statuts' : o, pick: () => this.setState({ ddVal: o, dd: false }), bg: o === s.ddVal ? 'var(--c-primary-50)' : 'transparent', fw: o === s.ddVal ? 600 : 400, check: o === s.ddVal ? 'check' : '' })),
+      chips: ['Abidjan, Cocody', 'Maçon', 'Disponible'],
+      tabs: tabsL.map(([label, count], i) => { const on = i === s.tab; return { label, count, go: () => this.setState({ tab: i }), line: on ? 'var(--c-primary)' : 'transparent', fg: on ? 'var(--c-primary)' : 'var(--c-muted)', cBg: on ? 'var(--c-primary)' : 'var(--c-neutral-bg)', cFg: on ? 'var(--c-on-dark)' : 'var(--c-neutral-fg)' }; }),
+      pages: [1, 2, 3, '…', 42].map(n => ({ n, bg: n === 1 ? 'var(--c-primary)' : 'var(--c-surface)', fg: n === 1 ? 'var(--c-on-dark)' : 'var(--c-ink-2)', border: n === 1 ? 'var(--c-primary)' : (n === '…' ? 'transparent' : 'var(--c-line-strong)') })),
+      badges: [['Actif', 'success', ''], ['Validée', 'success', 'check_circle'], ['À valider', 'warning', 'schedule'], ['Élevée', 'orange', ''], ['Suspendu', 'danger', ''], ['Urgente', 'danger-solid', ''], ['En cours', 'info', 'play_circle'], ['Médiation', 'purple', 'groups'], ['Absent', 'neutral', 'remove_circle']].map(([l, t, i]) => ({ l, t, i })),
+      tCols: ['Ouvrier', 'Localisation', 'Progression', 'Statut'],
+      tRows: R.map(([name, job, loc, p, st, tn, sel]) => ({ name, job, loc, pL: p + ' %', w: p + '%', barC: p < 50 ? 'var(--c-accent-600)' : 'var(--c-primary-500)', st, tn, bg: sel ? 'var(--c-primary-50)' : 'var(--c-surface)', cb: sel ? 'var(--c-primary)' : 'var(--c-line-hover)', cbBg: sel ? 'var(--c-primary)' : 'var(--c-surface)', cbI: sel ? 'check' : '' })),
+      rowActs: ['visibility', 'edit', 'more_vert'],
+      alerts: [['success', 'check_circle', 'Paiement effectué', '450 000 FCFA versés à Koffi Adjoumani via Wave.'], ['info', 'info', 'Synchronisation en cours', 'Les pointages de Tour Horizon arrivent dans quelques minutes.'], ['warning', 'warning', '5 pièces expirent cette semaine', 'Relancez les ouvriers concernés avant vendredi.'], ['danger', 'error', 'Échec de la transaction', 'PAY-260920-1662 : le virement a été rejeté par la banque.']].map(([t, icon, title, d]) => ({ bg: `var(--c-${t}-bg)`, fg: `var(--c-${t}-fg)`, icon, t: title, d })),
+      notifs: [['person_check', 'warning', '8 profils ouvriers à valider', 'Il y a 10 min', 1], ['payments', 'info', 'Paiement PAY-260922-1816 à autoriser', 'Il y a 45 min', 0]].map(([icon, t, title, when, unread]) => ({ icon, t: title, when, iBg: `var(--c-${t}-bg)`, iFg: `var(--c-${t}-fg)`, bg: unread ? 'var(--c-primary-50)' : 'var(--c-surface)' })),
+      chart: { a: this.path([18, 28, 26, 32, 30, 25, 44], 50), b: this.path([8, 12, 17, 20, 15, 14, 26], 50), bars: [22, 11, 24, 13, 20, 12, 26, 13].map((v, i) => ({ h: v / 30 * 100 + '%', c: i % 2 ? 'var(--c-accent-600)' : 'var(--c-primary-600)' })) },
+      skel: [['60%', '14px'], ['100%', 'var(--control-xs)'], ['100%', 'var(--control-xs)'], ['80%', 'var(--control-xs)']].map(([w, h]) => ({ w, h })),
+      inventory: [
+        ['Button', 'primary · secondary · ghost · accent · danger · danger-soft ; sm/md/lg ; icône seule', 'DC', 'success'],
+        ['StatusBadge', '8 tons + danger-solid, icône optionnelle', 'DC', 'success'],
+        ['Avatar', 'person · team · org · brand ; sm/md/lg', 'DC', 'success'],
+        ['StatCard', 'KPI avec variation, unité, aide, mise en avant', 'DC', 'success'],
+        ['Sidebar', 'navigation 13 entrées, compteurs, repli 252/76', 'Layout', 'info'],
+        ['Topbar / PageHeader', 'titre, sous-titre, recherche, notifications, profil', 'Layout', 'info'],
+        ['PageActions', 'sélecteur de période + boutons', 'Bloc', 'neutral'],
+        ['FilterBar / Select', 'recherche + listes + « Plus de filtres » + puces', 'Bloc', 'neutral'],
+        ['Tabs', 'soulignés avec compteurs dynamiques', 'Bloc', 'neutral'],
+        ['DataTable', '10 types de cellules, tri, sélection, squelette, vide', 'Bloc', 'neutral'],
+        ['BulkActionBar', 'apparaît dès 1 sélection', 'Bloc', 'neutral'],
+        ['Pagination', 'précédent · pages · ellipse · suivant', 'Bloc', 'neutral'],
+        ['ActionStrip', '3 raccourcis « à traiter » + CTA', 'Bloc', 'neutral'],
+        ['Charts', 'ligne, barres, donut, anneau, sparkline', 'Bloc', 'neutral'],
+        ['Alert', 'success · info · warning · danger', 'Bloc', 'neutral'],
+        ['NotificationPanel', 'non lus, marquer comme lu, navigation', 'Overlay', 'purple'],
+        ['ConfirmModal', 'défaut / destructive', 'Overlay', 'purple'],
+        ['Toast', 'confirmation non bloquante, 3,2 s', 'Overlay', 'purple'],
+        ['Empty / Loading / Error / Success', 'états système', 'État', 'warning']
+      ].map(([n, d, kind, tone]) => ({ n, d, kind, tone })),
+      fixes: [
+        'Titres de page harmonisés en encre (les derniers écrans dérivaient en bleu).',
+        '≈ 90 valeurs de couleur ramenées à 50 variables ; aucune couleur en dur dans les écrans.',
+        'Tailles de texte réduites à 12 paliers (au lieu de 25 valeurs dispersées).',
+        'Espacements alignés sur la grille de 4 px ; rayons sur 9 paliers.',
+        'Hauteurs uniformes : champs et boutons 44 px, pagination 36 px, actions 32 px.',
+        'Onglets unifiés (soulignés, avec compteurs) : Besoins utilisait des pastilles.',
+        'KPI : même carte partout, variation colorée selon le sens, unité FCFA insécable.',
+        'Liens unifiés en vert marque (bleu auparavant) ; statuts d’icônes cohérents.',
+        'Menu : les entrées ne se compressent plus ; l’entrée active correspond toujours à l’écran.',
+        'Matching : colonnes qui se chevauchaient à ~920 px corrigées.',
+        'Contrôles techniques (écran de départ, densité, repli) retirés de l’application.',
+        'Photo de connexion réelle (chantier BTP) avec crédit.'
+      ],
+      next: [
+        'Fiche détail (promoteur, ouvrier, chantier…) : AdminLayout + PageHeader + StatCard + onglets + DataTable.',
+        'Formulaires de création : champs, Select, Button, Alert, ConfirmModal.',
+        'Validation de dossiers : StatusBadge, BulkActionBar, Toast.',
+        'Paramètres : Tabs, champs, états Empty/Error.'
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
