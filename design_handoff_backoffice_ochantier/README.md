@@ -5,6 +5,8 @@
 1. Décompressez cette archive dans le dossier local de votre dépôt GitHub (déjà cloné), par exemple dans `backoffice/`.
 2. Ouvrez un terminal dans le dépôt, lancez `claude`, puis donnez-lui cette consigne :
    > « Ajoute le dossier `backoffice/` tel quel au dépôt, crée un commit "Back-office O’CHANTIER ADMIN – maquette" et pousse-le sur la branche main. Ne modifie aucun fichier. »
+   **Mise à jour d’un dépôt existant** : remplacez le contenu de `backoffice/` par cette archive, puis demandez à Claude Code :
+   > « Remplace les fichiers de `backoffice/` par ceux-ci, crée un commit "Back-office O’CHANTIER ADMIN – mise à jour (Avis & Litiges, Rapports, Matching automatique, filtres et pagination)" et pousse-le sur main. »
 3. Facultatif, pour une URL publique : demandez à Claude Code d’activer GitHub Pages (branche `main`, dossier racine), ou faites-le dans **Settings → Pages**. Ouvrez ensuite `…/backoffice/Back%20Office%20OChantier.dc.html`.
 
 Tous les fichiers doivent rester **dans le même dossier** : le fichier principal charge `support.js`, `ochantier-tokens.css` et les composants `*.dc.html` en chemins relatifs. La maquette fonctionne sans serveur applicatif, mais pas en `file://` (elle charge des fichiers voisins) : utilisez GitHub Pages ou `npx serve .` en local.
@@ -29,11 +31,13 @@ Les fichiers sont des **références de design créées en HTML** (« Design Com
 | Chantiers | `#/chantiers/…` | Liste, fiche, progression, documents |
 | Besoins & Offres | `#/besoins/…` | Besoins par métier, couverture, affectations |
 | Affectations & Offres | `#/affectations/…` | Offres des promoteurs, remplacements |
-| Matching | `#/matching/…` | Moteur de score (critères bloquants + 8 critères pondérés) |
+| Matching | `#/matching/…` | Matching automatique (même métier, un ouvrier par poste), sélection multiple des besoins, validation groupée ; propositions et remplaçants automatiques dans Affectations & Offres |
 | Pointages | `#/pointages/…` | Arrivées/départs, contrôles, clôture |
 | Paiements | `#/paiements/…` | Calcul brut/commission Y-Z/net, reversements, remboursements |
 | Finance & Reporting | `#/finance-reporting/…` | 33 KPI, rapprochement, clôtures, rapports |
-| Avis & Litiges | `#/avis-litiges/…` | Avis, modération, réclamations, litiges contradictoires, médiation, recours |
+| Avis & Litiges | `#/avis-litiges/…` | Liste d’origine fonctionnelle (avis, signalements, litiges), sous-pages : avis, modération, réclamations, litiges, médiation, audit |
+| Rapports | `#/rapports/…` | Vue d’ensemble dynamique (graphiques avec infobulles), sous-pages : financier, missions, chantiers (+ détail), ouvriers, rapports générés/programmés |
+| Abonnements | `#/abonnements` et `#/abonnements/:id` | Formules Solo, Équipe et Pro ; abonnés promoteurs, utilisateurs, factures et statuts (simulation) |
 | Paramètres | `#/parametres/<catégorie>` | Commissions & frais (X, Y, Z, R et seuils de paiement successifs), Général, Métiers (ajout, suppression, activation), Paiements, Matching & affectations, Utilisateurs & rôles, Notifications, Sécurité, Intégrations, Journal d’audit |
 
 La mise en page commune (AdminLayout) comprend une Sidebar repliable, une Topbar, un en-tête de page avec fil d’Ariane, des onglets, des cartes KPI, des filtres, des tableaux paginés (8 lignes par page), des panneaux latéraux et des modales.
@@ -68,3 +72,6 @@ Icônes : Material Symbols Rounded (Google Fonts). Aucune image propriétaire.
 - `Design System OChantier.dc.html` : référence du design system
 - `ochantier-tokens.css` : variables globales
 - `support.js`, `image-slot.js` : moteur d’exécution des Design Components (ne pas modifier)
+
+## Version consolidée — 1er octobre 2026
+Cette archive réunit les évolutions Matching, Avis & Litiges et Rapports de la version précédente avec le module Abonnements. Les interactions restent des simulations fondées sur des données de démonstration.
