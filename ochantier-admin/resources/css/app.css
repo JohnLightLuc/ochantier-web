@@ -12,3 +12,42 @@ a:hover{color:var(--c-primary-strong)}
 @keyframes och-bar{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
 @keyframes och-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .material-symbols-rounded{font-variation-settings:'FILL' 1,'wght' 500,'opsz' 24;user-select:none}
+
+/* États de survol et de focus (équivalents des attributs style-hover / style-focus de la maquette).
+   Les composants posent leurs styles en ligne : ces règles doivent donc être !important. */
+.och-btn:hover:not(:disabled){filter:brightness(.95)}
+.och-btn:focus-visible{outline:none;box-shadow:var(--ring-focus) !important}
+.och-hover:hover{background:var(--c-hover) !important}
+.och-hover-soft:hover{background:var(--c-surface-2) !important}
+.och-hover-menu:hover{background:var(--c-surface-3) !important}
+.och-hover-dark:hover{background:var(--c-on-dark-hover) !important}
+.och-hover-line:hover{border-color:var(--c-line-hover) !important}
+.och-hover-card:hover{border-color:var(--c-line-hover) !important;background:var(--c-surface-2) !important}
+.och-hover-icon:hover{background:var(--c-hover) !important;color:var(--c-primary) !important}
+.och-hover-ink:hover{color:var(--c-primary) !important}
+.och-hover-underline:hover{text-decoration:underline !important}
+.och-hover-lift{transition:box-shadow var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.och-hover-lift:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.och-hover-lift:focus-visible{outline:none;box-shadow:var(--ring-focus)}
+.och-skeleton{background:linear-gradient(90deg,var(--c-surface-3) 25%,var(--c-line-soft) 50%,var(--c-surface-3) 75%);background-size:200% 100%;animation:och-shimmer 1.2s linear infinite}
+
+/* Grilles du tableau de bord : container queries sur la largeur utile (la sidebar se replie). */
+.och-dash{container-type:inline-size}
+.och-kpis{display:grid;gap:var(--space-4);grid-template-columns:minmax(0,1fr)}
+.och-dash-grid{display:grid;gap:var(--space-5);grid-template-columns:repeat(12,minmax(0,1fr))}
+.och-dash-grid>*{grid-column:span 12}
+@container (min-width:480px){.och-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container (min-width:980px){.och-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@container (min-width:1060px){
+  .och-dash-grid>.och-span-8{grid-column:span 8}
+  .och-dash-grid>.och-span-7{grid-column:span 7}
+  .och-dash-grid>.och-span-5{grid-column:span 5}
+  .och-dash-grid>.och-span-4{grid-column:span 4}
+}
+
+/* Champs de formulaire et sélecteurs de filtre */
+.och-input:focus{border-color:var(--c-primary) !important;box-shadow:var(--ring-focus)}
+.och-filter:focus{box-shadow:var(--ring-focus)}
+.och-hover-tab:hover{color:var(--c-primary) !important}
+.och-hover-success:hover:not(:disabled){background:var(--c-success-bg) !important}
+.och-hover-danger:hover:not(:disabled){background:var(--c-danger-bg) !important}
