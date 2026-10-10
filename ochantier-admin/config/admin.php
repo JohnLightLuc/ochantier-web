@@ -39,6 +39,32 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Commission O’CHANTIER sur la rémunération des ouvriers (Z, en %)
+    |--------------------------------------------------------------------------
+    |
+    | Valeur par défaut du module Paramètres de la maquette.
+    |
+    */
+
+    'worker_commission_rate' => 10,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Chantiers de démonstration proposés aux affectations
+    |--------------------------------------------------------------------------
+    |
+    | Nom, promoteur, localisation. Remplacé par la table des chantiers avec le module Chantiers.
+    |
+    */
+
+    'demo_sites' => [
+        ['Résidence Les Oliviers', 'SICOGI', 'Cocody'], ['Tour Horizon', 'Ivoire Properties', 'Plateau'], ['Cité Belle Rive', 'SAPH', 'Bingerville'], ['Complexe scolaire SA', 'Fonds Éducation CI', 'Yamoussoukro'],
+        ['Les Jardins d’Angré', 'SICOGI', 'Abidjan, Cocody Angré'], ['Cité Administrative Plateau', 'SICOGI', 'Abidjan, Plateau'], ['Logements sociaux Yopougon', 'SICOGI', 'Abidjan, Yopougon'],
+        ['Résidence Bingerville Lot B', 'SICOGI', 'Bingerville'], ['Extension Cité Verte', 'SICOGI', 'Songon'], ['Tour Ivoire Business', 'SICOGI', 'Abidjan, Plateau'], ['Villa Duplex Riviera 3', 'SICOGI', 'Abidjan, Riviera'],
+    ],
+
     'demo_badges' => [
         'affectations' => 18,
         'pointages' => 4,

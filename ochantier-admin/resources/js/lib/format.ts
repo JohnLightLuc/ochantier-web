@@ -38,3 +38,24 @@ export function smoothPath(points: [number, number][]): string {
     }
     return d;
 }
+
+/** « 2026-09-02 » → « 02 sept. 2026 » ; « — » si vide. */
+export function formatDate(iso: string | null | undefined): string {
+    if (!iso) return '—';
+    const d = new Date(`${iso.slice(0, 10)}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+/** Note sur 5 avec virgule : 4.5 → « 4,5 ». */
+export function formatRating(value: number): string {
+    return value ? value.toFixed(1).replace('.', ',') : '—';
+}
+
+/** Date du jour au format ISO (fuseau local). */
+export function todayIso(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export const plural = (n: number, one: string, many: string): string => `${n} ${n > 1 ? many : one}`;
