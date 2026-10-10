@@ -1,0 +1,11 @@
+/* Styles globaux de l’application (extraits du <helmet> de la maquette) */
+html,body{margin:0;padding:0;background:var(--c-bg);color:var(--c-ink);font-family:var(--font-sans);font-size:var(--fs-md);-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+button,input,select{font-family:inherit;font-size:inherit;color:inherit}
+a{color:var(--c-primary-600);text-decoration:underline;text-underline-offset:2px}
+a:hover{color:var(--c-primary-strong)}
+@keyframes och-shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+@keyframes och-spin{to{transform:rotate(360deg)}}
+@keyframes och-bar{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
+@keyframes och-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.material-symbols-rounded{font-variation-settings:'FILL' 1,'wght' 500,'opsz' 24;user-select:none}

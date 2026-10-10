@@ -1,0 +1,9 @@
+<div style="height:100%;display:flex;gap:var(--space-4);align-items:flex-start;padding:var(--space-5);border-radius:var(--radius-2xl);background:{{ cardBg }};border:1px solid {{ cardLine }};box-shadow:var(--shadow-xs);font-family:var(--font-sans);color:var(--c-ink);min-width:0">
+  <div style="width:var(--control-lg);height:var(--control-lg);border-radius:var(--radius-xl);flex:none;display:grid;place-items:center;background:{{ iconBg }}"><span class="material-symbols-rounded" style="font-size:var(--icon-lg);color:{{ iconFg }}">{{ icon }}</span></div>
+  <div style="min-width:0;flex:1">
+    <div style="font-size:var(--fs-base);font-weight:var(--fw-medium);color:var(--c-ink-2)">{{ label }}</div>
+    <div style="display:flex;align-items:baseline;gap:var(--space-1_5);margin-top:var(--space-1);white-space:nowrap;min-width:0"><span style="font-size:{{ valueFs }};font-weight:var(--fw-bold);letter-spacing:-.5px;line-height:var(--lh-tight);font-variant-numeric:tabular-nums;white-space:nowrap">{{ value }}</span><sc-if value="{{ hasUnit }}"><span style="font-size:var(--fs-lg);font-weight:var(--fw-bold);white-space:nowrap">{{ unit }}</span></sc-if></div>
+    <sc-if value="{{ hasDelta }}"><div style="display:flex;align-items:center;gap:var(--space-1_5);margin-top:var(--space-1_5);font-size:var(--fs-sm);flex-wrap:wrap"><span style="display:flex;align-items:center;gap:var(--space-0_5);font-weight:var(--fw-bold);color:{{ deltaC }}"><span class="material-symbols-rounded" style="font-size:var(--icon-xs)">{{ deltaIcon }}</span>{{ delta }}</span><span style="color:var(--c-muted)">{{ compare }}</span></div></sc-if>
+    <sc-if value="{{ hasHint }}"><div style="margin-top:var(--space-1_5);font-size:var(--fs-sm);color:var(--c-muted)">{{ hint }}</div></sc-if>
+  </div>
+</div>

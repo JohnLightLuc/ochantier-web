@@ -1,0 +1,160 @@
+    <sc-if value="{{ isAbo }}">
+      <div data-component="Abonnements" style="display:flex;flex-direction:column;gap:var(--space-5)">
+        <sc-if value="{{ abo.isList }}">
+          <div role="tablist" style="display:flex;gap:var(--space-6);border-bottom:1px solid var(--c-line)">
+            <sc-for list="{{ abo.tabs }}" as="t" hint-placeholder-count="2">
+              <button role="tab" onClick="{{ t.go }}" style="display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) 0;margin-bottom:-1px;border:0;border-bottom:2px solid {{ t.line }};background:transparent;color:{{ t.fg }};font-weight:var(--fw-semibold);font-size:var(--fs-md);cursor:pointer"><span class="material-symbols-rounded" style="font-size:var(--icon-sm)">{{ t.icon }}</span>{{ t.label }}<span style="min-width:22px;height:20px;padding:0 var(--space-1_5);border-radius:var(--radius-pill);background:{{ t.cBg }};color:{{ t.cFg }};font-size:var(--fs-xs);display:grid;place-items:center">{{ t.count }}</span></button>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ abo.isSubs }}">
+            <section style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);min-width:0;overflow:hidden">
+              <div style="display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center;padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--c-line-soft)">
+                <div style="flex:1 1 260px;display:flex;align-items:center;gap:var(--space-2);height:var(--control-md);padding:0 var(--space-3);border:1px solid var(--c-line-strong);border-radius:var(--radius-lg);background:var(--c-surface)"><span class="material-symbols-rounded" style="font-size:var(--icon-sm);color:var(--c-muted)">search</span><input value="{{ abo.q }}" onInput="{{ abo.onQ }}" placeholder="Rechercher un promoteur ou un responsable…" style="flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;color:var(--c-ink)"></input></div>
+                <select value="{{ abo.fp }}" onChange="{{ abo.onFp }}" aria-label="Formule" style="height:var(--control-md);padding:0 var(--space-3);border:1px solid {{ abo.fpBd }};border-radius:var(--radius-lg);background:{{ abo.fpBg }};font:inherit;color:var(--c-ink);cursor:pointer"><sc-for list="{{ abo.fpOpts }}" as="o"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select>
+                <select value="{{ abo.fs }}" onChange="{{ abo.onFs }}" aria-label="Statut" style="height:var(--control-md);padding:0 var(--space-3);border:1px solid {{ abo.fsBd }};border-radius:var(--radius-lg);background:{{ abo.fsBg }};font:inherit;color:var(--c-ink);cursor:pointer"><sc-for list="{{ abo.fsOpts }}" as="o"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select>
+                <sc-if value="{{ abo.hasF }}"><button onClick="{{ abo.reset }}" style="border:0;background:transparent;color:var(--c-primary-600);font-weight:var(--fw-semibold);cursor:pointer;text-decoration:underline;text-underline-offset:2px">Réinitialiser</button></sc-if>
+              </div>
+              <div style="overflow-x:auto">
+                <table style="width:100%;min-width:880px;border-collapse:collapse;font-size:var(--fs-sm)">
+                  <thead><tr style="background:var(--c-surface-2);color:var(--c-muted);text-align:left"><th style="padding:var(--space-3) var(--space-5);font-weight:var(--fw-semibold)">Promoteur</th><th style="padding:var(--space-3);font-weight:var(--fw-semibold)">Formule</th><th style="padding:var(--space-3);font-weight:var(--fw-semibold)">Utilisateurs</th><th style="padding:var(--space-3);font-weight:var(--fw-semibold)">Montant</th><th style="padding:var(--space-3);font-weight:var(--fw-semibold)">Statut</th><th style="padding:var(--space-3);font-weight:var(--fw-semibold)">Prochaine échéance</th><th style="padding:var(--space-3) var(--space-5)"></th></tr></thead>
+                  <tbody>
+                    <sc-for list="{{ abo.rows }}" as="r" hint-placeholder-count="6">
+                      <tr onClick="{{ r.open }}" style="border-top:1px solid var(--c-line-soft);cursor:pointer" style-hover="background:var(--c-surface-3)">
+                        <td style="padding:var(--space-3) var(--space-5)"><div style="display:flex;align-items:center;gap:var(--space-3)"><span style="width:36px;height:36px;border-radius:var(--radius-round);background:var(--c-primary-100);color:var(--c-primary);font-weight:var(--fw-bold);font-size:var(--fs-xs);display:grid;place-items:center;flex:none">{{ r.init }}</span><div style="min-width:0"><div style="font-weight:var(--fw-semibold);color:var(--c-ink)">{{ r.promo }}</div><div style="color:var(--c-muted)">{{ r.resp }}</div></div></div></td>
+                        <td style="padding:var(--space-3)"><span style="display:inline-flex;align-items:center;height:24px;padding:0 var(--space-2_5);border-radius:var(--radius-pill);background:{{ r.pBg }};color:{{ r.pFg }};font-weight:var(--fw-semibold);font-size:var(--fs-xs)">{{ r.plan }}</span></td>
+                        <td style="padding:var(--space-3)"><div style="font-weight:var(--fw-semibold);color:var(--c-ink-2)">{{ r.users }}</div><div style="width:88px;height:5px;border-radius:var(--radius-pill);background:var(--c-line-soft);margin-top:var(--space-1);overflow:hidden"><div style="width:{{ r.w }};height:100%;background:{{ r.barC }};border-radius:var(--radius-pill)"></div></div></td>
+                        <td style="padding:var(--space-3)"><div style="font-weight:var(--fw-semibold);color:var(--c-ink)">{{ r.amt }}</div><div style="color:var(--c-muted);font-size:var(--fs-xs)">{{ r.amtSub }}</div></td>
+                        <td style="padding:var(--space-3)"><dc-import name="StatusBadge" label="{{ r.st }}" tone="{{ r.tone }}" hint-size="90px,24px"></dc-import></td>
+                        <td style="padding:var(--space-3)"><div style="color:{{ r.nextC }};font-weight:var(--fw-medium)">{{ r.next }}</div><sc-if value="{{ r.hasNote }}"><div style="color:var(--c-muted);font-size:var(--fs-xs)">{{ r.note }}</div></sc-if></td>
+                        <td style="padding:var(--space-3) var(--space-5);text-align:right"><span class="material-symbols-rounded" style="font-size:var(--icon-sm);color:var(--c-muted)">chevron_right</span></td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+              <sc-if value="{{ abo.empty }}"><div style="padding:var(--space-10) var(--space-5);text-align:center;color:var(--c-muted)"><span class="material-symbols-rounded" style="font-size:var(--icon-xl);color:var(--c-subtle)">search_off</span><div style="font-weight:var(--fw-semibold);color:var(--c-ink-2);margin-top:var(--space-2)">Aucun abonnement ne correspond</div><div>Modifiez la recherche ou les filtres.</div></div></sc-if>
+              <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);padding:var(--space-3) var(--space-5);border-top:1px solid var(--c-line-soft);color:var(--c-muted);font-size:var(--fs-sm)">
+                <span>{{ abo.pageLabel }}</span>
+                <div style="display:flex;gap:var(--space-1_5)"><sc-for list="{{ abo.pages }}" as="p"><button onClick="{{ p.go }}" style="min-width:32px;height:32px;border-radius:var(--radius-md);border:1px solid {{ p.bd }};background:{{ p.bg }};color:{{ p.fg }};font-weight:var(--fw-semibold);cursor:pointer">{{ p.n }}</button></sc-for></div>
+              </div>
+            </section>
+          </sc-if>
+
+          <sc-if value="{{ abo.isPlans }}">
+            <div style="display:flex;gap:var(--space-3);align-items:flex-start;padding:var(--space-4) var(--space-5);border:1px solid var(--c-line);border-radius:var(--radius-2xl);background:var(--c-surface)"><span class="material-symbols-rounded" style="font-size:var(--icon-md);color:var(--c-primary)">info</span><div style="min-width:0"><div style="font-weight:var(--fw-bold);color:var(--c-primary)">Pourquoi un abonnement ?</div><div style="color:var(--c-ink-2);margin-top:var(--space-1);text-wrap:pretty">Sans abonnement, seul le propriétaire utilise le compte. Avec une formule équipe, le promoteur invite ses collaborateurs par SMS ou e-mail et leur attribue un rôle : chef de chantier, technicien, comptable ou observateur. Les modifications de prix s’appliquent aux prochaines échéances.</div></div></div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3)"><div style="color:var(--c-muted)">{{ abo.plansLabel }}</div><dc-import name="Button" label="Nouvelle formule" icon="add" variant="primary" onClick="{{ abo.addPlan }}" hint-size="190px,44px"></dc-import></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:var(--space-5);padding-top:var(--space-2)">
+              <sc-for list="{{ abo.plans }}" as="p" hint-placeholder-count="3">
+                <section style="position:relative;display:flex;flex-direction:column;gap:var(--space-4);min-width:0;background:var(--c-surface);border:{{ p.bw }} solid {{ p.bd }};border-radius:var(--radius-2xl);padding:var(--space-5)">
+                  <sc-if value="{{ p.pop }}"><span style="position:absolute;top:-12px;right:var(--space-5);height:24px;padding:0 var(--space-3);border-radius:var(--radius-pill);background:var(--c-accent);color:var(--c-primary-strong);font-weight:var(--fw-bold);font-size:var(--fs-xs);display:grid;place-items:center">Le plus choisi</span></sc-if>
+                  <div style="display:flex;justify-content:space-between;gap:var(--space-3)"><div><div style="font-size:var(--fs-2xl);font-weight:var(--fw-bold);color:var(--c-primary)">{{ p.n }}</div><div style="color:var(--c-muted)">{{ p.sub }}</div></div><div style="text-align:right"><div style="font-size:var(--fs-2xl);font-weight:var(--fw-bold);color:var(--c-primary)">{{ p.price }}</div><div style="color:var(--c-muted)">{{ p.per }}</div></div></div>
+                  <div style="display:flex;flex-direction:column;gap:var(--space-2)"><sc-for list="{{ p.feats }}" as="f"><div style="display:flex;gap:var(--space-2);color:var(--c-ink-2)"><span class="material-symbols-rounded" style="font-size:var(--icon-sm);color:var(--c-brand-green)">check</span>{{ f }}</div></sc-for></div>
+                  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-3);padding-top:var(--space-4);border-top:1px solid var(--c-line-soft);margin-top:auto">
+                    <div><div style="font-size:var(--fs-xs);color:var(--c-muted)">Abonnés</div><div style="font-weight:var(--fw-bold);font-size:var(--fs-lg)">{{ p.nSubs }}</div></div>
+                    <div><div style="font-size:var(--fs-xs);color:var(--c-muted)">Revenu / mois</div><div style="font-weight:var(--fw-bold);font-size:var(--fs-lg)">{{ p.mrr }}</div></div>
+                    <div><div style="font-size:var(--fs-xs);color:var(--c-muted)">Utilisateurs moy.</div><div style="font-weight:var(--fw-bold);font-size:var(--fs-lg)">{{ p.avgU }}</div></div>
+                  </div>
+                  <div style="display:flex;gap:var(--space-2_5);flex-wrap:wrap">
+                    <dc-import name="Button" label="Voir les abonnés" icon="group" variant="secondary" onClick="{{ p.see }}" hint-size="170px,44px"></dc-import>
+                    <sc-if value="{{ p.canEdit }}"><dc-import name="Button" label="Modifier" icon="edit" variant="secondary" onClick="{{ p.edit }}" hint-size="120px,44px"></dc-import></sc-if>
+                    <sc-if value="{{ p.canDel }}"><button onClick="{{ p.del }}" title="Supprimer la formule" aria-label="Supprimer la formule {{ p.n }}" style="width:var(--control-md);height:var(--control-md);border:1px solid var(--c-line-strong);border-radius:var(--radius-lg);background:var(--c-surface);color:var(--c-danger-fg);cursor:pointer;display:grid;place-items:center" style-hover="background:var(--c-danger-bg);border-color:var(--c-danger-bg)"><span class="material-symbols-rounded" style="font-size:var(--icon-sm)">delete</span></button></sc-if>
+                  </div>
+                </section>
+              </sc-for>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ abo.isMissing }}">
+          <div style="padding:var(--space-10) var(--space-5);text-align:center;background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl)"><span class="material-symbols-rounded" style="font-size:var(--icon-xl);color:var(--c-subtle)">workspace_premium</span><div style="font-weight:var(--fw-bold);font-size:var(--fs-lg);margin-top:var(--space-2)">Abonnement introuvable</div><div style="color:var(--c-muted);margin:var(--space-1) 0 var(--space-4)">Ce promoteur n’existe pas ou a été supprimé.</div><dc-import name="Button" label="Tous les abonnements" icon="arrow_back" variant="secondary" onClick="{{ abo.back }}" hint-size="200px,44px"></dc-import></div>
+        </sc-if>
+
+        <sc-if value="{{ abo.isDetail }}">
+          <button onClick="{{ abo.back }}" style="align-self:flex-start;display:flex;align-items:center;gap:var(--space-1_5);border:0;background:transparent;padding:0;color:var(--c-primary-600);font-weight:var(--fw-semibold);cursor:pointer"><span class="material-symbols-rounded" style="font-size:var(--icon-sm)">arrow_back</span>Tous les abonnements</button>
+          <sc-if value="{{ abo.d.hasPending }}">
+            <div style="display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center;padding:var(--space-3) var(--space-4);border:1px solid var(--c-warning-line);border-radius:var(--radius-xl);background:var(--c-warning-surface);color:var(--c-warning-fg)"><span class="material-symbols-rounded" style="font-size:var(--icon-md)">schedule</span><span style="flex:1;min-width:200px;font-weight:var(--fw-medium)">{{ abo.d.pendingTxt }}</span><sc-if value="{{ abo.d.canCancelPending }}"><button onClick="{{ abo.d.cancelPending }}" style="border:0;background:transparent;color:var(--c-warning-fg);font-weight:var(--fw-bold);cursor:pointer;text-decoration:underline;text-underline-offset:2px">Annuler le changement</button></sc-if></div>
+          </sc-if>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:var(--space-5);align-items:start">
+            <div style="display:flex;flex-direction:column;gap:var(--space-5);min-width:0">
+              <section style="position:relative;overflow:hidden;background:var(--c-primary);color:var(--c-on-dark);border-radius:var(--radius-2xl);padding:var(--space-6)">
+                <div style="position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:var(--radius-round);background:var(--c-primary-500);opacity:.45"></div>
+                <div style="position:relative;display:flex;justify-content:space-between;align-items:center;gap:var(--space-3)"><span style="letter-spacing:.12em;text-transform:uppercase;font-size:var(--fs-sm);font-weight:var(--fw-semibold);color:var(--c-on-dark-muted)">Formule actuelle</span><span style="height:28px;padding:0 var(--space-3);border-radius:var(--radius-pill);background:var(--c-on-dark-line);font-weight:var(--fw-semibold);font-size:var(--fs-sm);display:grid;place-items:center">{{ abo.d.badge }}</span></div>
+                <div style="position:relative;font-size:var(--fs-4xl);font-weight:var(--fw-bold);margin-top:var(--space-2)">{{ abo.d.name }}</div>
+                <div style="position:relative;color:var(--c-on-dark-muted)">{{ abo.d.desc }}</div>
+                <div style="position:relative;display:flex;justify-content:space-between;margin-top:var(--space-5);font-size:var(--fs-sm)"><span style="color:var(--c-on-dark-muted)">Utilisateurs</span><b>{{ abo.d.usersL }}</b></div>
+                <div style="position:relative;height:8px;border-radius:var(--radius-pill);background:var(--c-on-dark-line);margin-top:var(--space-2);overflow:hidden"><div style="width:{{ abo.d.w }};height:100%;border-radius:var(--radius-pill);background:var(--c-accent)"></div></div>
+              </section>
+
+              <section style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-5);display:flex;flex-direction:column;gap:var(--space-4)">
+                <div><h2 style="margin:0;font-size:var(--fs-xl);font-weight:var(--fw-bold);color:var(--c-primary)">Changer de formule</h2><div style="color:var(--c-muted);margin-top:var(--space-1)">Choisissez selon la taille de l’équipe du promoteur.</div></div>
+                <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+                  <sc-for list="{{ abo.d.plans }}" as="p" hint-placeholder-count="3">
+                    <button onClick="{{ p.go }}" aria-pressed="{{ p.on }}" style="position:relative;width:100%;text-align:left;display:flex;gap:var(--space-4);padding:var(--space-4) var(--space-5);border:{{ p.bw }} solid {{ p.bd }};border-radius:var(--radius-2xl);background:var(--c-surface);cursor:pointer;font:inherit;color:inherit" style-hover="border-color:var(--c-primary-400)">
+                      <sc-if value="{{ p.pop }}"><span style="position:absolute;top:-12px;right:var(--space-5);height:24px;padding:0 var(--space-3);border-radius:var(--radius-pill);background:var(--c-accent);color:var(--c-primary-strong);font-weight:var(--fw-bold);font-size:var(--fs-xs);display:grid;place-items:center">Le plus choisi</span></sc-if>
+                      <span style="width:26px;height:26px;margin-top:2px;border-radius:var(--radius-round);border:2px solid {{ p.rBd }};background:{{ p.rBg }};display:grid;place-items:center;flex:none"><span class="material-symbols-rounded" style="font-size:18px;color:var(--c-on-dark)">{{ p.rIcon }}</span></span>
+                      <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--space-2)">
+                        <span style="display:flex;justify-content:space-between;gap:var(--space-3)"><span><span style="display:flex;align-items:center;gap:var(--space-2)"><b style="font-size:var(--fs-xl);color:var(--c-primary)">{{ p.n }}</b><sc-if value="{{ p.cur }}"><span style="height:22px;padding:0 var(--space-2);border-radius:var(--radius-md);background:var(--c-success-bg);color:var(--c-success-fg);font-weight:var(--fw-semibold);font-size:var(--fs-xs);display:grid;place-items:center">Actuel</span></sc-if></span><span style="display:block;color:var(--c-muted)">{{ p.sub }}</span></span><span style="text-align:right"><b style="display:block;font-size:var(--fs-xl);color:var(--c-primary)">{{ p.price }}</b><span style="color:var(--c-muted)">{{ p.per }}</span></span></span>
+                        <sc-for list="{{ p.feats }}" as="f"><span style="display:flex;gap:var(--space-2);color:var(--c-ink-2)"><span class="material-symbols-rounded" style="font-size:var(--icon-sm);color:var(--c-brand-green)">check</span>{{ f }}</span></sc-for>
+                      </span>
+                    </button>
+                  </sc-for>
+                </div>
+                <sc-if value="{{ abo.d.hasChg }}">
+                  <div style="display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4);border-radius:var(--radius-xl);background:{{ abo.d.chgBg }};color:{{ abo.d.chgFg }}">
+                    <div style="display:flex;gap:var(--space-2)"><span class="material-symbols-rounded" style="font-size:var(--icon-sm)">{{ abo.d.chgIcon }}</span><span style="text-wrap:pretty">{{ abo.d.chgTxt }}</span></div>
+                    <div style="display:flex;gap:var(--space-2_5);flex-wrap:wrap;justify-content:flex-end">
+                      <dc-import name="Button" label="Annuler" variant="secondary" onClick="{{ abo.d.chgCancel }}" hint-size="110px,44px"></dc-import>
+                      <sc-if value="{{ abo.d.canApply }}"><dc-import name="Button" label="{{ abo.d.applyL }}" icon="check" variant="primary" onClick="{{ abo.d.apply }}" hint-size="200px,44px"></dc-import></sc-if>
+                    </div>
+                  </div>
+                </sc-if>
+              </section>
+
+              <section style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);min-width:0;overflow:hidden">
+                <div style="display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center;padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--c-line-soft)"><div style="flex:1;min-width:200px"><h2 style="margin:0;font-size:var(--fs-xl);font-weight:var(--fw-bold)">Utilisateurs du compte</h2><div style="color:var(--c-muted);font-size:var(--fs-sm)">{{ abo.d.usersL }}</div></div><sc-if value="{{ abo.d.canInvite }}"><dc-import name="Button" label="Inviter un collaborateur" icon="person_add" variant="primary" onClick="{{ abo.d.invite }}" hint-size="230px,44px"></dc-import></sc-if></div>
+                <sc-if value="{{ abo.d.hasInviteHint }}"><div style="display:flex;gap:var(--space-2);padding:var(--space-3) var(--space-5);background:var(--c-info-bg);color:var(--c-info-fg);font-size:var(--fs-sm)"><span class="material-symbols-rounded" style="font-size:var(--icon-sm)">info</span>{{ abo.d.inviteHint }}</div></sc-if>
+                <sc-for list="{{ abo.d.users }}" as="u" hint-placeholder-count="3">
+                  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-5);border-top:1px solid var(--c-line-soft)">
+                    <span style="width:36px;height:36px;border-radius:var(--radius-round);background:{{ u.avBg }};color:{{ u.avFg }};font-weight:var(--fw-bold);font-size:var(--fs-xs);display:grid;place-items:center;flex:none">{{ u.init }}</span>
+                    <div style="flex:1;min-width:160px"><div style="font-weight:var(--fw-semibold)">{{ u.name }}</div><div style="color:var(--c-muted);font-size:var(--fs-sm)">{{ u.role }} · {{ u.via }}</div></div>
+                    <dc-import name="StatusBadge" label="{{ u.st }}" tone="{{ u.tone }}" hint-size="120px,24px"></dc-import>
+                    <sc-if value="{{ u.canRemove }}"><button onClick="{{ u.remove }}" title="Retirer l’accès" aria-label="Retirer l’accès" style="width:36px;height:36px;border:0;border-radius:var(--radius-md);background:transparent;color:var(--c-danger-fg);cursor:pointer;display:grid;place-items:center" style-hover="background:var(--c-danger-bg)"><span class="material-symbols-rounded" style="font-size:var(--icon-sm)">person_remove</span></button></sc-if>
+                  </div>
+                </sc-for>
+              </section>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:var(--space-5);min-width:0">
+              <section style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-5);display:flex;flex-direction:column;gap:var(--space-4)">
+                <div style="display:flex;justify-content:space-between;gap:var(--space-3);align-items:center"><h2 style="margin:0;font-size:var(--fs-xl);font-weight:var(--fw-bold)">Statut &amp; facturation</h2><dc-import name="StatusBadge" label="{{ abo.d.st }}" tone="{{ abo.d.tone }}" hint-size="90px,24px"></dc-import></div>
+                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-3) var(--space-4)">
+                  <sc-for list="{{ abo.d.kv }}" as="k" hint-placeholder-count="6"><div style="min-width:0"><div style="font-size:var(--fs-xs);color:var(--c-muted)">{{ k.l }}</div><div style="font-weight:var(--fw-semibold);color:{{ k.c }}">{{ k.v }}</div></div></sc-for>
+                </div>
+                <sc-if value="{{ abo.d.hasActs }}"><div style="display:flex;flex-wrap:wrap;gap:var(--space-2_5);padding-top:var(--space-4);border-top:1px solid var(--c-line-soft)"><sc-for list="{{ abo.d.acts }}" as="a"><dc-import name="Button" label="{{ a.label }}" icon="{{ a.icon }}" variant="{{ a.variant }}" onClick="{{ a.go }}" hint-size="160px,44px"></dc-import></sc-for></div></sc-if>
+              </section>
+
+              <section style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-5);display:flex;flex-direction:column;gap:var(--space-3)">
+                <h2 style="margin:0;font-size:var(--fs-xl);font-weight:var(--fw-bold)">Promoteur</h2>
+                <div style="display:flex;align-items:center;gap:var(--space-3)"><span style="width:44px;height:44px;border-radius:var(--radius-round);background:var(--c-primary-100);color:var(--c-primary);font-weight:var(--fw-bold);display:grid;place-items:center;flex:none">{{ abo.d.init }}</span><div style="min-width:0"><div style="font-weight:var(--fw-bold)">{{ abo.d.promo }}</div><div style="color:var(--c-muted);font-size:var(--fs-sm)">{{ abo.d.resp }} · propriétaire du compte</div></div></div>
+                <div style="display:flex;flex-direction:column;gap:var(--space-1_5);color:var(--c-ink-2);font-size:var(--fs-sm)"><span style="display:flex;gap:var(--space-2)"><span class="material-symbols-rounded" style="font-size:var(--icon-sm);color:var(--c-muted)">call</span>{{ abo.d.phone }}</span><span style="display:flex;gap:var(--space-2)"><span class="material-symbols-rounded" style="font-size:var(--icon-sm);color:var(--c-muted)">mail</span>{{ abo.d.email }}</span></div>
+                <button onClick="{{ abo.d.openPromo }}" style="align-self:flex-start;display:flex;align-items:center;gap:var(--space-1_5);border:0;background:transparent;padding:0;color:var(--c-primary-600);font-weight:var(--fw-semibold);cursor:pointer">Voir la fiche promoteur<span class="material-symbols-rounded" style="font-size:var(--icon-sm)">open_in_new</span></button>
+              </section>
+
+              <section style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);min-width:0;overflow:hidden">
+                <h2 style="margin:0;padding:var(--space-4) var(--space-5);font-size:var(--fs-xl);font-weight:var(--fw-bold)">Factures</h2>
+                <sc-for list="{{ abo.d.inv }}" as="i">
+                  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-5);border-top:1px solid var(--c-line-soft)"><div style="flex:1;min-width:140px"><div style="font-weight:var(--fw-semibold)">{{ i.ref }}</div><div style="color:var(--c-muted);font-size:var(--fs-sm)">{{ i.date }} · {{ i.label }}</div></div><b>{{ i.amt }}</b><dc-import name="StatusBadge" label="{{ i.st }}" tone="{{ i.tone }}" hint-size="90px,24px"></dc-import></div>
+                </sc-for>
+                <sc-if value="{{ abo.d.noInv }}"><div style="padding:var(--space-4) var(--space-5);border-top:1px solid var(--c-line-soft);color:var(--c-muted)">Aucune facture : formule gratuite.</div></sc-if>
+              </section>
+
+              <section style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);padding:var(--space-5);display:flex;flex-direction:column;gap:var(--space-3)">
+                <h2 style="margin:0;font-size:var(--fs-xl);font-weight:var(--fw-bold)">Historique</h2>
+                <sc-for list="{{ abo.d.log }}" as="l"><div style="display:flex;gap:var(--space-3)"><span style="width:8px;height:8px;margin-top:7px;border-radius:var(--radius-round);background:var(--c-primary-400);flex:none"></span><div style="min-width:0"><div style="color:var(--c-ink-2)">{{ l.txt }}</div><div style="color:var(--c-muted);font-size:var(--fs-xs)">{{ l.d }}</div></div></div></sc-for>
+              </section>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
