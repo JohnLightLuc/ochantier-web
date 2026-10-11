@@ -51,6 +51,6 @@ export type SharedProps = {
 declare module '@inertiajs/core' {
     export interface InertiaConfig {
         sharedPageProps: SharedProps;
-        flashDataType: { toast?: string };
+        flashDataType: { toast?: string; groupResult?: { title: string; summary: string; items: { name: string; detail: string; result: string }[] } };
     }
 }

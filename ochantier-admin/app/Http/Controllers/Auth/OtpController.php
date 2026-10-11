@@ -55,6 +55,7 @@ class OtpController extends Controller
         $remember = (bool) $request->session()->pull('login.pending.remember', false);
         $request->session()->forget('login.pending');
 
+        $user->update(['last_login_at' => now()]);
         Auth::login($user, $remember);
         $request->session()->regenerate();
 

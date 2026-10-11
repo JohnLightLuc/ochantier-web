@@ -45,6 +45,12 @@ class LoginController extends Controller
             ]);
         }
 
+        if (! $user->isActive()) {
+            throw ValidationException::withMessages([
+                'email' => $user->status === 'Suspendu' ? 'Ce compte est suspendu. Contactez un administrateur.' : 'Activez d’abord votre compte avec le lien reçu par e-mail.',
+            ]);
+        }
+
         $request->session()->put('login.pending', [
             'id' => $user->getAuthIdentifier(),
             'remember' => (bool) ($credentials['remember'] ?? false),

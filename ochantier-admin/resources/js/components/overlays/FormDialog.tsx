@@ -26,16 +26,21 @@ type Props = {
     method?: 'post' | 'put' | 'delete';
     fields: DialogField[];
     initial?: Record<string, string>;
+    /** Données envoyées en plus des champs (identifiants, mode…). */
+    extra?: Record<string, unknown>;
     onClose: () => void;
 };
 
 /** Modale de formulaire déclarative : les champs sont validés par le serveur, erreurs affichées sous chaque champ. */
-export default function FormDialog({ title, body, icon, tone, okLabel, okIcon, url, method = 'post', fields, initial = {}, onClose }: Props) {
+export default function FormDialog({ title, body, icon, tone, okLabel, okIcon, url, method = 'post', fields, initial = {}, extra, onClose }: Props) {
     const defaults = Object.fromEntries(fields.map((f) => [f.name, initial[f.name] ?? (f.type === 'select' && f.required && f.options?.length ? optionValue(f.options[0]) : '')]));
     const form = useForm<Record<string, string | File | null>>(defaults);
     const hasFile = fields.some((f) => f.type === 'file');
 
-    const submit = () => form.submit(method, url, { preserveScroll: true, forceFormData: hasFile, onSuccess: onClose });
+    const submit = () => {
+        if (extra) form.transform((data) => ({ ...data, ...extra }) as typeof data);
+        form.submit(method, url, { preserveScroll: true, forceFormData: hasFile, onSuccess: onClose });
+    };
 
     return (
         <Dialog title={title} body={body} icon={icon} tone={tone} wide={fields.length > 3} okLabel={okLabel} okIcon={okIcon} processing={form.processing} onClose={onClose} onSubmit={submit}>

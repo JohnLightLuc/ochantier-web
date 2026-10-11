@@ -366,7 +366,11 @@ export function HistoryTab({ activities }: TabProps) {
 }
 
 
-function HistoryList({ activities }: { activities: TabProps['activities'] }) {
+/** Événement de journal affichable (ouvrier ou commercial). */
+export type HistoryEvent = Pick<TabProps['activities'][number], 'id' | 'date' | 'time' | 'author' | 'category' | 'action' | 'oldValue' | 'newValue' | 'comment' | 'origin'>;
+
+/** Journal filtrable par catégorie et groupé par jour. */
+export function HistoryList({ activities }: { activities: HistoryEvent[] }) {
     const [filter, setFilter] = useState<string | null>(null);
     const categories = [...new Map(activities.map((e) => [e.category.value, e.category.label])).entries()];
     const list = activities.filter((e) => !filter || e.category.value === filter);
@@ -376,7 +380,7 @@ function HistoryList({ activities }: { activities: TabProps['activities'] }) {
         else acc.push({ day: e.date, items: [e] });
         return acc;
     }, []);
-    const originIcon: Record<string, string> = { 'Back-office': 'desktop_windows', 'Application mobile': 'smartphone', 'Application commercial': 'badge', Système: 'memory' };
+    const originIcon: Record<string, string> = { 'Back-office': 'desktop_windows', 'Application mobile': 'smartphone', 'Application commercial': 'badge', 'Application Commercial': 'smartphone', Système: 'memory' };
 
     return (
         <div>

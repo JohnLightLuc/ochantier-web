@@ -98,10 +98,10 @@ class WorkerRequest extends FormRequest
             'emergency_phone' => $phone,
 
             // Métier et compétences
-            'trade' => ['required', Rule::in(self::TRADES)],
+            'trade' => ['required', Rule::in(config('admin.trades'))],
             'qualification' => ['nullable', Rule::in(self::QUALIFICATIONS)],
             'secondary_trades' => ['array'],
-            'secondary_trades.*' => [Rule::in(self::TRADES)],
+            'secondary_trades.*' => [Rule::in(config('admin.trades'))],
             'specialties' => ['nullable', 'string', 'max:500'],
             'skills' => ['nullable', 'string', 'max:500'],
             'experience_years' => ['nullable', 'integer', 'between:0,50'],
@@ -119,7 +119,7 @@ class WorkerRequest extends FormRequest
             'experiences' => ['array'],
             'experiences.*.company' => ['required', 'string', 'max:160'],
             'experiences.*.mission' => ['required', 'string', 'max:160'],
-            'experiences.*.trade' => ['nullable', Rule::in(self::TRADES)],
+            'experiences.*.trade' => ['nullable', Rule::in(config('admin.trades'))],
             'experiences.*.site' => ['nullable', 'string', 'max:160'],
             'experiences.*.location' => ['nullable', 'string', 'max:160'],
             'experiences.*.reference' => ['nullable', 'string', 'max:160'],

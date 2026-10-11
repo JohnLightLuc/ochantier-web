@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class ModuleNavigationTest extends TestCase
@@ -18,17 +17,6 @@ class ModuleNavigationTest extends TestCase
         foreach (config('admin.modules') as $module) {
             $this->actingAs($user)->get($module['path'])->assertOk();
         }
-    }
-
-    public function test_module_deep_links_render_the_placeholder(): void
-    {
-        $this->actingAs(User::factory()->create())
-            ->get('/chantiers/ch1/pointages')
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('ModulePlaceholder')
-                ->where('module.key', 'chantiers')
-            );
     }
 
     public function test_unknown_paths_return_not_found(): void

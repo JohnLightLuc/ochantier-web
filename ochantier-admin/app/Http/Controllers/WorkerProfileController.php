@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Enums\WorkerActivityCategory;
-use App\Http\Requests\WorkerRequest;
 use App\Models\Worker;
 use App\Models\WorkerExperience;
 use Illuminate\Http\RedirectResponse;
@@ -33,7 +32,7 @@ class WorkerProfileController extends Controller
         [$attribute, $label] = self::LISTS[$list] ?? abort(404);
 
         $rules = $attribute === 'secondary_trades'
-            ? ['required', Rule::in(array_diff(WorkerRequest::TRADES, [$worker->trade]))]
+            ? ['required', Rule::in(array_diff(config('admin.trades'), [$worker->trade]))]
             : ['required', 'string', 'max:120'];
         $value = trim($request->validate(['value' => $rules], ['value.required' => 'Ce champ est obligatoire.'])['value']);
 
@@ -104,7 +103,7 @@ class WorkerProfileController extends Controller
         return $request->validate([
             'company' => ['required', 'string', 'max:160'],
             'mission' => ['required', 'string', 'max:160'],
-            'trade' => ['required', Rule::in(WorkerRequest::TRADES)],
+            'trade' => ['required', Rule::in(config('admin.trades'))],
             'site' => ['nullable', 'string', 'max:160'],
             'location' => ['nullable', 'string', 'max:160'],
             'reference' => ['nullable', 'string', 'max:160'],

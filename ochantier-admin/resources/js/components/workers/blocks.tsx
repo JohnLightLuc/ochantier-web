@@ -186,3 +186,24 @@ export function Toolbar({ actions }: { actions: ToolbarAction[] }) {
 
 /** Envoi POST sans perdre la position de défilement. */
 export const postAction = (url: string, data: Record<string, unknown> = {}) => router.post(url, data as Record<string, string>, { preserveScroll: true });
+
+/** Histogramme simple : une barre par libellé, valeur au-dessus. */
+export function Bars({ title, sub, data, unit = '', color = 'var(--c-primary-500)' }: { title: string; sub: string; data: [string, number][]; unit?: string; color?: string }) {
+    const max = Math.max(...data.map(([, v]) => v), 1);
+    return (
+        <Block icon="bar_chart" title={title} count={sub}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-4)', minHeight: 150, overflowX: 'auto' }}>
+                {data.map(([label, v]) => (
+                    <div key={label} title={`${label} : ${v}${unit}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)', minWidth: 64 }}>
+                        <b style={{ fontSize: 'var(--fs-sm)' }}>
+                            {v}
+                            {unit}
+                        </b>
+                        <span style={{ width: 36, height: Math.round((v / max) * 110), borderRadius: 'var(--radius-sm) var(--radius-sm) 0 0', background: color }} />
+                        <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--c-muted)', textAlign: 'center' }}>{label}</span>
+                    </div>
+                ))}
+            </div>
+        </Block>
+    );
+}

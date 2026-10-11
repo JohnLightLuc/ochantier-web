@@ -46,7 +46,7 @@ class DashboardController extends Controller
             ['label' => 'Chantiers actifs', 'value' => '24', 'unit' => '', 'icon' => 'construction', 'tone' => 'g', 'delta' => '+8 %', 'deltaTone' => 'g', 'deltaIcon' => 'north_east', 'compare' => 'vs semaine dernière', 'highlight' => false, 'href' => '/chantiers?filtre=En cours'],
             ['label' => 'Ouvriers disponibles', 'value' => '386', 'unit' => '', 'icon' => 'groups', 'tone' => 'g', 'delta' => '+12 %', 'deltaTone' => 'g', 'deltaIcon' => 'north_east', 'compare' => 'vs semaine dernière', 'highlight' => false, 'href' => '/ouvriers?filtre=Disponible'],
             ['label' => 'Affectations à valider', 'value' => '18', 'unit' => '', 'icon' => 'pending_actions', 'tone' => 'a', 'delta' => '+50 %', 'deltaTone' => 'r', 'deltaIcon' => 'north_east', 'compare' => 'vs semaine dernière', 'highlight' => true, 'href' => '/affectations?filtre=À valider'],
-            ['label' => 'Paiements en attente', 'value' => '12 450 000', 'unit' => 'FCFA', 'icon' => 'account_balance_wallet', 'tone' => 'b', 'delta' => '0 %', 'deltaTone' => 'n', 'deltaIcon' => 'east', 'compare' => 'stable vs semaine dernière', 'highlight' => false, 'href' => '/paiements?filtre=En attente'],
+            ['label' => 'Paiements en attente', 'value' => '12 450 000', 'unit' => 'FCFA', 'icon' => 'account_balance_wallet', 'tone' => 'b', 'delta' => '0 %', 'deltaTone' => 'n', 'deltaIcon' => 'east', 'compare' => 'stable vs semaine dernière', 'highlight' => false, 'href' => '/paiements?raccourci=att'],
         ];
     }
 
@@ -142,11 +142,11 @@ class DashboardController extends Controller
             'items' => [
                 $item(5, 'remplacements urgents', 'Absences signalées sur 3 chantiers actifs', 'Urgent', 'swap_horiz', '/affectations?filtre=Remplacements'),
                 $item(8, 'profils ouvriers à valider', 'Pièces d’identité et certificats à vérifier', 'Élevé', 'person_check', '/ouvriers?filtre=À valider'),
-                $item(7, 'paiements à autoriser', 'Montant total : 12 450 000 FCFA', 'Élevé', 'payments', '/paiements?filtre=À autoriser'),
-                $item(3, 'litiges ouverts', 'Dont 1 escaladé en priorité haute', 'Moyen', 'gavel', '/avis-litiges?filtre=Litiges'),
+                $item(7, 'paiements à autoriser', 'Montant total : 12 450 000 FCFA', 'Élevé', 'payments', '/paiements/a-reverser'),
+                $item(3, 'litiges ouverts', 'Dont 1 escaladé en priorité haute', 'Moyen', 'gavel', '/avis-litiges?vue=litiges'),
             ],
             'more' => [
-                $item(4, 'pointages en anomalie', 'Écarts d’horaires à contrôler', 'Élevé', 'schedule', '/pointages?filtre=Anomalies'),
+                $item(4, 'pointages en anomalie', 'Écarts d’horaires à contrôler', 'Élevé', 'schedule', '/pointages/anomalies'),
                 $item(6, 'offres sans candidature', 'Publiées depuis plus de 5 jours', 'Moyen', 'assignment', '/besoins?filtre=Ouverte'),
                 $item(2, 'pièces KYC expirées', 'Dossiers promoteurs à mettre à jour', 'Moyen', 'event_busy', '/promoteurs?filtre=KYC expirées'),
             ],

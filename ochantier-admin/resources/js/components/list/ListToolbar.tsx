@@ -85,9 +85,10 @@ export function FilterChip({ label, onClear }: { label: string; onClear: () => v
 type SelectionProps = {
     count: number;
     onExport: () => void;
-    onBulk: () => void;
-    bulkLabel: string;
-    bulkIcon: string;
+    /** Action groupée facultative (l’export est toujours proposé). */
+    onBulk?: () => void;
+    bulkLabel?: string;
+    bulkIcon?: string;
     onClear: () => void;
 };
 
@@ -103,10 +104,12 @@ export function SelectionBar({ count, onExport, onBulk, bulkLabel, bulkIcon, onC
                 <Icon name="download" />
                 Exporter
             </button>
-            <button type="button" onClick={onBulk} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1_5)', height: 'var(--control-xs)', padding: '0 var(--space-3)', border: 0, borderRadius: 'var(--radius-md)', background: 'var(--c-accent)', color: 'var(--c-primary-strong)', cursor: 'pointer', fontWeight: 'var(--fw-bold)' }}>
-                <Icon name={bulkIcon} />
-                {bulkLabel}
-            </button>
+            {onBulk && (
+                <button type="button" onClick={onBulk} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1_5)', height: 'var(--control-xs)', padding: '0 var(--space-3)', border: 0, borderRadius: 'var(--radius-md)', background: 'var(--c-accent)', color: 'var(--c-primary-strong)', cursor: 'pointer', fontWeight: 'var(--fw-bold)' }}>
+                    <Icon name={bulkIcon ?? 'done_all'} />
+                    {bulkLabel}
+                </button>
+            )}
             <button type="button" onClick={onClear} aria-label="Désélectionner" style={{ width: 32, height: 32, border: 0, borderRadius: 'var(--radius-md)', background: 'transparent', color: 'var(--c-surface)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
                 <Icon name="close" />
             </button>

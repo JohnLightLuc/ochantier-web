@@ -307,7 +307,7 @@ class WorkerController extends Controller
     private function formOptions(): array
     {
         return [
-            'trades' => WorkerRequest::TRADES,
+            'trades' => config('admin.trades'),
             'communes' => WorkerRequest::COMMUNES,
             'nationalities' => WorkerRequest::NATIONALITIES,
             'qualifications' => WorkerRequest::QUALIFICATIONS,
@@ -355,7 +355,7 @@ class WorkerController extends Controller
             'candidates' => $tab === 'remplacements' ? $insights->replacementCandidates() : [],
             'commissionRate' => (int) config('admin.worker_commission_rate'),
             'options' => [
-                'trades' => WorkerRequest::TRADES,
+                'trades' => config('admin.trades'),
                 'communes' => WorkerRequest::COMMUNES,
                 'sites' => array_map(fn (array $s): string => $s[0], config('admin.demo_sites')),
             ],
