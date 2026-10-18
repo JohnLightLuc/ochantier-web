@@ -15,7 +15,7 @@ class DocumentTypeSeeder extends Seeder
 {
     /**
      * Code => [libellé, destinataire, options]. Options : required, identity, back, expiry, validity (mois),
-     * trade (code métier), images (images seules), sensitive.
+     * trade (code métier), images (images seules), archives (archives ZIP acceptées), max_kb (taille maximale), sensitive.
      *
      * Une pièce d’identité (identity) est exigée parmi celles du destinataire : aucune n’est obligatoire seule.
      *
@@ -46,7 +46,10 @@ class DocumentTypeSeeder extends Seeder
         'commercial_cni' => ['Pièce d’identité du commercial', DocumentAudience::Commercial, ['required' => true, 'identity' => true, 'back' => true, 'expiry' => true]],
         'commercial_contract' => ['Contrat ou charte commerciale signée', DocumentAudience::Commercial, ['required' => true]],
         'site_building_permit' => ['Permis de construire', DocumentAudience::Site, ['sensitive' => false]],
-        'site_plan' => ['Plan du chantier', DocumentAudience::Site, ['sensitive' => false]],
+        'site_plan' => ['Plan architectural', DocumentAudience::Site, ['sensitive' => false]],
+        'site_quote' => ['Devis estimatif', DocumentAudience::Site, ['sensitive' => false]],
+        'site_specifications' => ['Cahier des charges', DocumentAudience::Site, ['sensitive' => false]],
+        'site_other' => ['Autre document', DocumentAudience::Site, ['sensitive' => false, 'archives' => true, 'max_kb' => 25600]],
         'site_photo' => ['Photo du chantier', DocumentAudience::Site, ['images' => true, 'sensitive' => false]],
         'offer_quote' => ['Devis ou cahier des charges', DocumentAudience::Offer, ['sensitive' => false]],
         'mission_contract' => ['Contrat de mission', DocumentAudience::Mission, []],
@@ -134,7 +137,12 @@ class DocumentTypeSeeder extends Seeder
                 'has_back_side' => $options['back'] ?? false,
                 'requires_expiry' => $options['expiry'] ?? false,
                 'validity_months' => $options['validity'] ?? null,
-                'allowed_mime' => ($options['images'] ?? false) ? ['image/jpeg', 'image/png'] : ['application/pdf', 'image/jpeg', 'image/png'],
+                'allowed_mime' => match (true) {
+                    $options['images'] ?? false => ['image/jpeg', 'image/png'],
+                    $options['archives'] ?? false => ['application/pdf', 'image/jpeg', 'image/png', 'application/zip'],
+                    default => ['application/pdf', 'image/jpeg', 'image/png'],
+                },
+                'max_size_kb' => $options['max_kb'] ?? 10240,
                 'is_sensitive' => $options['sensitive'] ?? true,
                 'is_active' => true,
             ]);

@@ -37,12 +37,13 @@ class TradeSeeder extends Seeder
      * @var array<string, string>
      */
     private const CONSTRUCTION_TYPES = [
-        'maison_individuelle' => 'Maison individuelle',
-        'immeuble_residentiel' => 'Immeuble résidentiel',
-        'batiment_commercial' => 'Bâtiment commercial ou bureaux',
+        'villa' => 'Villa',
+        'duplex' => 'Duplex',
+        'immeuble' => 'Immeuble',
+        'local_commercial' => 'Local commercial',
+        'bureaux' => 'Bureaux',
         'equipement_public' => 'Équipement public (école, centre de santé…)',
         'batiment_industriel' => 'Bâtiment industriel ou entrepôt',
-        'renovation' => 'Rénovation ou réhabilitation',
         'voirie_reseaux' => 'Voirie et réseaux divers',
     ];
 
@@ -70,6 +71,9 @@ class TradeSeeder extends Seeder
         foreach (self::CONSTRUCTION_TYPES as $code => $label) {
             ConstructionType::query()->updateOrCreate(['code' => $code], ['label' => $label, 'is_active' => true]);
         }
+
+        // Types de bien des versions précédentes, remplacés par la liste de l’application Promoteur.
+        ConstructionType::query()->whereNotIn('code', array_keys(self::CONSTRUCTION_TYPES))->update(['is_active' => false]);
     }
 
     private function code(string $label): string

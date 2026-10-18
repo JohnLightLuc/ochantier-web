@@ -48,6 +48,11 @@ class AppServiceProvider extends ServiceProvider
             ? Models\Prospect::query()->whereKey($id)->where('commercial_id', request()->user()?->commercialProfile?->getKey())->firstOrFail()
             : throw (new ModelNotFoundException)->setModel(Models\Prospect::class, [$id]));
 
+        // Un promoteur n’accède qu’à ses propres chantiers : ceux des autres sont introuvables (404).
+        Route::bind('site', fn (string $id) => Str::isUuid($id)
+            ? Models\Site::query()->whereKey($id)->whereHas('promoterProfile', fn ($query) => $query->where('user_id', request()->user()?->getKey()))->firstOrFail()
+            : throw (new ModelNotFoundException)->setModel(Models\Site::class, [$id]));
+
         Route::bind('media', fn (string $id) => Str::isUuid($id)
             ? Models\MediaFile::query()->findOrFail($id)
             : throw (new ModelNotFoundException)->setModel(Models\MediaFile::class, [$id]));

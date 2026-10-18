@@ -11,29 +11,11 @@ use App\Models\Organization;
 use App\Models\Setting;
 use App\Models\User;
 use App\Models\VerificationReview;
-use Database\Seeders\DocumentTypeSeeder;
-use Database\Seeders\GeographySeeder;
 use Database\Seeders\HelpCenterSeeder;
-use Database\Seeders\TradeSeeder;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
-use Tests\Feature\Auth\AuthTestCase;
 
-class PromoterProfileTest extends AuthTestCase
+class PromoterProfileTest extends PromoterTestCase
 {
-    private User $promoter;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        Storage::fake(config('filesystems.media'));
-        $this->seed([GeographySeeder::class, TradeSeeder::class, DocumentTypeSeeder::class]);
-
-        $this->promoter = User::factory()->promoter()->create(['first_name' => null, 'last_name' => null, 'dial_code' => '225', 'phone_number' => '0712345634']);
-        $this->withAccessToken($this->openSession($this->promoter)->accessToken);
-    }
-
     public function test_a_new_account_lists_what_is_missing_for_the_verification(): void
     {
         $this->getJson('/api/v1/promoter/profile')
@@ -262,15 +244,5 @@ class PromoterProfileTest extends AuthTestCase
     {
         $this->post('/api/v1/promoter/profile/documents', ['document_type' => 'promoter_cni', 'recto' => $this->image('recto.jpg'), 'verso' => $this->image('verso.jpg')], ['Accept' => 'application/json'])->assertCreated();
         $this->post('/api/v1/promoter/profile/documents', ['document_type' => 'promoter_residence_certificate', 'file' => $this->pdf('residence.pdf')], ['Accept' => 'application/json'])->assertCreated();
-    }
-
-    private function image(string $name): UploadedFile
-    {
-        return UploadedFile::fake()->image($name, 800, 600);
-    }
-
-    private function pdf(string $name): UploadedFile
-    {
-        return UploadedFile::fake()->create($name, 120, 'application/pdf');
     }
 }

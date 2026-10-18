@@ -14,6 +14,8 @@ use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\Promoter\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileController as PromoterProfileController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileDocumentController;
+use App\Http\Controllers\Api\V1\Promoter\SiteController;
+use App\Http\Controllers\Api\V1\Promoter\SiteMediaController;
 use App\Http\Controllers\Api\V1\ReferenceController;
 use Illuminate\Support\Facades\Route;
 
@@ -28,7 +30,7 @@ use Illuminate\Support\Facades\Route;
 | Promoteur : inscription et connexion sans mot de passe, par code SMS ou e-mail.
 | Commercial : compte créé par le Back Office, connexion par mot de passe puis code SMS.
 | Espace commercial (prefix commercial) : prospects et dossiers ouvriers, contrat actif exigé.
-| Espace promoteur (prefix promoter) : profil, vérification et préférences.
+| Espace promoteur (prefix promoter) : profil, vérification, préférences et chantiers.
 |
 */
 
@@ -70,7 +72,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('referentials', ReferenceController::class)->name('referentials');
             Route::get('help', HelpController::class)->name('help');
 
-            // Application Promoteur : profil, pièces justificatives et préférences.
+            // Application Promoteur : profil, pièces justificatives, préférences et chantiers.
             Route::middleware('user.type:promoter')->prefix('promoter')->name('promoter.')->group(function () {
                 Route::get('profile', [PromoterProfileController::class, 'show'])->name('profile.show');
                 Route::patch('profile', [PromoterProfileController::class, 'update'])->name('profile.update');
@@ -80,6 +82,13 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::delete('profile/documents/{document}', [ProfileDocumentController::class, 'destroy'])->name('profile.documents.destroy');
                 Route::get('notification-preferences', [NotificationPreferenceController::class, 'show'])->name('notification-preferences.show');
                 Route::put('notification-preferences', [NotificationPreferenceController::class, 'update'])->name('notification-preferences.update');
+
+                Route::get('sites/form-options', [SiteController::class, 'formOptions'])->name('sites.form-options');
+                Route::apiResource('sites', SiteController::class);
+                Route::post('sites/{site}/photo', [SiteMediaController::class, 'storePhoto'])->name('sites.photo.store');
+                Route::delete('sites/{site}/photo', [SiteMediaController::class, 'destroyPhoto'])->name('sites.photo.destroy');
+                Route::post('sites/{site}/documents', [SiteMediaController::class, 'storeDocument'])->name('sites.documents.store');
+                Route::delete('sites/{site}/documents/{document}', [SiteMediaController::class, 'destroyDocument'])->name('sites.documents.destroy');
             });
 
             // Application Commercial : prospects et dossiers ouvriers.

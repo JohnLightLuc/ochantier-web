@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Casts\GeoPoint;
 use App\Enums\Priority;
 use App\Enums\SiteStatus;
+use App\Enums\SiteWorkType;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -21,7 +23,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'commune_id', 'neighborhood_id', 'access_instructions', 'location', 'geofence_radius_m', 'planned_start_date',
     'planned_duration_days', 'planned_end_date', 'work_start_time', 'work_end_time', 'status', 'submitted_at',
     'validated_at', 'validated_by_admin_id', 'assigned_admin_id', 'closed_at', 'closed_by_admin_id',
-    'cancellation_reason', 'archived_at', 'client_uuid', 'lock_version',
+    'cancellation_reason', 'archived_at', 'client_uuid', 'lock_version', 'work_type', 'responsible_user_id',
 ])]
 class Site extends Model
 {
@@ -36,6 +38,8 @@ class Site extends Model
     {
         return [
             'priority' => Priority::class,
+            'work_type' => SiteWorkType::class,
+            'location' => GeoPoint::class,
             'planned_start_date' => 'date',
             'planned_end_date' => 'date',
             'status' => SiteStatus::class,
@@ -52,6 +56,14 @@ class Site extends Model
     public function promoterProfile(): BelongsTo
     {
         return $this->belongsTo(PromoterProfile::class);
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function responsibleUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'responsible_user_id');
     }
 
     /**
