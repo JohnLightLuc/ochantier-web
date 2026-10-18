@@ -1,0 +1,3062 @@
+{
+  "info": {
+    "_postman_id": "440084b3-1b5c-5760-8de1-a8bc263e2066",
+    "name": "O’CHANTIER API v1",
+    "description": "API REST des applications mobiles **Promoteur** et **Commercial** d’O’CHANTIER (l’application Ouvrier arrive en V2). Cette version couvre l’**authentification** ; les modules métier (chantiers, offres, matching, pointage, paiements) seront ajoutés au fur et à mesure.\n\n## Démarrage rapide\n\n1. Lancer l’API : `docker compose up -d`, `php artisan migrate:fresh --seed`, `php artisan serve`.\n2. Importer cette collection et l’environnement **O’CHANTIER · Local**.\n3. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : chaque connexion enregistre les jetons dans les variables de la collection, et les requêtes suivantes les utilisent.\n\nLa collection est rejouable : elle tire au hasard les nouveaux numéros et remet le mot de passe du commercial de démonstration. Entre deux exécutions, attendre **45 secondes**, le délai avant de pouvoir redemander un code au même destinataire.\n\nLes exemples de réponse de chaque requête ont été capturés sur l’API locale avec les données de démonstration.\n\n## Conventions\n\n- **Base** : `{{base_url}}` = `http://localhost:8000/api/v1`.\n- **En-têtes** : `Accept: application/json` sur toutes les requêtes ; `Content-Type: application/json` pour les corps.\n- **Téléphone** : numéro ivoirien à 10 chiffres, avec ou sans `+225`, espaces acceptés (`0700000002`, `07 00 00 00 02`, `+2250700000002`). Il est renvoyé formaté : `+225 07 00 00 00 02`.\n- **Statuts et types** : objets `{ \"value\": \"actif\", \"label\": \"Actif\" }`. L’application se fie à `value` et affiche `label`.\n- **Dates** : ISO 8601 en UTC (`2026-10-18T13:06:23+00:00`).\n- **Messages** : en français, prêts à être affichés.\n\n## Authentification\n\n| Application | Inscription | Connexion |\n|---|---|---|\n| Promoteur | Libre, sans mot de passe : code d’activation par SMS ou e-mail | Code à 6 chiffres par SMS ou e-mail |\n| Commercial | Compte créé par le Back Office, avec un mot de passe provisoire | Mot de passe, puis code à 6 chiffres par SMS |\n\n**Jetons**\n- `access_token` : JWT signé (HS256), valable **15 minutes**, envoyé dans `Authorization: Bearer <jeton>`.\n- `refresh_token` : chaîne opaque de 64 caractères, valable **30 jours**, **à usage unique**. `POST /auth/refresh` renvoie une nouvelle paire ; l’ancien jeton devient invalide.\n- Chaque connexion ouvre une **session** par appareil (`session_id`), visible dans « Appareils connectés » et révocable.\n\nSur un **401** : rafraîchir les jetons une fois, puis renvoyer à l’écran de connexion si le rafraîchissement échoue aussi.\n\n**Codes à usage unique (OTP)** : 6 chiffres, valables 5 minutes, 5 essais par code, nouveau code possible après 45 secondes. Hors production, le code fixe `OTP_TEST_CODE` (`123456` en local) est accepté. Les SMS et e-mails sont écrits dans `storage/logs/laravel.log`.\n\n**Mot de passe provisoire** (commercial) : tant que `user.must_change_password` vaut `true`, seules `GET /me`, `POST /auth/logout` et `PUT /auth/password` répondent ; les autres routes renvoient **403** avec `\"code\": \"password_change_required\"`.\n\n## Réponses d’erreur\n\n| Code | Cas | Corps |\n|---|---|---|\n| 401 | Jeton absent, expiré ou session fermée | `{ \"message\": \"Session expirée : reconnectez-vous.\" }` |\n| 403 | Compte suspendu ou désactivé, route d’une autre application, mot de passe provisoire à changer | `{ \"message\": \"…\" }` (+ `code` pour `password_change_required`) |\n| 404 | Ressource introuvable ou n’appartenant pas au compte | `{ \"message\": \"…\" }` |\n| 422 | Champs invalides, code faux ou expiré | `{ \"message\": \"…\", \"errors\": { \"champ\": [\"…\"] } }` |\n| 423 | Commercial verrouillé après 5 mauvais mots de passe (15 min) | `{ \"message\": \"…\", \"locked_until\": \"…\" }` |\n| 429 | Nouveau code demandé trop tôt, ou trop de requêtes | `{ \"message\": \"…\", \"retry_after\": 45 }` + en-tête `Retry-After` |\n\n## Limites de débit\n\n| Requêtes | Limite |\n|---|---|\n| Envoi de code (inscription, connexion promoteur, mot de passe oublié, changement de numéro) | 3 par minute par destinataire, 10 par heure par adresse IP |\n| Mot de passe du commercial | 10 par minute par numéro, 20 par minute par IP |\n| Vérification d’un code | 10 par minute |\n| Rafraîchissement | 30 par minute |\n\n## Comptes de démonstration (`php artisan db:seed`, hors production)\n\n| Application | Identifiant | Mot de passe |\n|---|---|---|\n| Promoteur particulier | `0700000001` | — |\n| Promoteur entreprise | `0700000002` ou `promoteur@demo.ochantier.ci` | — |\n| Commercial | `0500000001` | `motdepasse1` |\n| Commercial à activer (mot de passe provisoire) | `0500000002` | `provisoire1` |\n",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "id": "5a010279-cfd4-5172-9268-c7e457d3c571",
+      "name": "Promoteur",
+      "item": [
+        {
+          "id": "7cebe7e6-e446-5df6-9997-dac7cd7327d3",
+          "name": "Inscription",
+          "item": [
+            {
+              "id": "8774d936-2b7f-5c47-bdfb-af8ebbc6c962",
+              "name": "Créer un compte",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('new_promoter_phone', '07' + String(Math.floor(Math.random() * 1e8)).padStart(8, '0'));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 202', () => pm.response.to.have.status(202));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/promoter/register",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "promoter",
+                    "register"
+                  ]
+                },
+                "description": "Écran « Créer votre compte ». Crée le compte promoteur **en attente d’activation** et envoie un code d’activation à 6 chiffres par SMS (`phone`) ou par e-mail (`email`). Aucun mot de passe.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `profile_kind` | oui | `particulier`, `technicien` ou `entreprise`. |\n| `company_name` | si entreprise | Raison sociale, 200 caractères max. |\n| `phone` | sans `email` | Numéro ivoirien à 10 chiffres, avec ou sans `+225`, espaces acceptés. |\n| `email` | sans `phone` | Adresse e-mail. |\n| `accept_terms` | oui | `true` : acceptation des CGU et de la politique de confidentialité. |\n\nUne inscription non terminée peut être reprise avec les mêmes coordonnées (le profil est mis à jour). Si un compte actif existe déjà : **422** « Un compte existe déjà avec ces coordonnées. Connectez-vous. »\n\nLe script de pré-requête tire un numéro aléatoire pour que la collection puisse être rejouée.\n\n**Réponse 202** : `channel` (`sms` ou `email`), `destination` masquée, `expires_in` (validité du code en secondes), `resend_in` (délai avant de pouvoir redemander un code, en secondes).\nUne nouvelle demande avant ce délai renvoie **429** avec `retry_after` et l’en-tête `Retry-After`.\n",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"profile_kind\": \"entreprise\",\n  \"company_name\": \"Immobilière Lagune\",\n  \"phone\": \"{{new_promoter_phone}}\",\n  \"accept_terms\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": [
+                {
+                  "id": "49a099b5-b584-5a0e-a637-9075955ee50e",
+                  "name": "422 · Champs invalides",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/promoter/register",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "promoter",
+                        "register"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"profile_kind\": \"particulier\",\n  \"phone\": \"0712\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "3"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "2"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Saisissez un numéro à 10 chiffres. (and 1 more error)\",\n  \"errors\": {\n    \"phone\": [\n      \"Saisissez un numéro à 10 chiffres.\"\n    ],\n    \"accept_terms\": [\n      \"Acceptez les conditions d’utilisation et la politique de confidentialité.\"\n    ]\n  }\n}"
+                },
+                {
+                  "id": "77f2de28-4477-53e2-8730-6b715fb61cc9",
+                  "name": "202 · Code d’activation envoyé (entreprise)",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/promoter/register",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "promoter",
+                        "register"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"profile_kind\": \"entreprise\",\n  \"company_name\": \"Immobilière Lagune\",\n  \"phone\": \"0712345678\",\n  \"accept_terms\": true\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Accepted",
+                  "code": 202,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "3"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "2"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Code d’activation envoyé.\",\n  \"channel\": \"sms\",\n  \"destination\": \"+225 07 •• •• •• 78\",\n  \"expires_in\": 300,\n  \"resend_in\": 45\n}"
+                },
+                {
+                  "id": "c1cc9272-7d9f-53eb-8bb0-22a5bd1d186d",
+                  "name": "429 · Nouveau code demandé trop tôt",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/promoter/register",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "promoter",
+                        "register"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"profile_kind\": \"entreprise\",\n  \"company_name\": \"Immobilière Lagune\",\n  \"phone\": \"0712345678\",\n  \"accept_terms\": true\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Too Many Requests",
+                  "code": 429,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Retry-After",
+                      "value": "45"
+                    },
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "3"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "1"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Patientez 45 s avant de demander un nouveau code.\",\n  \"retry_after\": 45\n}"
+                }
+              ]
+            },
+            {
+              "id": "961cf4e0-569b-509c-a74c-dd02ffba8d53",
+              "name": "Activer le compte",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 201', () => pm.response.to.have.status(201));",
+                      "const body = pm.response.json();",
+                      "pm.test('Session ouverte', () => pm.expect(body.access_token).to.be.a('string'));",
+                      "pm.collectionVariables.set('previous_session_id', pm.collectionVariables.get('session_id') || '');",
+                      "pm.collectionVariables.set('access_token', body.access_token);",
+                      "pm.collectionVariables.set('refresh_token', body.refresh_token);",
+                      "pm.collectionVariables.set('session_id', body.session_id);",
+                      "pm.collectionVariables.set('registered_access_token', body.access_token);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/promoter/register/verify",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "promoter",
+                    "register",
+                    "verify"
+                  ]
+                },
+                "description": "Vérifie le code d’activation, active le compte, enregistre les consentements (CGU et confidentialité en vigueur) et ouvre une session : **201**.\n\n`phone` ou `email` (le même qu’à l’inscription), `code` (6 chiffres).\n\n**Appareil** (enregistré sur la session, visible dans « Appareils connectés ») :\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `device_name` | oui | Nom affiché, 120 caractères max (ex. « iPhone 15 »). |\n| `device_id` | non | Identifiant stable de l’appareil, 100 caractères max. Sert aussi à révoquer ses jetons push à la déconnexion. |\n| `platform` | non | `android`, `ios` ou `web`. |\n| `app_version` | non | Version de l’application, ex. `1.0.0`. |\n\n**Réponse** : `token_type`, `access_token` (JWT, 15 min), `expires_in` (secondes), `refresh_token` (64 caractères, 30 jours, usage unique), `refresh_expires_at`, `session_id` et `user`.\nLe script de test enregistre les jetons dans les variables de la collection.\n\nCode faux ou expiré : **422** sur `code` (5 essais par code).",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{new_promoter_phone}}\",\n  \"code\": \"{{otp_code}}\",\n  \"device_name\": \"{{device_name}}\",\n  \"device_id\": \"{{device_id}}\",\n  \"platform\": \"{{platform}}\",\n  \"app_version\": \"{{app_version}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": [
+                {
+                  "id": "428b56e4-5276-5471-a112-e928bd7da06c",
+                  "name": "422 · Code incorrect",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/promoter/register/verify",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "promoter",
+                        "register",
+                        "verify"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"phone\": \"0712345678\",\n  \"code\": \"000000\",\n  \"device_name\": \"Pixel 8\",\n  \"device_id\": \"pixel-8-demo\",\n  \"platform\": \"android\",\n  \"app_version\": \"1.0.0\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "10"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "9"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Code incorrect ou expiré.\",\n  \"errors\": {\n    \"code\": [\n      \"Code incorrect ou expiré.\"\n    ]\n  }\n}"
+                },
+                {
+                  "id": "7d7ad2a4-cecf-5812-9165-a9a8b25c9156",
+                  "name": "201 · Compte activé",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/promoter/register/verify",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "promoter",
+                        "register",
+                        "verify"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"phone\": \"0712345678\",\n  \"code\": \"123456\",\n  \"device_name\": \"Pixel 8\",\n  \"device_id\": \"pixel-8-demo\",\n  \"platform\": \"android\",\n  \"app_version\": \"1.0.0\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "10"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "8"
+                    }
+                  ],
+                  "body": "{\n  \"token_type\": \"Bearer\",\n  \"access_token\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjgwMDAiLCJzdWIiOiIwMWExNGYxZS1jYjAxLTcyYjktYWM0ZS04OGJjMTk1Y2VjODYiLCJzaWQiOiIwMWExNGYxZS1kMDZlLTcwZjctYTk4ZS1lMWQxN2JlZmQ5MTgiLCJqdGkiOiI2ZWQyMjIzNi0wYTgxLTQwNjYtYjUwZC0zZThhYjRlMGI5ZGMiLCJ0eXAiOiJ1c2VyIiwiYXBwIjoicHJvbW90ZXVyIiwiaWF0IjoxNzkyMzI4NzgxLCJuYmYiOjE3OTIzMjg3ODEsImV4cCI6MTc5MjMyOTY4MX0.ixK3Ipeu9S3LMd_8TsGG29-nAQlRmgNacSqhiEQ2ZZk\",\n  \"expires_in\": 900,\n  \"refresh_token\": \"HLUYScKfk6tEpGyPDkoNGEZrebPa2bBfF25iNGnfjsieYHM3lG6CHDG3aZrNOlK2\",\n  \"refresh_expires_at\": \"2026-11-17T13:06:21+00:00\",\n  \"session_id\": \"01a14f1e-d06e-70f7-a98e-e1d17befd918\",\n  \"user\": {\n    \"id\": \"01a14f1e-cb01-72b9-ac4e-88bc195cec86\",\n    \"type\": {\n      \"value\": \"promoter\",\n      \"label\": \"Promoteur\"\n    },\n    \"status\": {\n      \"value\": \"actif\",\n      \"label\": \"Actif\"\n    },\n    \"first_name\": null,\n    \"last_name\": null,\n    \"phone\": \"+225 07 12 34 56 78\",\n    \"phone_verified\": true,\n    \"email\": null,\n    \"email_verified\": false,\n    \"locale\": \"fr\",\n    \"must_change_password\": false,\n    \"last_login_at\": \"2026-10-18T13:06:21+00:00\",\n    \"promoter\": {\n      \"id\": \"01a14f1e-cb11-7276-9513-301a686a168e\",\n      \"profile_kind\": {\n        \"value\": \"entreprise\",\n        \"label\": \"Entreprise\"\n      },\n      \"verification_status\": {\n        \"value\": \"brouillon\",\n        \"label\": \"Brouillon\"\n      },\n      \"organization\": {\n        \"id\": \"01a14f1e-cb16-7133-a13e-6ce1aebde911\",\n        \"legal_name\": \"Immobilière Lagune\",\n        \"trade_name\": null\n      }\n    },\n    \"commercial\": null\n  }\n}"
+                }
+              ]
+            }
+          ],
+          "description": "Création du compte puis activation par le code reçu."
+        },
+        {
+          "id": "cd4b2569-255f-567a-b731-faf2e96a7de4",
+          "name": "Connexion",
+          "item": [
+            {
+              "id": "883bba43-b29b-5761-b432-6758d4e04d13",
+              "name": "Demander un code de connexion",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 202', () => pm.response.to.have.status(202));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/promoter/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "promoter",
+                    "login"
+                  ]
+                },
+                "description": "Écran « Bon retour parmi nous ». Envoie un code de connexion par SMS (`phone`) ou par e-mail (`email`).\n\nLa réponse est **identique qu’un compte existe ou non**, pour ne pas révéler les coordonnées inscrites.\n\n**Réponse 202** : `channel` (`sms` ou `email`), `destination` masquée, `expires_in` (validité du code en secondes), `resend_in` (délai avant de pouvoir redemander un code, en secondes).\nUne nouvelle demande avant ce délai renvoie **429** avec `retry_after` et l’en-tête `Retry-After`.\n",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{promoter_phone}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": [
+                {
+                  "id": "7bcf57e8-878e-5c80-a82b-1bf315813d07",
+                  "name": "202 · Code envoyé par SMS",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/promoter/login",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "promoter",
+                        "login"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"phone\": \"0700000002\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Accepted",
+                  "code": 202,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "3"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "2"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Si un compte est associé à ces coordonnées, un code vient de lui être envoyé.\",\n  \"channel\": \"sms\",\n  \"destination\": \"+225 07 •• •• •• 02\",\n  \"expires_in\": 300,\n  \"resend_in\": 45\n}"
+                }
+              ]
+            },
+            {
+              "id": "4719951a-d1f6-5707-ae1d-1e7350e09512",
+              "name": "Se connecter avec le code",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Session ouverte', () => pm.expect(body.access_token).to.be.a('string'));",
+                      "pm.collectionVariables.set('previous_session_id', pm.collectionVariables.get('session_id') || '');",
+                      "pm.collectionVariables.set('access_token', body.access_token);",
+                      "pm.collectionVariables.set('refresh_token', body.refresh_token);",
+                      "pm.collectionVariables.set('session_id', body.session_id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/promoter/login/verify",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "promoter",
+                    "login",
+                    "verify"
+                  ]
+                },
+                "description": "Vérifie le code et ouvre une session sur cet appareil.\n\n`phone` ou `email` (celui utilisé pour demander le code), `code` (6 chiffres).\n\n**Appareil** (enregistré sur la session, visible dans « Appareils connectés ») :\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `device_name` | oui | Nom affiché, 120 caractères max (ex. « iPhone 15 »). |\n| `device_id` | non | Identifiant stable de l’appareil, 100 caractères max. Sert aussi à révoquer ses jetons push à la déconnexion. |\n| `platform` | non | `android`, `ios` ou `web`. |\n| `app_version` | non | Version de l’application, ex. `1.0.0`. |\n\n**Réponse** : `token_type`, `access_token` (JWT, 15 min), `expires_in` (secondes), `refresh_token` (64 caractères, 30 jours, usage unique), `refresh_expires_at`, `session_id` et `user`.\nLe script de test enregistre les jetons dans les variables de la collection.\n\nCompte suspendu ou désactivé : **403** avec le motif. Code faux ou expiré : **422**.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{promoter_phone}}\",\n  \"code\": \"{{otp_code}}\",\n  \"device_name\": \"{{device_name}}\",\n  \"device_id\": \"{{device_id}}\",\n  \"platform\": \"{{platform}}\",\n  \"app_version\": \"{{app_version}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": [
+                {
+                  "id": "3175b9c2-6fc6-5a86-884f-c79f42a11057",
+                  "name": "200 · Connecté (téléphone)",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/promoter/login/verify",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "promoter",
+                        "login",
+                        "verify"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"phone\": \"0700000002\",\n  \"code\": \"123456\",\n  \"device_name\": \"Pixel 8\",\n  \"device_id\": \"pixel-8-demo\",\n  \"platform\": \"android\",\n  \"app_version\": \"1.0.0\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "10"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "7"
+                    }
+                  ],
+                  "body": "{\n  \"token_type\": \"Bearer\",\n  \"access_token\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjgwMDAiLCJzdWIiOiIwMWExNGYxZC04NmM2LTcxZWMtYWQwMS1jNDRiOGY3MjViNGUiLCJzaWQiOiIwMWExNGYxZS1kNDUyLTcxZGUtOTNlOS0wNjBhOTNiMzJhNmIiLCJqdGkiOiIxNWZlOWFjNC1jNzhiLTQ5YTAtOWVhMC00NzVmMjhkOTdmNjMiLCJ0eXAiOiJ1c2VyIiwiYXBwIjoicHJvbW90ZXVyIiwiaWF0IjoxNzkyMzI4NzgyLCJuYmYiOjE3OTIzMjg3ODIsImV4cCI6MTc5MjMyOTY4Mn0.50LYxWuj_Bp35ItY_r-Zg6NdthZfvpVJBp97Qr1iUoI\",\n  \"expires_in\": 900,\n  \"refresh_token\": \"s4oredJRkFgWSqk7DFvF45hXsQWEDVagj0dDeRh6861xVz8oNtXNAWRxqSSmksga\",\n  \"refresh_expires_at\": \"2026-11-17T13:06:22+00:00\",\n  \"session_id\": \"01a14f1e-d452-71de-93e9-060a93b32a6b\",\n  \"user\": {\n    \"id\": \"01a14f1d-86c6-71ec-ad01-c44b8f725b4e\",\n    \"type\": {\n      \"value\": \"promoter\",\n      \"label\": \"Promoteur\"\n    },\n    \"status\": {\n      \"value\": \"actif\",\n      \"label\": \"Actif\"\n    },\n    \"first_name\": \"Mariam\",\n    \"last_name\": \"Traoré\",\n    \"phone\": \"+225 07 00 00 00 02\",\n    \"phone_verified\": true,\n    \"email\": \"promoteur@demo.ochantier.ci\",\n    \"email_verified\": true,\n    \"locale\": \"fr\",\n    \"must_change_password\": false,\n    \"last_login_at\": \"2026-10-18T13:06:22+00:00\",\n    \"promoter\": {\n      \"id\": \"01a14f1d-86c7-717a-8c7d-f7cc4a86f000\",\n      \"profile_kind\": {\n        \"value\": \"entreprise\",\n        \"label\": \"Entreprise\"\n      },\n      \"verification_status\": {\n        \"value\": \"brouillon\",\n        \"label\": \"Brouillon\"\n      },\n      \"organization\": {\n        \"id\": \"01a14f1d-86ca-733d-89b3-d42987791bb2\",\n        \"legal_name\": \"Bâtisseurs d’Angré SARL\",\n        \"trade_name\": \"Bâtisseurs d’Angré\"\n      }\n    },\n    \"commercial\": null\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "a2c87d71-b2ec-5d81-b709-5eeeecfcb73b",
+              "name": "Demander un code de connexion (e-mail)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 202', () => pm.response.to.have.status(202));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/promoter/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "promoter",
+                    "login"
+                  ]
+                },
+                "description": "Même point d’entrée que la connexion par téléphone, avec `email` à la place de `phone`. En local, l’e-mail est écrit dans `storage/logs/laravel.log`.\n**Réponse 202** : `channel` (`sms` ou `email`), `destination` masquée, `expires_in` (validité du code en secondes), `resend_in` (délai avant de pouvoir redemander un code, en secondes).\nUne nouvelle demande avant ce délai renvoie **429** avec `retry_after` et l’en-tête `Retry-After`.\n",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{promoter_email}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": [
+                {
+                  "id": "087193dd-b27d-594c-b696-42d3a795767f",
+                  "name": "202 · Code envoyé par e-mail",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/promoter/login",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "promoter",
+                        "login"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"email\": \"promoteur@demo.ochantier.ci\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Accepted",
+                  "code": 202,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "3"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "2"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Si un compte est associé à ces coordonnées, un code vient de lui être envoyé.\",\n  \"channel\": \"email\",\n  \"destination\": \"p•••@demo.ochantier.ci\",\n  \"expires_in\": 300,\n  \"resend_in\": 45\n}"
+                }
+              ]
+            },
+            {
+              "id": "fa96edb2-ab80-5e84-bd2e-ba5ff501afd3",
+              "name": "Se connecter avec le code (e-mail)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Session ouverte', () => pm.expect(body.access_token).to.be.a('string'));",
+                      "pm.collectionVariables.set('previous_session_id', pm.collectionVariables.get('session_id') || '');",
+                      "pm.collectionVariables.set('access_token', body.access_token);",
+                      "pm.collectionVariables.set('refresh_token', body.refresh_token);",
+                      "pm.collectionVariables.set('session_id', body.session_id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/promoter/login/verify",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "promoter",
+                    "login",
+                    "verify"
+                  ]
+                },
+                "description": "Connexion avec le code reçu par e-mail. Ouvre une seconde session (autre appareil) : la précédente est conservée dans `previous_session_id` pour l’exemple « Déconnecter un appareil ».\n**Réponse** : `token_type`, `access_token` (JWT, 15 min), `expires_in` (secondes), `refresh_token` (64 caractères, 30 jours, usage unique), `refresh_expires_at`, `session_id` et `user`.\nLe script de test enregistre les jetons dans les variables de la collection.\n",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{promoter_email}}\",\n  \"code\": \"{{otp_code}}\",\n  \"device_name\": \"iPhone 15\",\n  \"device_id\": \"iphone-15-postman\",\n  \"platform\": \"ios\",\n  \"app_version\": \"{{app_version}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": [
+                {
+                  "id": "6f474d52-35df-507d-b617-a00c6049ecc9",
+                  "name": "200 · Connecté (e-mail)",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/promoter/login/verify",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "promoter",
+                        "login",
+                        "verify"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"email\": \"promoteur@demo.ochantier.ci\",\n  \"code\": \"123456\",\n  \"device_name\": \"iPhone 15\",\n  \"device_id\": \"iphone-15-demo\",\n  \"platform\": \"ios\",\n  \"app_version\": \"1.0.0\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "10"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "6"
+                    }
+                  ],
+                  "body": "{\n  \"token_type\": \"Bearer\",\n  \"access_token\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjgwMDAiLCJzdWIiOiIwMWExNGYxZC04NmM2LTcxZWMtYWQwMS1jNDRiOGY3MjViNGUiLCJzaWQiOiIwMWExNGYxZS1kN2YyLTcwODktYWE4OC1mODcxM2YzMGEwNmIiLCJqdGkiOiJmNDc5OWVhMS1kMjg2LTRlM2MtODhhMi05MzFiMWQwYTA2OGIiLCJ0eXAiOiJ1c2VyIiwiYXBwIjoicHJvbW90ZXVyIiwiaWF0IjoxNzkyMzI4NzgzLCJuYmYiOjE3OTIzMjg3ODMsImV4cCI6MTc5MjMyOTY4M30.sOK5rt4gJYcv6Y5zP1xTA99FJwU54XEnZJz4ddjcLtU\",\n  \"expires_in\": 900,\n  \"refresh_token\": \"sB9eg0bIToJUS0B7xwgH2MycoMX6EFeVJwnXQPM5L7VfdNoxsgm8WGxqcrgGn5mU\",\n  \"refresh_expires_at\": \"2026-11-17T13:06:23+00:00\",\n  \"session_id\": \"01a14f1e-d7f2-7089-aa88-f8713f30a06b\",\n  \"user\": {\n    \"id\": \"01a14f1d-86c6-71ec-ad01-c44b8f725b4e\",\n    \"type\": {\n      \"value\": \"promoter\",\n      \"label\": \"Promoteur\"\n    },\n    \"status\": {\n      \"value\": \"actif\",\n      \"label\": \"Actif\"\n    },\n    \"first_name\": \"Mariam\",\n    \"last_name\": \"Traoré\",\n    \"phone\": \"+225 07 00 00 00 02\",\n    \"phone_verified\": true,\n    \"email\": \"promoteur@demo.ochantier.ci\",\n    \"email_verified\": true,\n    \"locale\": \"fr\",\n    \"must_change_password\": false,\n    \"last_login_at\": \"2026-10-18T13:06:23+00:00\",\n    \"promoter\": {\n      \"id\": \"01a14f1d-86c7-717a-8c7d-f7cc4a86f000\",\n      \"profile_kind\": {\n        \"value\": \"entreprise\",\n        \"label\": \"Entreprise\"\n      },\n      \"verification_status\": {\n        \"value\": \"brouillon\",\n        \"label\": \"Brouillon\"\n      },\n      \"organization\": {\n        \"id\": \"01a14f1d-86ca-733d-89b3-d42987791bb2\",\n        \"legal_name\": \"Bâtisseurs d’Angré SARL\",\n        \"trade_name\": \"Bâtisseurs d’Angré\"\n      }\n    },\n    \"commercial\": null\n  }\n}"
+                }
+              ]
+            }
+          ],
+          "description": "Connexion par téléphone, puis par e-mail (deuxième appareil)."
+        }
+      ],
+      "description": "Application Promoteur : inscription et connexion **sans mot de passe**, par code à 6 chiffres reçu par SMS ou par e-mail."
+    },
+    {
+      "id": "38db8698-000b-5d25-81ab-f2f1bf3cc997",
+      "name": "Compte",
+      "item": [
+        {
+          "id": "c6acd385-b50c-5842-91b1-de5aa97d91d4",
+          "name": "Compte connecté",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "me"
+              ]
+            },
+            "description": "Compte de l’utilisateur connecté, dans `data`.\n\nStatuts et types sont renvoyés sous la forme `{ \"value\": \"...\", \"label\": \"...\" }` (libellé en français). `promoter` (profil, statut de vérification, organisation) ou `commercial` (matricule, statuts) selon l’application ; l’autre vaut `null`.\n\nAccessible même avec un mot de passe provisoire non remplacé."
+          },
+          "response": [
+            {
+              "id": "733f242a-e1a6-51b9-befc-6844d28875d5",
+              "name": "200 · Promoteur (entreprise)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/me",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "me"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-RateLimit-Limit",
+                  "value": "120"
+                },
+                {
+                  "key": "X-RateLimit-Remaining",
+                  "value": "119"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"id\": \"01a14f1d-86c6-71ec-ad01-c44b8f725b4e\",\n    \"type\": {\n      \"value\": \"promoter\",\n      \"label\": \"Promoteur\"\n    },\n    \"status\": {\n      \"value\": \"actif\",\n      \"label\": \"Actif\"\n    },\n    \"first_name\": \"Mariam\",\n    \"last_name\": \"Traoré\",\n    \"phone\": \"+225 07 00 00 00 02\",\n    \"phone_verified\": true,\n    \"email\": \"promoteur@demo.ochantier.ci\",\n    \"email_verified\": true,\n    \"locale\": \"fr\",\n    \"must_change_password\": false,\n    \"last_login_at\": \"2026-10-18T13:06:23+00:00\",\n    \"promoter\": {\n      \"id\": \"01a14f1d-86c7-717a-8c7d-f7cc4a86f000\",\n      \"profile_kind\": {\n        \"value\": \"entreprise\",\n        \"label\": \"Entreprise\"\n      },\n      \"verification_status\": {\n        \"value\": \"brouillon\",\n        \"label\": \"Brouillon\"\n      },\n      \"organization\": {\n        \"id\": \"01a14f1d-86ca-733d-89b3-d42987791bb2\",\n        \"legal_name\": \"Bâtisseurs d’Angré SARL\",\n        \"trade_name\": \"Bâtisseurs d’Angré\"\n      }\n    },\n    \"commercial\": null\n  }\n}"
+            },
+            {
+              "id": "a6b8ef59-6fcd-5cee-acf4-877a6e4967b9",
+              "name": "401 · Jeton absent ou expiré",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/me",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "me"
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"Session expirée : reconnectez-vous.\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "354e307b-2d00-51cc-bb34-516bc91b8377",
+          "name": "Changer de numéro",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('new_phone', '01' + String(Math.floor(Math.random() * 1e8)).padStart(8, '0'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 202', () => pm.response.to.have.status(202));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/me/phone",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "me",
+                "phone"
+              ]
+            },
+            "description": "Envoie un code de confirmation par SMS au **nouveau** numéro. Le numéro ne doit pas être déjà utilisé par un autre compte de la même application (422).\n\nDans cette collection, la requête utilise le compte créé dans « Inscription » pour ne pas modifier les comptes de démonstration.\n**Réponse 202** : `channel` (`sms` ou `email`), `destination` masquée, `expires_in` (validité du code en secondes), `resend_in` (délai avant de pouvoir redemander un code, en secondes).\nUne nouvelle demande avant ce délai renvoie **429** avec `retry_after` et l’en-tête `Retry-After`.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{new_phone}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{registered_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "id": "b44d4b36-e6dc-5a3e-a2fc-9653c492dcc5",
+              "name": "202 · Code envoyé au nouveau numéro",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/me/phone",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "me",
+                    "phone"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"0711111111\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Accepted",
+              "code": 202,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-RateLimit-Limit",
+                  "value": "3"
+                },
+                {
+                  "key": "X-RateLimit-Remaining",
+                  "value": "2"
+                }
+              ],
+              "body": "{\n  \"message\": \"Code de confirmation envoyé au nouveau numéro.\",\n  \"channel\": \"sms\",\n  \"destination\": \"+225 07 •• •• •• 11\",\n  \"expires_in\": 300,\n  \"resend_in\": 45\n}"
+            },
+            {
+              "id": "12000966-1712-59cf-a847-40bd1a917f73",
+              "name": "422 · Numéro déjà utilisé",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/me/phone",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "me",
+                    "phone"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"0700000001\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unprocessable Content",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-RateLimit-Limit",
+                  "value": "3"
+                },
+                {
+                  "key": "X-RateLimit-Remaining",
+                  "value": "2"
+                }
+              ],
+              "body": "{\n  \"message\": \"Ce numéro est déjà utilisé par un autre compte.\",\n  \"errors\": {\n    \"phone\": [\n      \"Ce numéro est déjà utilisé par un autre compte.\"\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "id": "4849930f-922a-593c-bb93-017728897353",
+          "name": "Confirmer le nouveau numéro",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/me/phone/verify",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "me",
+                "phone",
+                "verify"
+              ]
+            },
+            "description": "Enregistre le nouveau numéro une fois le code confirmé. Réponse : le compte à jour, comme `GET /me`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{new_phone}}\",\n  \"code\": \"{{otp_code}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{registered_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "id": "96ab98ff-3d2d-5081-b3c4-d87a28c7e72f",
+              "name": "200 · Numéro confirmé",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/me/phone/verify",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "me",
+                    "phone",
+                    "verify"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"0711111111\",\n  \"code\": \"123456\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-RateLimit-Limit",
+                  "value": "10"
+                },
+                {
+                  "key": "X-RateLimit-Remaining",
+                  "value": "9"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"id\": \"01a14f1e-cb01-72b9-ac4e-88bc195cec86\",\n    \"type\": {\n      \"value\": \"promoter\",\n      \"label\": \"Promoteur\"\n    },\n    \"status\": {\n      \"value\": \"actif\",\n      \"label\": \"Actif\"\n    },\n    \"first_name\": null,\n    \"last_name\": null,\n    \"phone\": \"+225 07 11 11 11 11\",\n    \"phone_verified\": true,\n    \"email\": null,\n    \"email_verified\": false,\n    \"locale\": \"fr\",\n    \"must_change_password\": false,\n    \"last_login_at\": \"2026-10-18T13:06:21+00:00\",\n    \"promoter\": {\n      \"id\": \"01a14f1e-cb11-7276-9513-301a686a168e\",\n      \"profile_kind\": {\n        \"value\": \"entreprise\",\n        \"label\": \"Entreprise\"\n      },\n      \"verification_status\": {\n        \"value\": \"brouillon\",\n        \"label\": \"Brouillon\"\n      },\n      \"organization\": {\n        \"id\": \"01a14f1e-cb16-7133-a13e-6ce1aebde911\",\n        \"legal_name\": \"Immobilière Lagune\",\n        \"trade_name\": null\n      }\n    },\n    \"commercial\": null\n  }\n}"
+            }
+          ]
+        }
+      ],
+      "description": "Compte connecté et changement de numéro."
+    },
+    {
+      "id": "8533572a-5bf4-559d-80dc-5bc5c9dd6ffb",
+      "name": "Appareils",
+      "item": [
+        {
+          "id": "fabe657a-89cb-5fd2-bfe1-63774ba5efe8",
+          "name": "Enregistrer le jeton push",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/devices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            },
+            "description": "Enregistre le jeton de notification push de l’appareil (FCM / APNs), ou le rattache au compte connecté s’il existait déjà.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `push_token` | oui | Jeton push, 4096 caractères max. |\n| `platform` | oui | `android`, `ios` ou `web`. |\n| `device_id` | non | Identifiant de l’appareil, le même que celui envoyé à la connexion. |\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"push_token\": \"{{push_token}}\",\n  \"platform\": \"{{platform}}\",\n  \"device_id\": \"{{device_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "id": "ffd81c60-8d6d-525e-ba08-70970c6c8193",
+              "name": "204 · Jeton enregistré",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/devices",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "devices"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"push_token\": \"fcm-demo-token-123\",\n  \"platform\": \"ios\",\n  \"device_id\": \"iphone-15-demo\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "X-RateLimit-Limit",
+                  "value": "120"
+                },
+                {
+                  "key": "X-RateLimit-Remaining",
+                  "value": "116"
+                }
+              ],
+              "body": ""
+            }
+          ]
+        },
+        {
+          "id": "fcb3d14f-5b3f-57e3-918a-238619939133",
+          "name": "Supprimer le jeton push",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/devices/{{push_token}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "devices",
+                "{{push_token}}"
+              ]
+            },
+            "description": "Révoque le jeton push (notifications désactivées sur l’appareil). **204** sans contenu."
+          },
+          "response": [
+            {
+              "id": "8b5e35ca-abde-5cf0-befc-9ccf9b1d6fd6",
+              "name": "204 · Jeton révoqué",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/devices/fcm-demo-token-123",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "devices",
+                    "fcm-demo-token-123"
+                  ]
+                }
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "X-RateLimit-Limit",
+                  "value": "120"
+                },
+                {
+                  "key": "X-RateLimit-Remaining",
+                  "value": "115"
+                }
+              ],
+              "body": ""
+            }
+          ]
+        }
+      ],
+      "description": "Jetons de notification push."
+    },
+    {
+      "id": "2d0a1107-c348-5806-a07f-3eee7202e1ec",
+      "name": "Sessions",
+      "item": [
+        {
+          "id": "2ce0a7b2-0cbf-53b5-84ac-7c93712241be",
+          "name": "Appareils connectés",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "sessions"
+              ]
+            },
+            "description": "Sessions actives du compte, de la plus récemment active à la plus ancienne. `current` vaut `true` pour la session de la requête."
+          },
+          "response": [
+            {
+              "id": "8f6755dd-61eb-5e19-9993-a741bb0fd129",
+              "name": "200 · Appareils connectés",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/sessions",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "sessions"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-RateLimit-Limit",
+                  "value": "120"
+                },
+                {
+                  "key": "X-RateLimit-Remaining",
+                  "value": "118"
+                }
+              ],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"01a14f1e-d7f2-7089-aa88-f8713f30a06b\",\n      \"device_name\": \"iPhone 15\",\n      \"platform\": \"ios\",\n      \"app_version\": \"1.0.0\",\n      \"current\": true,\n      \"last_activity_at\": \"2026-10-18T13:06:23+00:00\",\n      \"created_at\": \"2026-10-18T13:06:23+00:00\"\n    },\n    {\n      \"id\": \"01a14f1e-d452-71de-93e9-060a93b32a6b\",\n      \"device_name\": \"Pixel 8\",\n      \"platform\": \"android\",\n      \"app_version\": \"1.0.0\",\n      \"current\": false,\n      \"last_activity_at\": \"2026-10-18T13:06:22+00:00\",\n      \"created_at\": \"2026-10-18T13:06:22+00:00\"\n    }\n  ]\n}"
+            },
+            {
+              "id": "a8be4241-68bf-5390-9547-f2e1622650f5",
+              "name": "403 · Mot de passe provisoire non remplacé",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/sessions",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "sessions"
+                  ]
+                }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-RateLimit-Limit",
+                  "value": "120"
+                },
+                {
+                  "key": "X-RateLimit-Remaining",
+                  "value": "119"
+                }
+              ],
+              "body": "{\n  \"message\": \"Choisissez un nouveau mot de passe pour continuer.\",\n  \"code\": \"password_change_required\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "d7093a8b-7b45-52dd-9ac5-2a98903f8cab",
+          "name": "Déconnecter un appareil",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/sessions/{{previous_session_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "sessions",
+                "{{previous_session_id}}"
+              ]
+            },
+            "description": "Ferme une session du compte (autre appareil). **204** sans contenu ; **404** si la session n’appartient pas au compte."
+          },
+          "response": [
+            {
+              "id": "e48d669d-52f2-5565-95d5-9b2bc0c08085",
+              "name": "204 · Appareil déconnecté",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/sessions/01a14f1e-d452-71de-93e9-060a93b32a6b",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "sessions",
+                    "01a14f1e-d452-71de-93e9-060a93b32a6b"
+                  ]
+                }
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "X-RateLimit-Limit",
+                  "value": "120"
+                },
+                {
+                  "key": "X-RateLimit-Remaining",
+                  "value": "117"
+                }
+              ],
+              "body": ""
+            }
+          ]
+        },
+        {
+          "id": "85696a49-c088-5071-a64e-da8808821158",
+          "name": "Rafraîchir les jetons",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Session ouverte', () => pm.expect(body.access_token).to.be.a('string'));",
+                  "pm.collectionVariables.set('previous_session_id', pm.collectionVariables.get('session_id') || '');",
+                  "pm.collectionVariables.set('access_token', body.access_token);",
+                  "pm.collectionVariables.set('refresh_token', body.refresh_token);",
+                  "pm.collectionVariables.set('session_id', body.session_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Échange le jeton de rafraîchissement contre une **nouvelle paire** de jetons. Le jeton utilisé devient invalide (rotation) : le réutiliser renvoie **401**.\n\nÀ appeler quand une requête renvoie 401 avec un jeton d’accès expiré (15 min). Si le rafraîchissement échoue aussi, renvoyer l’utilisateur à l’écran de connexion.\n\n**Réponse** : `token_type`, `access_token` (JWT, 15 min), `expires_in` (secondes), `refresh_token` (64 caractères, 30 jours, usage unique), `refresh_expires_at`, `session_id` et `user`.\nLe script de test enregistre les jetons dans les variables de la collection.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "id": "29eddb0d-1cfc-55e3-acc5-0a8c56cb0cef",
+              "name": "200 · Nouvelle paire de jetons",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/refresh",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "refresh"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh_token\": \"sB9eg0bIToJUS0B7xwgH2MycoMX6EFeVJwnXQPM5L7VfdNoxsgm8WGxqcrgGn5mU\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-RateLimit-Limit",
+                  "value": "30"
+                },
+                {
+                  "key": "X-RateLimit-Remaining",
+                  "value": "25"
+                }
+              ],
+              "body": "{\n  \"token_type\": \"Bearer\",\n  \"access_token\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjgwMDAiLCJzdWIiOiIwMWExNGYxZC04NmM2LTcxZWMtYWQwMS1jNDRiOGY3MjViNGUiLCJzaWQiOiIwMWExNGYxZS1kN2YyLTcwODktYWE4OC1mODcxM2YzMGEwNmIiLCJqdGkiOiI5YmI1M2JhOS0xZTFhLTQxZGQtOTZjMy05NWQxZmU0N2NhNzUiLCJ0eXAiOiJ1c2VyIiwiYXBwIjoicHJvbW90ZXVyIiwiaWF0IjoxNzkyMzI4Nzg1LCJuYmYiOjE3OTIzMjg3ODUsImV4cCI6MTc5MjMyOTY4NX0.y6lJslsnr7teLNwGBsYSigXxHySSvWKVN7AIdqb9UlA\",\n  \"expires_in\": 900,\n  \"refresh_token\": \"HrFFdmIh4wSQ29SED3htBgTiTcVGmbFJdzKJMnBIQaePyEdU9ojgh2trILtZjmAn\",\n  \"refresh_expires_at\": \"2026-11-17T13:06:25+00:00\",\n  \"session_id\": \"01a14f1e-d7f2-7089-aa88-f8713f30a06b\",\n  \"user\": {\n    \"id\": \"01a14f1d-86c6-71ec-ad01-c44b8f725b4e\",\n    \"type\": {\n      \"value\": \"promoter\",\n      \"label\": \"Promoteur\"\n    },\n    \"status\": {\n      \"value\": \"actif\",\n      \"label\": \"Actif\"\n    },\n    \"first_name\": \"Mariam\",\n    \"last_name\": \"Traoré\",\n    \"phone\": \"+225 07 00 00 00 02\",\n    \"phone_verified\": true,\n    \"email\": \"promoteur@demo.ochantier.ci\",\n    \"email_verified\": true,\n    \"locale\": \"fr\",\n    \"must_change_password\": false,\n    \"last_login_at\": \"2026-10-18T13:06:23+00:00\",\n    \"promoter\": {\n      \"id\": \"01a14f1d-86c7-717a-8c7d-f7cc4a86f000\",\n      \"profile_kind\": {\n        \"value\": \"entreprise\",\n        \"label\": \"Entreprise\"\n      },\n      \"verification_status\": {\n        \"value\": \"brouillon\",\n        \"label\": \"Brouillon\"\n      },\n      \"organization\": {\n        \"id\": \"01a14f1d-86ca-733d-89b3-d42987791bb2\",\n        \"legal_name\": \"Bâtisseurs d’Angré SARL\",\n        \"trade_name\": \"Bâtisseurs d’Angré\"\n      }\n    },\n    \"commercial\": null\n  }\n}"
+            },
+            {
+              "id": "507f637c-c77e-5602-9808-6c427902d84a",
+              "name": "401 · Jeton déjà utilisé ou expiré",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/refresh",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "refresh"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh_token\": \"sB9eg0bIToJUS0B7xwgH2MycoMX6EFeVJwnXQPM5L7VfdNoxsgm8WGxqcrgGn5mU\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-RateLimit-Limit",
+                  "value": "30"
+                },
+                {
+                  "key": "X-RateLimit-Remaining",
+                  "value": "24"
+                }
+              ],
+              "body": "{\n  \"message\": \"Session expirée : reconnectez-vous.\"\n}"
+            }
+          ]
+        },
+        {
+          "id": "2c79fa6b-0f35-5dd0-a0d3-af3aeb3372ce",
+          "name": "Se déconnecter",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Ferme la session courante et révoque les jetons push de cet appareil (`device_id` de la session). **204** sans contenu."
+          },
+          "response": [
+            {
+              "id": "7c36fd6a-dcd4-53cb-9065-e356a477e9ea",
+              "name": "204 · Déconnecté",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/logout",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "logout"
+                  ]
+                }
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "X-RateLimit-Limit",
+                  "value": "120"
+                },
+                {
+                  "key": "X-RateLimit-Remaining",
+                  "value": "113"
+                }
+              ],
+              "body": ""
+            }
+          ]
+        }
+      ],
+      "description": "Appareils connectés, rafraîchissement des jetons et déconnexion."
+    },
+    {
+      "id": "6768e2fc-8765-5901-82bc-8886695286f5",
+      "name": "Commercial",
+      "item": [
+        {
+          "id": "cd4b2569-255f-567a-b731-faf2e96a7de4",
+          "name": "Connexion",
+          "item": [
+            {
+              "id": "7ae66451-299c-51cb-8e3c-f9acf8765684",
+              "name": "Vérifier le mot de passe",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 202', () => pm.response.to.have.status(202));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/commercial/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "commercial",
+                    "login"
+                  ]
+                },
+                "description": "Première étape de connexion d’un commercial : numéro et mot de passe, puis envoi d’un code par SMS.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `phone` | oui | Numéro à 10 chiffres. |\n| `password` | oui | Mot de passe (ou mot de passe provisoire donné par le Back Office). |\n\nErreurs :\n- **422** « Numéro ou mot de passe incorrect. » (message identique si le numéro est inconnu) ;\n- **423** après **5 échecs** : compte verrouillé 15 minutes, `locked_until` en ISO 8601 ;\n- **403** compte suspendu, désactivé ou contrat commercial terminé.\n\n**Réponse 202** : `channel` (`sms` ou `email`), `destination` masquée, `expires_in` (validité du code en secondes), `resend_in` (délai avant de pouvoir redemander un code, en secondes).\nUne nouvelle demande avant ce délai renvoie **429** avec `retry_after` et l’en-tête `Retry-After`.\n",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{commercial_phone}}\",\n  \"password\": \"{{commercial_password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": [
+                {
+                  "id": "89c8c859-d3c6-5317-a2d6-5eef5e4d1dd5",
+                  "name": "422 · Numéro ou mot de passe incorrect",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/commercial/login",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "commercial",
+                        "login"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"phone\": \"0500000001\",\n  \"password\": \"mauvais\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "10"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "9"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Numéro ou mot de passe incorrect.\",\n  \"errors\": {\n    \"password\": [\n      \"Numéro ou mot de passe incorrect.\"\n    ]\n  }\n}"
+                },
+                {
+                  "id": "aae22177-5d73-57cc-b15d-becdc28792cb",
+                  "name": "202 · Code envoyé par SMS",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/commercial/login",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "commercial",
+                        "login"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"phone\": \"05 00 00 00 01\",\n  \"password\": \"motdepasse1\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Accepted",
+                  "code": 202,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "10"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "8"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Code de vérification envoyé par SMS.\",\n  \"channel\": \"sms\",\n  \"destination\": \"+225 05 •• •• •• 01\",\n  \"expires_in\": 300,\n  \"resend_in\": 45\n}"
+                },
+                {
+                  "id": "364738ac-f552-55eb-b090-d3259b2e6cd0",
+                  "name": "202 · Compte provisoire : code envoyé",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/commercial/login",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "commercial",
+                        "login"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"phone\": \"0500000002\",\n  \"password\": \"provisoire1\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Accepted",
+                  "code": 202,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "10"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "9"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Code de vérification envoyé par SMS.\",\n  \"channel\": \"sms\",\n  \"destination\": \"+225 05 •• •• •• 02\",\n  \"expires_in\": 300,\n  \"resend_in\": 45\n}"
+                },
+                {
+                  "id": "c3c44841-ddca-5a95-8a4b-b11870f78772",
+                  "name": "423 · Compte verrouillé",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/commercial/login",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "commercial",
+                        "login"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"phone\": \"0500000002\",\n  \"password\": \"mauvais\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Locked",
+                  "code": 423,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "10"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "4"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Trop de tentatives. Réessayez à 13:21.\",\n  \"locked_until\": \"2026-10-18T13:21:32+00:00\"\n}"
+                }
+              ]
+            },
+            {
+              "id": "b6e5100d-56f3-5b9d-8b89-bdda6bac12ef",
+              "name": "Se connecter avec le code SMS",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Session ouverte', () => pm.expect(body.access_token).to.be.a('string'));",
+                      "pm.collectionVariables.set('previous_session_id', pm.collectionVariables.get('session_id') || '');",
+                      "pm.collectionVariables.set('access_token', body.access_token);",
+                      "pm.collectionVariables.set('refresh_token', body.refresh_token);",
+                      "pm.collectionVariables.set('session_id', body.session_id);",
+                      "pm.collectionVariables.set('commercial_access_token', body.access_token);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/commercial/login/verify",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "commercial",
+                    "login",
+                    "verify"
+                  ]
+                },
+                "description": "Vérifie le code SMS et ouvre la session. Un compte créé par le Back Office est activé à sa première connexion.\n\nSi `user.must_change_password` vaut `true` (mot de passe provisoire), l’application doit afficher l’écran de changement de mot de passe : seuls `GET /me`, `POST /auth/logout` et `PUT /auth/password` sont accessibles, les autres routes renvoient **403** avec `\"code\": \"password_change_required\"`.\n\n**Appareil** (enregistré sur la session, visible dans « Appareils connectés ») :\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `device_name` | oui | Nom affiché, 120 caractères max (ex. « iPhone 15 »). |\n| `device_id` | non | Identifiant stable de l’appareil, 100 caractères max. Sert aussi à révoquer ses jetons push à la déconnexion. |\n| `platform` | non | `android`, `ios` ou `web`. |\n| `app_version` | non | Version de l’application, ex. `1.0.0`. |\n\n**Réponse** : `token_type`, `access_token` (JWT, 15 min), `expires_in` (secondes), `refresh_token` (64 caractères, 30 jours, usage unique), `refresh_expires_at`, `session_id` et `user`.\nLe script de test enregistre les jetons dans les variables de la collection.\n",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{commercial_phone}}\",\n  \"code\": \"{{otp_code}}\",\n  \"device_name\": \"{{device_name}}\",\n  \"device_id\": \"{{device_id}}\",\n  \"platform\": \"{{platform}}\",\n  \"app_version\": \"{{app_version}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": [
+                {
+                  "id": "bd03824e-5126-57ce-9fca-53b1c8e347f6",
+                  "name": "200 · Connecté",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/commercial/login/verify",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "commercial",
+                        "login",
+                        "verify"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"phone\": \"0500000001\",\n  \"code\": \"123456\",\n  \"device_name\": \"Pixel 8\",\n  \"device_id\": \"pixel-8-demo\",\n  \"platform\": \"android\",\n  \"app_version\": \"1.0.0\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "10"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "3"
+                    }
+                  ],
+                  "body": "{\n  \"token_type\": \"Bearer\",\n  \"access_token\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjgwMDAiLCJzdWIiOiIwMWExNGYxZC04N2JlLTczODctOWU1Mi1jZWEyOWQyMGQ4ZjciLCJzaWQiOiIwMWExNGYxZS1lNTRkLTcxYTUtYjIyZS0zYjZmYTI3MjMzZTMiLCJqdGkiOiIzOWJkMmVlZS0zMTg0LTQ4MTUtYTM0Mi1lMWRjYTg2MmI0OTgiLCJ0eXAiOiJ1c2VyIiwiYXBwIjoiY29tbWVyY2lhbCIsImlhdCI6MTc5MjMyODc4NywibmJmIjoxNzkyMzI4Nzg3LCJleHAiOjE3OTIzMjk2ODd9.wImIj1Tvb3gxdWSktip_7g-GPeYygESsxwCr88hM7Sk\",\n  \"expires_in\": 900,\n  \"refresh_token\": \"rxpxPid9gvU7IEuKSXXcAinu4RCDVWPJVIds8tWNeRb1MyBeXNRI3dOXa9RdpjRh\",\n  \"refresh_expires_at\": \"2026-11-17T13:06:27+00:00\",\n  \"session_id\": \"01a14f1e-e54d-71a5-b22e-3b6fa27233e3\",\n  \"user\": {\n    \"id\": \"01a14f1d-87be-7387-9e52-cea29d20d8f7\",\n    \"type\": {\n      \"value\": \"commercial\",\n      \"label\": \"Commercial\"\n    },\n    \"status\": {\n      \"value\": \"actif\",\n      \"label\": \"Actif\"\n    },\n    \"first_name\": \"Adama\",\n    \"last_name\": \"Coulibaly\",\n    \"phone\": \"+225 05 00 00 00 01\",\n    \"phone_verified\": true,\n    \"email\": \"commercial@demo.ochantier.ci\",\n    \"email_verified\": true,\n    \"locale\": \"fr\",\n    \"must_change_password\": false,\n    \"last_login_at\": \"2026-10-18T13:06:27+00:00\",\n    \"promoter\": null,\n    \"commercial\": {\n      \"id\": \"01a14f1d-87c7-702d-9ed4-26bd780fbd8f\",\n      \"employee_number\": \"COM-00001\",\n      \"status\": {\n        \"value\": \"actif\",\n        \"label\": \"Actif\"\n      },\n      \"verification_status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      }\n    }\n  }\n}"
+                },
+                {
+                  "id": "6970f4b6-e4cb-56a5-855a-0829c4d0cb6a",
+                  "name": "200 · Mot de passe provisoire à remplacer",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/commercial/login/verify",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "commercial",
+                        "login",
+                        "verify"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"phone\": \"0500000002\",\n  \"code\": \"123456\",\n  \"device_name\": \"Samsung A54\",\n  \"device_id\": \"samsung-a54-demo\",\n  \"platform\": \"android\",\n  \"app_version\": \"1.0.0\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "10"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "0"
+                    }
+                  ],
+                  "body": "{\n  \"token_type\": \"Bearer\",\n  \"access_token\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjgwMDAiLCJzdWIiOiIwMWExNGYxZC04OGJlLTcyZGQtOTYwMi1jNmM1MDYxMzM5ZTUiLCJzaWQiOiIwMWExNGYxZS1mMzkxLTczNDEtYThiMy0zODYwZDRlMWYxN2QiLCJqdGkiOiIxMzM4OTdkYi1lNjFlLTQyODAtOTZiZi03MWExODAyNzk4ZWMiLCJ0eXAiOiJ1c2VyIiwiYXBwIjoiY29tbWVyY2lhbCIsImlhdCI6MTc5MjMyODc5MCwibmJmIjoxNzkyMzI4NzkwLCJleHAiOjE3OTIzMjk2OTB9.NkLK5LTj44JBp26CroD5Qx7R8d-9K8C2NIAK6xuB6cQ\",\n  \"expires_in\": 900,\n  \"refresh_token\": \"W0eo1T9AwMxv2a7pcJkwQ9fsUfyw8TfPg0JsouCOEqAlnoPmW5qjHIgiwKcY8WXK\",\n  \"refresh_expires_at\": \"2026-11-17T13:06:30+00:00\",\n  \"session_id\": \"01a14f1e-f391-7341-a8b3-3860d4e1f17d\",\n  \"user\": {\n    \"id\": \"01a14f1d-88be-72dd-9602-c6c5061339e5\",\n    \"type\": {\n      \"value\": \"commercial\",\n      \"label\": \"Commercial\"\n    },\n    \"status\": {\n      \"value\": \"actif\",\n      \"label\": \"Actif\"\n    },\n    \"first_name\": \"Aïcha\",\n    \"last_name\": \"Touré\",\n    \"phone\": \"+225 05 00 00 00 02\",\n    \"phone_verified\": true,\n    \"email\": null,\n    \"email_verified\": false,\n    \"locale\": \"fr\",\n    \"must_change_password\": true,\n    \"last_login_at\": \"2026-10-18T13:06:30+00:00\",\n    \"promoter\": null,\n    \"commercial\": {\n      \"id\": \"01a14f1d-88c6-73d5-8647-94d9ba7f0b6d\",\n      \"employee_number\": \"COM-00002\",\n      \"status\": {\n        \"value\": \"actif\",\n        \"label\": \"Actif\"\n      },\n      \"verification_status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      }\n    }\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "732ae9fa-754e-5098-88a0-e760ce217b61",
+              "name": "Changer le mot de passe",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/password",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "password"
+                  ]
+                },
+                "description": "Écran « Sécurité et mot de passe », et remplacement du mot de passe provisoire. **Application Commercial uniquement** (403 pour un promoteur).\n\n| Champ | Description |\n|---|---|\n| `current_password` | Mot de passe actuel. |\n| `password` | Nouveau mot de passe : 8 caractères minimum dont un chiffre, différent de l’actuel. |\n| `password_confirmation` | Même valeur que `password`. |\n\nLes **autres sessions** du compte sont fermées ; la session courante reste ouverte. Réponse : `message` et `user` à jour (`must_change_password` à `false`).\n",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"current_password\": \"{{commercial_password}}\",\n  \"password\": \"{{new_password}}\",\n  \"password_confirmation\": \"{{new_password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "0e68843e-fcfd-5111-afb7-6c4213e3115c",
+                  "name": "403 · Réservé à l’application Commercial",
+                  "originalRequest": {
+                    "method": "PUT",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/password",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "password"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"current_password\": \"x\",\n  \"password\": \"motdepasse2\",\n  \"password_confirmation\": \"motdepasse2\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Forbidden",
+                  "code": 403,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "114"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Cette fonctionnalité n’est pas disponible pour votre application.\"\n}"
+                },
+                {
+                  "id": "2b66c7dc-db11-574b-9d4f-220ceb1da4a5",
+                  "name": "422 · Mot de passe actuel incorrect",
+                  "originalRequest": {
+                    "method": "PUT",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/password",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "password"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"current_password\": \"mauvais\",\n  \"password\": \"motdepasse2\",\n  \"password_confirmation\": \"motdepasse2\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "119"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Mot de passe actuel incorrect.\",\n  \"errors\": {\n    \"current_password\": [\n      \"Mot de passe actuel incorrect.\"\n    ]\n  }\n}"
+                },
+                {
+                  "id": "870649ff-8acf-5338-a299-f28bd95910b9",
+                  "name": "200 · Mot de passe changé",
+                  "originalRequest": {
+                    "method": "PUT",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/password",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "password"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"current_password\": \"motdepasse1\",\n  \"password\": \"motdepasse2\",\n  \"password_confirmation\": \"motdepasse2\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "118"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Mot de passe mis à jour\",\n  \"user\": {\n    \"id\": \"01a14f1d-87be-7387-9e52-cea29d20d8f7\",\n    \"type\": {\n      \"value\": \"commercial\",\n      \"label\": \"Commercial\"\n    },\n    \"status\": {\n      \"value\": \"actif\",\n      \"label\": \"Actif\"\n    },\n    \"first_name\": \"Adama\",\n    \"last_name\": \"Coulibaly\",\n    \"phone\": \"+225 05 00 00 00 01\",\n    \"phone_verified\": true,\n    \"email\": \"commercial@demo.ochantier.ci\",\n    \"email_verified\": true,\n    \"locale\": \"fr\",\n    \"must_change_password\": false,\n    \"last_login_at\": \"2026-10-18T13:06:27+00:00\",\n    \"promoter\": null,\n    \"commercial\": {\n      \"id\": \"01a14f1d-87c7-702d-9ed4-26bd780fbd8f\",\n      \"employee_number\": \"COM-00001\",\n      \"status\": {\n        \"value\": \"actif\",\n        \"label\": \"Actif\"\n      },\n      \"verification_status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      }\n    }\n  }\n}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "d9eeeb21-6079-54f1-a8ca-62afc8e38325",
+          "name": "Mot de passe oublié",
+          "item": [
+            {
+              "id": "a2417748-ee53-58c9-b4be-98ddd954fb8a",
+              "name": "Mot de passe oublié",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 202', () => pm.response.to.have.status(202));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/password/forgot",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "password",
+                    "forgot"
+                  ]
+                },
+                "description": "Envoie un code de réinitialisation par SMS au commercial. Réponse identique que le numéro soit inscrit ou non.\n**Réponse 202** : `channel` (`sms` ou `email`), `destination` masquée, `expires_in` (validité du code en secondes), `resend_in` (délai avant de pouvoir redemander un code, en secondes).\nUne nouvelle demande avant ce délai renvoie **429** avec `retry_after` et l’en-tête `Retry-After`.\n",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{commercial_phone}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": [
+                {
+                  "id": "4765e826-87ad-5350-88ac-ae7c4938a0a4",
+                  "name": "202 · Code envoyé",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/password/forgot",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "password",
+                        "forgot"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"phone\": \"0500000001\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Accepted",
+                  "code": 202,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "3"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "2"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Si un compte est associé à ce numéro, un code vient de lui être envoyé.\",\n  \"channel\": \"sms\",\n  \"destination\": \"+225 05 •• •• •• 01\",\n  \"expires_in\": 300,\n  \"resend_in\": 45\n}"
+                }
+              ]
+            },
+            {
+              "id": "4b5e7968-8b08-5d92-93b4-151d4be5142d",
+              "name": "Réinitialiser le mot de passe",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/password/reset",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "password",
+                    "reset"
+                  ]
+                },
+                "description": "Vérifie le code reçu et enregistre le nouveau mot de passe (8 caractères minimum dont un chiffre, confirmé). Déverrouille le compte et **ferme toutes les sessions** : l’utilisateur se reconnecte.\n\nDans cette collection, la réinitialisation remet le mot de passe de démonstration (`commercial_password`) pour que la collection reste rejouable.\n",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{commercial_phone}}\",\n  \"code\": \"{{otp_code}}\",\n  \"password\": \"{{commercial_password}}\",\n  \"password_confirmation\": \"{{commercial_password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": [
+                {
+                  "id": "25abf6e8-241b-57eb-b5dd-bb1957a6529a",
+                  "name": "422 · Confirmation différente",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/password/reset",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "password",
+                        "reset"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"phone\": \"0500000001\",\n  \"code\": \"123456\",\n  \"password\": \"motdepasse1\",\n  \"password_confirmation\": \"autre\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "10"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "2"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Les deux mots de passe ne correspondent pas.\",\n  \"errors\": {\n    \"password\": [\n      \"Les deux mots de passe ne correspondent pas.\"\n    ]\n  }\n}"
+                },
+                {
+                  "id": "50c806b8-25d0-5466-b0b2-d467432fe512",
+                  "name": "200 · Mot de passe réinitialisé",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/auth/password/reset",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "auth",
+                        "password",
+                        "reset"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"phone\": \"0500000001\",\n  \"code\": \"123456\",\n  \"password\": \"motdepasse1\",\n  \"password_confirmation\": \"motdepasse1\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "10"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "1"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Mot de passe mis à jour. Connectez-vous avec votre nouveau mot de passe.\"\n}"
+                }
+              ]
+            }
+          ],
+          "description": "Code de réinitialisation par SMS."
+        }
+      ],
+      "description": "Application Commercial : compte créé par le Back Office, connexion par **mot de passe puis code SMS**."
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api/v1",
+      "type": "string",
+      "description": "Racine de l’API v1."
+    },
+    {
+      "key": "otp_code",
+      "value": "123456",
+      "type": "string",
+      "description": "Code OTP de test (OTP_TEST_CODE, hors production)."
+    },
+    {
+      "key": "promoter_phone",
+      "value": "0700000002",
+      "type": "string",
+      "description": "Promoteur de démonstration (entreprise)."
+    },
+    {
+      "key": "promoter_email",
+      "value": "promoteur@demo.ochantier.ci",
+      "type": "string",
+      "description": "E-mail du même promoteur."
+    },
+    {
+      "key": "commercial_phone",
+      "value": "0500000001",
+      "type": "string",
+      "description": "Commercial de démonstration."
+    },
+    {
+      "key": "commercial_password",
+      "value": "motdepasse1",
+      "type": "string",
+      "description": "Mot de passe du commercial de démonstration."
+    },
+    {
+      "key": "new_password",
+      "value": "motdepasse2",
+      "type": "string",
+      "description": "Nouveau mot de passe pour « Changer le mot de passe »."
+    },
+    {
+      "key": "device_name",
+      "value": "Postman",
+      "type": "string"
+    },
+    {
+      "key": "device_id",
+      "value": "postman-device",
+      "type": "string"
+    },
+    {
+      "key": "platform",
+      "value": "android",
+      "type": "string"
+    },
+    {
+      "key": "app_version",
+      "value": "1.0.0",
+      "type": "string"
+    },
+    {
+      "key": "push_token",
+      "value": "postman-push-token",
+      "type": "string",
+      "description": "Jeton push fictif."
+    },
+    {
+      "key": "new_promoter_phone",
+      "value": "",
+      "type": "string",
+      "description": "Tiré au hasard par « Créer un compte »."
+    },
+    {
+      "key": "new_phone",
+      "value": "",
+      "type": "string",
+      "description": "Tiré au hasard par « Changer de numéro »."
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string",
+      "description": "Renseigné automatiquement à chaque connexion ou rafraîchissement."
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string",
+      "description": "Renseigné automatiquement."
+    },
+    {
+      "key": "session_id",
+      "value": "",
+      "type": "string",
+      "description": "Renseigné automatiquement."
+    },
+    {
+      "key": "previous_session_id",
+      "value": "",
+      "type": "string",
+      "description": "Session précédente, pour « Déconnecter un appareil »."
+    },
+    {
+      "key": "registered_access_token",
+      "value": "",
+      "type": "string",
+      "description": "Jeton du compte créé par « Activer le compte »."
+    },
+    {
+      "key": "commercial_access_token",
+      "value": "",
+      "type": "string",
+      "description": "Jeton du commercial connecté."
+    }
+  ]
+}
