@@ -59,6 +59,10 @@ class PlatformRulesSeeder extends Seeder
      * @var array<string, array{0: mixed, 1: string}>
      */
     private const SETTINGS = [
+        'pricing.reference_daily_rates' => [
+            ['macon' => 25000, 'electricien' => 30000, 'plombier' => 20000, 'peintre' => 18000, 'menuisier' => 22000, 'carreleur' => 22000, 'manoeuvre' => 12000, 'coffreur' => 20000, 'ferrailleur' => 20000, 'soudeur' => 22000],
+            'Tarif journalier de référence par métier (XOF, commission ouvrier incluse), affiché tant que les tarifs constatés sont insuffisants.',
+        ],
         'support.phone' => ['+225 27 22 00 00 00', 'Numéro du support affiché dans le centre d’aide.'],
         'support.whatsapp' => ['+225 07 00 00 00 00', 'Numéro WhatsApp du support.'],
         'support.email' => ['support@ochantier.ci', 'Adresse e-mail du support.'],

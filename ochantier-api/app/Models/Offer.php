@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ContractPaymentMode;
 use App\Enums\OfferStatus;
 use App\Enums\OfferType;
 use App\Enums\OfferVisibility;
@@ -23,7 +24,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'reference', 'site_id', 'offer_type', 'price_origin', 'title', 'description', 'urgency', 'start_date', 'end_date',
     'contract_total_amount', 'quote_document_id', 'quote_amount', 'deliverables', 'visibility', 'published_at',
     'application_deadline', 'applications_open', 'extension_count', 'auto_renew', 'status', 'submitted_at',
-    'assigned_admin_id', 'created_by_user_id', 'cancellation_reason', 'client_uuid', 'lock_version',
+    'assigned_admin_id', 'created_by_user_id', 'cancellation_reason', 'client_uuid', 'lock_version', 'payment_mode',
 ])]
 class Offer extends Model
 {
@@ -48,6 +49,7 @@ class Offer extends Model
             'applications_open' => 'boolean',
             'auto_renew' => 'boolean',
             'status' => OfferStatus::class,
+            'payment_mode' => ContractPaymentMode::class,
             'submitted_at' => 'datetime',
         ];
     }

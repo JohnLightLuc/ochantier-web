@@ -143,6 +143,7 @@ class AppServiceProvider extends ServiceProvider
             'mission' => Models\Mission::class,
             'mission_status_history' => Models\MissionStatusHistory::class,
             'need' => Models\Need::class,
+            'need_requested_worker' => Models\NeedRequestedWorker::class,
             'need_certification' => Models\NeedCertification::class,
             'need_status_history' => Models\NeedStatusHistory::class,
             'neighborhood' => Models\Neighborhood::class,

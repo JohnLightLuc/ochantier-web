@@ -25,7 +25,7 @@ class SiteTest extends PromoterTestCase
             ->assertJsonPath('data.display_status', ['value' => 'brouillon', 'label' => 'Brouillon'])
             ->assertJsonPath('data.can_edit', true)
             ->assertJsonPath('data.responsible.role', 'Moi-même')
-            ->assertJsonPath('data.missing_for_publication.*.key', ['photo', 'location', 'dates'])
+            ->assertJsonPath('data.missing_for_publication.*.key', ['photo', 'location', 'dates', 'needs'])
             ->assertJsonPath('data.documents', []);
 
         $this->assertMatchesRegularExpression('/^CH-'.now()->format('Y').'-\d{4}$/', $response->json('data.reference'));
@@ -62,7 +62,7 @@ class SiteTest extends PromoterTestCase
             ->assertJsonPath('data.address.location', ['latitude' => 5.37214, 'longitude' => -3.95823])
             ->assertJsonPath('data.start_date', $start)
             ->assertJsonPath('data.duration_days', 30)
-            ->assertJsonPath('data.missing_for_publication.*.key', ['photo'])
+            ->assertJsonPath('data.missing_for_publication.*.key', ['photo', 'needs'])
             ->json('data');
 
         $this->patchJson("/api/v1/promoter/sites/{$site['id']}", ['planned_end_date' => now()->addDays(19)->toDateString()])
@@ -91,7 +91,7 @@ class SiteTest extends PromoterTestCase
         $url = $this->post("/api/v1/promoter/sites/{$site['id']}/photo", ['photo' => $this->image('chantier.jpg')], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('message', 'Photo ajoutée')
-            ->assertJsonPath('data.missing_for_publication.*.key', ['location', 'dates'])
+            ->assertJsonPath('data.missing_for_publication.*.key', ['location', 'dates', 'needs'])
             ->json('data.photo_url');
         $this->get($url)->assertOk();
 

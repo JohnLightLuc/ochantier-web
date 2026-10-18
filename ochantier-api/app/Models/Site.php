@@ -23,7 +23,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'commune_id', 'neighborhood_id', 'access_instructions', 'location', 'geofence_radius_m', 'planned_start_date',
     'planned_duration_days', 'planned_end_date', 'work_start_time', 'work_end_time', 'status', 'submitted_at',
     'validated_at', 'validated_by_admin_id', 'assigned_admin_id', 'closed_at', 'closed_by_admin_id',
-    'cancellation_reason', 'archived_at', 'client_uuid', 'lock_version', 'work_type', 'responsible_user_id',
+    'cancellation_reason', 'archived_at', 'client_uuid', 'lock_version', 'work_type', 'responsible_user_id', 'offer_draft',
 ])]
 class Site extends Model
 {
@@ -40,6 +40,7 @@ class Site extends Model
             'priority' => Priority::class,
             'work_type' => SiteWorkType::class,
             'location' => GeoPoint::class,
+            'offer_draft' => 'array',
             'planned_start_date' => 'date',
             'planned_end_date' => 'date',
             'status' => SiteStatus::class,

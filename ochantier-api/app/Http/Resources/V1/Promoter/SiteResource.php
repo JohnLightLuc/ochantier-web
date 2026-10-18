@@ -6,6 +6,7 @@ use App\Enums\SiteStatus;
 use App\Http\Resources\V1\Resource;
 use App\Models\Site;
 use App\Support\Media\MediaStore;
+use App\Support\Promoter\OfferDraft;
 use App\Support\Promoter\SiteManager;
 use Illuminate\Http\Request;
 
@@ -22,6 +23,7 @@ class SiteResource extends Resource
     public function toArray(Request $request): array
     {
         $sites = app(SiteManager::class);
+        $offer = app(OfferDraft::class)->summary($this->resource);
 
         return [
             'id' => $this->id,
@@ -40,6 +42,12 @@ class SiteResource extends Resource
             'start_date' => $this->date($this->planned_start_date),
             'end_date' => $this->date($this->planned_end_date),
             'duration_days' => $this->planned_duration_days,
+            'offer_summary' => $offer ? [
+                'type' => $offer['type'],
+                'workers_count' => $offer['workers_count'] ?? null,
+                'amount' => $offer['amount'] ?? $offer['estimate'] ?? null,
+                'payment_mode' => $offer['payment_mode'] ?? null,
+            ] : null,
             'status' => $this->status($this->status),
             'display_status' => $sites->displayStatus($this->resource),
             'schedule' => $sites->schedule($this->resource),

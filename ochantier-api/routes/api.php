@@ -16,6 +16,8 @@ use App\Http\Controllers\Api\V1\Promoter\ProfileController as PromoterProfileCon
 use App\Http\Controllers\Api\V1\Promoter\ProfileDocumentController;
 use App\Http\Controllers\Api\V1\Promoter\SiteController;
 use App\Http\Controllers\Api\V1\Promoter\SiteMediaController;
+use App\Http\Controllers\Api\V1\Promoter\SiteOfferController;
+use App\Http\Controllers\Api\V1\Promoter\WorkerCatalogController;
 use App\Http\Controllers\Api\V1\ReferenceController;
 use Illuminate\Support\Facades\Route;
 
@@ -89,6 +91,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::delete('sites/{site}/photo', [SiteMediaController::class, 'destroyPhoto'])->name('sites.photo.destroy');
                 Route::post('sites/{site}/documents', [SiteMediaController::class, 'storeDocument'])->name('sites.documents.store');
                 Route::delete('sites/{site}/documents/{document}', [SiteMediaController::class, 'destroyDocument'])->name('sites.documents.destroy');
+                Route::put('sites/{site}/offer', [SiteOfferController::class, 'update'])->name('sites.offer.update');
+                Route::post('sites/{site}/publish', [SiteOfferController::class, 'publish'])->name('sites.publish');
+                Route::get('workers', WorkerCatalogController::class)->name('workers.index');
             });
 
             // Application Commercial : prospects et dossiers ouvriers.

@@ -22,7 +22,7 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 /**
  * Chantiers d’un promoteur (« Mes chantiers », « Nouveau chantier ») : brouillon, photo, localisation, calendrier,
- * responsable et documents. La publication (besoins en ouvriers) fait l’objet de l’étape suivante.
+ * responsable et documents. Les besoins sont gérés par OfferDraft et la publication par SitePublisher.
  */
 class SiteManager
 {
@@ -178,23 +178,13 @@ class SiteManager
     }
 
     /**
-     * Éléments manquants avant la publication (les besoins en ouvriers sont contrôlés à la publication).
+     * Éléments manquants avant la publication (chantier et besoins).
      *
      * @return list<array{key: string, label: string}>
      */
     public function missingForPublication(Site $site): array
     {
-        $checks = [
-            'photo' => ['Ajoutez une photo du chantier', filled($site->main_image_media_id)],
-            'title' => ['Donnez un titre au chantier', filled($site->label)],
-            'location' => ['Indiquez la localisation', filled($site->address)],
-            'dates' => ['Renseignez les dates de début et de fin', $site->planned_start_date && $site->planned_end_date],
-        ];
-
-        return array_values(array_map(
-            fn (string $key) => ['key' => $key, 'label' => $checks[$key][0]],
-            array_keys(array_filter($checks, fn (array $check) => ! $check[1])),
-        ));
+        return app(OfferDraft::class)->publicationErrors($site);
     }
 
     /**

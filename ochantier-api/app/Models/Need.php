@@ -215,6 +215,14 @@ class Need extends Model
     }
 
     /**
+     * @return HasMany<NeedRequestedWorker, $this>
+     */
+    public function requestedWorkers(): HasMany
+    {
+        return $this->hasMany(NeedRequestedWorker::class);
+    }
+
+    /**
      * @return BelongsToMany<Skill, $this>
      */
     public function skills(): BelongsToMany

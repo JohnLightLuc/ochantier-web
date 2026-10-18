@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api\V1\Promoter;
 
+use App\Enums\ContractPaymentMode;
 use App\Enums\DocumentAudience;
+use App\Enums\PricingVariable;
 use App\Enums\SiteWorkType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Promoter\SiteRequest;
@@ -11,6 +13,9 @@ use App\Http\Resources\V1\Promoter\SiteResource;
 use App\Models\ConstructionType;
 use App\Models\DocumentType;
 use App\Models\Site;
+use App\Models\Trade;
+use App\Support\Pricing\PricingRules;
+use App\Support\Promoter\OfferDraft;
 use App\Support\Promoter\SiteManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -103,12 +108,23 @@ class SiteController extends Controller
     }
 
     /**
-     * Listes du formulaire « Nouveau chantier » : types de travaux, types de bien, responsables possibles et
-     * documents acceptés.
+     * Listes du formulaire « Nouveau chantier » : types de travaux, types de bien, responsables possibles,
+     * documents acceptés, métiers avec leur tarif moyen constaté, modes de paiement du forfait et taux d’acompte.
      */
-    public function formOptions(Request $request): JsonResponse
+    public function formOptions(Request $request, PricingRules $pricing): JsonResponse
     {
+        $rates = $pricing->referenceRates();
+
         return response()->json([
+            'trades' => Trade::query()->where('is_active', true)->orderBy('sort_order')->get()->map(fn (Trade $trade) => [
+                'id' => $trade->id,
+                'code' => $trade->code,
+                'label' => $trade->label,
+                'reference_rate' => $rates->get($trade->id)['rate'] ?? null,
+            ]),
+            'payment_modes' => array_map(fn (ContractPaymentMode $mode) => ['value' => $mode->value, 'label' => $mode->label()], ContractPaymentMode::cases()),
+            'deposit_percent' => $pricing->value(PricingVariable::X),
+            'low_rate_percent' => OfferDraft::LOW_RATE_PERCENT,
             'work_types' => array_map(fn (SiteWorkType $type) => ['value' => $type->value, 'label' => $type->label()], SiteWorkType::cases()),
             'property_types' => ConstructionType::query()->where('is_active', true)->orderBy('created_at')->get(['id', 'code', 'label']),
             'responsibles' => $this->sites->responsibles(ProfileController::profile($request), $request->user()),

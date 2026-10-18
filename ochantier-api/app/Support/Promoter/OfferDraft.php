@@ -1,0 +1,282 @@
+<?php
+
+namespace App\Support\Promoter;
+
+use App\Enums\ContractPaymentMode;
+use App\Enums\PricingVariable;
+use App\Models\Site;
+use App\Models\Trade;
+use App\Models\Worker;
+use App\Models\WorkerTrade;
+use App\Support\Documents\DocumentStore;
+use App\Support\Pricing\PricingRules;
+use Illuminate\Support\Collection;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+
+/**
+ * Besoins d’un chantier saisis avant la publication (« Offre journalière » ou « Offre contractuelle »).
+ *
+ * Offre journalière : effectifs par métier avec le tarif journalier proposé, et/ou ouvriers choisis directement.
+ * Offre contractuelle : forfait global, mode de paiement du solde et documents du chantier ; les entreprises
+ * répondent au forfait.
+ *
+ * Le brouillon est enregistré sur le chantier (sites.offer_draft) ; la publication en crée l’offre et les besoins.
+ */
+class OfferDraft
+{
+    public const DAILY = 'journaliere';
+
+    public const CONTRACT = 'contractuelle';
+
+    /**
+     * Sous ce pourcentage du tarif de référence, le tarif proposé est signalé comme bas.
+     */
+    public const LOW_RATE_PERCENT = 70;
+
+    public function __construct(private PricingRules $pricing, private WorkerCatalog $catalog, private DocumentStore $documents) {}
+
+    /**
+     * Remplace les besoins du brouillon par ceux du formulaire (seuls ceux du type d’offre choisi sont conservés).
+     *
+     * @param  array<string, mixed>  $data  Champs validés (OfferDraftRequest).
+     */
+    public function save(Site $site, array $data): Site
+    {
+        if (isset($data['lock_version']) && (int) $data['lock_version'] !== $site->lock_version) {
+            throw new ConflictHttpException('Ce chantier a été modifié sur un autre appareil. Rechargez-le avant de continuer.');
+        }
+
+        $draft = $data['type'] === self::CONTRACT
+            ? ['type' => self::CONTRACT, 'contract' => [
+                'amount' => isset($data['contract']['amount']) ? (int) $data['contract']['amount'] : null,
+                'payment_mode' => $data['contract']['payment_mode'] ?? ContractPaymentMode::Hebdomadaire->value,
+            ]]
+            : ['type' => self::DAILY, 'needs' => collect($data['needs'] ?? [])
+                ->filter(fn (array $need) => (int) ($need['headcount'] ?? 0) > 0 || filled($need['daily_rate'] ?? null))
+                ->map(fn (array $need) => [
+                    'trade_id' => $need['trade_id'],
+                    'headcount' => (int) ($need['headcount'] ?? 0),
+                    'daily_rate' => isset($need['daily_rate']) ? (int) $need['daily_rate'] : null,
+                ])->values()->all(),
+                'worker_ids' => array_values(array_unique($data['worker_ids'] ?? [])),
+            ];
+
+        $site->forceFill(['offer_draft' => $draft, 'lock_version' => $site->lock_version + 1])->save();
+
+        return $site->refresh();
+    }
+
+    public function type(Site $site): ?string
+    {
+        return $site->offer_draft['type'] ?? null;
+    }
+
+    /**
+     * Récapitulatif affiché sous le formulaire et dans le détail du chantier.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function summary(Site $site): ?array
+    {
+        return match ($this->type($site)) {
+            self::DAILY => $this->dailySummary($site),
+            self::CONTRACT => $this->contractSummary($site),
+            default => null,
+        };
+    }
+
+    /**
+     * Ouvriers choisis encore validés, avec leur métier principal et leur tarif.
+     *
+     * @return Collection<int, Worker>
+     */
+    public function requestedWorkers(Site $site): Collection
+    {
+        return $this->catalog->find($site->offer_draft['worker_ids'] ?? []);
+    }
+
+    /**
+     * Lignes de l’offre journalière par métier : effectif à rechercher, ouvriers choisis, tarif proposé.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function dailyLines(Site $site): array
+    {
+        $references = $this->pricing->referenceRates();
+        $workers = $this->requestedWorkers($site);
+        $byTrade = $workers->groupBy(fn (Worker $worker) => $this->primaryTradeId($worker));
+        $needs = collect($site->offer_draft['needs'] ?? [])->keyBy('trade_id');
+        $tradeIds = $needs->keys()->concat($byTrade->keys())->filter()->unique()->values();
+        $trades = Trade::query()->whereKey($tradeIds)->get()->keyBy('id');
+
+        return $tradeIds->map(function (string $tradeId) use ($needs, $byTrade, $trades, $references): array {
+            $need = $needs->get($tradeId, ['headcount' => 0, 'daily_rate' => null]);
+            $chosen = $byTrade->get($tradeId, collect());
+            $reference = $references->get($tradeId)['rate'] ?? null;
+            $rate = $need['daily_rate'];
+            $chosenCost = $chosen->sum(fn (Worker $worker) => $this->catalog->promoterRate($worker) ?? 0);
+
+            return [
+                'trade' => $trades->get($tradeId)?->only(['id', 'code', 'label']),
+                'headcount' => $need['headcount'],
+                'requested_workers' => $chosen->map(fn (Worker $worker) => [
+                    'id' => $worker->id,
+                    'name' => trim($worker->first_name.' '.$worker->last_name),
+                    'daily_rate' => $this->catalog->promoterRate($worker),
+                ])->values()->all(),
+                'total_headcount' => $need['headcount'] + $chosen->count(),
+                'daily_rate' => $rate,
+                'reference_rate' => $reference,
+                'rate_hint' => $this->rateHint($need['headcount'], $rate, $reference),
+                'daily_cost' => $need['headcount'] * ($rate ?? $reference ?? 0) + $chosenCost,
+            ];
+        })->all();
+    }
+
+    /**
+     * Éléments manquants avant la publication, dans l’ordre des messages de la maquette.
+     *
+     * @return list<array{key: string, label: string}>
+     */
+    public function publicationErrors(Site $site): array
+    {
+        $type = $this->type($site);
+        $errors = [];
+        $add = function (string $key, string $label) use (&$errors): void {
+            $errors[] = compact('key', 'label');
+        };
+
+        if ($type === self::DAILY) {
+            foreach ($this->dailyLines($site) as $line) {
+                if ($line['headcount'] > 0 && ! $line['daily_rate']) {
+                    $add('rates', 'Proposez un tarif journalier pour « '.$line['trade']['label'].' »');
+                }
+            }
+        }
+
+        if (! $site->main_image_media_id) {
+            $add('photo', 'Ajoutez une photo du chantier');
+        }
+
+        if (blank($site->label)) {
+            $add('title', 'Donnez un titre au chantier');
+        }
+
+        if (blank($site->address)) {
+            $add('location', 'Indiquez la localisation');
+        }
+
+        if (! $site->planned_start_date || ! $site->planned_end_date) {
+            $add('dates', 'Renseignez les dates de début et de fin');
+        }
+
+        if ($type === self::CONTRACT) {
+            if (! ($site->offer_draft['contract']['amount'] ?? null)) {
+                $add('amount', 'Indiquez le montant de votre offre financière');
+            }
+
+            if ($this->documents->active($site)->isEmpty()) {
+                $add('documents', 'Ajoutez au moins un document (plans, cahier des charges, devis)');
+            }
+        } elseif (collect($type ? $this->dailyLines($site) : [])->sum('total_headcount') === 0) {
+            $add('needs', 'Ajoutez des besoins en ouvriers ou sélectionnez des ouvriers');
+        }
+
+        return $errors;
+    }
+
+    /**
+     * Acompte et solde d’une offre contractuelle (« Acompte à la confirmation (30 %) », « Solde · 4 échéances
+     * hebdomadaires »).
+     *
+     * @return array{count: int, label: string}
+     */
+    public function installments(ContractPaymentMode $mode, ?int $days): array
+    {
+        $weeks = max(1, (int) ceil(($days ?: 30) / 7));
+
+        return match ($mode) {
+            ContractPaymentMode::Hebdomadaire => ['count' => $weeks, 'label' => $weeks.' échéance'.($weeks > 1 ? 's hebdomadaires' : ' hebdomadaire')],
+            ContractPaymentMode::ParEtape => ['count' => 3, 'label' => '3 échéances par étape'],
+            ContractPaymentMode::FinDeChantier => ['count' => 1, 'label' => '1 paiement à la fin'],
+        };
+    }
+
+    public function primaryTradeId(Worker $worker): ?string
+    {
+        /** @var WorkerTrade|null $primary */
+        $primary = $worker->workerTrades->firstWhere('is_primary', true) ?? $worker->workerTrades->first();
+
+        return $primary?->trade_id;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function dailySummary(Site $site): array
+    {
+        $lines = $this->dailyLines($site);
+        $toSearch = array_sum(array_column($lines, 'headcount'));
+        $chosen = array_sum(array_map(fn (array $line) => count($line['requested_workers']), $lines));
+        $daily = array_sum(array_column($lines, 'daily_cost'));
+        $days = $site->planned_duration_days;
+        $estimate = $days ? $daily * $days : null;
+
+        return [
+            'type' => ['value' => self::DAILY, 'label' => 'Offre journalière'],
+            'lines' => $lines,
+            'workers_count' => $toSearch + $chosen,
+            'to_search_count' => $toSearch,
+            'chosen_count' => $chosen,
+            'daily_cost' => $daily,
+            'days' => $days,
+            'estimate' => $estimate,
+            'deposit_percent' => $this->pricing->value(PricingVariable::X),
+            'deposit_estimate' => $estimate ? $this->pricing->deposit($estimate) : null,
+            'publish_hint' => $toSearch === 0 && $chosen > 0
+                ? 'Les ouvriers choisis reçoivent votre demande directement.'
+                : 'Les ouvriers disponibles du métier sont notifiés de votre offre.',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function contractSummary(Site $site): array
+    {
+        $amount = $site->offer_draft['contract']['amount'] ?? null;
+        $mode = ContractPaymentMode::from($site->offer_draft['contract']['payment_mode'] ?? ContractPaymentMode::Hebdomadaire->value);
+        $days = $site->planned_duration_days;
+        $deposit = $amount ? $this->pricing->deposit($amount) : null;
+        $documents = $this->documents->active($site)->count();
+
+        return [
+            'type' => ['value' => self::CONTRACT, 'label' => 'Offre contractuelle'],
+            'amount' => $amount,
+            'payment_mode' => ['value' => $mode->value, 'label' => $mode->label()],
+            'deposit_percent' => $this->pricing->value(PricingVariable::X),
+            'deposit' => $deposit,
+            'balance' => $amount ? $amount - $deposit : null,
+            'installments' => $this->installments($mode, $days),
+            'days' => $days,
+            'daily_equivalent' => $amount && $days ? (int) round($amount / $days) : null,
+            'documents_count' => $documents,
+            'documents_hint' => $documents
+                ? $documents.' document'.($documents > 1 ? 's' : '').' joint'.($documents > 1 ? 's' : '').' à l’offre'
+                : 'Joignez vos plans et le cahier des charges (obligatoire)',
+        ];
+    }
+
+    /**
+     * @return array{value: string, label: string}|null
+     */
+    private function rateHint(int $headcount, ?int $rate, ?int $reference): ?array
+    {
+        return match (true) {
+            $headcount === 0 => null,
+            ! $rate => ['value' => 'manquant', 'label' => 'Proposez un tarif pour ce métier'],
+            $reference && $rate < $reference * self::LOW_RATE_PERCENT / 100 => ['value' => 'bas', 'label' => 'Tarif bas : moins d’ouvriers risquent d’accepter'],
+            default => ['value' => 'ok', 'label' => 'Tarif proposé aux ouvriers'],
+        };
+    }
+}
