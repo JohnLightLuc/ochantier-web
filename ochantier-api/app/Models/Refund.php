@@ -1,0 +1,107 @@
+<?php
+
+namespace App\Models;
+
+use App\Enums\RefundStatus;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+
+/**
+ * Remboursement au promoteur (double validation).
+ */
+#[Fillable([
+    'reference', 'mission_id', 'original_transaction_id', 'beneficiary_type', 'beneficiary_id', 'amount', 'reason_id',
+    'reason', 'dispute_id', 'status', 'requested_by_admin_id', 'approved_by_admin_id', 'second_approver_admin_id',
+])]
+class Refund extends Model
+{
+    use HasUuids;
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'status' => RefundStatus::class,
+        ];
+    }
+
+    /**
+     * @return BelongsTo<Mission, $this>
+     */
+    public function mission(): BelongsTo
+    {
+        return $this->belongsTo(Mission::class);
+    }
+
+    /**
+     * @return BelongsTo<PaymentTransaction, $this>
+     */
+    public function originalTransaction(): BelongsTo
+    {
+        return $this->belongsTo(PaymentTransaction::class);
+    }
+
+    /**
+     * @return BelongsTo<ReasonCode, $this>
+     */
+    public function reasonCode(): BelongsTo
+    {
+        return $this->belongsTo(ReasonCode::class, 'reason_id');
+    }
+
+    /**
+     * @return BelongsTo<Dispute, $this>
+     */
+    public function dispute(): BelongsTo
+    {
+        return $this->belongsTo(Dispute::class);
+    }
+
+    /**
+     * @return BelongsTo<Admin, $this>
+     */
+    public function requestedByAdmin(): BelongsTo
+    {
+        return $this->belongsTo(Admin::class);
+    }
+
+    /**
+     * @return BelongsTo<Admin, $this>
+     */
+    public function approvedByAdmin(): BelongsTo
+    {
+        return $this->belongsTo(Admin::class);
+    }
+
+    /**
+     * @return BelongsTo<Admin, $this>
+     */
+    public function secondApproverAdmin(): BelongsTo
+    {
+        return $this->belongsTo(Admin::class);
+    }
+
+    /**
+     * @return HasMany<PaymentTransaction, $this>
+     */
+    public function paymentTransactions(): HasMany
+    {
+        return $this->hasMany(PaymentTransaction::class);
+    }
+
+    /**
+     * @return MorphTo<Model, $this>
+     */
+    public function beneficiary(): MorphTo
+    {
+        return $this->morphTo();
+    }
+}
