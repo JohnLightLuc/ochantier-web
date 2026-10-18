@@ -138,7 +138,9 @@ class ProspectTest extends CommercialTestCase
         $this->assertNotNull(Worker::query()->sole()->photo_media_id);
 
         $this->get($detail->json('data.documents.0.document.files.0.url'))->assertOk();
-        $this->getJson('/api/v1/media/'.$detail->json('data.documents.0.document.files.0.id'))->assertForbidden();
+        $this->getJson('/api/v1/media/'.$detail->json('data.documents.0.document.files.0.id'))
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Ce lien a expiré. Rechargez la page pour en obtenir un nouveau.');
     }
 
     public function test_a_new_identity_document_replaces_the_previous_one(): void
@@ -244,7 +246,7 @@ class ProspectTest extends CommercialTestCase
 
         $this->actingAsCommercial(User::factory()->commercial()->create());
 
-        $this->getJson("/api/v1/commercial/prospects/{$id}")->assertNotFound();
+        $this->getJson("/api/v1/commercial/prospects/{$id}")->assertNotFound()->assertJsonPath('message', 'Élément introuvable.');
         $this->getJson('/api/v1/commercial/prospects/not-a-uuid')->assertNotFound();
         $this->getJson('/api/v1/commercial/prospects')->assertJsonCount(0, 'data');
     }
