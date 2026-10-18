@@ -4,11 +4,13 @@ namespace App\Models;
 
 use App\Enums\ProspectInterestLevel;
 use App\Enums\ProspectStatus;
+use App\Enums\WorkerVerificationStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -103,6 +105,16 @@ class Prospect extends Model
     public function workers(): HasMany
     {
         return $this->hasMany(Worker::class);
+    }
+
+    /**
+     * Dossier ouvrier en cours de saisie par le commercial (un seul à la fois).
+     *
+     * @return HasOne<Worker, $this>
+     */
+    public function draftWorker(): HasOne
+    {
+        return $this->hasOne(Worker::class)->where('verification_status', WorkerVerificationStatus::Brouillon);
     }
 
     /**

@@ -28,6 +28,18 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Fichiers envoyés par les applications
+    |--------------------------------------------------------------------------
+    |
+    | Pièces, photos et justificatifs (media_files) : disque privé, jamais
+    | d’URL publique permanente. Local en développement, S3 en production.
+    |
+    */
+
+    'media' => env('MEDIA_DISK', 'local'),
+
     'disks' => [
 
         'local' => [

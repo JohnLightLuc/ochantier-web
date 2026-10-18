@@ -7,6 +7,10 @@ use App\Http\Controllers\Api\V1\Auth\ProfileController;
 use App\Http\Controllers\Api\V1\Auth\PromoterLoginController;
 use App\Http\Controllers\Api\V1\Auth\PromoterRegistrationController;
 use App\Http\Controllers\Api\V1\Auth\SessionController;
+use App\Http\Controllers\Api\V1\Commercial\ProspectController;
+use App\Http\Controllers\Api\V1\Commercial\ProspectDocumentController;
+use App\Http\Controllers\Api\V1\MediaController;
+use App\Http\Controllers\Api\V1\ReferenceController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -19,6 +23,7 @@ use Illuminate\Support\Facades\Route;
 |
 | Promoteur : inscription et connexion sans mot de passe, par code SMS ou e-mail.
 | Commercial : compte créé par le Back Office, connexion par mot de passe puis code SMS.
+| Espace commercial (prefix commercial) : prospects et dossiers ouvriers, contrat actif exigé.
 |
 */
 
@@ -56,6 +61,21 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
             Route::post('devices', [DeviceController::class, 'store'])->name('devices.store');
             Route::delete('devices/{token}', [DeviceController::class, 'destroy'])->where('token', '.*')->name('devices.destroy');
+
+            Route::get('referentials', ReferenceController::class)->name('referentials');
+
+            // Application Commercial : prospects et dossiers ouvriers.
+            Route::middleware(['user.type:commercial', 'commercial'])->prefix('commercial')->name('commercial.')->group(function () {
+                Route::get('prospects/phone-check', [ProspectController::class, 'checkPhone'])->name('prospects.phone-check');
+                Route::apiResource('prospects', ProspectController::class)->except('destroy');
+                Route::post('prospects/{prospect}/abandon', [ProspectController::class, 'abandon'])->name('prospects.abandon');
+                Route::post('prospects/{prospect}/submit', [ProspectController::class, 'submit'])->name('prospects.submit');
+                Route::post('prospects/{prospect}/documents', [ProspectDocumentController::class, 'store'])->name('prospects.documents.store');
+                Route::delete('prospects/{prospect}/documents/{document}', [ProspectDocumentController::class, 'destroy'])->name('prospects.documents.destroy');
+            });
         });
     });
+
+    // Fichiers : lien signé à durée limitée fourni dans les réponses de l’API.
+    Route::get('media/{media}', MediaController::class)->middleware('signed')->name('media.show');
 });

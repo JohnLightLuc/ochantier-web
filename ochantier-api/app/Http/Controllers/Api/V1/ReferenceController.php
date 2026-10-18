@@ -2,48 +2,79 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Enums\AccountType;
-use App\Enums\AvailabilityType;
-use App\Enums\DocumentType;
-use App\Enums\NeedUrgency;
-use App\Enums\WorkerAvailability;
-use App\Enums\WorkerDocumentType;
+use App\Enums\DocumentAudience;
 use App\Http\Controllers\Controller;
-use App\Support\Catalog;
-use App\Support\OneTimePassword;
+use App\Models\City;
+use App\Models\DocumentType;
+use App\Models\ReasonCode;
+use App\Models\Trade;
 use Illuminate\Http\JsonResponse;
 
 /**
- * Listes de référence des formulaires des applications (métiers, communes, types de pièces…).
+ * Référentiels des formulaires des applications : communes et quartiers, métiers, spécialités et compétences,
+ * pièces acceptées et motifs. Mis en cache par l’application (une heure).
  */
 class ReferenceController extends Controller
 {
     public function __invoke(): JsonResponse
     {
-        $options = fn (array $cases): array => array_map(fn ($case): array => ['value' => $case->value, 'label' => $case->label()], $cases);
+        $cities = City::query()
+            ->where('is_active', true)
+            ->with(['communes' => fn ($query) => $query->where('is_active', true)->orderBy('name')->with(['neighborhoods' => fn ($query) => $query->where('is_active', true)->orderBy('name')])])
+            ->orderByRaw("name <> 'Abidjan'")
+            ->orderBy('name')
+            ->get();
+
+        $trades = Trade::query()
+            ->where('is_active', true)
+            ->with([
+                'specialties' => fn ($query) => $query->where('is_active', true)->orderBy('label'),
+                'skills' => fn ($query) => $query->where('is_active', true)->orderBy('sort_order'),
+            ])
+            ->orderBy('sort_order')
+            ->get();
 
         return response()->json([
-            'trades' => Catalog::trades(),
-            'trade_details' => Catalog::TRADE_DETAILS,
-            'trade_groups' => Catalog::TRADE_GROUPS,
-            'communes' => Catalog::COMMUNES,
-            'site_communes' => Catalog::siteCommunes(),
-            'nationalities' => Catalog::NATIONALITIES,
-            'qualifications' => Catalog::QUALIFICATIONS,
-            'mobilities' => Catalog::MOBILITIES,
-            'id_types' => Catalog::ID_TYPES,
-            'acquisition_channels' => Catalog::CHANNELS,
-            'site_types' => Catalog::SITE_TYPES,
-            'need_types' => Catalog::NEED_TYPES,
-            'experiences' => Catalog::EXPERIENCES,
-            'pay_types' => Catalog::PAY_TYPES,
-            'urgencies' => $options(NeedUrgency::cases()),
-            'account_types' => $options(AccountType::cases()),
-            'worker_availabilities' => $options([WorkerAvailability::Available, WorkerAvailability::Unavailable]),
-            'period_types' => $options(AvailabilityType::cases()),
-            'worker_document_types' => $options(WorkerDocumentType::cases()),
-            'promoter_document_types' => $options(DocumentType::cases()),
-            'otp_lifetime' => app(OneTimePassword::class)->lifetime() * 60,
-        ]);
+            'cities' => $cities->map(fn (City $city) => [
+                'id' => $city->id,
+                'name' => $city->name,
+                'communes' => $city->communes->map(fn ($commune) => [
+                    'id' => $commune->id,
+                    'name' => $commune->name,
+                    'neighborhoods' => $commune->neighborhoods->map->only(['id', 'name'])->values(),
+                ])->values(),
+            ]),
+            'trades' => $trades->map(fn (Trade $trade) => [
+                'id' => $trade->id,
+                'code' => $trade->code,
+                'label' => $trade->label,
+                'specialties' => $trade->specialties->map->only(['id', 'code', 'label'])->values(),
+                'skills' => $trade->skills->map->only(['id', 'code', 'label'])->values(),
+            ]),
+            'worker_document_types' => DocumentType::query()
+                ->where('audience', DocumentAudience::Worker)
+                ->where('is_active', true)
+                ->orderBy('created_at')
+                ->get()
+                ->map(fn (DocumentType $type) => [
+                    'code' => $type->code,
+                    'label' => $type->label,
+                    'is_identity' => $type->is_identity,
+                    'is_required' => $type->is_required,
+                    'has_back_side' => $type->has_back_side,
+                    'requires_number' => $type->is_identity,
+                    'trade_id' => $type->trade_id,
+                    'allowed_mime' => $type->allowed_mime,
+                    'max_size_kb' => $type->max_size_kb,
+                ]),
+            'reasons' => ReasonCode::query()
+                ->where('is_active', true)
+                ->whereIn('category', ['abandon_prospect'])
+                ->orderBy('category')
+                ->orderBy('created_at')
+                ->get(['category', 'code', 'label'])
+                ->groupBy('category')
+                ->map(fn ($reasons) => $reasons->map->only(['code', 'label'])->values()),
+        ])->header('Cache-Control', 'private, max-age=3600');
     }
 }

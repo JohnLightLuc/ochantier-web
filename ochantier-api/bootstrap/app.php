@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureActiveCommercial;
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\EnsureUserType;
 use Illuminate\Auth\AuthenticationException;
@@ -20,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'user.type' => EnsureUserType::class,
             'password.changed' => EnsurePasswordChanged::class,
+            'commercial' => EnsureActiveCommercial::class,
         ]);
         $middleware->throttleApi();
     })

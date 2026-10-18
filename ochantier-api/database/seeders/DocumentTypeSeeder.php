@@ -17,14 +17,21 @@ class DocumentTypeSeeder extends Seeder
      * Code => [libellé, destinataire, options]. Options : required, identity, back, expiry, validity (mois),
      * trade (code métier), images (images seules), sensitive.
      *
+     * Une pièce d’identité (identity) est exigée parmi celles du destinataire : aucune n’est obligatoire seule.
+     *
      * @var array<string, array{0: string, 1: DocumentAudience, 2: array<string, mixed>}>
      */
     private const TYPES = [
-        'worker_cni' => ['Carte nationale d’identité', DocumentAudience::Worker, ['required' => true, 'identity' => true, 'back' => true, 'expiry' => true]],
+        'worker_cni' => ['Carte nationale d’identité', DocumentAudience::Worker, ['identity' => true, 'back' => true, 'expiry' => true]],
         'worker_passport' => ['Passeport', DocumentAudience::Worker, ['identity' => true, 'expiry' => true]],
+        'worker_consular_card' => ['Carte consulaire', DocumentAudience::Worker, ['identity' => true, 'back' => true, 'expiry' => true]],
+        'worker_driving_license' => ['Permis de conduire', DocumentAudience::Worker, ['identity' => true, 'back' => true, 'expiry' => true]],
         'worker_residence_card' => ['Carte de résident', DocumentAudience::Worker, ['identity' => true, 'back' => true, 'expiry' => true]],
         'worker_photo' => ['Photo d’identité', DocumentAudience::Worker, ['required' => true, 'images' => true]],
-        'worker_diploma' => ['Diplôme ou attestation de formation', DocumentAudience::Worker, ['sensitive' => false]],
+        'worker_diploma' => ['Certificat ou diplôme', DocumentAudience::Worker, ['sensitive' => false]],
+        'worker_work_certificate' => ['Attestation professionnelle', DocumentAudience::Worker, []],
+        'worker_proof_of_address' => ['Justificatif de domicile', DocumentAudience::Worker, []],
+        'worker_cv' => ['CV', DocumentAudience::Worker, []],
         'worker_electrical_clearance' => ['Habilitation électrique', DocumentAudience::Worker, ['expiry' => true, 'validity' => 36, 'trade' => 'electricien', 'sensitive' => false]],
         'worker_safety_training' => ['Attestation sécurité sur chantier (SST)', DocumentAudience::Worker, ['expiry' => true, 'validity' => 24, 'sensitive' => false]],
         'promoter_cni' => ['Pièce d’identité du promoteur', DocumentAudience::Promoter, ['required' => true, 'identity' => true, 'back' => true, 'expiry' => true]],

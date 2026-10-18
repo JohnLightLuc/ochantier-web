@@ -9,12 +9,15 @@ use App\Support\Sms\LogSmsGateway;
 use App\Support\Sms\SmsGateway;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Schema\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -39,6 +42,15 @@ class AppServiceProvider extends ServiceProvider
         Relation::enforceMorphMap(self::morphMap());
 
         Auth::viaRequest('jwt', fn (Request $request) => $this->app->make(JwtAuthenticator::class)($request));
+
+        // Un commercial n’accède qu’à ses propres prospects : ceux des autres sont introuvables (404).
+        Route::bind('prospect', fn (string $id) => Str::isUuid($id)
+            ? Models\Prospect::query()->whereKey($id)->where('commercial_id', request()->user()?->commercialProfile?->getKey())->firstOrFail()
+            : throw (new ModelNotFoundException)->setModel(Models\Prospect::class, [$id]));
+
+        Route::bind('media', fn (string $id) => Str::isUuid($id)
+            ? Models\MediaFile::query()->findOrFail($id)
+            : throw (new ModelNotFoundException)->setModel(Models\MediaFile::class, [$id]));
 
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(120)->by($request->user()?->getMorphClass().$request->user()?->getKey() ?: $request->ip()));
 
