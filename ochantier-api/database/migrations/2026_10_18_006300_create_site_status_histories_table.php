@@ -1,0 +1,35 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('site_status_histories', function (Blueprint $table) {
+            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->foreignUuid('site_id')->constrained('sites')->cascadeOnDelete();
+            $table->string('from_status', 20)->nullable();
+            $table->string('to_status', 20);
+            $table->text('reason')->nullable();
+            $table->string('actor_type', 20);
+            $table->uuid('actor_id')->nullable();
+            $table->timestampTz('created_at')->useCurrent();
+            $table->index(['site_id', 'created_at'], 'ix_site_status_histories');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('site_status_histories');
+    }
+};
