@@ -10,10 +10,14 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Seed the application's database.
+     * Données de référence, puis comptes de démonstration hors production.
      */
     public function run(): void
     {
-        //
+        $this->call(ReferenceDataSeeder::class);
+
+        if (! app()->isProduction()) {
+            $this->call(DemoAccountsSeeder::class);
+        }
     }
 }
