@@ -42,6 +42,26 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Applications mobiles : jeton JWT adossé à auth_sessions (voir config/jwt.php).
+        'api' => [
+            'driver' => 'jwt',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Verrouillage après échecs de connexion
+    |--------------------------------------------------------------------------
+    |
+    | Au-delà de `max_attempts` mots de passe erronés, le compte est verrouillé
+    | pendant `lockout_minutes`.
+    |
+    */
+
+    'lockout' => [
+        'max_attempts' => (int) env('AUTH_MAX_ATTEMPTS', 5),
+        'lockout_minutes' => (int) env('AUTH_LOCKOUT_MINUTES', 15),
     ],
 
     /*

@@ -3,39 +3,38 @@
 namespace App\Http\Controllers\Api\V1\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\Device;
-use Illuminate\Http\JsonResponse;
+use App\Http\Requests\V1\Auth\DeviceTokenRequest;
+use App\Models\DeviceToken;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Validation\Rule;
 
 /**
- * Jetons de notification push des appareils.
+ * Jetons de notification push des appareils du compte connecté.
  */
 class DeviceController extends Controller
 {
     /**
      * Enregistre (ou rattache au compte connecté) le jeton push de l’appareil.
      */
-    public function store(Request $request): JsonResponse
+    public function store(DeviceTokenRequest $request): Response
     {
-        $data = $request->validate([
-            'token' => ['required', 'string', 'max:255'],
-            'platform' => ['required', Rule::in(['android', 'ios'])],
-            'name' => ['nullable', 'string', 'max:120'],
-            'app_version' => ['nullable', 'string', 'max:20'],
+        DeviceToken::query()->updateOrCreate(['push_token' => $request->input('push_token')], [
+            'owner_type' => $request->user()->getMorphClass(),
+            'owner_id' => $request->user()->getKey(),
+            'platform' => $request->input('platform'),
+            'device_id' => $request->input('device_id'),
+            'last_seen_at' => now(),
+            'revoked_at' => null,
         ]);
 
-        $account = $request->user();
-        $device = Device::query()->firstOrNew(['token' => $data['token']]);
-        $device->fill([...$data, 'last_seen_at' => now()])->account()->associate($account)->save();
-
-        return response()->json(['message' => 'Appareil enregistré.'], $device->wasRecentlyCreated ? 201 : 200);
+        return response()->noContent();
     }
 
     public function destroy(Request $request, string $token): Response
     {
-        $request->user()->devices()->where('token', $token)->delete();
+        $request->user()->deviceTokens()
+            ->where('push_token', $token)
+            ->update(['revoked_at' => now()]);
 
         return response()->noContent();
     }

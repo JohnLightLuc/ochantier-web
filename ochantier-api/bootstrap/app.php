@@ -1,13 +1,13 @@
 <?php
 
+use App\Http\Middleware\EnsurePasswordChanged;
+use App\Http\Middleware\EnsureUserType;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
-use Laravel\Sanctum\Http\Middleware\CheckAbilities;
-use Laravel\Sanctum\Http\Middleware\CheckForAnyAbility;
-use Laravel\Sanctum\Exceptions\MissingAbilityException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -18,8 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'abilities' => CheckAbilities::class,
-            'ability' => CheckForAnyAbility::class,
+            'user.type' => EnsureUserType::class,
+            'password.changed' => EnsurePasswordChanged::class,
         ]);
         $middleware->throttleApi();
     })
@@ -30,5 +30,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(fn (AuthenticationException $e, Request $request) => response()->json(['message' => 'Session expirée : reconnectez-vous.'], 401));
 
-        $exceptions->render(fn (MissingAbilityException $e, Request $request) => response()->json(['message' => 'Cette fonctionnalité n’est pas disponible pour votre application.'], 403));
+        $exceptions->render(fn (ThrottleRequestsException $e, Request $request) => response()->json([
+            'message' => 'Trop de tentatives. Réessayez dans quelques instants.',
+            'retry_after' => (int) ($e->getHeaders()['Retry-After'] ?? 60),
+        ], 429, $e->getHeaders()));
     })->create();

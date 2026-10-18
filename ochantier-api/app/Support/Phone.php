@@ -16,6 +16,14 @@ class Phone
     }
 
     /**
+     * Format E.164 enregistré en base : « +2250708091011 ».
+     */
+    public static function e164(string $phone): string
+    {
+        return '+225'.self::digits($phone);
+    }
+
+    /**
      * Format enregistré par le Back-office : « +225 07 08 09 10 11 ».
      */
     public static function format(string $digits): string

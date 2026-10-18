@@ -36,7 +36,13 @@ return [
     ],
 
     'otp' => [
-        'lifetime' => (int) env('OTP_LIFETIME', 10),
+        // Validité d’un code, en minutes.
+        'lifetime' => (int) env('OTP_LIFETIME', 5),
+        // Délai avant de pouvoir redemander un code, en secondes.
+        'resend_after' => (int) env('OTP_RESEND_AFTER', 45),
+        // Essais autorisés par code.
+        'max_attempts' => (int) env('OTP_MAX_ATTEMPTS', 5),
+        // Code fixe hors production (tests, recette), jamais en production.
         'test_code' => env('OTP_TEST_CODE'),
     ],
 

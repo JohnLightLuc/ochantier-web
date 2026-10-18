@@ -15,9 +15,9 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
             $table->string('user_type', 20);
-            $table->string('first_name', 80);
-            $table->string('last_name', 80);
-            $table->string('phone', 20)->comment('format E.164');
+            $table->string('first_name', 80)->nullable()->comment('complété dans le profil après l\'inscription');
+            $table->string('last_name', 80)->nullable();
+            $table->string('phone', 20)->nullable()->comment('format E.164');
             $table->timestampTz('phone_verified_at')->nullable();
             $table->rawColumn('email', 'citext')->nullable();
             $table->timestampTz('email_verified_at')->nullable();
@@ -40,6 +40,7 @@ return new class extends Migration
         });
 
         DB::statement('ALTER TABLE users ADD CONSTRAINT users_user_type_check CHECK (user_type IN (\'promoter\',\'commercial\',\'worker\'))');
+        DB::statement('ALTER TABLE users ADD CONSTRAINT users_contact_check CHECK (phone IS NOT NULL OR email IS NOT NULL)');
         DB::statement('ALTER TABLE users ADD CONSTRAINT users_status_check CHECK (status IN (\'en_attente_activation\',\'actif\',\'suspendu\',\'desactive\'))');
         DB::statement('CREATE UNIQUE INDEX uq_users_type_phone ON users (user_type, phone) WHERE deleted_at IS NULL');
         DB::statement('CREATE UNIQUE INDEX uq_users_type_email ON users (user_type, email) WHERE email IS NOT NULL AND deleted_at IS NULL');

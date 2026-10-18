@@ -4,9 +4,13 @@ namespace App\Models;
 
 use App\Enums\UserStatus;
 use App\Enums\UserType;
+use App\Support\Phone;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -25,7 +29,8 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 #[Hidden(['password_hash'])]
 class User extends Authenticatable
 {
-    use HasUuids, SoftDeletes;
+    /** @use HasFactory<UserFactory> */
+    use HasFactory, HasUuids, SoftDeletes;
 
     /**
      * Colonne du mot de passe haché.
@@ -148,5 +153,79 @@ class User extends Authenticatable
     public function deviceTokens(): MorphMany
     {
         return $this->morphMany(DeviceToken::class, 'owner');
+    }
+
+    /**
+     * Organisations dont l’utilisateur est propriétaire (promoteur entreprise).
+     *
+     * @return HasMany<Organization, $this>
+     */
+    public function ownedOrganizations(): HasMany
+    {
+        return $this->hasMany(Organization::class, 'owner_user_id');
+    }
+
+    /**
+     * Compte d’un type donné, retrouvé par son numéro (10 chiffres ou E.164) ou son e-mail.
+     */
+    public static function findByContact(UserType $type, ?string $phone, ?string $email = null): ?self
+    {
+        if (! $phone && ! $email) {
+            return null;
+        }
+
+        return self::query()
+            ->where('user_type', $type)
+            ->when($phone, fn (Builder $query) => $query->where('phone', Phone::e164($phone)))
+            ->when(! $phone && $email, fn (Builder $query) => $query->where('email', $email))
+            ->first();
+    }
+
+    /**
+     * Seul un compte actif peut ouvrir ou conserver une session.
+     */
+    public function canSignIn(): bool
+    {
+        return $this->status === UserStatus::Actif && ! $this->trashed();
+    }
+
+    /**
+     * Motif du refus de connexion d’un compte existant, ou null s’il peut se connecter.
+     */
+    public function signInRefusal(): ?string
+    {
+        return match ($this->status) {
+            UserStatus::Suspendu => 'Votre compte est suspendu. Contactez le support O’CHANTIER.',
+            UserStatus::Desactive => 'Votre compte est désactivé. Contactez le support O’CHANTIER.',
+            default => null,
+        };
+    }
+
+    public function isLocked(): bool
+    {
+        return $this->locked_until?->isFuture() ?? false;
+    }
+
+    /**
+     * Compte un mot de passe erroné et verrouille le compte au-delà du nombre d’essais autorisés.
+     */
+    public function registerFailedLogin(): void
+    {
+        $attempts = $this->failed_login_count + 1;
+
+        if ($attempts >= (int) config('auth.lockout.max_attempts')) {
+            $this->forceFill(['failed_login_count' => 0, 'locked_until' => now()->addMinutes((int) config('auth.lockout.lockout_minutes'))])->save();
+
+            return;
+        }
+
+        $this->forceFill(['failed_login_count' => $attempts])->save();
+    }
+
+    public function clearFailedLogins(): void
+    {
+        if ($this->failed_login_count > 0 || $this->locked_until !== null) {
+            $this->forceFill(['failed_login_count' => 0, 'locked_until' => null])->save();
+        }
     }
 }

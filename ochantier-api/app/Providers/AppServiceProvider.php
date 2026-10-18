@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models;
+use App\Support\Auth\JwtAuthenticator;
 use App\Support\Phone;
 use App\Support\Sms\LogSmsGateway;
 use App\Support\Sms\SmsGateway;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Schema\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -36,11 +38,19 @@ class AppServiceProvider extends ServiceProvider
 
         Relation::enforceMorphMap(self::morphMap());
 
+        Auth::viaRequest('jwt', fn (Request $request) => $this->app->make(JwtAuthenticator::class)($request));
+
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(120)->by($request->user()?->getMorphClass().$request->user()?->getKey() ?: $request->ip()));
 
         RateLimiter::for('otp', fn (Request $request) => [
-            Limit::perMinute(3)->by('otp:'.Phone::digits($request->input('phone'))),
+            Limit::perMinute(3)->by('otp:'.($request->filled('phone') ? Phone::digits($request->input('phone')) : mb_strtolower((string) $request->input('email')))),
             Limit::perHour(10)->by('otp-ip:'.$request->ip()),
+        ]);
+
+        // Au-dessus du seuil de verrouillage du compte (config auth.lockout) pour que le verrouillage s’applique d’abord.
+        RateLimiter::for('login', fn (Request $request) => [
+            Limit::perMinute(10)->by('login:'.Phone::digits($request->input('phone'))),
+            Limit::perMinute(20)->by('login-ip:'.$request->ip()),
         ]);
     }
 
