@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * Profil promoteur : un particulier n'a pas besoin d'organisation.
  */
 #[Fillable([
-    'user_id', 'profile_kind', 'photo_media_id', 'address', 'commune_id', 'neighborhood_id', 'billing_name',
+    'user_id', 'profile_kind', 'job_title', 'photo_media_id', 'address', 'commune_id', 'neighborhood_id', 'billing_name',
     'billing_address', 'tax_identifier', 'verification_status', 'validated_at', 'validated_by_admin_id',
     'suspended_reason',
 ])]

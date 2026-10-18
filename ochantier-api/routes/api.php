@@ -9,7 +9,11 @@ use App\Http\Controllers\Api\V1\Auth\PromoterRegistrationController;
 use App\Http\Controllers\Api\V1\Auth\SessionController;
 use App\Http\Controllers\Api\V1\Commercial\ProspectController;
 use App\Http\Controllers\Api\V1\Commercial\ProspectDocumentController;
+use App\Http\Controllers\Api\V1\HelpController;
 use App\Http\Controllers\Api\V1\MediaController;
+use App\Http\Controllers\Api\V1\Promoter\NotificationPreferenceController;
+use App\Http\Controllers\Api\V1\Promoter\ProfileController as PromoterProfileController;
+use App\Http\Controllers\Api\V1\Promoter\ProfileDocumentController;
 use App\Http\Controllers\Api\V1\ReferenceController;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +28,7 @@ use Illuminate\Support\Facades\Route;
 | Promoteur : inscription et connexion sans mot de passe, par code SMS ou e-mail.
 | Commercial : compte créé par le Back Office, connexion par mot de passe puis code SMS.
 | Espace commercial (prefix commercial) : prospects et dossiers ouvriers, contrat actif exigé.
+| Espace promoteur (prefix promoter) : profil, vérification et préférences.
 |
 */
 
@@ -63,6 +68,19 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::delete('devices/{token}', [DeviceController::class, 'destroy'])->where('token', '.*')->name('devices.destroy');
 
             Route::get('referentials', ReferenceController::class)->name('referentials');
+            Route::get('help', HelpController::class)->name('help');
+
+            // Application Promoteur : profil, pièces justificatives et préférences.
+            Route::middleware('user.type:promoter')->prefix('promoter')->name('promoter.')->group(function () {
+                Route::get('profile', [PromoterProfileController::class, 'show'])->name('profile.show');
+                Route::patch('profile', [PromoterProfileController::class, 'update'])->name('profile.update');
+                Route::post('profile/photo', [PromoterProfileController::class, 'storePhoto'])->name('profile.photo.store');
+                Route::delete('profile/photo', [PromoterProfileController::class, 'destroyPhoto'])->name('profile.photo.destroy');
+                Route::post('profile/documents', [ProfileDocumentController::class, 'store'])->name('profile.documents.store');
+                Route::delete('profile/documents/{document}', [ProfileDocumentController::class, 'destroy'])->name('profile.documents.destroy');
+                Route::get('notification-preferences', [NotificationPreferenceController::class, 'show'])->name('notification-preferences.show');
+                Route::put('notification-preferences', [NotificationPreferenceController::class, 'update'])->name('notification-preferences.update');
+            });
 
             // Application Commercial : prospects et dossiers ouvriers.
             Route::middleware(['user.type:commercial', 'commercial'])->prefix('commercial')->name('commercial.')->group(function () {

@@ -4,7 +4,6 @@ namespace App\Support\Commercial;
 
 use App\Enums\ConsentType;
 use App\Enums\DocumentAudience;
-use App\Enums\DocumentVerificationStatus;
 use App\Enums\ProspectStatus;
 use App\Enums\SkillLevel;
 use App\Enums\VerificationReviewStatus;
@@ -16,7 +15,7 @@ use App\Models\Prospect;
 use App\Models\ReasonCode;
 use App\Models\User;
 use App\Models\Worker;
-use App\Support\Media\MediaStore;
+use App\Support\Documents\DocumentStore;
 use App\Support\PhoneNumber;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -59,7 +58,7 @@ class ProspectDossier
      */
     private ?array $documentLabels = null;
 
-    public function __construct(private MediaStore $media) {}
+    public function __construct(private DocumentStore $documents) {}
 
     /**
      * @param  array<string, mixed>  $data
@@ -152,42 +151,21 @@ class ProspectDossier
             $previous = $this->activeDocuments($worker)
                 ->filter(fn (Document $document) => $document->document_type_id === $type->getKey() || ($type->is_identity && $document->documentType->is_identity));
 
-            $document = $worker->documents()->create([
-                'document_type_id' => $type->getKey(),
-                'label' => $type->label,
-                'number_encrypted' => $number,
-                'number_last4' => $number ? substr(preg_replace('/\s+/', '', $number), -4) : null,
-                'expires_at' => $expiresAt,
-                'version' => ($previous->max('version') ?? 0) + 1,
-                'replaces_document_id' => $previous->sortByDesc('created_at')->first()?->getKey(),
-                'verification_status' => DocumentVerificationStatus::EnAttente,
-                'uploaded_by_type' => $author->getMorphClass(),
-                'uploaded_by_id' => $author->getKey(),
-            ]);
-
             $purpose = match (true) {
                 $type->is_identity => 'piece_identite',
                 $type->code === self::PHOTO_DOCUMENT => 'photo_profil',
                 default => 'document',
             };
 
-            foreach ($files as $side => $file) {
-                $media = $this->media->store($file, $purpose, $author, $type->is_sensitive);
-                $document->files()->attach($media->getKey(), ['side' => $side, 'page_number' => 1]);
+            $document = $this->documents->attach($worker, $author, $type, $files, $previous, $number, $expiresAt, $purpose);
 
-                if ($type->code === self::PHOTO_DOCUMENT) {
-                    $worker->forceFill(['photo_media_id' => $media->getKey()])->save();
-                }
+            if ($type->code === self::PHOTO_DOCUMENT) {
+                $worker->forceFill(['photo_media_id' => $document->files->first()->getKey()])->save();
             }
 
-            foreach ($previous as $replaced) {
-                $replaced->forceFill(['verification_status' => DocumentVerificationStatus::Remplace])->save();
-            }
-
-            $worker->unsetRelation('documents');
             $this->touch($prospect);
 
-            return $document->load(['documentType', 'files']);
+            return $document;
         });
     }
 
@@ -312,22 +290,12 @@ class ProspectDossier
      */
     public function activeDocuments(Worker $worker): Collection
     {
-        $worker->loadMissing(['documents.documentType', 'documents.files']);
-
-        return $worker->documents
-            ->reject(fn (Document $document) => $document->verification_status === DocumentVerificationStatus::Remplace)
-            ->sortByDesc('created_at')
-            ->values();
+        return $this->documents->active($worker);
     }
 
     public function isCompleteIdentity(Document $document): bool
     {
-        $type = $document->documentType;
-        $sides = $document->files->pluck('pivot.side')->all();
-
-        return $type->is_identity
-            && filled($document->number_last4)
-            && ($type->has_back_side ? ! array_diff(['recto', 'verso'], $sides) : $sides !== []);
+        return $this->documents->isCompleteIdentity($document);
     }
 
     /**

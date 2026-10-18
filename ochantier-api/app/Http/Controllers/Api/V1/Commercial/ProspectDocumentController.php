@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\V1\Commercial;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Commercial\ProspectDocumentRequest;
-use App\Http\Resources\V1\Commercial\DocumentResource;
+use App\Http\Resources\V1\DocumentResource;
 use App\Models\Document;
 use App\Models\Prospect;
 use App\Support\Commercial\ProspectDossier;

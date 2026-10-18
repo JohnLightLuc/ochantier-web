@@ -1,8 +1,7 @@
 <?php
 
-namespace App\Http\Resources\V1\Commercial;
+namespace App\Http\Resources\V1;
 
-use App\Http\Resources\V1\Resource;
 use App\Models\Document;
 use App\Models\MediaFile;
 use App\Support\Media\MediaStore;

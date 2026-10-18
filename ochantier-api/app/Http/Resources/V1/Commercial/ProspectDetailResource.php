@@ -3,6 +3,7 @@
 namespace App\Http\Resources\V1\Commercial;
 
 use App\Enums\DocumentAudience;
+use App\Http\Resources\V1\DocumentResource;
 use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\Prospect;

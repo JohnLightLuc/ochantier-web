@@ -59,6 +59,10 @@ class PlatformRulesSeeder extends Seeder
      * @var array<string, array{0: mixed, 1: string}>
      */
     private const SETTINGS = [
+        'support.phone' => ['+225 27 22 00 00 00', 'Numéro du support affiché dans le centre d’aide.'],
+        'support.whatsapp' => ['+225 07 00 00 00 00', 'Numéro WhatsApp du support.'],
+        'support.email' => ['support@ochantier.ci', 'Adresse e-mail du support.'],
+        'support.hours' => ['Du lundi au samedi, de 8 h à 18 h', 'Horaires du support.'],
         'needs.start_alert_days' => [7, 'Alerte avant le démarrage d’un besoin non couvert (jours).'],
         'needs.minimum_coverage_percent' => [80, 'Couverture minimale d’un besoin avant démarrage (%).'],
         'needs.processing_hours' => [48, 'Délai de traitement d’une offre publiée (heures).'],

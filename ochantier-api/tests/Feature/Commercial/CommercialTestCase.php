@@ -56,7 +56,8 @@ abstract class CommercialTestCase extends AuthTestCase
         return [
             'first_name' => 'Jean',
             'last_name' => 'Kouassi',
-            'dial_code' => '225', 'phone_number' => '07 12 34 56 78',
+            'dial_code' => '225',
+            'phone_number' => '07 12 34 56 78',
             'commune_id' => $this->commune(),
             'trade_id' => $this->trade()->id,
             'contact_consent' => true,

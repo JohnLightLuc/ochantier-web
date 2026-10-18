@@ -19,6 +19,7 @@ class ReferenceDataSeeder extends Seeder
             CommercialOfferSeeder::class,
             AdminAccessSeeder::class,
             PlatformRulesSeeder::class,
+            HelpCenterSeeder::class,
         ]);
     }
 }

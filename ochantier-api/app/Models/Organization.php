@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\GeoPoint;
 use App\Enums\PromoterVerificationStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -15,7 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * Organisation promotrice (entreprise) : facultative.
  */
 #[Fillable([
-    'owner_user_id', 'legal_name', 'trade_name', 'legal_form', 'rccm', 'tax_identifier', 'address', 'commune_id',
+    'owner_user_id', 'legal_name', 'trade_name', 'legal_form', 'rccm', 'tax_identifier', 'address', 'commune_id', 'neighborhood_id', 'location',
     'phone', 'email', 'legal_representative', 'logo_media_id', 'billing_name', 'billing_address',
     'verification_status', 'validated_at', 'validated_by_admin_id', 'suspended_reason',
 ])]
@@ -31,6 +32,7 @@ class Organization extends Model
     protected function casts(): array
     {
         return [
+            'location' => GeoPoint::class,
             'verification_status' => PromoterVerificationStatus::class,
             'validated_at' => 'datetime',
         ];
@@ -58,6 +60,14 @@ class Organization extends Model
     public function logoMedia(): BelongsTo
     {
         return $this->belongsTo(MediaFile::class);
+    }
+
+    /**
+     * @return BelongsTo<Neighborhood, $this>
+     */
+    public function neighborhood(): BelongsTo
+    {
+        return $this->belongsTo(Neighborhood::class);
     }
 
     /**
