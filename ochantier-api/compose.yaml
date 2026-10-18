@@ -1,0 +1,22 @@
+services:
+  pgsql:
+    image: postgis/postgis:17-3.5
+    platform: linux/amd64 # pas d'image arm64 officielle : émulée via Rosetta sur Mac Apple Silicon
+    container_name: ochantier-pgsql
+    ports:
+      - "${FORWARD_DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: "${DB_DATABASE:-ochantier}"
+      POSTGRES_USER: "${DB_USERNAME:-ochantier}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:-secret}"
+      TZ: UTC
+    volumes:
+      - ochantier-pgsql:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-ochantier} -d ${DB_DATABASE:-ochantier}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ochantier-pgsql:
