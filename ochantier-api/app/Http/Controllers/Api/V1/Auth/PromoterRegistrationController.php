@@ -15,6 +15,7 @@ use App\Http\Requests\V1\Auth\VerifyContactRequest;
 use App\Models\LegalDocument;
 use App\Models\User;
 use App\Support\Auth\DeviceContext;
+use App\Support\PhoneNumber;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -31,10 +32,10 @@ class PromoterRegistrationController extends AuthController
     public function store(PromoterRegisterRequest $request): JsonResponse
     {
         [$channel, $destination] = $request->contact();
-        $existing = User::findByContact(UserType::Promoter, $request->input('phone'), $request->input('email'));
+        $existing = User::findByContact(UserType::Promoter, ...$request->contactLookup());
 
         if ($existing && $existing->status !== UserStatus::EnAttenteActivation) {
-            $field = $channel === MessageChannel::Sms ? 'phone' : 'email';
+            $field = $channel === MessageChannel::Sms ? 'phone_number' : 'email';
 
             throw ValidationException::withMessages([$field => 'Un compte existe déjà avec ces coordonnées. Connectez-vous.']);
         }
@@ -45,7 +46,7 @@ class PromoterRegistrationController extends AuthController
             $user = $existing ?? User::create([
                 'user_type' => UserType::Promoter,
                 'status' => UserStatus::EnAttenteActivation,
-                'phone' => $channel === MessageChannel::Sms ? $destination : null,
+                ...PhoneNumber::attributes($request->phoneNumber()),
                 'email' => $channel === MessageChannel::Email ? $destination : null,
             ]);
 
@@ -67,7 +68,7 @@ class PromoterRegistrationController extends AuthController
 
         $this->otp->send(OtpPurpose::Activation, $channel, $destination, $user);
 
-        return $this->codeSent($channel, $destination, 'Code d’activation envoyé.');
+        return $this->codeSent($request->recipient(), 'Code d’activation envoyé.');
     }
 
     /**
@@ -76,7 +77,7 @@ class PromoterRegistrationController extends AuthController
     public function verify(VerifyContactRequest $request): JsonResponse
     {
         [, $destination] = $request->contact();
-        $user = User::findByContact(UserType::Promoter, $request->input('phone'), $request->input('email'));
+        $user = User::findByContact(UserType::Promoter, ...$request->contactLookup());
 
         if (! $user || $user->status !== UserStatus::EnAttenteActivation || ! $this->otp->verify(OtpPurpose::Activation, $destination, $request->input('code'))) {
             $this->recordAttempt($request, $destination, false, $user, 'activation_code');
@@ -89,7 +90,7 @@ class PromoterRegistrationController extends AuthController
         DB::transaction(function () use ($user, $request, $device): void {
             $user->forceFill([
                 'status' => UserStatus::Actif,
-                $request->filled('phone') ? 'phone_verified_at' : 'email_verified_at' => now(),
+                $request->phoneNumber() ? 'phone_verified_at' : 'email_verified_at' => now(),
             ])->save();
 
             $user->ownedOrganizations()->first()?->members()->firstOrCreate(['user_id' => $user->getKey()], [

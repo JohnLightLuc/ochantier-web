@@ -6,7 +6,7 @@ use App\Enums\ProspectStatus;
 use App\Http\Resources\V1\Resource;
 use App\Models\Prospect;
 use App\Support\Commercial\ProspectDossier;
-use App\Support\Phone;
+use App\Support\PhoneNumber;
 use Illuminate\Http\Request;
 
 /**
@@ -30,7 +30,7 @@ class ProspectResource extends Resource
             'last_name' => $this->last_name,
             'full_name' => trim($this->first_name.' '.$this->last_name),
             'initials' => mb_strtoupper(mb_substr((string) $this->first_name, 0, 1).mb_substr((string) $this->last_name, 0, 1)),
-            'phone' => Phone::format($this->phone),
+            ...PhoneNumber::of($this->resource)->toArray(),
             'commune' => $this->commune?->only(['id', 'name']),
             'neighborhood' => $this->neighborhood?->only(['id', 'name']),
             'trade' => $this->presumedTrade?->only(['id', 'code', 'label']),

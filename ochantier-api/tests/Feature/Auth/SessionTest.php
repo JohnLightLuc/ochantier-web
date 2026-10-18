@@ -96,17 +96,17 @@ class SessionTest extends AuthTestCase
 
     public function test_the_phone_number_is_changed_after_confirming_the_code_sent_to_the_new_number(): void
     {
-        $user = User::factory()->promoter()->create(['phone' => '+2250708091011']);
-        User::factory()->promoter()->create(['phone' => '+2250505050505']);
+        $user = User::factory()->promoter()->create(['dial_code' => '225', 'phone_number' => '0708091011']);
+        User::factory()->promoter()->create(['dial_code' => '225', 'phone_number' => '0505050505']);
         $token = $this->openSession($user)->accessToken;
 
-        $this->withAccessToken($token)->postJson('/api/v1/me/phone', ['phone' => '0505050505'])
-            ->assertJsonValidationErrors(['phone' => 'Ce numéro est déjà utilisé par un autre compte.']);
+        $this->withAccessToken($token)->postJson('/api/v1/me/phone', ['dial_code' => '225', 'phone_number' => '0505050505'])
+            ->assertJsonValidationErrors(['phone_number' => 'Ce numéro est déjà utilisé par un autre compte.']);
 
-        $this->withAccessToken($token)->postJson('/api/v1/me/phone', ['phone' => '0101010101'])->assertAccepted();
-        $this->assertSame('+225 01 01 01 01 01', $this->sms->sent[0]['phone']);
+        $this->withAccessToken($token)->postJson('/api/v1/me/phone', ['dial_code' => '225', 'phone_number' => '0101010101'])->assertAccepted();
+        $this->assertSame('+2250101010101', $this->sms->sent[0]['phone']);
 
-        $this->withAccessToken($token)->postJson('/api/v1/me/phone/verify', ['phone' => '0101010101', 'code' => '123456'])
+        $this->withAccessToken($token)->postJson('/api/v1/me/phone/verify', ['dial_code' => '225', 'phone_number' => '0101010101', 'code' => '123456'])
             ->assertOk()
             ->assertJsonPath('data.phone', '+225 01 01 01 01 01');
 

@@ -27,8 +27,8 @@ class DatabaseSeederTest extends AuthTestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $this->postJson('/api/v1/auth/commercial/login', ['phone' => '0500000001', 'password' => 'motdepasse1'])->assertAccepted();
-        $this->postJson('/api/v1/auth/commercial/login/verify', ['phone' => '0500000001', 'code' => '123456', ...$this->device()])
+        $this->postJson('/api/v1/auth/commercial/login', ['dial_code' => '225', 'phone_number' => '0500000001', 'password' => 'motdepasse1'])->assertAccepted();
+        $this->postJson('/api/v1/auth/commercial/login/verify', ['dial_code' => '225', 'phone_number' => '0500000001', 'code' => '123456', ...$this->device()])
             ->assertOk()
             ->assertJsonPath('user.must_change_password', false);
 
@@ -41,8 +41,8 @@ class DatabaseSeederTest extends AuthTestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $this->postJson('/api/v1/auth/promoter/register', ['profile_kind' => 'particulier', 'phone' => '0712345678', 'accept_terms' => true])->assertAccepted();
-        $this->postJson('/api/v1/auth/promoter/register/verify', ['phone' => '0712345678', 'code' => '123456', ...$this->device()])->assertCreated();
+        $this->postJson('/api/v1/auth/promoter/register', ['profile_kind' => 'particulier', 'dial_code' => '225', 'phone_number' => '0712345678', 'accept_terms' => true])->assertAccepted();
+        $this->postJson('/api/v1/auth/promoter/register/verify', ['dial_code' => '225', 'phone_number' => '0712345678', 'code' => '123456', ...$this->device()])->assertCreated();
 
         $consents = User::query()->where('phone', '+2250712345678')->firstOrFail()->consents()->pluck('legal_document_id');
 

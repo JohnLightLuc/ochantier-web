@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\V1\Auth;
 
-use App\Http\Requests\V1\PhoneRule;
 use App\Support\Auth\DeviceContext;
 
 /**
@@ -16,7 +15,7 @@ class PhoneCodeRequest extends AuthRequest
     public function rules(): array
     {
         return [
-            'phone' => ['required', 'string', new PhoneRule],
+            ...$this->phoneRules(),
             'code' => $this->codeRules(),
             ...DeviceContext::rules(),
         ];

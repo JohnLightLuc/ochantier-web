@@ -7,7 +7,7 @@ use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\Prospect;
 use App\Support\Commercial\ProspectDossier;
-use App\Support\Phone;
+use App\Support\PhoneNumber;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
@@ -51,7 +51,7 @@ class ProspectDetailResource extends ProspectResource
             ],
             'emergency_contact' => [
                 'name' => $worker?->emergency_contact_name,
-                'phone' => $worker?->emergency_contact_phone ? Phone::format($worker->emergency_contact_phone) : null,
+                ...($worker ? PhoneNumber::of($worker, 'emergency_contact_')?->toArray() : null) ?? ['dial_code' => null, 'phone_number' => null, 'phone' => null],
             ],
             'documents' => $this->documentSlots($documents, $dossier),
             'checklist' => $completion['items'],

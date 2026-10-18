@@ -2,8 +2,6 @@
 
 namespace App\Http\Requests\V1\Auth;
 
-use App\Http\Requests\V1\PhoneRule;
-
 /**
  * Nouveau mot de passe choisi après vérification du code reçu par SMS.
  */
@@ -15,7 +13,7 @@ class ResetPasswordRequest extends AuthRequest
     public function rules(): array
     {
         return [
-            'phone' => ['required', 'string', new PhoneRule],
+            ...$this->phoneRules(),
             'code' => $this->codeRules(),
             'password' => $this->newPasswordRules(),
         ];

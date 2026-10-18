@@ -30,6 +30,17 @@ class Country extends Model
     }
 
     /**
+     * Indicatifs des pays ouverts, sans « + » (« 225 ») : ceux qu’un numéro de téléphone peut porter.
+     *
+     * @return list<string>
+     */
+    public static function dialCodes(): array
+    {
+        return once(fn () => self::query()->where('is_active', true)->pluck('phone_prefix')
+            ->map(fn (string $prefix) => ltrim($prefix, '+'))->unique()->values()->all());
+    }
+
+    /**
      * @return HasMany<City, $this>
      */
     public function cities(): HasMany

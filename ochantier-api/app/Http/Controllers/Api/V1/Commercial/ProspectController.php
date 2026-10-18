@@ -7,13 +7,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Middleware\EnsureActiveCommercial;
 use App\Http\Requests\V1\Commercial\AbandonProspectRequest;
 use App\Http\Requests\V1\Commercial\ProspectRequest;
+use App\Http\Requests\V1\DialCodeRule;
 use App\Http\Requests\V1\PhoneRule;
 use App\Http\Resources\V1\Commercial\ProspectDetailResource;
 use App\Http\Resources\V1\Commercial\ProspectResource;
 use App\Models\Prospect;
 use App\Models\ReasonCode;
 use App\Support\Commercial\ProspectDossier;
-use App\Support\Phone;
+use App\Support\PhoneNumber;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -165,16 +166,18 @@ class ProspectController extends Controller
     public function checkPhone(Request $request): JsonResponse
     {
         $request->validate([
-            'phone' => ['required', 'string', new PhoneRule],
+            'dial_code' => ['required', 'string', 'max:6', new DialCodeRule],
+            'phone_number' => ['required', 'string', 'max:20', new PhoneRule],
             'prospect_id' => ['nullable', 'uuid'],
-        ], ['phone.required' => 'Saisissez un numéro.']);
+        ], ['dial_code.required' => 'Sélectionnez l’indicatif du pays.', 'phone_number.required' => 'Saisissez un numéro.']);
 
         $commercial = EnsureActiveCommercial::profile($request);
         $ignore = $request->input('prospect_id') ? $commercial->prospects()->find($request->input('prospect_id')) : null;
-        $conflict = $this->dossier->phoneConflict($commercial, $request->input('phone'), $ignore);
+        $phone = PhoneNumber::from($request->input('dial_code'), $request->input('phone_number'));
+        $conflict = $this->dossier->phoneConflict($commercial, $phone, $ignore);
 
         return response()->json([
-            'phone' => Phone::format($request->input('phone')),
+            ...$phone->toArray(),
             'available' => $conflict === null,
             'message' => $conflict ?? 'Aucun doublon trouvé',
         ]);

@@ -25,7 +25,8 @@ class UserFactory extends Factory
             'user_type' => UserType::Promoter,
             'first_name' => fake()->firstName(),
             'last_name' => fake()->lastName(),
-            'phone' => '+22507'.fake()->unique()->numerify('########'),
+            'dial_code' => '225',
+            'phone_number' => '07'.fake()->unique()->numerify('########'),
             'phone_verified_at' => now(),
             'status' => UserStatus::Actif,
         ];

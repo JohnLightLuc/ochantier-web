@@ -4,7 +4,7 @@ namespace App\Providers;
 
 use App\Models;
 use App\Support\Auth\JwtAuthenticator;
-use App\Support\Phone;
+use App\Support\PhoneNumber;
 use App\Support\Sms\LogSmsGateway;
 use App\Support\Sms\SmsGateway;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -55,15 +55,23 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(120)->by($request->user()?->getMorphClass().$request->user()?->getKey() ?: $request->ip()));
 
         RateLimiter::for('otp', fn (Request $request) => [
-            Limit::perMinute(3)->by('otp:'.($request->filled('phone') ? Phone::digits($request->input('phone')) : mb_strtolower((string) $request->input('email')))),
+            Limit::perMinute(3)->by('otp:'.(self::requestedPhone($request) ?? mb_strtolower((string) $request->input('email')))),
             Limit::perHour(10)->by('otp-ip:'.$request->ip()),
         ]);
 
         // Au-dessus du seuil de verrouillage du compte (config auth.lockout) pour que le verrouillage s’applique d’abord.
         RateLimiter::for('login', fn (Request $request) => [
-            Limit::perMinute(10)->by('login:'.Phone::digits($request->input('phone'))),
+            Limit::perMinute(10)->by('login:'.self::requestedPhone($request)),
             Limit::perMinute(20)->by('login-ip:'.$request->ip()),
         ]);
+    }
+
+    /**
+     * Numéro saisi (dial_code et phone_number) au format E.164, clé des limites d’envoi et de connexion.
+     */
+    private static function requestedPhone(Request $request): ?string
+    {
+        return PhoneNumber::from($request->input('dial_code'), $request->input('phone_number'))?->e164();
     }
 
     /**

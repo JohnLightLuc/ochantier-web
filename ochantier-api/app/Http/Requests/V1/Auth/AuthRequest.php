@@ -3,8 +3,8 @@
 namespace App\Http\Requests\V1\Auth;
 
 use App\Enums\MessageChannel;
-use App\Http\Requests\V1\PhoneRule;
-use App\Support\Phone;
+use App\Http\Requests\V1\PhoneFields;
+use App\Support\PhoneNumber;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
 
@@ -13,6 +13,8 @@ use Illuminate\Validation\Rules\Password;
  */
 abstract class AuthRequest extends FormRequest
 {
+    use PhoneFields;
+
     /**
      * Destination normalisée du code : numéro E.164 ou e-mail en minuscules.
      *
@@ -20,23 +22,41 @@ abstract class AuthRequest extends FormRequest
      */
     public function contact(): array
     {
-        if ($this->filled('phone')) {
-            return [MessageChannel::Sms, Phone::e164((string) $this->input('phone'))];
-        }
+        $recipient = $this->recipient();
 
-        return [MessageChannel::Email, mb_strtolower(trim((string) $this->input('email')))];
+        return $recipient instanceof PhoneNumber ? [MessageChannel::Sms, $recipient->e164()] : [MessageChannel::Email, $recipient];
     }
 
     /**
-     * Téléphone ou e-mail, l’un des deux étant obligatoire.
+     * Destinataire du code : le numéro saisi (dial_code et phone_number), sinon l’e-mail en minuscules.
+     */
+    public function recipient(): PhoneNumber|string
+    {
+        return $this->phoneNumber() ?? mb_strtolower(trim((string) $this->input('email')));
+    }
+
+    /**
+     * Critères de recherche du compte (User::findByContact) : numéro E.164, sinon e-mail.
+     *
+     * @return array{0: string|null, 1: string|null}
+     */
+    public function contactLookup(): array
+    {
+        $phone = $this->phoneNumber();
+
+        return [$phone?->e164(), $phone ? null : $this->recipient()];
+    }
+
+    /**
+     * Téléphone (dial_code et phone_number) ou e-mail, l’un des deux étant obligatoire.
      *
      * @return array<string, array<int, mixed>>
      */
     protected function contactRules(): array
     {
         return [
-            'phone' => ['required_without:email', 'nullable', 'string', new PhoneRule],
-            'email' => ['required_without:phone', 'nullable', 'email', 'max:160'],
+            ...$this->phoneRules(['required_without:email']),
+            'email' => ['required_without:phone_number', 'nullable', 'email', 'max:160'],
         ];
     }
 
@@ -64,6 +84,7 @@ abstract class AuthRequest extends FormRequest
     public function messages(): array
     {
         return [
+            ...$this->phoneMessages(),
             'required' => 'Ce champ est obligatoire.',
             'required_without' => 'Saisissez un numéro de téléphone ou une adresse e-mail.',
             'required_if' => 'Ce champ est obligatoire.',

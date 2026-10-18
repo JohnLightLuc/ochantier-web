@@ -81,7 +81,7 @@ class DemoAccountsSeeder extends Seeder
     {
         $cocody = Commune::query()->where('name', 'Cocody')->value('id');
 
-        $individual = $this->user(UserType::Promoter, '+2250700000001', null, 'Koffi', 'Kouassi');
+        $individual = $this->user(UserType::Promoter, '0700000001', null, 'Koffi', 'Kouassi');
         PromoterProfile::query()->firstOrCreate(['user_id' => $individual->getKey()], [
             'profile_kind' => PromoterProfileKind::Particulier,
             'commune_id' => $cocody,
@@ -89,7 +89,7 @@ class DemoAccountsSeeder extends Seeder
             'validated_at' => now(),
         ]);
 
-        $company = $this->user(UserType::Promoter, '+2250700000002', 'promoteur@demo.ochantier.ci', 'Mariam', 'Traoré');
+        $company = $this->user(UserType::Promoter, '0700000002', 'promoteur@demo.ochantier.ci', 'Mariam', 'Traoré');
         PromoterProfile::query()->firstOrCreate(['user_id' => $company->getKey()], [
             'profile_kind' => PromoterProfileKind::Entreprise,
             'commune_id' => $cocody,
@@ -118,7 +118,7 @@ class DemoAccountsSeeder extends Seeder
     {
         $creator = Admin::query()->where('email', 'a.kone@ochantier.ci')->value('id');
 
-        $active = $this->user(UserType::Commercial, '+2250500000001', 'commercial@demo.ochantier.ci', 'Adama', 'Coulibaly', self::PASSWORD);
+        $active = $this->user(UserType::Commercial, '0500000001', 'commercial@demo.ochantier.ci', 'Adama', 'Coulibaly', self::PASSWORD);
         $profile = $this->commercialProfile($active, 'COM-00001', $creator);
 
         if ($profile->wasRecentlyCreated) {
@@ -130,7 +130,7 @@ class DemoAccountsSeeder extends Seeder
             ]);
         }
 
-        $provisional = $this->user(UserType::Commercial, '+2250500000002', null, 'Aïcha', 'Touré', 'provisoire1', provisional: true);
+        $provisional = $this->user(UserType::Commercial, '0500000002', null, 'Aïcha', 'Touré', 'provisoire1', provisional: true);
         $this->commercialProfile($provisional, 'COM-00002', $creator);
     }
 
@@ -146,11 +146,11 @@ class DemoAccountsSeeder extends Seeder
     }
 
     /**
-     * Crée l’utilisateur s’il n’existe pas encore (type et numéro).
+     * Crée l’utilisateur s’il n’existe pas encore (type et numéro ivoirien, indicatif 225).
      */
-    private function user(UserType $type, string $phone, ?string $email, string $firstName, string $lastName, ?string $password = null, bool $provisional = false): User
+    private function user(UserType $type, string $phoneNumber, ?string $email, string $firstName, string $lastName, ?string $password = null, bool $provisional = false): User
     {
-        return User::query()->firstOrCreate(['user_type' => $type, 'phone' => $phone], [
+        return User::query()->firstOrCreate(['user_type' => $type, 'dial_code' => '225', 'phone_number' => $phoneNumber], [
             'email' => $email,
             'first_name' => $firstName,
             'last_name' => $lastName,

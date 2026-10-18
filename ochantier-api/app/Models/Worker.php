@@ -20,8 +20,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 #[Fillable([
     'reference', 'user_id', 'origin_commercial_id', 'current_commercial_id', 'prospect_id', 'first_name', 'last_name',
-    'birth_date', 'birth_place', 'gender', 'nationality_country_id', 'photo_media_id', 'phone', 'phone_verified_at',
-    'secondary_phone', 'emergency_contact_name', 'emergency_contact_relation', 'emergency_contact_phone',
+    'birth_date', 'birth_place', 'gender', 'nationality_country_id', 'photo_media_id', 'dial_code', 'phone_number', 'phone_verified_at',
+    'secondary_phone', 'emergency_contact_name', 'emergency_contact_relation', 'emergency_contact_dial_code', 'emergency_contact_phone_number',
     'residence_commune_id', 'residence_neighborhood_id', 'residence_address', 'residence_landmark',
     'residence_location', 'mobility_radius_km', 'accepts_long_travel', 'needs_accommodation', 'transport_mode',
     'works_solo', 'works_in_team', 'acquisition_channel', 'estimated_daily_rate', 'estimated_daily_rate_at',

@@ -11,7 +11,6 @@ use App\Http\Requests\V1\Auth\UpdatePasswordRequest;
 use App\Http\Resources\V1\UserResource;
 use App\Models\User;
 use App\Support\Auth\JwtAuthenticator;
-use App\Support\Phone;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -24,7 +23,7 @@ class PasswordController extends AuthController
      */
     public function forgot(ForgotPasswordRequest $request): JsonResponse
     {
-        $phone = Phone::e164($request->input('phone'));
+        $phone = $request->phoneNumber()->e164();
         $user = User::findByContact(UserType::Commercial, $phone);
 
         if ($user && ! $user->signInRefusal()) {
@@ -32,7 +31,7 @@ class PasswordController extends AuthController
             $this->otp->send(OtpPurpose::PasswordReset, MessageChannel::Sms, $phone, $user);
         }
 
-        return $this->codeSent(MessageChannel::Sms, $phone, 'Si un compte est associé à ce numéro, un code vient de lui être envoyé.');
+        return $this->codeSent($request->phoneNumber(), 'Si un compte est associé à ce numéro, un code vient de lui être envoyé.');
     }
 
     /**
@@ -40,7 +39,7 @@ class PasswordController extends AuthController
      */
     public function reset(ResetPasswordRequest $request): JsonResponse
     {
-        $phone = Phone::e164($request->input('phone'));
+        $phone = $request->phoneNumber()->e164();
         $user = User::findByContact(UserType::Commercial, $phone);
 
         if (! $user || $user->signInRefusal() || ! $this->otp->verify(OtpPurpose::PasswordReset, $phone, $request->input('code'))) {

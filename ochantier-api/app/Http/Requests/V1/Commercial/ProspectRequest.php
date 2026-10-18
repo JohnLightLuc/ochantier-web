@@ -4,9 +4,9 @@ namespace App\Http\Requests\V1\Commercial;
 
 use App\Enums\Gender;
 use App\Enums\ProspectStatus;
-use App\Http\Requests\V1\PhoneRule;
+use App\Http\Requests\V1\PhoneFields;
 use App\Models\Prospect;
-use App\Support\Phone;
+use App\Support\PhoneNumber;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -17,6 +17,8 @@ use Illuminate\Validation\Validator;
  */
 class ProspectRequest extends FormRequest
 {
+    use PhoneFields;
+
     /**
      * Âge minimum d’un ouvrier inscrit.
      */
@@ -42,7 +44,7 @@ class ProspectRequest extends FormRequest
 
             'first_name' => [$required, 'string', 'max:80'],
             'last_name' => [$required, 'string', 'max:80'],
-            'phone' => [$required, 'string', new PhoneRule],
+            ...$this->phoneRules($creating ? ['required'] : ['sometimes', 'required']),
             'commune_id' => [$required, 'uuid', Rule::exists('communes', 'id')->where('is_active', true)],
             'neighborhood_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('neighborhoods', 'id')->where('commune_id', $this->input('commune_id', $this->prospect()?->commune_id))],
             'trade_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('trades', 'id')->where('is_active', true)],
@@ -61,7 +63,7 @@ class ProspectRequest extends FormRequest
             'experiences' => ['sometimes', 'nullable', 'array', 'max:10'],
             'experiences.*' => ['string', 'max:200'],
             'emergency_contact_name' => ['sometimes', 'nullable', 'string', 'max:160'],
-            'emergency_contact_phone' => ['sometimes', 'nullable', 'string', new PhoneRule],
+            ...$this->phoneRules(['sometimes'], 'emergency_contact_'),
         ];
     }
 
@@ -72,11 +74,10 @@ class ProspectRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
-                $phone = $this->input('phone', $this->prospect()?->phone);
-                $emergency = $this->input('emergency_contact_phone');
+                $phone = $this->phoneNumber() ?? ($this->prospect() ? PhoneNumber::of($this->prospect()) : null);
 
-                if ($emergency && $phone && Phone::digits($emergency) === Phone::digits($phone)) {
-                    $validator->errors()->add('emergency_contact_phone', 'Le contact d’urgence doit avoir un autre numéro que l’ouvrier.');
+                if ($this->phoneNumber('emergency_contact_')?->equals($phone)) {
+                    $validator->errors()->add('emergency_contact_phone_number', 'Le contact d’urgence doit avoir un autre numéro que l’ouvrier.');
                 }
 
                 $secondary = $this->input('secondary_trade_id');
@@ -94,6 +95,8 @@ class ProspectRequest extends FormRequest
     public function messages(): array
     {
         return [
+            ...$this->phoneMessages(),
+            ...$this->phoneMessages('emergency_contact_'),
             'contact_consent.accepted' => 'Cochez l’accord de contact pour continuer.',
             'first_name.required' => 'Indiquez le prénom.',
             'last_name.required' => 'Indiquez le nom.',

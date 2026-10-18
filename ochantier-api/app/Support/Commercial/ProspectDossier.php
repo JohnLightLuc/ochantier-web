@@ -17,7 +17,7 @@ use App\Models\ReasonCode;
 use App\Models\User;
 use App\Models\Worker;
 use App\Support\Media\MediaStore;
-use App\Support\Phone;
+use App\Support\PhoneNumber;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -39,7 +39,7 @@ class ProspectDossier
      */
     public const DOSSIER_FIELDS = [
         'gender', 'birth_date', 'birth_place', 'daily_rate', 'specialty_ids', 'skill_ids', 'secondary_trade_id',
-        'secondary_experience_years', 'experiences', 'emergency_contact_name', 'emergency_contact_phone',
+        'secondary_experience_years', 'experiences', 'emergency_contact_name', 'emergency_contact_phone_number',
     ];
 
     /**
@@ -66,7 +66,7 @@ class ProspectDossier
      */
     public function create(CommercialProfile $commercial, User $author, array $data, ?string $ipAddress = null, ?string $deviceId = null): Prospect
     {
-        $this->ensurePhoneAvailable($commercial, $data['phone']);
+        $this->ensurePhoneAvailable($commercial, $this->phone($data));
 
         return DB::transaction(function () use ($commercial, $author, $data, $ipAddress, $deviceId): Prospect {
             $prospect = $commercial->prospects()->create([
@@ -105,8 +105,8 @@ class ProspectDossier
             throw new ConflictHttpException('Ce prospect a été modifié sur un autre appareil. Rechargez-le avant de continuer.');
         }
 
-        if (isset($data['phone'])) {
-            $this->ensurePhoneAvailable($prospect->commercial, $data['phone'], $prospect);
+        if ($phone = $this->phone($data)) {
+            $this->ensurePhoneAvailable($prospect->commercial, $phone, $prospect);
         }
 
         return DB::transaction(function () use ($prospect, $data): Prospect {
@@ -277,12 +277,12 @@ class ProspectDossier
         $item = fn (string $key, string $label, bool $done, bool $required = true, bool $counted = true) => compact('key', 'label', 'done', 'required', 'counted');
         $items = [
             $item('name', 'Nom et prénom', filled($prospect->first_name) && filled($prospect->last_name)),
-            $item('phone', 'Téléphone', filled($prospect->phone)),
+            $item('phone', 'Téléphone', filled($prospect->phone_number)),
             $item('commune', 'Commune', filled($prospect->commune_id)),
             $item('trade', 'Métier principal', filled($prospect->presumed_trade_id)),
             $item('experience', 'Années d’expérience', $prospect->estimated_experience_years !== null),
             $item('daily_rate', 'Coût journalier', filled($worker?->estimated_daily_rate)),
-            $item('emergency_contact', 'Contact d’urgence', filled($worker?->emergency_contact_phone)),
+            $item('emergency_contact', 'Contact d’urgence', filled($worker?->emergency_contact_phone_number)),
             $item('identity', 'Pièce d’identité', $documents->contains(fn (Document $document) => $this->isCompleteIdentity($document))),
             $item('photo', 'Photo d’identité', $has(self::PHOTO_DOCUMENT)),
             ...array_map(fn (string $code) => $item($code, $this->documentLabel($code), $has($code), false), self::OPTIONAL_DOCUMENTS),
@@ -333,16 +333,16 @@ class ProspectDossier
     /**
      * Refuse un numéro déjà suivi par ce commercial ou déjà inscrit comme ouvrier.
      */
-    public function ensurePhoneAvailable(CommercialProfile $commercial, string $phone, ?Prospect $ignore = null): void
+    public function ensurePhoneAvailable(CommercialProfile $commercial, PhoneNumber $phone, ?Prospect $ignore = null): void
     {
         if ($message = $this->phoneConflict($commercial, $phone, $ignore)) {
-            throw ValidationException::withMessages(['phone' => $message]);
+            throw ValidationException::withMessages(['phone_number' => $message]);
         }
     }
 
-    public function phoneConflict(CommercialProfile $commercial, string $phone, ?Prospect $ignore = null): ?string
+    public function phoneConflict(CommercialProfile $commercial, PhoneNumber $phone, ?Prospect $ignore = null): ?string
     {
-        $phone = Phone::e164($phone);
+        $phone = $phone->e164();
 
         $inProspects = $commercial->prospects()
             ->where('phone', $phone)
@@ -376,8 +376,8 @@ class ProspectDossier
         return [
             'prospect_id' => $prospect->getKey(),
             'worker' => $worker->only([
-                'reference', 'first_name', 'last_name', 'gender', 'birth_place', 'phone', 'emergency_contact_name',
-                'emergency_contact_phone', 'residence_commune_id', 'residence_neighborhood_id', 'estimated_daily_rate',
+                'reference', 'first_name', 'last_name', 'gender', 'birth_place', 'dial_code', 'phone_number',
+                'emergency_contact_name', 'emergency_contact_dial_code', 'emergency_contact_phone_number', 'residence_commune_id', 'residence_neighborhood_id', 'estimated_daily_rate',
             ]) + ['birth_date' => $worker->birth_date?->toDateString()],
             'trades' => $worker->workerTrades->map->only(['trade_id', 'is_primary', 'years_experience', 'level'])->all(),
             'specialty_ids' => $worker->specialties->modelKeys(),
@@ -402,8 +402,8 @@ class ProspectDossier
     {
         $attributes = array_intersect_key($data, array_flip(['first_name', 'last_name', 'commune_id', 'neighborhood_id', 'status']));
 
-        if (isset($data['phone'])) {
-            $attributes['phone'] = Phone::e164($data['phone']);
+        if ($phone = $this->phone($data)) {
+            $attributes = [...$attributes, ...PhoneNumber::attributes($phone)];
         }
 
         if (array_key_exists('trade_id', $data)) {
@@ -439,15 +439,15 @@ class ProspectDossier
         $attributes = [
             'first_name' => $prospect->first_name,
             'last_name' => $prospect->last_name,
-            'phone' => $prospect->phone,
+            ...PhoneNumber::attributes(PhoneNumber::of($prospect)),
             'residence_commune_id' => $prospect->commune_id,
             'residence_neighborhood_id' => $prospect->neighborhood_id,
             ...array_intersect_key($data, array_flip(['gender', 'birth_date', 'birth_place', 'emergency_contact_name'])),
             'lock_version' => $worker->lock_version + 1,
         ];
 
-        if (array_key_exists('emergency_contact_phone', $data)) {
-            $attributes['emergency_contact_phone'] = $data['emergency_contact_phone'] ? Phone::e164($data['emergency_contact_phone']) : null;
+        if (array_key_exists('emergency_contact_phone_number', $data)) {
+            $attributes = [...$attributes, ...PhoneNumber::attributes($this->phone($data, 'emergency_contact_'), 'emergency_contact_')];
         }
 
         if (array_key_exists('daily_rate', $data)) {
@@ -534,8 +534,8 @@ class ProspectDossier
             return $worker;
         }
 
-        if ($this->phoneConflict($prospect->commercial, $prospect->phone, $prospect)) {
-            throw ValidationException::withMessages(['phone' => 'Ce numéro est déjà inscrit sur O’CHANTIER.']);
+        if ($this->phoneConflict($prospect->commercial, PhoneNumber::of($prospect), $prospect)) {
+            throw ValidationException::withMessages(['phone_number' => 'Ce numéro est déjà inscrit sur O’CHANTIER.']);
         }
 
         $worker = $prospect->workers()->create([
@@ -544,7 +544,7 @@ class ProspectDossier
             'current_commercial_id' => $prospect->commercial_id,
             'first_name' => $prospect->first_name,
             'last_name' => $prospect->last_name,
-            'phone' => $prospect->phone,
+            ...PhoneNumber::attributes(PhoneNumber::of($prospect)),
             'residence_commune_id' => $prospect->commune_id,
             'residence_neighborhood_id' => $prospect->neighborhood_id,
             'acquisition_channel' => 'terrain',
@@ -569,6 +569,16 @@ class ProspectDossier
                     : 'Ce prospect est archivé.',
             ]);
         }
+    }
+
+    /**
+     * Numéro envoyé dans la requête (<prefix>dial_code et <prefix>phone_number), ou null s’il est absent ou vidé.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function phone(array $data, string $prefix = ''): ?PhoneNumber
+    {
+        return PhoneNumber::from($data["{$prefix}dial_code"] ?? null, $data["{$prefix}phone_number"] ?? null);
     }
 
     private function touch(Prospect $prospect): void

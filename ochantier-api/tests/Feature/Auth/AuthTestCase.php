@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\Country;
 use App\Models\User;
 use App\Support\Auth\AuthSessions;
 use App\Support\Auth\DeviceContext;
@@ -11,7 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Base des tests d’authentification : SMS capturés, code OTP fixe (phpunit.xml), session de test.
+ * Base des tests d’authentification : indicatif ivoirien ouvert, SMS capturés, code OTP fixe (phpunit.xml), session de test.
  */
 abstract class AuthTestCase extends TestCase
 {
@@ -25,6 +26,8 @@ abstract class AuthTestCase extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        Country::query()->create(['iso_code' => 'CI', 'name' => 'Côte d’Ivoire', 'phone_prefix' => '+225', 'is_active' => true]);
 
         $this->sms = new class implements SmsGateway
         {

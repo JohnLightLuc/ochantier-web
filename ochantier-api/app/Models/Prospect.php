@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * Ouvrier prospecté par un commercial, avant la création de son dossier.
  */
 #[Fillable([
-    'commercial_id', 'first_name', 'last_name', 'phone', 'presumed_trade_id', 'commune_id', 'neighborhood_id',
+    'commercial_id', 'first_name', 'last_name', 'dial_code', 'phone_number', 'presumed_trade_id', 'commune_id', 'neighborhood_id',
     'estimated_experience_years', 'interest_level', 'has_documents', 'availability_note', 'status',
     'contact_consent_at', 'abandon_reason_id', 'abandon_comment', 'converted_worker_id', 'converted_at',
     'client_uuid', 'lock_version',

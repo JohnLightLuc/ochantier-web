@@ -69,7 +69,7 @@ class OneTimePassword
             return;
         }
 
-        $this->sms->send(Phone::format($destination), $message);
+        $this->sms->send($destination, $message);
     }
 
     /**

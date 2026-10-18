@@ -22,20 +22,20 @@ class PromoterLoginController extends AuthController
     public function store(ContactRequest $request): JsonResponse
     {
         [$channel, $destination] = $request->contact();
-        $user = User::findByContact(UserType::Promoter, $request->input('phone'), $request->input('email'));
+        $user = User::findByContact(UserType::Promoter, ...$request->contactLookup());
 
         if ($user?->canSignIn()) {
             $this->ensureCanResend(OtpPurpose::Login, $destination);
             $this->otp->send(OtpPurpose::Login, $channel, $destination, $user);
         }
 
-        return $this->codeSent($channel, $destination, 'Si un compte est associé à ces coordonnées, un code vient de lui être envoyé.');
+        return $this->codeSent($request->recipient(), 'Si un compte est associé à ces coordonnées, un code vient de lui être envoyé.');
     }
 
     public function verify(VerifyContactRequest $request): JsonResponse
     {
         [, $destination] = $request->contact();
-        $user = User::findByContact(UserType::Promoter, $request->input('phone'), $request->input('email'));
+        $user = User::findByContact(UserType::Promoter, ...$request->contactLookup());
 
         if ($refusal = $user?->signInRefusal()) {
             return response()->json(['message' => $refusal], 403);

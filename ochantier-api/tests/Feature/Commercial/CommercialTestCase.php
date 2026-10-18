@@ -26,7 +26,7 @@ abstract class CommercialTestCase extends AuthTestCase
         Storage::fake(config('filesystems.media'));
         $this->seed([GeographySeeder::class, TradeSeeder::class, DocumentTypeSeeder::class]);
 
-        $this->commercial = User::factory()->commercial()->create(['phone' => '+2250500000001']);
+        $this->commercial = User::factory()->commercial()->create(['dial_code' => '225', 'phone_number' => '0500000001']);
         $this->actingAsCommercial($this->commercial);
     }
 
@@ -56,7 +56,7 @@ abstract class CommercialTestCase extends AuthTestCase
         return [
             'first_name' => 'Jean',
             'last_name' => 'Kouassi',
-            'phone' => '07 12 34 56 78',
+            'dial_code' => '225', 'phone_number' => '07 12 34 56 78',
             'commune_id' => $this->commune(),
             'trade_id' => $this->trade()->id,
             'contact_consent' => true,
@@ -78,7 +78,8 @@ abstract class CommercialTestCase extends AuthTestCase
             'experience_years' => 6,
             'daily_rate' => 15000,
             'emergency_contact_name' => 'Awa Koffi',
-            'emergency_contact_phone' => '05 98 76 54 32',
+            'emergency_contact_dial_code' => '225',
+            'emergency_contact_phone_number' => '05 98 76 54 32',
             ...$overrides,
         ];
     }

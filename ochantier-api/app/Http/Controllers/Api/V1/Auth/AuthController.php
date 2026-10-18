@@ -11,7 +11,7 @@ use App\Models\User;
 use App\Support\Auth\AuthSessions;
 use App\Support\Auth\IssuedTokens;
 use App\Support\OneTimePassword;
-use App\Support\Phone;
+use App\Support\PhoneNumber;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -41,14 +41,16 @@ abstract class AuthController extends Controller
     }
 
     /**
-     * Réponse après l’envoi (ou la non-divulgation de l’envoi) d’un code.
+     * Réponse après l’envoi (ou la non-divulgation de l’envoi) d’un code, au numéro ou à l’e-mail saisi.
      */
-    protected function codeSent(MessageChannel $channel, string $destination, string $message): JsonResponse
+    protected function codeSent(PhoneNumber|string $recipient, string $message): JsonResponse
     {
+        $bySms = $recipient instanceof PhoneNumber;
+
         return response()->json([
             'message' => $message,
-            'channel' => $channel->value,
-            'destination' => $channel === MessageChannel::Sms ? Phone::mask($destination) : self::maskEmail($destination),
+            'channel' => ($bySms ? MessageChannel::Sms : MessageChannel::Email)->value,
+            'destination' => $bySms ? $recipient->masked() : self::maskEmail($recipient),
             'expires_in' => $this->otp->lifetime() * 60,
             'resend_in' => $this->otp->resendAfter(),
         ], 202);

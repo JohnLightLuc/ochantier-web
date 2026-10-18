@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\UserStatus;
 use App\Enums\UserType;
-use App\Support\Phone;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -22,7 +21,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
  * Utilisateurs des applications (promoteurs, commerciaux, ouvriers en V2).
  */
 #[Fillable([
-    'user_type', 'first_name', 'last_name', 'phone', 'phone_verified_at', 'email', 'email_verified_at',
+    'user_type', 'first_name', 'last_name', 'dial_code', 'phone_number', 'phone_verified_at', 'email', 'email_verified_at',
     'password_hash', 'status', 'must_change_password', 'failed_login_count', 'locked_until', 'locale', 'preferences',
     'last_login_at', 'created_by_admin_id', 'suspended_at', 'suspended_by_admin_id', 'suspended_reason',
 ])]
@@ -166,7 +165,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Compte d’un type donné, retrouvé par son numéro (10 chiffres ou E.164) ou son e-mail.
+     * Compte d’un type donné, retrouvé par son numéro au format E.164 (« +2250708091011 ») ou son e-mail.
      */
     public static function findByContact(UserType $type, ?string $phone, ?string $email = null): ?self
     {
@@ -176,7 +175,7 @@ class User extends Authenticatable
 
         return self::query()
             ->where('user_type', $type)
-            ->when($phone, fn (Builder $query) => $query->where('phone', Phone::e164($phone)))
+            ->when($phone, fn (Builder $query) => $query->where('phone', $phone))
             ->when(! $phone && $email, fn (Builder $query) => $query->where('email', $email))
             ->first();
     }

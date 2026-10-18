@@ -2,8 +2,6 @@
 
 namespace App\Http\Requests\V1\Auth;
 
-use App\Http\Requests\V1\PhoneRule;
-
 /**
  * Connexion d’un commercial : numéro et mot de passe, avant le code SMS.
  */
@@ -15,7 +13,7 @@ class CommercialLoginRequest extends AuthRequest
     public function rules(): array
     {
         return [
-            'phone' => ['required', 'string', new PhoneRule],
+            ...$this->phoneRules(),
             'password' => ['required', 'string'],
         ];
     }

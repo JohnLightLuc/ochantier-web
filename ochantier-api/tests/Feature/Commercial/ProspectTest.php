@@ -21,6 +21,8 @@ class ProspectTest extends CommercialTestCase
             ->assertCreated()
             ->assertJsonPath('message', 'Prospect enregistré')
             ->assertJsonPath('data.full_name', 'Jean Kouassi')
+            ->assertJsonPath('data.dial_code', '225')
+            ->assertJsonPath('data.phone_number', '0712345678')
             ->assertJsonPath('data.phone', '+225 07 12 34 56 78')
             ->assertJsonPath('data.commune.name', 'Cocody')
             ->assertJsonPath('data.status.value', 'nouveau')
@@ -35,12 +37,23 @@ class ProspectTest extends CommercialTestCase
 
     public function test_the_contact_consent_and_the_required_fields_are_checked(): void
     {
-        $this->postJson('/api/v1/commercial/prospects', ['phone' => '0712'])
+        $this->postJson('/api/v1/commercial/prospects', ['dial_code' => '225', 'phone_number' => '0712'])
             ->assertUnprocessable()
             ->assertJsonPath('errors.contact_consent.0', 'Cochez l’accord de contact pour continuer.')
-            ->assertJsonPath('errors.phone.0', 'Saisissez un numéro à 10 chiffres.')
+            ->assertJsonPath('errors.phone_number.0', 'Saisissez un numéro à 10 chiffres.')
             ->assertJsonPath('errors.commune_id.0', 'Sélectionnez une commune.')
             ->assertJsonValidationErrors(['first_name', 'last_name']);
+    }
+
+    public function test_the_emergency_contact_needs_its_own_number(): void
+    {
+        $prospect = $this->createProspect();
+
+        $this->patchJson("/api/v1/commercial/prospects/{$prospect}", ['emergency_contact_phone_number' => '0598765432'])
+            ->assertJsonValidationErrors(['emergency_contact_dial_code' => 'Sélectionnez l’indicatif du pays.']);
+
+        $this->patchJson("/api/v1/commercial/prospects/{$prospect}", ['emergency_contact_dial_code' => '225', 'emergency_contact_phone_number' => '07 12 34 56 78'])
+            ->assertJsonValidationErrors(['emergency_contact_phone_number' => 'Le contact d’urgence doit avoir un autre numéro que l’ouvrier.']);
     }
 
     public function test_a_phone_already_followed_or_registered_is_refused(): void
@@ -49,13 +62,13 @@ class ProspectTest extends CommercialTestCase
 
         $this->postJson('/api/v1/commercial/prospects', $this->contact(['first_name' => 'Autre']))
             ->assertUnprocessable()
-            ->assertJsonPath('errors.phone.0', 'Ce numéro existe déjà dans vos prospects.');
+            ->assertJsonPath('errors.phone_number.0', 'Ce numéro existe déjà dans vos prospects.');
 
-        $this->getJson('/api/v1/commercial/prospects/phone-check?phone=0712345678')
+        $this->getJson('/api/v1/commercial/prospects/phone-check?dial_code=225&phone_number=0712345678')
             ->assertOk()
             ->assertJsonPath('available', false);
 
-        $this->getJson('/api/v1/commercial/prospects/phone-check?phone=0799999999')
+        $this->getJson('/api/v1/commercial/prospects/phone-check?dial_code=225&phone_number=0799999999')
             ->assertOk()
             ->assertJsonPath('available', true)
             ->assertJsonPath('message', 'Aucun doublon trouvé');
@@ -91,6 +104,8 @@ class ProspectTest extends CommercialTestCase
             ->assertJsonPath('data.activity.level.value', 'confirme')
             ->assertJsonPath('data.activity.secondary_trade.trade.code', 'carreleur')
             ->assertJsonPath('data.activity.specialties.0.label', $maconnerie->label)
+            ->assertJsonPath('data.emergency_contact.dial_code', '225')
+            ->assertJsonPath('data.emergency_contact.phone_number', '0598765432')
             ->assertJsonPath('data.emergency_contact.phone', '+225 05 98 76 54 32')
             ->assertJsonPath('data.missing.0.key', 'identity');
 
@@ -99,6 +114,7 @@ class ProspectTest extends CommercialTestCase
         $this->assertSame(WorkerVerificationStatus::Brouillon, $worker->verification_status);
         $this->assertSame(2, $worker->workerTrades()->count());
         $this->assertSame('+2250712345678', $worker->phone);
+        $this->assertSame('+2250598765432', $worker->emergency_contact_phone);
     }
 
     public function test_skills_of_another_trade_are_refused(): void
@@ -231,7 +247,7 @@ class ProspectTest extends CommercialTestCase
     public function test_the_list_is_filtered_by_name_commune_and_progress(): void
     {
         $ready = $this->readyProspect();
-        $this->createProspect(['first_name' => 'Aminata', 'last_name' => 'Traoré', 'phone' => '0544210987', 'commune_id' => $this->commune('Yopougon')]);
+        $this->createProspect(['first_name' => 'Aminata', 'last_name' => 'Traoré', 'dial_code' => '225', 'phone_number' => '0544210987', 'commune_id' => $this->commune('Yopougon')]);
 
         $this->getJson('/api/v1/commercial/prospects')->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('meta.total', 2);
         $this->getJson('/api/v1/commercial/prospects?search=amin')->assertJsonCount(1, 'data')->assertJsonPath('data.0.last_name', 'Traoré');

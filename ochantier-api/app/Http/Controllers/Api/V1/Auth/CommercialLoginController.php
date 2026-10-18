@@ -11,7 +11,6 @@ use App\Http\Requests\V1\Auth\CommercialLoginRequest;
 use App\Http\Requests\V1\Auth\PhoneCodeRequest;
 use App\Models\User;
 use App\Support\Auth\DeviceContext;
-use App\Support\Phone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -29,7 +28,7 @@ class CommercialLoginController extends AuthController
      */
     public function store(CommercialLoginRequest $request): JsonResponse
     {
-        $phone = Phone::e164($request->input('phone'));
+        $phone = $request->phoneNumber()->e164();
         $user = User::findByContact(UserType::Commercial, $phone);
 
         if ($user?->isLocked()) {
@@ -55,7 +54,7 @@ class CommercialLoginController extends AuthController
         $this->ensureCanResend(OtpPurpose::Login, $phone);
         $this->otp->send(OtpPurpose::Login, MessageChannel::Sms, $phone, $user);
 
-        return $this->codeSent(MessageChannel::Sms, $phone, 'Code de vérification envoyé par SMS.');
+        return $this->codeSent($request->phoneNumber(), 'Code de vérification envoyé par SMS.');
     }
 
     /**
@@ -63,7 +62,7 @@ class CommercialLoginController extends AuthController
      */
     public function verify(PhoneCodeRequest $request): JsonResponse
     {
-        $phone = Phone::e164($request->input('phone'));
+        $phone = $request->phoneNumber()->e164();
         $user = User::findByContact(UserType::Commercial, $phone);
 
         if ($refusal = $this->refusal($user)) {

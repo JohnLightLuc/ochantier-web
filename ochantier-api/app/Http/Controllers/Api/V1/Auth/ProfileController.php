@@ -6,7 +6,7 @@ use App\Enums\MessageChannel;
 use App\Enums\OtpPurpose;
 use App\Http\Requests\V1\Auth\ChangePhoneRequest;
 use App\Http\Resources\V1\UserResource;
-use App\Support\Phone;
+use App\Support\PhoneNumber;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -25,12 +25,12 @@ class ProfileController extends AuthController
      */
     public function requestPhoneChange(ChangePhoneRequest $request): JsonResponse
     {
-        $phone = Phone::e164($request->input('phone'));
+        $phone = $request->phoneNumber();
 
-        $this->ensureCanResend(OtpPurpose::PhoneChange, $phone);
-        $this->otp->send(OtpPurpose::PhoneChange, MessageChannel::Sms, $phone, $request->user());
+        $this->ensureCanResend(OtpPurpose::PhoneChange, $phone->e164());
+        $this->otp->send(OtpPurpose::PhoneChange, MessageChannel::Sms, $phone->e164(), $request->user());
 
-        return $this->codeSent(MessageChannel::Sms, $phone, 'Code de confirmation envoyé au nouveau numéro.');
+        return $this->codeSent($phone, 'Code de confirmation envoyé au nouveau numéro.');
     }
 
     /**
@@ -38,13 +38,13 @@ class ProfileController extends AuthController
      */
     public function confirmPhoneChange(ChangePhoneRequest $request): UserResource
     {
-        $phone = Phone::e164($request->input('phone'));
+        $phone = $request->phoneNumber();
 
-        if (! $this->otp->verify(OtpPurpose::PhoneChange, $phone, $request->input('code'))) {
+        if (! $this->otp->verify(OtpPurpose::PhoneChange, $phone->e164(), $request->input('code'))) {
             throw $this->invalidCode();
         }
 
-        $request->user()->forceFill(['phone' => $phone, 'phone_verified_at' => now()])->save();
+        $request->user()->forceFill([...PhoneNumber::attributes($phone), 'phone_verified_at' => now()])->save();
 
         return $this->show($request);
     }

@@ -3,7 +3,7 @@
 namespace App\Http\Resources\V1;
 
 use App\Models\User;
-use App\Support\Phone;
+use App\Support\PhoneNumber;
 use Illuminate\Http\Request;
 
 /**
@@ -24,7 +24,7 @@ class UserResource extends Resource
             'status' => $this->status($this->status),
             'first_name' => $this->first_name,
             'last_name' => $this->last_name,
-            'phone' => $this->phone ? Phone::format($this->phone) : null,
+            ...PhoneNumber::of($this->resource)?->toArray() ?? ['dial_code' => null, 'phone_number' => null, 'phone' => null],
             'phone_verified' => $this->phone_verified_at !== null,
             'email' => $this->email,
             'email_verified' => $this->email_verified_at !== null,
