@@ -69,7 +69,7 @@ class ReferenceController extends Controller
                 ]),
             'reasons' => ReasonCode::query()
                 ->where('is_active', true)
-                ->whereIn('category', ['abandon_prospect'])
+                ->whereIn('category', ['abandon_prospect', 'refus_proposition'])
                 ->orderBy('category')
                 ->orderBy('created_at')
                 ->get(['category', 'code', 'label'])

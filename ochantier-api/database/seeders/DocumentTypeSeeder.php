@@ -99,6 +99,12 @@ class DocumentTypeSeeder extends Seeder
             'doublon' => 'Doublon d’un ouvrier existant',
             'autre' => 'Autre motif',
         ],
+        'refus_proposition' => [
+            'tarif_eleve' => 'Tarif trop élevé',
+            'dates_inadaptees' => 'Dates non adaptées',
+            'autre_profil' => 'Je préfère un autre profil',
+            'autre' => 'Autre motif',
+        ],
         'rejet_document' => [
             'illisible' => 'Document illisible',
             'expire' => 'Document expiré',

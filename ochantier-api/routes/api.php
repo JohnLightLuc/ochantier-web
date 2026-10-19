@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\Promoter\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileController as PromoterProfileController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileDocumentController;
+use App\Http\Controllers\Api\V1\Promoter\ReservationController;
 use App\Http\Controllers\Api\V1\Promoter\SiteController;
 use App\Http\Controllers\Api\V1\Promoter\SiteMediaController;
 use App\Http\Controllers\Api\V1\Promoter\SiteOfferController;
@@ -32,7 +33,7 @@ use Illuminate\Support\Facades\Route;
 | Promoteur : inscription et connexion sans mot de passe, par code SMS ou e-mail.
 | Commercial : compte créé par le Back Office, connexion par mot de passe puis code SMS.
 | Espace commercial (prefix commercial) : prospects et dossiers ouvriers, contrat actif exigé.
-| Espace promoteur (prefix promoter) : profil, vérification, préférences et chantiers.
+| Espace promoteur (prefix promoter) : profil, vérification, préférences, chantiers et réservations.
 |
 */
 
@@ -74,7 +75,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('referentials', ReferenceController::class)->name('referentials');
             Route::get('help', HelpController::class)->name('help');
 
-            // Application Promoteur : profil, pièces justificatives, préférences et chantiers.
+            // Application Promoteur : profil, pièces justificatives, préférences, chantiers et réservations.
             Route::middleware('user.type:promoter')->prefix('promoter')->name('promoter.')->group(function () {
                 Route::get('profile', [PromoterProfileController::class, 'show'])->name('profile.show');
                 Route::patch('profile', [PromoterProfileController::class, 'update'])->name('profile.update');
@@ -94,6 +95,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::put('sites/{site}/offer', [SiteOfferController::class, 'update'])->name('sites.offer.update');
                 Route::post('sites/{site}/publish', [SiteOfferController::class, 'publish'])->name('sites.publish');
                 Route::get('workers', WorkerCatalogController::class)->name('workers.index');
+                Route::post('sites/{site}/reservations', [ReservationController::class, 'store'])->name('sites.reservations.store');
+                Route::get('reservations', [ReservationController::class, 'index'])->name('reservations.index');
+                Route::get('reservations/{reservation}', [ReservationController::class, 'show'])->name('reservations.show');
+                Route::post('proposals/{proposal}/accept', [ReservationController::class, 'accept'])->name('proposals.accept');
+                Route::post('proposals/{proposal}/refuse', [ReservationController::class, 'refuse'])->name('proposals.refuse');
             });
 
             // Application Commercial : prospects et dossiers ouvriers.

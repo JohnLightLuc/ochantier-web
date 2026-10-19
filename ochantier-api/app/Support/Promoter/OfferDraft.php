@@ -90,22 +90,24 @@ class OfferDraft
      *
      * @return Collection<int, Worker>
      */
-    public function requestedWorkers(Site $site): Collection
+    public function requestedWorkers(Site|array $draft): Collection
     {
-        return $this->catalog->find($site->offer_draft['worker_ids'] ?? []);
+        return $this->catalog->find(($draft instanceof Site ? $draft->offer_draft : $draft)['worker_ids'] ?? []);
     }
 
     /**
      * Lignes de l’offre journalière par métier : effectif à rechercher, ouvriers choisis, tarif proposé.
      *
+     * @param  Site|array<string, mixed>  $draft  Chantier (brouillon enregistré) ou besoins saisis (needs, worker_ids).
      * @return list<array<string, mixed>>
      */
-    public function dailyLines(Site $site): array
+    public function dailyLines(Site|array $draft): array
     {
+        $draft = $draft instanceof Site ? ($draft->offer_draft ?? []) : $draft;
         $references = $this->pricing->referenceRates();
-        $workers = $this->requestedWorkers($site);
+        $workers = $this->requestedWorkers($draft);
         $byTrade = $workers->groupBy(fn (Worker $worker) => $this->primaryTradeId($worker));
-        $needs = collect($site->offer_draft['needs'] ?? [])->keyBy('trade_id');
+        $needs = collect($draft['needs'] ?? [])->map(fn (array $need) => ['trade_id' => $need['trade_id'], 'headcount' => (int) ($need['headcount'] ?? 0), 'daily_rate' => isset($need['daily_rate']) ? (int) $need['daily_rate'] : null])->keyBy('trade_id');
         $tradeIds = $needs->keys()->concat($byTrade->keys())->filter()->unique()->values();
         $trades = Trade::query()->whereKey($tradeIds)->get()->keyBy('id');
 

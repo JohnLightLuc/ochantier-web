@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\V1\Promoter;
 
+use App\Enums\ProposalStatus;
 use App\Enums\SiteStatus;
 use App\Http\Resources\V1\Resource;
 use App\Models\Site;
@@ -47,6 +48,12 @@ class SiteResource extends Resource
                 'workers_count' => $offer['workers_count'] ?? null,
                 'amount' => $offer['amount'] ?? $offer['estimate'] ?? null,
                 'payment_mode' => $offer['payment_mode'] ?? null,
+            ] : null,
+            'pending_proposal' => ($proposal = $this->proposals()->whereIn('status', [ProposalStatus::AValider, ProposalStatus::Acceptee])->latest('published_at')->first()) ? [
+                'id' => $proposal->id,
+                'reservation_id' => $proposal->offer_id,
+                'status' => $this->status($proposal->status),
+                'deposit_amount' => $proposal->deposit_amount,
             ] : null,
             'status' => $this->status($this->status),
             'display_status' => $sites->displayStatus($this->resource),

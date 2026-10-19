@@ -164,6 +164,14 @@ class Site extends Model
     }
 
     /**
+     * @return HasMany<Proposal, $this>
+     */
+    public function proposals(): HasMany
+    {
+        return $this->hasMany(Proposal::class);
+    }
+
+    /**
      * @return HasMany<Need, $this>
      */
     public function needs(): HasMany

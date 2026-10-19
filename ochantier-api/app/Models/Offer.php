@@ -103,6 +103,14 @@ class Offer extends Model
     }
 
     /**
+     * @return HasMany<Proposal, $this>
+     */
+    public function proposals(): HasMany
+    {
+        return $this->hasMany(Proposal::class);
+    }
+
+    /**
      * @return HasMany<OfferMilestone, $this>
      */
     public function milestones(): HasMany

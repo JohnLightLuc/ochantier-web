@@ -53,6 +53,14 @@ class AppServiceProvider extends ServiceProvider
             ? Models\Site::query()->whereKey($id)->whereHas('promoterProfile', fn ($query) => $query->where('user_id', request()->user()?->getKey()))->firstOrFail()
             : throw (new ModelNotFoundException)->setModel(Models\Site::class, [$id]));
 
+        Route::bind('reservation', fn (string $id) => Str::isUuid($id)
+            ? Models\Offer::query()->whereKey($id)->whereHas('site.promoterProfile', fn ($query) => $query->where('user_id', request()->user()?->getKey()))->firstOrFail()
+            : throw (new ModelNotFoundException)->setModel(Models\Offer::class, [$id]));
+
+        Route::bind('proposal', fn (string $id) => Str::isUuid($id)
+            ? Models\Proposal::query()->whereKey($id)->whereHas('site.promoterProfile', fn ($query) => $query->where('user_id', request()->user()?->getKey()))->firstOrFail()
+            : throw (new ModelNotFoundException)->setModel(Models\Proposal::class, [$id]));
+
         Route::bind('media', fn (string $id) => Str::isUuid($id)
             ? Models\MediaFile::query()->findOrFail($id)
             : throw (new ModelNotFoundException)->setModel(Models\MediaFile::class, [$id]));
@@ -170,6 +178,7 @@ class AppServiceProvider extends ServiceProvider
             'pricing_snapshot' => Models\PricingSnapshot::class,
             'progress_declaration' => Models\ProgressDeclaration::class,
             'promoter_profile' => Models\PromoterProfile::class,
+            'proposal' => Models\Proposal::class,
             'prospect' => Models\Prospect::class,
             'prospect_followup' => Models\ProspectFollowup::class,
             'rating' => Models\Rating::class,

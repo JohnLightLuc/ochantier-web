@@ -3,20 +3,26 @@
 namespace Database\Seeders;
 
 use App\Enums\AdminStatus;
+use App\Enums\AvailabilityStatus;
 use App\Enums\CommercialProfileStatus;
 use App\Enums\CommercialProfileVerificationStatus;
+use App\Enums\Gender;
 use App\Enums\OrganizationMemberStatus;
 use App\Enums\OrganizationRole;
 use App\Enums\PromoterProfileKind;
 use App\Enums\PromoterVerificationStatus;
+use App\Enums\SkillLevel;
 use App\Enums\UserStatus;
 use App\Enums\UserType;
+use App\Enums\WorkerVerificationStatus;
 use App\Models\Admin;
 use App\Models\AdminRole;
 use App\Models\CommercialProfile;
 use App\Models\Commune;
 use App\Models\PromoterProfile;
+use App\Models\Trade;
 use App\Models\User;
+use App\Models\Worker;
 use Illuminate\Database\Seeder;
 
 /**
@@ -42,11 +48,72 @@ class DemoAccountsSeeder extends Seeder
         'y.gbagbo@ochantier.ci' => ['Yannick', 'Gbagbo', 'operations', 'lecture_seule', AdminStatus::Suspendu],
     ];
 
+    /**
+     * Ouvriers validés recrutés par le commercial de démonstration : nom => [métier, tarif net, années, note,
+     * commune, disponible].
+     *
+     * @var array<string, array{0: string, 1: int, 2: int, 3: float, 4: string, 5: bool}>
+     */
+    private const WORKERS = [
+        'Kouamé Koffi' => ['macon', 22700, 5, 4.7, 'Cocody', true],
+        'Bamba Seydou' => ['macon', 22000, 6, 4.6, 'Yopougon', true],
+        'Touré Ali' => ['macon', 23600, 9, 4.9, 'Abobo', true],
+        'Yao Koffi' => ['macon', 20000, 6, 4.5, 'Marcory', false],
+        'Awa Traoré' => ['electricien', 27300, 7, 4.8, 'Cocody', true],
+        'Ibrahim Diallo' => ['electricien', 25500, 3, 4.6, 'Plateau', true],
+        'Yao Konan' => ['plombier', 18200, 4, 4.6, 'Cocody', true],
+        'Koné Moussa' => ['plombier', 18200, 5, 4.5, 'Koumassi', true],
+        'Serge Aka' => ['peintre', 16400, 6, 4.7, 'Yopougon', true],
+        'N’Guessan Paul' => ['carreleur', 20000, 6, 4.8, 'Treichville', true],
+        'Kablan Éric' => ['ferrailleur', 18200, 5, 4.6, 'Adjamé', true],
+        'Ouattara Lamine' => ['ferrailleur', 18200, 6, 4.7, 'Port-Bouët', true],
+    ];
+
     public function run(): void
     {
         $this->seedAdmins();
         $this->seedPromoters();
         $this->seedCommercials();
+        $this->seedWorkers();
+    }
+
+    /**
+     * Ouvriers validés et disponibles, pour le catalogue et la simulation du matching (ochantier:simulate-matching).
+     */
+    private function seedWorkers(): void
+    {
+        $commercial = CommercialProfile::query()->where('employee_number', 'COM-00001')->firstOrFail();
+        $trades = Trade::query()->pluck('id', 'code');
+        $communes = Commune::query()->pluck('id', 'name');
+        $index = 0;
+
+        foreach (self::WORKERS as $name => [$trade, $rate, $years, $rating, $commune, $available]) {
+            $index++;
+            [$firstName, $lastName] = explode(' ', $name, 2);
+
+            $worker = Worker::query()->firstOrCreate(['dial_code' => '225', 'phone_number' => sprintf('01000000%02d', $index)], [
+                'reference' => sprintf('OUV-D%05d', $index),
+                'origin_commercial_id' => $commercial->getKey(),
+                'current_commercial_id' => $commercial->getKey(),
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'gender' => $name === 'Awa Traoré' ? Gender::F : Gender::M,
+                'residence_commune_id' => $communes[$commune] ?? null,
+                'acquisition_channel' => 'terrain',
+                'estimated_daily_rate' => $rate,
+                'estimated_daily_rate_at' => now()->toDateString(),
+                'verification_status' => WorkerVerificationStatus::Valide,
+                'validated_at' => now(),
+                'availability_status' => $available ? AvailabilityStatus::Disponible : AvailabilityStatus::Occupe,
+                'rating_avg' => $rating,
+                'rating_count' => 10 + $index,
+                'missions_completed' => 3 + $index,
+            ]);
+
+            if ($worker->wasRecentlyCreated) {
+                $worker->workerTrades()->create(['trade_id' => $trades[$trade], 'is_primary' => true, 'years_experience' => $years, 'level' => $years >= 5 ? SkillLevel::Confirme : SkillLevel::Intermediaire]);
+            }
+        }
     }
 
     private function seedAdmins(): void

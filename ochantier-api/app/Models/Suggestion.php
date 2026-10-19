@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'matching_run_id', 'need_id', 'worker_id', 'rank', 'score', 'score_factors', 'distance_km', 'worker_daily_rate',
     'promoter_daily_rate', 'net_daily_rate', 'is_manual', 'added_by_admin_id', 'status', 'published_to_promoter_at',
-    'published_by_admin_id',
+    'published_by_admin_id', 'proposal_id',
 ])]
 class Suggestion extends Model
 {
@@ -44,6 +44,14 @@ class Suggestion extends Model
     public function matchingRun(): BelongsTo
     {
         return $this->belongsTo(MatchingRun::class);
+    }
+
+    /**
+     * @return BelongsTo<Proposal, $this>
+     */
+    public function proposal(): BelongsTo
+    {
+        return $this->belongsTo(Proposal::class);
     }
 
     /**

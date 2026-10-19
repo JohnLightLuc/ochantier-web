@@ -63,6 +63,8 @@ class PlatformRulesSeeder extends Seeder
             ['macon' => 25000, 'electricien' => 30000, 'plombier' => 20000, 'peintre' => 18000, 'menuisier' => 22000, 'carreleur' => 22000, 'manoeuvre' => 12000, 'coffreur' => 20000, 'ferrailleur' => 20000, 'soudeur' => 22000],
             'Tarif journalier de référence par métier (XOF, commission ouvrier incluse), affiché tant que les tarifs constatés sont insuffisants.',
         ],
+        'proposals.validity_hours' => [48, 'Durée de validité d’une proposition d’équipe avant expiration (heures).'],
+        'reservations.hold_hours' => [48, 'Durée de blocage des ouvriers d’une proposition acceptée, le temps de payer l’acompte (heures).'],
         'support.phone' => ['+225 27 22 00 00 00', 'Numéro du support affiché dans le centre d’aide.'],
         'support.whatsapp' => ['+225 07 00 00 00 00', 'Numéro WhatsApp du support.'],
         'support.email' => ['support@ochantier.ci', 'Adresse e-mail du support.'],

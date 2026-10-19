@@ -66,11 +66,12 @@ class SitePublisher
                 'created_by_user_id' => $author->getKey(),
             ]);
             $this->history($offer, null, OfferStatus::Soumise->value, $author);
+            $offer->refresh();
 
             if ($contract) {
                 $this->createMilestones($offer, $site, $amount, $mode);
             } else {
-                $this->createNeeds($offer, $site, $author, $type);
+                $this->createNeeds($offer, $site, $author, $type, $site->offer_draft);
             }
 
             $site->forceFill(['status' => SiteStatus::Soumis, 'submitted_at' => now(), 'lock_version' => $site->lock_version + 1])->save();
@@ -81,13 +82,72 @@ class SitePublisher
     }
 
     /**
+     * Nouvelle réservation sur un chantier déjà publié : nouvelle offre journalière et ses besoins, transmis au Back
+     * office. Sans dates, la réservation reprend celles du chantier.
+     *
+     * @param  array<string, mixed>  $data  needs, worker_ids, start_date, end_date (ReservationRequest).
+     */
+    public function publishAdditional(Site $site, User $author, array $data): Offer
+    {
+        $start = CarbonImmutable::parse($data['start_date'] ?? $site->planned_start_date);
+        $end = CarbonImmutable::parse($data['end_date'] ?? $site->planned_end_date);
+        $lines = $this->drafts->dailyLines($data);
+        $errors = [];
+
+        foreach ($lines as $line) {
+            if ($line['headcount'] > 0 && ! $line['daily_rate']) {
+                $errors[] = 'Proposez un tarif pour « '.$line['trade']['label'].' »';
+            }
+        }
+
+        if (array_sum(array_column($lines, 'total_headcount')) === 0) {
+            $errors[] = 'Ajoutez un besoin ou choisissez des ouvriers';
+        }
+
+        if ($start->isPast() && ! $start->isToday()) {
+            $errors[] = 'Choisissez des dates de mission valides';
+        }
+
+        if ($errors) {
+            throw ValidationException::withMessages(['reservation' => $errors]);
+        }
+
+        return DB::transaction(function () use ($site, $author, $data, $start, $end): Offer {
+            $days = (int) $start->diffInDays($end) + 1;
+            $type = $days > self::PONCTUAL_MAX_DAYS ? OfferType::Temporaire : OfferType::Ponctuelle;
+
+            $offer = $site->offers()->create([
+                'reference' => $this->reference('OF', 'offer_reference_seq'),
+                'offer_type' => $type,
+                'price_origin' => PriceOrigin::Ouvrier,
+                'title' => $site->label,
+                'description' => $site->description,
+                'start_date' => $start->toDateString(),
+                'end_date' => $end->toDateString(),
+                'visibility' => OfferVisibility::Ciblee,
+                'status' => OfferStatus::Soumise,
+                'submitted_at' => now(),
+                'created_by_user_id' => $author->getKey(),
+            ]);
+            $this->history($offer, null, OfferStatus::Soumise->value, $author);
+            $this->createNeeds($offer->refresh(), $site, $author, $type, $data);
+
+            return $offer;
+        });
+    }
+
+    /**
      * Un besoin par métier : effectif à rechercher plus ouvriers choisis directement, tarif journalier proposé.
      */
-    private function createNeeds(Offer $offer, Site $site, User $author, OfferType $type): void
+    /**
+     * @param  array<string, mixed>  $draft  Besoins saisis (needs, worker_ids).
+     */
+    private function createNeeds(Offer $offer, Site $site, User $author, OfferType $type, array $draft): void
     {
-        $workers = $this->drafts->requestedWorkers($site)->keyBy('id');
+        $workers = $this->drafts->requestedWorkers($draft)->keyBy('id');
+        $days = (int) $offer->start_date->diffInDays($offer->end_date) + 1;
 
-        foreach ($this->drafts->dailyLines($site) as $line) {
+        foreach ($this->drafts->dailyLines($draft) as $line) {
             $headcount = $line['total_headcount'];
             $label = $line['trade']['label'];
             $chosenRates = array_filter(array_column($line['requested_workers'], 'daily_rate'));
@@ -100,9 +160,9 @@ class SitePublisher
                 'headcount' => $headcount,
                 'title' => $label.($headcount > 1 ? ' × '.$headcount : ''),
                 'description' => $site->description ?: 'Recherche de '.$headcount.' '.mb_strtolower($label).' pour « '.$site->label.' ».',
-                'start_date' => $site->planned_start_date,
-                'end_date' => $site->planned_end_date,
-                'duration_days' => $site->planned_duration_days,
+                'start_date' => $offer->start_date,
+                'end_date' => $offer->end_date,
+                'duration_days' => $days,
                 'payment_frequency' => PaymentFrequency::Hebdomadaire,
                 'indicative_daily_budget' => $line['daily_rate'] ?: ($chosenRates ? (int) round(array_sum($chosenRates) / count($chosenRates)) : null),
                 'status' => NeedStatus::Soumis,
