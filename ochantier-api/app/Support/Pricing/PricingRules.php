@@ -54,6 +54,36 @@ class PricingRules
     }
 
     /**
+     * Commission promoteur (Y) sur un coût ouvriers, arrondie au franc.
+     */
+    public function commission(int $workersAmount): int
+    {
+        return (int) round($workersAmount * $this->value(PricingVariable::Y) / 100);
+    }
+
+    /**
+     * Prix d’un besoin ou d’une équipe : coût des ouvriers, commission promoteur, total et acompte (X du total).
+     *
+     * @return array{workers: int, commission: int, total: int, deposit: int, balance: int}
+     */
+    public function breakdown(int $workersAmount): array
+    {
+        $commission = $this->commission($workersAmount);
+        $total = $workersAmount + $commission;
+        $deposit = $this->deposit($total);
+
+        return ['workers' => $workersAmount, 'commission' => $commission, 'total' => $total, 'deposit' => $deposit, 'balance' => $total - $deposit];
+    }
+
+    /**
+     * Frais d’encaissement de l’opérateur Mobile Money sur un montant, arrondis au franc.
+     */
+    public function operatorFee(int $amount, float $percent): int
+    {
+        return (int) round($amount * $percent / 100);
+    }
+
+    /**
      * Acompte (X) d’un montant, arrondi au millier.
      */
     public function deposit(int $amount): int

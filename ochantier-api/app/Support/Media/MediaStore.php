@@ -48,6 +48,29 @@ class MediaStore
     }
 
     /**
+     * Enregistre un fichier produit par l’API (reçu PDF…).
+     */
+    public function storeContent(string $content, string $name, string $mimeType, string $purpose, ?Model $createdBy = null, bool $sensitive = false): MediaFile
+    {
+        $disk = (string) config('filesystems.media');
+        $path = $purpose.'/'.now()->format('Y/m').'/'.Str::uuid7().'.'.pathinfo($name, PATHINFO_EXTENSION);
+        Storage::disk($disk)->put($path, $content);
+
+        return MediaFile::query()->create([
+            'disk' => $disk,
+            'path' => $path,
+            'original_name' => $name,
+            'mime_type' => $mimeType,
+            'size_bytes' => strlen($content),
+            'sha256' => hash('sha256', $content),
+            'purpose' => $purpose,
+            'is_sensitive' => $sensitive,
+            'uploaded_by_type' => $createdBy?->getMorphClass() ?? 'systeme',
+            'uploaded_by_id' => $createdBy?->getKey(),
+        ]);
+    }
+
+    /**
      * Lien de consultation signé, valable LINK_MINUTES minutes.
      */
     public function temporaryUrl(MediaFile $media): string

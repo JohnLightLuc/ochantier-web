@@ -50,4 +50,9 @@ return [
         'driver' => env('SMS_DRIVER', 'log'),
     ],
 
+    // Encaissement Mobile Money : « simulation » hors production, en attendant le prestataire retenu.
+    'payments' => [
+        'driver' => env('PAYMENT_DRIVER', 'simulation'),
+    ],
+
 ];

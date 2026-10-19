@@ -4,6 +4,7 @@ namespace App\Http\Resources\V1\Promoter;
 
 use App\Enums\NeedStatus;
 use App\Enums\OfferType;
+use App\Enums\PricingVariable;
 use App\Enums\ProposalStatus;
 use App\Http\Resources\V1\Resource;
 use App\Models\Need;
@@ -30,8 +31,10 @@ class ReservationResource extends Resource
         $state = $reservations->state($this->resource);
         $proposal = $reservations->latestProposal($this->resource);
         $current = in_array($state['value'], ['a_valider', 'acompte', 'confirmee'], true) ? $proposal : null;
-        [$daily, $total] = $current ? [$current->daily_amount, $current->total_amount] : $this->estimate();
-        $deposit = $current ? $current->deposit_amount : ($total ? app(PricingRules::class)->deposit($total) : null);
+        $prices = $current
+            ? ['daily' => $current->daily_amount, 'workers' => $current->workers_amount, 'commission' => $current->commission_amount, 'total' => $current->total_amount, 'deposit' => $current->deposit_amount]
+            : $this->estimate();
+        $deposit = $prices['deposit'];
         $site = $this->site;
 
         return [
@@ -52,8 +55,11 @@ class ReservationResource extends Resource
             'days' => $this->days(),
             'state' => $state,
             'workers_count' => $current ? $current->proposed_count : $this->requestedCount(),
-            'daily_amount' => $daily,
-            'total_amount' => $total,
+            'daily_amount' => $prices['daily'],
+            'workers_amount' => $prices['workers'],
+            'commission_amount' => $prices['commission'],
+            'commission_percent' => app(PricingRules::class)->value(PricingVariable::Y),
+            'total_amount' => $prices['total'],
             'total_is_estimate' => $current === null,
             'deposit_amount' => $deposit,
             'alert' => match ($state['value']) {
@@ -106,21 +112,32 @@ class ReservationResource extends Resource
     }
 
     /**
-     * Coût estimé tant qu’aucune équipe n’est proposée : tarifs proposés des besoins sur la durée.
+     * Coût estimé tant qu’aucune équipe n’est proposée : tarifs proposés des besoins sur la durée, commission
+     * promoteur comprise (forfait : montant de l’offre).
      *
-     * @return array{0: int|null, 1: int|null}
+     * @return array{daily: int|null, workers: int|null, commission: int|null, total: int|null, deposit: int|null}
      */
     protected function estimate(): array
     {
+        $pricing = app(PricingRules::class);
+
         if ($this->offer_type === OfferType::Contractuelle) {
-            return [$this->days() ? (int) round($this->contract_total_amount / $this->days()) : null, $this->contract_total_amount];
+            $amount = (int) $this->contract_total_amount;
+
+            return ['daily' => $this->days() ? (int) round($amount / $this->days()) : null, 'workers' => $amount, 'commission' => null, 'total' => $amount, 'deposit' => $pricing->deposit($amount)];
         }
 
         $daily = (int) $this->needs
             ->reject(fn (Need $need) => in_array($need->status, [NeedStatus::Annule], true))
             ->sum(fn (Need $need) => $need->headcount * (int) $need->indicative_daily_budget);
 
-        return $daily ? [$daily, $daily * (int) $this->days()] : [null, null];
+        if (! $daily) {
+            return ['daily' => null, 'workers' => null, 'commission' => null, 'total' => null, 'deposit' => null];
+        }
+
+        $prices = $pricing->breakdown($daily * (int) $this->days());
+
+        return ['daily' => $daily, 'workers' => $prices['workers'], 'commission' => $prices['commission'], 'total' => $prices['total'], 'deposit' => $prices['deposit']];
     }
 
     protected function money(?int $amount): string

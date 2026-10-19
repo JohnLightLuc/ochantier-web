@@ -223,6 +223,7 @@ class OfferDraft
         $daily = array_sum(array_column($lines, 'daily_cost'));
         $days = $site->planned_duration_days;
         $estimate = $days ? $daily * $days : null;
+        $prices = $estimate ? $this->pricing->breakdown($estimate) : null;
 
         return [
             'type' => ['value' => self::DAILY, 'label' => 'Offre journalière'],
@@ -233,8 +234,11 @@ class OfferDraft
             'daily_cost' => $daily,
             'days' => $days,
             'estimate' => $estimate,
+            'commission_percent' => $this->pricing->value(PricingVariable::Y),
+            'commission_estimate' => $prices['commission'] ?? null,
+            'total_estimate' => $prices['total'] ?? null,
             'deposit_percent' => $this->pricing->value(PricingVariable::X),
-            'deposit_estimate' => $estimate ? $this->pricing->deposit($estimate) : null,
+            'deposit_estimate' => $prices['deposit'] ?? null,
             'publish_hint' => $toSearch === 0 && $chosen > 0
                 ? 'Les ouvriers choisis reçoivent votre demande directement.'
                 : 'Les ouvriers disponibles du métier sont notifiés de votre offre.',

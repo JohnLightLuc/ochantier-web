@@ -122,7 +122,7 @@ class MatchingSimulator
 
             $daily = (int) $proposed->sum('promoter_daily_rate');
             $days = (int) $offer->start_date->diffInDays($offer->end_date) + 1;
-            $total = $daily * $days;
+            $prices = $proposed->groupBy('need_id')->map(fn (Collection $items) => $this->pricing->breakdown((int) $items->sum('promoter_daily_rate') * $days));
 
             $proposal = $offer->proposals()->create([
                 'reference' => sprintf('PR-%s-%04d', now()->format('Y'), DB::scalar("SELECT nextval('proposal_reference_seq')")),
@@ -134,8 +134,10 @@ class MatchingSimulator
                 'is_partial' => $proposed->count() < $requested,
                 'daily_amount' => $daily,
                 'days' => $days,
-                'total_amount' => $total,
-                'deposit_amount' => $this->pricing->deposit($total),
+                'workers_amount' => $prices->sum('workers'),
+                'commission_amount' => $prices->sum('commission'),
+                'total_amount' => $prices->sum('total'),
+                'deposit_amount' => $prices->sum('deposit'),
                 'expires_at' => now()->addHours((int) (Setting::query()->whereKey('proposals.validity_hours')->value('value') ?? 48)),
             ]);
             $proposal->suggestions()->saveMany($proposed);

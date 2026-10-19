@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Models;
 use App\Support\Auth\JwtAuthenticator;
+use App\Support\Payments\PaymentGateway;
+use App\Support\Payments\SimulatedPaymentGateway;
 use App\Support\PhoneNumber;
 use App\Support\Sms\LogSmsGateway;
 use App\Support\Sms\SmsGateway;
@@ -18,6 +20,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -28,6 +31,11 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(SmsGateway::class, fn () => match (config('services.sms.driver')) {
             default => new LogSmsGateway,
+        });
+
+        $this->app->bind(PaymentGateway::class, fn () => match (true) {
+            $this->app->isProduction() => throw new RuntimeException('Aucun prestataire de paiement configuré pour la production (PAYMENT_DRIVER).'),
+            default => new SimulatedPaymentGateway,
         });
     }
 
@@ -60,6 +68,14 @@ class AppServiceProvider extends ServiceProvider
         Route::bind('proposal', fn (string $id) => Str::isUuid($id)
             ? Models\Proposal::query()->whereKey($id)->whereHas('site.promoterProfile', fn ($query) => $query->where('user_id', request()->user()?->getKey()))->firstOrFail()
             : throw (new ModelNotFoundException)->setModel(Models\Proposal::class, [$id]));
+
+        Route::bind('schedule', fn (string $id) => Str::isUuid($id)
+            ? Models\PaymentSchedule::query()->whereKey($id)->whereHas('mission.site.promoterProfile', fn ($query) => $query->where('user_id', request()->user()?->getKey()))->firstOrFail()
+            : throw (new ModelNotFoundException)->setModel(Models\PaymentSchedule::class, [$id]));
+
+        Route::bind('transaction', fn (string $id) => Str::isUuid($id)
+            ? Models\PaymentTransaction::query()->whereKey($id)->where('payer_type', 'promoter_profile')->whereIn('payer_id', Models\PromoterProfile::query()->where('user_id', request()->user()?->getKey())->select('id'))->firstOrFail()
+            : throw (new ModelNotFoundException)->setModel(Models\PaymentTransaction::class, [$id]));
 
         Route::bind('media', fn (string $id) => Str::isUuid($id)
             ? Models\MediaFile::query()->findOrFail($id)
@@ -166,6 +182,7 @@ class AppServiceProvider extends ServiceProvider
             'organization_member' => Models\OrganizationMember::class,
             'otp_code' => Models\OtpCode::class,
             'password_reset' => Models\PasswordReset::class,
+            'payment_allocation' => Models\PaymentAllocation::class,
             'payment_method' => Models\PaymentMethod::class,
             'payment_operator' => Models\PaymentOperator::class,
             'payment_schedule' => Models\PaymentSchedule::class,

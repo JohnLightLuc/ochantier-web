@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\Commercial\ProspectDocumentController;
 use App\Http\Controllers\Api\V1\HelpController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\Promoter\NotificationPreferenceController;
+use App\Http\Controllers\Api\V1\Promoter\PaymentController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileController as PromoterProfileController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileDocumentController;
 use App\Http\Controllers\Api\V1\Promoter\ReservationController;
@@ -33,7 +34,7 @@ use Illuminate\Support\Facades\Route;
 | Promoteur : inscription et connexion sans mot de passe, par code SMS ou e-mail.
 | Commercial : compte créé par le Back Office, connexion par mot de passe puis code SMS.
 | Espace commercial (prefix commercial) : prospects et dossiers ouvriers, contrat actif exigé.
-| Espace promoteur (prefix promoter) : profil, vérification, préférences, chantiers et réservations.
+| Espace promoteur (prefix promoter) : profil, vérification, préférences, chantiers, réservations et paiements.
 |
 */
 
@@ -75,7 +76,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('referentials', ReferenceController::class)->name('referentials');
             Route::get('help', HelpController::class)->name('help');
 
-            // Application Promoteur : profil, pièces justificatives, préférences, chantiers et réservations.
+            // Application Promoteur : profil, pièces justificatives, préférences, chantiers, réservations et paiements.
             Route::middleware('user.type:promoter')->prefix('promoter')->name('promoter.')->group(function () {
                 Route::get('profile', [PromoterProfileController::class, 'show'])->name('profile.show');
                 Route::patch('profile', [PromoterProfileController::class, 'update'])->name('profile.update');
@@ -100,6 +101,12 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::get('reservations/{reservation}', [ReservationController::class, 'show'])->name('reservations.show');
                 Route::post('proposals/{proposal}/accept', [ReservationController::class, 'accept'])->name('proposals.accept');
                 Route::post('proposals/{proposal}/refuse', [ReservationController::class, 'refuse'])->name('proposals.refuse');
+                Route::get('payments', [PaymentController::class, 'index'])->name('payments.index');
+                Route::get('payments/options', [PaymentController::class, 'options'])->name('payments.options');
+                Route::post('payments/quote', [PaymentController::class, 'quote'])->name('payments.quote');
+                Route::post('payments', [PaymentController::class, 'store'])->middleware('throttle:10,1')->name('payments.store');
+                Route::get('payments/schedules/{schedule}', [PaymentController::class, 'show'])->name('payments.show');
+                Route::get('payments/transactions/{transaction}', [PaymentController::class, 'transaction'])->name('payments.transactions.show');
             });
 
             // Application Commercial : prospects et dossiers ouvriers.

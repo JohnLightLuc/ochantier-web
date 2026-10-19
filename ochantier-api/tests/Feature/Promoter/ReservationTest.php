@@ -41,9 +41,11 @@ class ReservationTest extends PromoterTestCase
             ->assertJsonPath('data.0.site.title', 'Résidence Les Acacias')
             ->assertJsonPath('data.0.state', ['value' => 'recherche', 'label' => 'En recherche'])
             ->assertJsonPath('data.0.days', 10)
-            ->assertJsonPath('data.0.total_amount', (2 * 25000 + 18000) * 10)
+            ->assertJsonPath('data.0.workers_amount', (2 * 25000 + 18000) * 10)
+            ->assertJsonPath('data.0.commission_amount', 54400)
+            ->assertJsonPath('data.0.total_amount', 734400)
             ->assertJsonPath('data.0.total_is_estimate', true)
-            ->assertJsonPath('data.0.deposit_amount', 204000)
+            ->assertJsonPath('data.0.deposit_amount', 220000)
             ->assertJsonPath('meta.counts', ['toutes' => 1, 'recherche' => 1, 'a_valider' => 0, 'confirmees' => 0, 'refusees' => 0])
             ->assertJsonPath('meta.sites.0.title', 'Résidence Les Acacias');
 
@@ -55,7 +57,8 @@ class ReservationTest extends PromoterTestCase
             ->assertJsonPath('data.team_title', 'Composition demandée')
             ->assertJsonPath('data.lines.*.trade.code', ['macon', 'peintre'])
             ->assertJsonPath('data.lines.0.count', 2)
-            ->assertJsonPath('data.conditions.4', ['label' => 'Total estimé', 'value' => "680\u{00A0}000\u{00A0}FCFA"])
+            ->assertJsonPath('data.conditions.5', ['label' => 'Commission O’CHANTIER (8 %)', 'value' => "54\u{00A0}400\u{00A0}FCFA"])
+            ->assertJsonPath('data.conditions.6', ['label' => 'Total estimé', 'value' => "734\u{00A0}400\u{00A0}FCFA"])
             ->assertJsonPath('data.can_accept', false);
 
         $this->assertSame('Recherche d’ouvriers en cours', $this->getJson("/api/v1/promoter/sites/{$site['id']}")->json('data.display_status.label'));
@@ -82,11 +85,12 @@ class ReservationTest extends PromoterTestCase
             ->assertJsonPath('data.lines.0.workers.0.daily_rate', 26000)
             ->assertJsonPath('data.lines.1.workers.0.name', 'Serge Aka')
             ->assertJsonPath('data.daily_amount', $daily)
-            ->assertJsonPath('data.total_amount', $daily * 10)
+            ->assertJsonPath('data.workers_amount', $daily * 10)
+            ->assertJsonPath('data.total_amount', 745200)
             ->assertJsonPath('data.total_is_estimate', false)
-            ->assertJsonPath('data.deposit_amount', 207000)
-            ->assertJsonPath('data.balance_amount', $daily * 10 - 207000)
-            ->assertJsonPath('data.alert.title', "Offre reçue · acompte 207\u{00A0}000\u{00A0}FCFA")
+            ->assertJsonPath('data.deposit_amount', 223000)
+            ->assertJsonPath('data.balance_amount', 745200 - 223000)
+            ->assertJsonPath('data.alert.title', "Offre reçue · acompte 223\u{00A0}000\u{00A0}FCFA")
             ->assertJsonPath('data.proposal.accept_label', 'Accepter et payer l’acompte')
             ->assertJsonPath('data.partial', null)
             ->assertJsonPath('data.can_accept', true);
@@ -109,7 +113,7 @@ class ReservationTest extends PromoterTestCase
             ->assertJsonPath('message', 'Proposition acceptée — réglez l’acompte pour confirmer la réservation.')
             ->assertJsonPath('data.state', ['value' => 'acompte', 'label' => 'Acompte à payer'])
             ->assertJsonPath('data.steps.*.state', ['fait', 'fait', 'fait', 'en_cours'])
-            ->assertJsonPath('data.alert.title', "Acompte à payer : 207\u{00A0}000\u{00A0}FCFA")
+            ->assertJsonPath('data.alert.title', "Acompte à payer : 223\u{00A0}000\u{00A0}FCFA")
             ->assertJsonPath('data.can_accept', false)
             ->assertJsonPath('data.can_pay_deposit', true);
 

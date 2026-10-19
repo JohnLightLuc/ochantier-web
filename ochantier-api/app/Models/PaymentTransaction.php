@@ -108,6 +108,14 @@ class PaymentTransaction extends Model
     }
 
     /**
+     * @return HasMany<PaymentAllocation, $this>
+     */
+    public function allocations(): HasMany
+    {
+        return $this->hasMany(PaymentAllocation::class, 'transaction_id');
+    }
+
+    /**
      * @return HasMany<PaymentTransactionStatusHistory, $this>
      */
     public function statusHistories(): HasMany

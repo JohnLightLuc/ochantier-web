@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Opérateurs Mobile Money / prestataires de paiement.
  */
 #[Fillable([
-    'code', 'name', 'country_id', 'provider', 'number_pattern', 'supports_collection', 'supports_payout', 'is_active',
+    'code', 'name', 'country_id', 'provider', 'number_pattern', 'supports_collection', 'supports_payout', 'is_active', 'collection_fee_percent',
 ])]
 class PaymentOperator extends Model
 {
@@ -29,6 +29,7 @@ class PaymentOperator extends Model
             'supports_collection' => 'boolean',
             'supports_payout' => 'boolean',
             'is_active' => 'boolean',
+            'collection_fee_percent' => 'decimal:2',
         ];
     }
 

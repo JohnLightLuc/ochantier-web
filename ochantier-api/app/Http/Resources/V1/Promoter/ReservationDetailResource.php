@@ -70,7 +70,7 @@ class ReservationDetailResource extends ReservationResource
             ] : null,
             'can_accept' => (bool) $proposal?->isPending(),
             'can_refuse' => (bool) $proposal?->isPending(),
-            'can_pay_deposit' => $proposal?->status === ProposalStatus::Acceptee,
+            'can_pay_deposit' => $state === 'acompte',
             'history' => $this->proposals->sortBy('sequence')->map(fn (Proposal $item) => [
                 'id' => $item->id,
                 'reference' => $item->reference,
@@ -189,6 +189,8 @@ class ReservationDetailResource extends ReservationResource
             ['label' => 'Période', 'value' => $base['start_date'] && $base['end_date'] ? $base['start_date'].' → '.$base['end_date'] : null],
             ['label' => 'Durée', 'value' => $base['days'] ? $base['days'].' jours' : null],
             ['label' => 'Main-d’œuvre', 'value' => $base['daily_amount'] ? $money($base['daily_amount']).' / jour' : null],
+            ['label' => 'Coût des ouvriers', 'value' => $money($base['workers_amount'])],
+            ['label' => 'Commission O’CHANTIER ('.str_replace('.', ',', (string) (float) $base['commission_percent']).' %)', 'value' => $money($base['commission_amount'])],
             ['label' => $proposal ? 'Total' : 'Total estimé', 'value' => $money($base['total_amount'])],
         ];
     }

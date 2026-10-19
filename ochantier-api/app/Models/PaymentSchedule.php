@@ -92,6 +92,14 @@ class PaymentSchedule extends Model
     }
 
     /**
+     * @return HasMany<PaymentAllocation, $this>
+     */
+    public function allocations(): HasMany
+    {
+        return $this->hasMany(PaymentAllocation::class);
+    }
+
+    /**
      * @return HasMany<PaymentTransaction, $this>
      */
     public function paymentTransactions(): HasMany

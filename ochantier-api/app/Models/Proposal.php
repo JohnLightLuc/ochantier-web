@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'reference', 'offer_id', 'site_id', 'sequence', 'status', 'requested_count', 'proposed_count', 'is_partial',
     'daily_amount', 'days', 'total_amount', 'deposit_amount', 'published_at', 'published_by_admin_id', 'expires_at',
-    'decided_at', 'decided_by_user_id', 'refusal_reason_id', 'refusal_comment',
+    'decided_at', 'decided_by_user_id', 'refusal_reason_id', 'refusal_comment', 'workers_amount', 'commission_amount',
 ])]
 class Proposal extends Model
 {
