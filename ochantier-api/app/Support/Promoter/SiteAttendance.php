@@ -350,7 +350,7 @@ class SiteAttendance
         }
 
         if (! $sheet['can_validate']) {
-            throw ValidationException::withMessages(['date' => 'Pointez le départ ou l’absence de chaque ouvrier ('.$sheet['validation_hint'].').']);
+            throw ValidationException::withMessages(['date' => 'Pointez le départ ou l’absence de chaque ouvrier : '.$sheet['stats']['pending'].' pointage'.($sheet['stats']['pending'] > 1 ? 's' : '').' à compléter.']);
         }
 
         DB::transaction(function () use ($site, $author, $date): void {

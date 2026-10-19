@@ -137,7 +137,7 @@ class AttendanceTest extends PromoterTestCase
 
         $date = today()->toDateString();
         $this->postJson("/api/v1/promoter/sites/{$this->site->id}/attendance/{$date}/validate")
-            ->assertJsonValidationErrors(['date' => 'Pointez le départ ou l’absence de chaque ouvrier (2 pointages à compléter (arrivée ou départ)).']);
+            ->assertJsonValidationErrors(['date' => 'Pointez le départ ou l’absence de chaque ouvrier : 2 pointages à compléter.']);
 
         $this->postJson("/api/v1/promoter/sites/{$this->site->id}/attendance/absences", ['assignment_id' => $this->assignmentOf('Touré Ali')->id])
             ->assertOk()
