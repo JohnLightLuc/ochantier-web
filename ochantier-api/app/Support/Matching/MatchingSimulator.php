@@ -2,22 +2,28 @@
 
 namespace App\Support\Matching;
 
+use App\Enums\AssignmentStatus;
 use App\Enums\AvailabilityStatus;
 use App\Enums\MatchingRunType;
 use App\Enums\NeedStatus;
 use App\Enums\OfferStatus;
 use App\Enums\OfferType;
 use App\Enums\ProposalStatus;
+use App\Enums\ReplacementPromoterDecision;
+use App\Enums\ReplacementStatus;
 use App\Enums\SiteStatus;
 use App\Enums\SuggestionStatus;
+use App\Enums\UnavailabilityRequestStatus;
 use App\Enums\WorkerReservationStatus;
 use App\Enums\WorkerVerificationStatus;
 use App\Models\MatchingWeightSet;
 use App\Models\Need;
 use App\Models\Offer;
 use App\Models\Proposal;
+use App\Models\Replacement;
 use App\Models\Setting;
 use App\Models\Site;
+use App\Models\Suggestion;
 use App\Models\Worker;
 use App\Support\Pricing\PricingRules;
 use Illuminate\Database\Eloquent\Builder;
@@ -145,6 +151,86 @@ class MatchingSimulator
             $this->moveSite($site, SiteStatus::Paiement);
 
             return $proposal;
+        });
+    }
+
+    /**
+     * Remplacements demandés par un promoteur, en attente de remplaçants.
+     *
+     * @return Builder<Replacement>
+     */
+    public function pendingReplacements(): Builder
+    {
+        return Replacement::query()->whereIn('status', [ReplacementStatus::Signale, ReplacementStatus::Recherche]);
+    }
+
+    /**
+     * Propose au promoteur jusqu’à trois remplaçants du métier, libres de la relève à la fin de la mission et dont le
+     * tarif promoteur ne dépasse pas celui de l’affectation d’origine. Renvoie le nombre de remplaçants proposés.
+     */
+    public function simulateReplacement(Replacement $replacement): int
+    {
+        $weights = MatchingWeightSet::query()->where('is_active', true)->latest('effective_from')->first()
+            ?? throw new RuntimeException('Aucun barème de matching actif : lancez php artisan db:seed.');
+
+        return DB::transaction(function () use ($replacement, $weights): int {
+            $criteria = $replacement->requested_criteria;
+            $original = $replacement->originalAssignment()->with('need')->firstOrFail();
+            $period = sprintf('[%s,%s]', $criteria['from_date'], $criteria['to_date']);
+            $excluded = Suggestion::query()->whereHas('matchingRun', fn (Builder $query) => $query->where('replacement_id', $replacement->getKey()))->pluck('worker_id')
+                ->merge($original->mission->site->missions()->with('assignments')->get()->flatMap->assignments->pluck('worker_id'));
+
+            $workers = Worker::query()
+                ->where('verification_status', WorkerVerificationStatus::Valide)
+                ->where('availability_status', AvailabilityStatus::Disponible)
+                ->whereNull('merged_into_worker_id')
+                ->whereNotNull('estimated_daily_rate')
+                ->whereNotIn('id', $excluded->unique()->all())
+                ->whereHas('workerTrades', fn (Builder $query) => $query->where('trade_id', $criteria['trade_id']))
+                ->whereNotExists(fn ($query) => $query->select(DB::raw(1))->from('assignments')
+                    ->whereColumn('assignments.worker_id', 'workers.id')
+                    ->whereIn('assignments.status', [AssignmentStatus::Confirmee->value, AssignmentStatus::Active->value])
+                    ->whereRaw('assignments.period && ?::daterange', [$period]))
+                ->whereNotExists(fn ($query) => $query->select(DB::raw(1))->from('worker_reservations')
+                    ->whereColumn('worker_reservations.worker_id', 'workers.id')
+                    ->where('worker_reservations.status', WorkerReservationStatus::Active->value)
+                    ->whereRaw('worker_reservations.period && ?::daterange', [$period]))
+                ->get()
+                ->filter(fn (Worker $worker) => $criteria['max_promoter_daily_rate'] === null || $this->pricing->promoterDailyRate($worker->estimated_daily_rate) <= $criteria['max_promoter_daily_rate'])
+                ->sortByDesc(fn (Worker $worker) => (float) $worker->rating_avg)
+                ->take(3)
+                ->values();
+
+            $run = $original->need->matchingRuns()->create([
+                'weight_set_id' => $weights->getKey(),
+                'run_type' => MatchingRunType::Remplacement,
+                'replacement_id' => $replacement->getKey(),
+                'filters' => ['simulation' => true, ...$criteria],
+                'candidate_count' => $workers->count(),
+            ]);
+
+            foreach ($workers as $rank => $worker) {
+                $run->suggestions()->create([
+                    'need_id' => $original->need_id,
+                    'worker_id' => $worker->getKey(),
+                    'rank' => $rank + 1,
+                    'score' => 95 - $rank * 3,
+                    'score_factors' => ['simulation' => true, 'remplacement' => true],
+                    'worker_daily_rate' => $worker->estimated_daily_rate,
+                    'promoter_daily_rate' => $original->promoter_daily_rate,
+                    'net_daily_rate' => $worker->estimated_daily_rate,
+                    'status' => SuggestionStatus::ProposePromoteur,
+                    'published_to_promoter_at' => now(),
+                ]);
+            }
+
+            if ($workers->isNotEmpty()) {
+                $replacement->statusHistories()->create(['from_status' => $replacement->status->value, 'to_status' => ReplacementStatus::Propose->value, 'reason' => 'Simulation locale du matching', 'actor_type' => 'systeme']);
+                $replacement->forceFill(['status' => ReplacementStatus::Propose, 'promoter_decision' => ReplacementPromoterDecision::EnAttente, 'promoter_decision_reason' => null, 'promoter_decided_at' => null])->save();
+                $replacement->unavailabilityRequest->update(['status' => UnavailabilityRequestStatus::RemplacantPropose]);
+            }
+
+            return $workers->count();
         });
     }
 

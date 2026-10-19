@@ -113,11 +113,13 @@ class DocumentTypeSeeder extends Seeder
             'incomplet' => 'Recto ou verso manquant',
         ],
         'remplacement' => [
+            'absences_repetees' => 'Absences répétées',
             'absence' => 'Absence de l’ouvrier',
             'abandon' => 'Abandon de chantier',
             'qualite' => 'Qualité du travail insuffisante',
             'demande_promoteur' => 'Demande du promoteur',
             'indisponibilite' => 'Indisponibilité déclarée',
+            'autre' => 'Autre motif',
         ],
         'litige' => [
             'paiement' => 'Désaccord sur un paiement',

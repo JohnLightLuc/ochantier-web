@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\GeoPoint;
 use App\Enums\AttendanceEventStatus;
 use App\Enums\AttendanceEventType;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -36,6 +37,7 @@ class AttendanceEvent extends Model
             'event_type' => AttendanceEventType::class,
             'recorded_at' => 'datetime',
             'device_recorded_at' => 'datetime',
+            'location' => GeoPoint::class,
             'location_accuracy_m' => 'decimal:2',
             'distance_to_site_m' => 'decimal:2',
             'out_of_zone' => 'boolean',

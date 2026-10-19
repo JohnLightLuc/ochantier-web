@@ -156,6 +156,14 @@ class Site extends Model
     }
 
     /**
+     * @return HasMany<SiteStep, $this>
+     */
+    public function steps(): HasMany
+    {
+        return $this->hasMany(SiteStep::class);
+    }
+
+    /**
      * @return HasMany<Offer, $this>
      */
     public function offers(): HasMany

@@ -77,6 +77,14 @@ class AppServiceProvider extends ServiceProvider
             ? Models\PaymentTransaction::query()->whereKey($id)->where('payer_type', 'promoter_profile')->whereIn('payer_id', Models\PromoterProfile::query()->where('user_id', request()->user()?->getKey())->select('id'))->firstOrFail()
             : throw (new ModelNotFoundException)->setModel(Models\PaymentTransaction::class, [$id]));
 
+        Route::bind('assignment', fn (string $id) => Str::isUuid($id)
+            ? Models\Assignment::query()->whereKey($id)->whereHas('mission.site.promoterProfile', fn ($query) => $query->where('user_id', request()->user()?->getKey()))->firstOrFail()
+            : throw (new ModelNotFoundException)->setModel(Models\Assignment::class, [$id]));
+
+        Route::bind('replacement', fn (string $id) => Str::isUuid($id)
+            ? Models\Replacement::query()->whereKey($id)->whereHas('mission.site.promoterProfile', fn ($query) => $query->where('user_id', request()->user()?->getKey()))->firstOrFail()
+            : throw (new ModelNotFoundException)->setModel(Models\Replacement::class, [$id]));
+
         Route::bind('media', fn (string $id) => Str::isUuid($id)
             ? Models\MediaFile::query()->findOrFail($id)
             : throw (new ModelNotFoundException)->setModel(Models\MediaFile::class, [$id]));
@@ -217,6 +225,7 @@ class AppServiceProvider extends ServiceProvider
             'site_incident' => Models\SiteIncident::class,
             'site_member' => Models\SiteMember::class,
             'site_status_history' => Models\SiteStatusHistory::class,
+            'site_step' => Models\SiteStep::class,
             'skill' => Models\Skill::class,
             'specialty' => Models\Specialty::class,
             'subscription' => Models\Subscription::class,

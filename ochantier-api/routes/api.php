@@ -11,14 +11,18 @@ use App\Http\Controllers\Api\V1\Commercial\ProspectController;
 use App\Http\Controllers\Api\V1\Commercial\ProspectDocumentController;
 use App\Http\Controllers\Api\V1\HelpController;
 use App\Http\Controllers\Api\V1\MediaController;
+use App\Http\Controllers\Api\V1\Promoter\AttendanceController;
 use App\Http\Controllers\Api\V1\Promoter\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\Promoter\PaymentController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileController as PromoterProfileController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileDocumentController;
+use App\Http\Controllers\Api\V1\Promoter\ReplacementController;
 use App\Http\Controllers\Api\V1\Promoter\ReservationController;
 use App\Http\Controllers\Api\V1\Promoter\SiteController;
 use App\Http\Controllers\Api\V1\Promoter\SiteMediaController;
 use App\Http\Controllers\Api\V1\Promoter\SiteOfferController;
+use App\Http\Controllers\Api\V1\Promoter\SiteStepController;
+use App\Http\Controllers\Api\V1\Promoter\SiteTrackingController;
 use App\Http\Controllers\Api\V1\Promoter\WorkerCatalogController;
 use App\Http\Controllers\Api\V1\ReferenceController;
 use Illuminate\Support\Facades\Route;
@@ -34,7 +38,8 @@ use Illuminate\Support\Facades\Route;
 | Promoteur : inscription et connexion sans mot de passe, par code SMS ou e-mail.
 | Commercial : compte créé par le Back Office, connexion par mot de passe puis code SMS.
 | Espace commercial (prefix commercial) : prospects et dossiers ouvriers, contrat actif exigé.
-| Espace promoteur (prefix promoter) : profil, vérification, préférences, chantiers, réservations et paiements.
+| Espace promoteur (prefix promoter) : profil, vérification, préférences, chantiers, réservations, paiements et suivi
+| (équipe, pointage, chronologie, remplacements).
 |
 */
 
@@ -76,7 +81,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('referentials', ReferenceController::class)->name('referentials');
             Route::get('help', HelpController::class)->name('help');
 
-            // Application Promoteur : profil, pièces justificatives, préférences, chantiers, réservations et paiements.
+            // Application Promoteur : profil, pièces justificatives, préférences, chantiers, réservations, paiements et suivi.
             Route::middleware('user.type:promoter')->prefix('promoter')->name('promoter.')->group(function () {
                 Route::get('profile', [PromoterProfileController::class, 'show'])->name('profile.show');
                 Route::patch('profile', [PromoterProfileController::class, 'update'])->name('profile.update');
@@ -107,6 +112,25 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::post('payments', [PaymentController::class, 'store'])->middleware('throttle:10,1')->name('payments.store');
                 Route::get('payments/schedules/{schedule}', [PaymentController::class, 'show'])->name('payments.show');
                 Route::get('payments/transactions/{transaction}', [PaymentController::class, 'transaction'])->name('payments.transactions.show');
+
+                Route::get('sites/{site}/tracking', [SiteTrackingController::class, 'show'])->name('sites.tracking');
+                Route::get('sites/{site}/team', [SiteTrackingController::class, 'team'])->name('sites.team');
+                Route::get('sites/{site}/attendance', [AttendanceController::class, 'index'])->name('sites.attendance.index');
+                Route::get('sites/{site}/attendance/history', [AttendanceController::class, 'history'])->name('sites.attendance.history');
+                Route::post('sites/{site}/attendance/events', [AttendanceController::class, 'storeEvent'])->name('sites.attendance.events.store');
+                Route::post('sites/{site}/attendance/absences', [AttendanceController::class, 'storeAbsence'])->name('sites.attendance.absences.store');
+                Route::post('sites/{site}/attendance/{date}/validate', [AttendanceController::class, 'validateDay'])->where('date', '\d{4}-\d{2}-\d{2}')->name('sites.attendance.validate');
+                Route::scopeBindings()->group(function () {
+                    Route::get('sites/{site}/steps', [SiteStepController::class, 'index'])->name('sites.steps.index');
+                    Route::post('sites/{site}/steps', [SiteStepController::class, 'store'])->name('sites.steps.store');
+                    Route::post('sites/{site}/steps/{step}/start', [SiteStepController::class, 'start'])->name('sites.steps.start');
+                    Route::post('sites/{site}/steps/{step}/complete', [SiteStepController::class, 'complete'])->name('sites.steps.complete');
+                    Route::delete('sites/{site}/steps/{step}', [SiteStepController::class, 'destroy'])->name('sites.steps.destroy');
+                });
+                Route::post('assignments/{assignment}/replacement', [ReplacementController::class, 'store'])->name('assignments.replacement.store');
+                Route::get('replacements/{replacement}', [ReplacementController::class, 'show'])->name('replacements.show');
+                Route::post('replacements/{replacement}/accept', [ReplacementController::class, 'accept'])->name('replacements.accept');
+                Route::post('replacements/{replacement}/refuse', [ReplacementController::class, 'refuse'])->name('replacements.refuse');
             });
 
             // Application Commercial : prospects et dossiers ouvriers.
