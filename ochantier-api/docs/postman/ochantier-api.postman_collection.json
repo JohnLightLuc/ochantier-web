@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "440084b3-1b5c-5760-8de1-a8bc263e2066",
     "name": "O’CHANTIER API v1",
-    "description": "API REST des applications mobiles **Promoteur** et **Commercial** d’O’CHANTIER (l’application Ouvrier arrive en V2). Cette version couvre l’**authentification**, les **référentiels**, le **centre d’aide**, pour l’application Promoteur le **profil et la vérification du compte**, les **chantiers**, leurs **besoins et leur publication**, les **réservations** (propositions d’équipe) et les **paiements** Mobile Money, et pour l’application Commercial les **prospects et dossiers ouvriers**. Les autres modules (suivi de chantier et pointage, évaluations, abonnements, ouvriers soumis et gains du commercial) seront ajoutés au fur et à mesure.\n\n## Démarrage rapide\n\n1. Lancer l’API : `docker compose up -d`, `php artisan migrate:fresh --seed`, `php artisan serve`.\n2. Importer cette collection et l’environnement **O’CHANTIER · Local**.\n3. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : chaque connexion enregistre les jetons dans les variables de la collection, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/ochantier-api.postman_collection.json -e docs/postman/ochantier-local.postman_environment.json --working-dir docs/postman`\n   (`--working-dir` permet de trouver les images d’exemple de `docs/postman/fixtures` envoyées comme pièces).\n\nLa collection est rejouable : elle tire au hasard les nouveaux numéros et remet le mot de passe du commercial de démonstration. Entre deux exécutions, attendre **45 secondes**, le délai avant de pouvoir redemander un code au même destinataire.\n\nLes exemples de réponse de chaque requête ont été capturés sur l’API locale avec les données de démonstration.\n\n## Conventions\n\n- **Base** : `{{base_url}}` = `http://localhost:8000/api/v1`.\n- **En-têtes** : `Accept: application/json` sur toutes les requêtes ; `Content-Type: application/json` pour les corps.\n- **Téléphone** : toujours envoyé en deux champs, `dial_code` (indicatif du pays sans `+`, ex. `225`) et `phone_number` (numéro national, ex. `0700000002` ; 10 chiffres pour la Côte d’Ivoire, espaces, points et tirets acceptés). Seuls les indicatifs des pays ouverts sont acceptés (aujourd’hui `225`). Les réponses renvoient `dial_code`, `phone_number` et `phone` formaté pour l’affichage (`+225 07 00 00 00 02`). En base, le numéro est enregistré dans ces deux colonnes ; la colonne `phone` (E.164, `+2250700000002`) en est déduite.\n- **Statuts et types** : objets `{ \"value\": \"actif\", \"label\": \"Actif\" }`. L’application se fie à `value` et affiche `label`.\n- **Dates** : ISO 8601 en UTC (`2026-10-18T13:06:23+00:00`).\n- **Messages** : en français, prêts à être affichés.\n- **Envoi de fichiers** : `multipart/form-data` directement vers l’API. Les fichiers sont ensuite consultables par un lien `url` signé, valable 30 minutes, sans jeton.\n- **Hors ligne** : `client_uuid` (généré par l’application) rend une création rejouable sans doublon ; `lock_version` (renvoyé dans chaque réponse) refuse une modification faite entre-temps sur un autre appareil (**409**).\n\n## Authentification\n\n| Application | Inscription | Connexion |\n|---|---|---|\n| Promoteur | Libre, sans mot de passe : code d’activation par SMS ou e-mail | Code à 6 chiffres par SMS ou e-mail |\n| Commercial | Compte créé par le Back Office, avec un mot de passe provisoire | Mot de passe, puis code à 6 chiffres par SMS |\n\n**Jetons**\n- `access_token` : JWT signé (HS256), valable **15 minutes**, envoyé dans `Authorization: Bearer <jeton>`.\n- `refresh_token` : chaîne opaque de 64 caractères, valable **30 jours**, **à usage unique**. `POST /auth/refresh` renvoie une nouvelle paire ; l’ancien jeton devient invalide.\n- Chaque connexion ouvre une **session** par appareil (`session_id`), visible dans « Appareils connectés » et révocable.\n\nSur un **401** : rafraîchir les jetons une fois, puis renvoyer à l’écran de connexion si le rafraîchissement échoue aussi.\n\n**Codes à usage unique (OTP)** : 6 chiffres, valables 5 minutes, 5 essais par code, nouveau code possible après 45 secondes. Hors production, le code fixe `OTP_TEST_CODE` (`123456` en local) est accepté. Les SMS et e-mails sont écrits dans `storage/logs/laravel.log`.\n\n**Mot de passe provisoire** (commercial) : tant que `user.must_change_password` vaut `true`, seules `GET /me`, `POST /auth/logout` et `PUT /auth/password` répondent ; les autres routes renvoient **403** avec `\"code\": \"password_change_required\"`.\n\n## Réponses d’erreur\n\n| Code | Cas | Corps |\n|---|---|---|\n| 401 | Jeton absent, expiré ou session fermée | `{ \"message\": \"Session expirée : reconnectez-vous.\" }` |\n| 403 | Compte suspendu ou désactivé, route d’une autre application, mot de passe provisoire à changer | `{ \"message\": \"…\" }` (+ `code` pour `password_change_required`) |\n| 404 | Ressource introuvable ou n’appartenant pas au compte | `{ \"message\": \"Élément introuvable.\" }` |\n| 409 | Modifié entre-temps sur un autre appareil (`lock_version`) | `{ \"message\": \"…\" }` |\n| 422 | Champs invalides, code faux ou expiré | `{ \"message\": \"…\", \"errors\": { \"champ\": [\"…\"] } }` |\n| 423 | Commercial verrouillé après 5 mauvais mots de passe (15 min) | `{ \"message\": \"…\", \"locked_until\": \"…\" }` |\n| 429 | Nouveau code demandé trop tôt, ou trop de requêtes | `{ \"message\": \"…\", \"retry_after\": 45 }` + en-tête `Retry-After` |\n\n## Espace promoteur : profil et vérification\n\nRéservé aux promoteurs (**403** pour un commercial).\n\n1. **Profil** (« Modifier le profil ») : identité, adresse et, pour une entreprise, raison sociale, RCCM, NCC et siège social géolocalisé.\n2. **Pièces justificatives** : pièce d’identité (CNI, passeport ou permis) et certificat de résidence ; pour une entreprise, en plus l’extrait RCCM et l’attestation NCC (statuts facultatifs).\n3. **Vérification** : dès que tous les éléments sont fournis (`completion.complete`), le profil passe en `soumis` et une demande de vérification est créée pour le Back office. `verification.state` donne l’état à afficher : « À compléter », « En vérification », « Vérifié », « À corriger ». Modifier un élément vérifié renvoie le profil en vérification.\n\n## Espace promoteur : chantiers et réservations\n\n1. **Chantier** (« Nouveau chantier ») : brouillon enregistré dès le titre, complété en plusieurs fois (localisation GPS, dates, photo, documents, responsable).\n2. **Besoins** : offre **journalière** (effectif et tarif proposé par métier, ouvriers choisis dans le catalogue) ou **contractuelle** (forfait, mode de paiement du solde).\n3. **Publication** : l’offre et ses besoins sont transmis au **Back office**, qui les contrôle puis lance le **matching**.\n4. **Proposition d’équipe** : le promoteur l’accepte (les ouvriers sont bloqués le temps de payer l’acompte) ou la refuse avec un motif (la recherche reprend). Une proposition partielle laisse la recherche continuer pour les ouvriers manquants.\n\n5. **Paiement** : l’acompte (X = 30 % du total, commission O’CHANTIER Y = 8 % comprise) confirme l’équipe ; une mission est créée par métier avec une échéance par semaine. Les frais de l’opérateur Mobile Money s’ajoutent ; un reçu PDF est émis. Hors production, le paiement est simulé (un numéro finissant par `0000` échoue).\n\nEn local, sans Back office, `php artisan ochantier:simulate-matching` joue le contrôle et le matching des offres publiées. Lors de l’exécution de la collection, « Accepter la proposition », « Refuser la proposition » et les paiements sont sautés s’il n’y a pas de proposition : lancez la commande après « Nouvelle réservation », puis exécutez le dossier « Réservations ».\n\n## Espace commercial : prospects et dossiers\n\nRéservé aux commerciaux dont le contrat est actif (**403** sinon) ; chaque commercial ne voit que ses propres prospects.\n\n1. **Prospect** (« Nouveau prospect ») : le contact du futur ouvrier (nom, téléphone, commune, métier pressenti), avec son accord d’être contacté.\n2. **Dossier** : dès qu’une information du dossier (naissance, coût journalier, contact d’urgence…) ou une pièce est saisie, un ouvrier **brouillon** lié au prospect est créé (référence `OUV-000123`). Il se complète en plusieurs fois.\n3. **Avancement** : 12 éléments comme dans la maquette (`completion`), badge « Prêt à soumettre » (`stage` = `pret`) quand tous les éléments obligatoires sont présents.\n4. **Soumission** au Back office : l’ouvrier passe en `soumis`, le prospect en `converti` ; le dossier n’est plus modifiable depuis l’application.\n\nUn prospect peut aussi être **archivé** avec un motif : son dossier brouillon est retiré et son numéro libéré.\n\n## Limites de débit\n\n| Requêtes | Limite |\n|---|---|\n| Envoi de code (inscription, connexion promoteur, mot de passe oublié, changement de numéro) | 3 par minute par destinataire, 10 par heure par adresse IP |\n| Mot de passe du commercial | 10 par minute par numéro, 20 par minute par IP |\n| Vérification d’un code | 10 par minute |\n| Rafraîchissement | 30 par minute |\n| Autres requêtes authentifiées | 120 par minute par compte |\n\n## Comptes de démonstration (`php artisan db:seed`, hors production)\n\n| Application | Identifiant | Mot de passe |\n|---|---|---|\n| Promoteur particulier | `0700000001` | — |\n| Promoteur entreprise | `0700000002` ou `promoteur@demo.ochantier.ci` | — |\n| Commercial | `0500000001` | `motdepasse1` |\n| Commercial à activer (mot de passe provisoire) | `0500000002` | `provisoire1` |\n",
+    "description": "API REST des applications mobiles **Promoteur** et **Commercial** d’O’CHANTIER (l’application Ouvrier arrive en V2). Cette version couvre l’**authentification**, les **référentiels**, le **centre d’aide**, pour l’application Promoteur le **profil et la vérification du compte**, les **chantiers**, leurs **besoins et leur publication**, les **réservations** (propositions d’équipe), les **paiements** Mobile Money et le **suivi de chantier** (équipe, pointage, chronologie, remplacements), et pour l’application Commercial les **prospects et dossiers ouvriers**. Les autres modules (évaluations, abonnements, ouvriers soumis et gains du commercial) seront ajoutés au fur et à mesure.\n\n## Démarrage rapide\n\n1. Lancer l’API : `docker compose up -d`, `php artisan migrate:fresh --seed`, `php artisan serve`.\n2. Importer cette collection et l’environnement **O’CHANTIER · Local**.\n3. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : chaque connexion enregistre les jetons dans les variables de la collection, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/ochantier-api.postman_collection.json -e docs/postman/ochantier-local.postman_environment.json --working-dir docs/postman`\n   (`--working-dir` permet de trouver les images d’exemple de `docs/postman/fixtures` envoyées comme pièces).\n\nLa collection est rejouable : elle tire au hasard les nouveaux numéros et remet le mot de passe du commercial de démonstration. Entre deux exécutions, attendre **45 secondes**, le délai avant de pouvoir redemander un code au même destinataire.\n\nLes exemples de réponse de chaque requête ont été capturés sur l’API locale avec les données de démonstration.\n\n## Conventions\n\n- **Base** : `{{base_url}}` = `http://localhost:8000/api/v1`.\n- **En-têtes** : `Accept: application/json` sur toutes les requêtes ; `Content-Type: application/json` pour les corps.\n- **Téléphone** : toujours envoyé en deux champs, `dial_code` (indicatif du pays sans `+`, ex. `225`) et `phone_number` (numéro national, ex. `0700000002` ; 10 chiffres pour la Côte d’Ivoire, espaces, points et tirets acceptés). Seuls les indicatifs des pays ouverts sont acceptés (aujourd’hui `225`). Les réponses renvoient `dial_code`, `phone_number` et `phone` formaté pour l’affichage (`+225 07 00 00 00 02`). En base, le numéro est enregistré dans ces deux colonnes ; la colonne `phone` (E.164, `+2250700000002`) en est déduite.\n- **Statuts et types** : objets `{ \"value\": \"actif\", \"label\": \"Actif\" }`. L’application se fie à `value` et affiche `label`.\n- **Dates** : ISO 8601 en UTC (`2026-10-18T13:06:23+00:00`).\n- **Messages** : en français, prêts à être affichés.\n- **Envoi de fichiers** : `multipart/form-data` directement vers l’API. Les fichiers sont ensuite consultables par un lien `url` signé, valable 30 minutes, sans jeton.\n- **Hors ligne** : `client_uuid` (généré par l’application) rend une création rejouable sans doublon ; `lock_version` (renvoyé dans chaque réponse) refuse une modification faite entre-temps sur un autre appareil (**409**).\n\n## Authentification\n\n| Application | Inscription | Connexion |\n|---|---|---|\n| Promoteur | Libre, sans mot de passe : code d’activation par SMS ou e-mail | Code à 6 chiffres par SMS ou e-mail |\n| Commercial | Compte créé par le Back Office, avec un mot de passe provisoire | Mot de passe, puis code à 6 chiffres par SMS |\n\n**Jetons**\n- `access_token` : JWT signé (HS256), valable **15 minutes**, envoyé dans `Authorization: Bearer <jeton>`.\n- `refresh_token` : chaîne opaque de 64 caractères, valable **30 jours**, **à usage unique**. `POST /auth/refresh` renvoie une nouvelle paire ; l’ancien jeton devient invalide.\n- Chaque connexion ouvre une **session** par appareil (`session_id`), visible dans « Appareils connectés » et révocable.\n\nSur un **401** : rafraîchir les jetons une fois, puis renvoyer à l’écran de connexion si le rafraîchissement échoue aussi.\n\n**Codes à usage unique (OTP)** : 6 chiffres, valables 5 minutes, 5 essais par code, nouveau code possible après 45 secondes. Hors production, le code fixe `OTP_TEST_CODE` (`123456` en local) est accepté. Les SMS et e-mails sont écrits dans `storage/logs/laravel.log`.\n\n**Mot de passe provisoire** (commercial) : tant que `user.must_change_password` vaut `true`, seules `GET /me`, `POST /auth/logout` et `PUT /auth/password` répondent ; les autres routes renvoient **403** avec `\"code\": \"password_change_required\"`.\n\n## Réponses d’erreur\n\n| Code | Cas | Corps |\n|---|---|---|\n| 401 | Jeton absent, expiré ou session fermée | `{ \"message\": \"Session expirée : reconnectez-vous.\" }` |\n| 403 | Compte suspendu ou désactivé, route d’une autre application, mot de passe provisoire à changer | `{ \"message\": \"…\" }` (+ `code` pour `password_change_required`) |\n| 404 | Ressource introuvable ou n’appartenant pas au compte | `{ \"message\": \"Élément introuvable.\" }` |\n| 409 | Modifié entre-temps sur un autre appareil (`lock_version`) | `{ \"message\": \"…\" }` |\n| 422 | Champs invalides, code faux ou expiré | `{ \"message\": \"…\", \"errors\": { \"champ\": [\"…\"] } }` |\n| 423 | Commercial verrouillé après 5 mauvais mots de passe (15 min) | `{ \"message\": \"…\", \"locked_until\": \"…\" }` |\n| 429 | Nouveau code demandé trop tôt, ou trop de requêtes | `{ \"message\": \"…\", \"retry_after\": 45 }` + en-tête `Retry-After` |\n\n## Espace promoteur : profil et vérification\n\nRéservé aux promoteurs (**403** pour un commercial).\n\n1. **Profil** (« Modifier le profil ») : identité, adresse et, pour une entreprise, raison sociale, RCCM, NCC et siège social géolocalisé.\n2. **Pièces justificatives** : pièce d’identité (CNI, passeport ou permis) et certificat de résidence ; pour une entreprise, en plus l’extrait RCCM et l’attestation NCC (statuts facultatifs).\n3. **Vérification** : dès que tous les éléments sont fournis (`completion.complete`), le profil passe en `soumis` et une demande de vérification est créée pour le Back office. `verification.state` donne l’état à afficher : « À compléter », « En vérification », « Vérifié », « À corriger ». Modifier un élément vérifié renvoie le profil en vérification.\n\n## Espace promoteur : chantiers et réservations\n\n1. **Chantier** (« Nouveau chantier ») : brouillon enregistré dès le titre, complété en plusieurs fois (localisation GPS, dates, photo, documents, responsable).\n2. **Besoins** : offre **journalière** (effectif et tarif proposé par métier, ouvriers choisis dans le catalogue) ou **contractuelle** (forfait, mode de paiement du solde).\n3. **Publication** : l’offre et ses besoins sont transmis au **Back office**, qui les contrôle puis lance le **matching**.\n4. **Proposition d’équipe** : le promoteur l’accepte (les ouvriers sont bloqués le temps de payer l’acompte) ou la refuse avec un motif (la recherche reprend). Une proposition partielle laisse la recherche continuer pour les ouvriers manquants.\n\n5. **Paiement** : l’acompte (X = 30 % du total, commission O’CHANTIER Y = 8 % comprise) confirme l’équipe ; une mission est créée par métier avec une échéance par semaine. Les frais de l’opérateur Mobile Money s’ajoutent ; un reçu PDF est émis. Hors production, le paiement est simulé (un numéro finissant par `0000` échoue).\n\nEn local, sans Back office, `php artisan ochantier:simulate-matching` joue le contrôle et le matching des offres publiées. Lors de l’exécution de la collection, « Accepter la proposition », « Refuser la proposition » et les paiements sont sautés s’il n’y a pas de proposition : lancez la commande après « Nouvelle réservation », puis exécutez le dossier « Réservations ».\n\n## Espace commercial : prospects et dossiers\n\nRéservé aux commerciaux dont le contrat est actif (**403** sinon) ; chaque commercial ne voit que ses propres prospects.\n\n1. **Prospect** (« Nouveau prospect ») : le contact du futur ouvrier (nom, téléphone, commune, métier pressenti), avec son accord d’être contacté.\n2. **Dossier** : dès qu’une information du dossier (naissance, coût journalier, contact d’urgence…) ou une pièce est saisie, un ouvrier **brouillon** lié au prospect est créé (référence `OUV-000123`). Il se complète en plusieurs fois.\n3. **Avancement** : 12 éléments comme dans la maquette (`completion`), badge « Prêt à soumettre » (`stage` = `pret`) quand tous les éléments obligatoires sont présents.\n4. **Soumission** au Back office : l’ouvrier passe en `soumis`, le prospect en `converti` ; le dossier n’est plus modifiable depuis l’application.\n\nUn prospect peut aussi être **archivé** avec un motif : son dossier brouillon est retiré et son numéro libéré.\n\n## Limites de débit\n\n| Requêtes | Limite |\n|---|---|\n| Envoi de code (inscription, connexion promoteur, mot de passe oublié, changement de numéro) | 3 par minute par destinataire, 10 par heure par adresse IP |\n| Mot de passe du commercial | 10 par minute par numéro, 20 par minute par IP |\n| Vérification d’un code | 10 par minute |\n| Rafraîchissement | 30 par minute |\n| Autres requêtes authentifiées | 120 par minute par compte |\n\n## Comptes de démonstration (`php artisan db:seed`, hors production)\n\n| Application | Identifiant | Mot de passe |\n|---|---|---|\n| Promoteur particulier | `0700000001` | — |\n| Promoteur entreprise | `0700000002` ou `promoteur@demo.ochantier.ci` | — |\n| Commercial | `0500000001` | `motdepasse1` |\n| Commercial à activer (mot de passe provisoire) | `0500000002` | `provisoire1` |\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -7182,9 +7182,3052 @@
             }
           ],
           "description": "Acompte d’une proposition acceptée et échéances des missions, par Mobile Money ; reçus PDF."
+        },
+        {
+          "id": "efb1c323-491f-5bde-8c88-bec4c3a72ba5",
+          "name": "Suivi du chantier",
+          "description": "Chantier confirmé (acompte payé) : vue d’ensemble, équipe, pointage des arrivées et départs (photo, signature, position), absences et validation de la journée, chronologie des travaux et remplacement d’un ouvrier.\n\nLors de l’exécution de la collection, le chantier démarre dans 5 jours : le pointage est encore fermé et les requêtes de pointage sont sautées. Les exemples ont été capturés au jour de démarrage.",
+          "item": [
+            {
+              "id": "088956e2-3359-5d99-b059-6d676d5f6fc7",
+              "name": "Suivi du chantier",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/sites/{{site_id}}/tracking",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "sites",
+                    "{{site_id}}",
+                    "tracking"
+                  ]
+                },
+                "description": "Écran de suivi d’un chantier confirmé : indicateurs (`kpis` : durée en jours, taux de présence sur les journées validées, étapes validées, `validated_days`, `calendar_progress` en %), pointage du jour (`attendance` : ouverture, compteurs, montant, validation), résumé de la chronologie (`chronology`) et `team_count`.\n\nAvant le paiement de l’acompte, le pointage est fermé et la chronologie verrouillée.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "9f3abfa0-e419-578e-bb8f-d6000b766126",
+                  "name": "200 · Chantier en cours",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/tracking",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "tracking"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "118"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"site\": {\n      \"id\": \"01a15346-c69f-7005-bba1-e109baf2ed8c\",\n      \"reference\": \"CH-2026-0001\",\n      \"title\": \"Résidence Les Palmiers\",\n      \"status\": {\n        \"value\": \"en_cours\",\n        \"label\": \"En cours\"\n      }\n    },\n    \"kpis\": {\n      \"duration_days\": 10,\n      \"presence_rate\": 33,\n      \"steps_done\": 1,\n      \"steps_total\": 2,\n      \"validated_days\": 1,\n      \"calendar_progress\": 10\n    },\n    \"attendance\": {\n      \"date\": \"2026-10-25\",\n      \"label\": \"Aujourd’hui · dim. 25 oct. 2026\",\n      \"is_open\": true,\n      \"opens_on\": \"2026-10-24\",\n      \"closed_message\": null,\n      \"stats\": {\n        \"present\": 0,\n        \"total\": 3,\n        \"absent\": 0,\n        \"pending\": 3\n      },\n      \"amount\": 0,\n      \"validated\": false,\n      \"can_validate\": false,\n      \"validation_hint\": \"3 pointages à compléter (arrivée ou départ)\"\n    },\n    \"chronology\": {\n      \"editable\": true,\n      \"lock_message\": null,\n      \"done\": 1,\n      \"total\": 2,\n      \"progress_percent\": 50,\n      \"count_label\": \"1/2 étapes validées\"\n    },\n    \"team_count\": 3\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "4b49be15-c6c8-540f-a21e-a4906804aa2a",
+              "name": "Équipe",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "const team = pm.response.json().data;",
+                      "pm.collectionVariables.set('replace_assignment_id', (team.find(m => m.can_replace) || {}).assignment_id || '');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/sites/{{site_id}}/team",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "sites",
+                    "{{site_id}}",
+                    "team"
+                  ]
+                },
+                "description": "Section « Équipe » : ouvriers affectés au chantier (missions confirmées ou en cours), y compris un remplaçant qui arrive (`is_upcoming`). Pour chacun : identité publique **sans téléphone** (nom, initiales, photo, métier, expérience, note), `daily_rate` (tarif journalier promoteur figé), `since`, `replaces` (ouvrier remplacé), `replacement` (remplacement en cours) et `can_replace`.\n\n`meta.replacement_reasons` : motifs de « Remplacer un ouvrier ».",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "9f944df3-f13f-54f1-919f-80c1df5c4d09",
+                  "name": "200 · Équipe du chantier",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/team",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "team"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "119"
+                    }
+                  ],
+                  "body": "{\n  \"data\": [\n    {\n      \"assignment_id\": \"01a15346-cabf-7374-9288-4dad304d70aa\",\n      \"worker_id\": \"01a15346-c5a4-7114-ae5e-1feb3fe31bb7\",\n      \"name\": \"Kouamé Koffi\",\n      \"initials\": \"KK\",\n      \"photo_url\": null,\n      \"trade\": {\n        \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n        \"code\": \"macon\",\n        \"label\": \"Maçon\"\n      },\n      \"role\": \"Maçon\",\n      \"experience_years\": 5,\n      \"rating\": {\n        \"average\": 4.7,\n        \"count\": 12\n      },\n      \"daily_rate\": 25000,\n      \"since\": \"2026-10-24\",\n      \"replaces\": null,\n      \"status\": {\n        \"value\": \"confirmee\",\n        \"label\": \"Confirmée\"\n      },\n      \"is_upcoming\": false,\n      \"replacement\": null,\n      \"can_replace\": true\n    },\n    {\n      \"assignment_id\": \"01a15346-cab0-73a8-bce7-cc9e23d179e2\",\n      \"worker_id\": \"01a15346-c5d7-7044-906c-1ba9777f780e\",\n      \"name\": \"Touré Ali\",\n      \"initials\": \"TA\",\n      \"photo_url\": null,\n      \"trade\": {\n        \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n        \"code\": \"macon\",\n        \"label\": \"Maçon\"\n      },\n      \"role\": \"Maçon\",\n      \"experience_years\": 5,\n      \"rating\": {\n        \"average\": 4.9,\n        \"count\": 12\n      },\n      \"daily_rate\": 26000,\n      \"since\": \"2026-10-24\",\n      \"replaces\": null,\n      \"status\": {\n        \"value\": \"confirmee\",\n        \"label\": \"Confirmée\"\n      },\n      \"is_upcoming\": false,\n      \"replacement\": null,\n      \"can_replace\": true\n    },\n    {\n      \"assignment_id\": \"01a15346-cb0b-7230-8072-5e67f828ef74\",\n      \"worker_id\": \"01a15346-c609-72d1-9c10-ad35afaf7dd4\",\n      \"name\": \"Serge Aka\",\n      \"initials\": \"SA\",\n      \"photo_url\": null,\n      \"trade\": {\n        \"id\": \"01a15346-b9fe-7226-a435-010a0bb0ad72\",\n        \"code\": \"peintre\",\n        \"label\": \"Peintre\"\n      },\n      \"role\": \"Peintre\",\n      \"experience_years\": 5,\n      \"rating\": {\n        \"average\": 4.7,\n        \"count\": 12\n      },\n      \"daily_rate\": 18000,\n      \"since\": \"2026-10-24\",\n      \"replaces\": null,\n      \"status\": {\n        \"value\": \"confirmee\",\n        \"label\": \"Confirmée\"\n      },\n      \"is_upcoming\": false,\n      \"replacement\": null,\n      \"can_replace\": true\n    }\n  ],\n  \"meta\": {\n    \"replacement_reasons\": [\n      {\n        \"code\": \"absences_repetees\",\n        \"label\": \"Absences répétées\"\n      },\n      {\n        \"code\": \"qualite\",\n        \"label\": \"Qualité du travail insuffisante\"\n      },\n      {\n        \"code\": \"indisponibilite\",\n        \"label\": \"Indisponibilité déclarée\"\n      },\n      {\n        \"code\": \"autre\",\n        \"label\": \"Autre motif\"\n      }\n    ]\n  }\n}"
+                },
+                {
+                  "id": "63847d53-aa87-52e4-9917-faf390318f74",
+                  "name": "200 · Après un remplacement",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/team",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "team"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "110"
+                    }
+                  ],
+                  "body": "{\n  \"data\": [\n    {\n      \"assignment_id\": \"01a15346-d6c0-707e-b091-5b7b506b808b\",\n      \"worker_id\": \"01a15346-d53e-725f-836e-d9e6ef5b1e61\",\n      \"name\": \"Bamba Issa\",\n      \"initials\": \"BI\",\n      \"photo_url\": null,\n      \"trade\": {\n        \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n        \"code\": \"macon\",\n        \"label\": \"Maçon\"\n      },\n      \"role\": \"Maçon\",\n      \"experience_years\": 5,\n      \"rating\": {\n        \"average\": 4.6,\n        \"count\": 12\n      },\n      \"daily_rate\": 26000,\n      \"since\": \"2026-10-26\",\n      \"replaces\": \"Touré Ali\",\n      \"status\": {\n        \"value\": \"confirmee\",\n        \"label\": \"Confirmée\"\n      },\n      \"is_upcoming\": true,\n      \"replacement\": null,\n      \"can_replace\": true\n    },\n    {\n      \"assignment_id\": \"01a15346-cabf-7374-9288-4dad304d70aa\",\n      \"worker_id\": \"01a15346-c5a4-7114-ae5e-1feb3fe31bb7\",\n      \"name\": \"Kouamé Koffi\",\n      \"initials\": \"KK\",\n      \"photo_url\": null,\n      \"trade\": {\n        \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n        \"code\": \"macon\",\n        \"label\": \"Maçon\"\n      },\n      \"role\": \"Maçon\",\n      \"experience_years\": 5,\n      \"rating\": {\n        \"average\": 4.7,\n        \"count\": 12\n      },\n      \"daily_rate\": 25000,\n      \"since\": \"2026-10-24\",\n      \"replaces\": null,\n      \"status\": {\n        \"value\": \"active\",\n        \"label\": \"Active\"\n      },\n      \"is_upcoming\": false,\n      \"replacement\": null,\n      \"can_replace\": true\n    },\n    {\n      \"assignment_id\": \"01a15346-cb0b-7230-8072-5e67f828ef74\",\n      \"worker_id\": \"01a15346-c609-72d1-9c10-ad35afaf7dd4\",\n      \"name\": \"Serge Aka\",\n      \"initials\": \"SA\",\n      \"photo_url\": null,\n      \"trade\": {\n        \"id\": \"01a15346-b9fe-7226-a435-010a0bb0ad72\",\n        \"code\": \"peintre\",\n        \"label\": \"Peintre\"\n      },\n      \"role\": \"Peintre\",\n      \"experience_years\": 5,\n      \"rating\": {\n        \"average\": 4.7,\n        \"count\": 12\n      },\n      \"daily_rate\": 18000,\n      \"since\": \"2026-10-24\",\n      \"replaces\": null,\n      \"status\": {\n        \"value\": \"confirmee\",\n        \"label\": \"Confirmée\"\n      },\n      \"is_upcoming\": false,\n      \"replacement\": null,\n      \"can_replace\": true\n    }\n  ],\n  \"meta\": {\n    \"replacement_reasons\": [\n      {\n        \"code\": \"absences_repetees\",\n        \"label\": \"Absences répétées\"\n      },\n      {\n        \"code\": \"qualite\",\n        \"label\": \"Qualité du travail insuffisante\"\n      },\n      {\n        \"code\": \"indisponibilite\",\n        \"label\": \"Indisponibilité déclarée\"\n      },\n      {\n        \"code\": \"autre\",\n        \"label\": \"Autre motif\"\n      }\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "2703be5a-a52e-50a2-8600-bf339e2c4f46",
+              "name": "Feuille de pointage",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('attendance_date', pm.response.json().data.date);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/sites/{{site_id}}/attendance",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "sites",
+                    "{{site_id}}",
+                    "attendance"
+                  ]
+                },
+                "description": "« Pointage des ouvriers » d’une journée (`date=AAAA-MM-JJ`, aujourd’hui par défaut) : une ligne par ouvrier attendu, avec son état (`non_pointe`, `arrive`, `termine`, `absent`), l’arrivée et le départ (heure, distance au chantier, `out_of_zone`, liens signés de la photo et de la signature), le temps travaillé, les anomalies et les `actions` possibles (`arrivee`, `absent`, `depart`).\n\n`stats` : présents, total, absents, `pending` (pointages à compléter : arrivée ou départ). `amount` : montant de la journée (tarif promoteur des ouvriers partis). `can_validate` devient vrai quand chaque ouvrier a son départ ou son absence.\n\nLe pointage ouvre au démarrage prévu du chantier (`is_open`, `opens_on`, `closed_message`). Les brouillons de pointage restent dans l’application.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "de48cb3e-3828-50fe-826b-7155b90a802e",
+                  "name": "200 · Journée ouverte",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/attendance",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "attendance"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "118"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"date\": \"2026-10-24\",\n    \"label\": \"Aujourd’hui · sam. 24 oct. 2026\",\n    \"is_open\": true,\n    \"opens_on\": \"2026-10-24\",\n    \"closed_message\": null,\n    \"stats\": {\n      \"present\": 0,\n      \"total\": 3,\n      \"absent\": 0,\n      \"pending\": 3\n    },\n    \"amount\": 0,\n    \"validated\": false,\n    \"validated_at\": null,\n    \"can_validate\": false,\n    \"validation_hint\": \"3 pointages à compléter (arrivée ou départ)\",\n    \"rows\": [\n      {\n        \"assignment_id\": \"01a15346-cabf-7374-9288-4dad304d70aa\",\n        \"worker_id\": \"01a15346-c5a4-7114-ae5e-1feb3fe31bb7\",\n        \"name\": \"Kouamé Koffi\",\n        \"initials\": \"KK\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n          \"code\": \"macon\",\n          \"label\": \"Maçon\"\n        },\n        \"role\": \"Maçon\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.7,\n          \"count\": 12\n        },\n        \"daily_rate\": 25000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"non_pointe\",\n          \"label\": \"Non pointé\"\n        },\n        \"arrival\": null,\n        \"departure\": null,\n        \"worked_minutes\": null,\n        \"anomalies\": [],\n        \"actions\": [\n          \"arrivee\",\n          \"absent\"\n        ]\n      },\n      {\n        \"assignment_id\": \"01a15346-cab0-73a8-bce7-cc9e23d179e2\",\n        \"worker_id\": \"01a15346-c5d7-7044-906c-1ba9777f780e\",\n        \"name\": \"Touré Ali\",\n        \"initials\": \"TA\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n          \"code\": \"macon\",\n          \"label\": \"Maçon\"\n        },\n        \"role\": \"Maçon\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.9,\n          \"count\": 12\n        },\n        \"daily_rate\": 26000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"non_pointe\",\n          \"label\": \"Non pointé\"\n        },\n        \"arrival\": null,\n        \"departure\": null,\n        \"worked_minutes\": null,\n        \"anomalies\": [],\n        \"actions\": [\n          \"arrivee\",\n          \"absent\"\n        ]\n      },\n      {\n        \"assignment_id\": \"01a15346-cb0b-7230-8072-5e67f828ef74\",\n        \"worker_id\": \"01a15346-c609-72d1-9c10-ad35afaf7dd4\",\n        \"name\": \"Serge Aka\",\n        \"initials\": \"SA\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b9fe-7226-a435-010a0bb0ad72\",\n          \"code\": \"peintre\",\n          \"label\": \"Peintre\"\n        },\n        \"role\": \"Peintre\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.7,\n          \"count\": 12\n        },\n        \"daily_rate\": 18000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"non_pointe\",\n          \"label\": \"Non pointé\"\n        },\n        \"arrival\": null,\n        \"departure\": null,\n        \"worked_minutes\": null,\n        \"anomalies\": [],\n        \"actions\": [\n          \"arrivee\",\n          \"absent\"\n        ]\n      }\n    ]\n  }\n}"
+                },
+                {
+                  "id": "027ec560-4661-5b90-9d72-9d59cb5feb7f",
+                  "name": "200 · Chantier pas encore démarré",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/attendance",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "attendance"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "112"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"date\": \"2026-10-19\",\n    \"label\": \"Aujourd’hui · lun. 19 oct. 2026\",\n    \"is_open\": false,\n    \"opens_on\": \"2026-10-24\",\n    \"closed_message\": \"Le pointage ouvrira le 24 oct. 2026, au démarrage du chantier.\",\n    \"stats\": {\n      \"present\": 0,\n      \"total\": 0,\n      \"absent\": 0,\n      \"pending\": 0\n    },\n    \"amount\": 0,\n    \"validated\": false,\n    \"validated_at\": null,\n    \"can_validate\": false,\n    \"validation_hint\": \"Montant de la journée : 0 FCFA\",\n    \"rows\": []\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "d201a27b-2f68-58a9-b606-730d63a8b806",
+              "name": "Pointer l’arrivée",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.sendRequest({",
+                      "    url: pm.variables.replaceIn('{{base_url}}/promoter/sites/{{site_id}}/attendance'),",
+                      "    header: { 'Accept': 'application/json', 'Authorization': 'Bearer ' + pm.collectionVariables.get('registered_access_token') },",
+                      "}, (err, res) => {",
+                      "    const sheet = res && res.code === 200 ? res.json().data : null;",
+                      "    const row = sheet && sheet.is_open ? sheet.rows.find(r => r.actions.includes('arrivee')) : null;",
+                      "    if (!row) { pm.execution.skipRequest(); return; }",
+                      "    pm.collectionVariables.set('assignment_id', row.assignment_id);",
+                      "    pm.collectionVariables.set('attendance_client_uuid', pm.variables.replaceIn('{{$guid}}'));",
+                      "});"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/sites/{{site_id}}/attendance/events",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "sites",
+                    "{{site_id}}",
+                    "attendance",
+                    "events"
+                  ]
+                },
+                "description": "Arrivée d’un ouvrier, **multipart/form-data** : `assignment_id`, `type` (`arrivee` ou `depart`), `client_uuid` (généré par l’application), `latitude`, `longitude`, `accuracy` (m), `photo` (JPEG ou PNG, 8 Mo max.) et `signature` de l’ouvrier (PNG ou JPEG, 2 Mo max.) ; facultatifs : `device_recorded_at` (heure du pointage sur le téléphone, envoi hors connexion, 48 h au plus), `device_id`, `app_version`.\n\n- Photo, signature et position sont **obligatoires** ; au-delà de 50 m de précision (`attendance.gps_precision_meters`), erreur 422.\n- La distance au chantier est calculée : au-delà du rayon du chantier, `out_of_zone` ; au-delà du rayon + 300 m, anomalie `hors_zone`. Retard, départ anticipé et photo déjà utilisée sont aussi relevés. Les anomalies ne bloquent pas le pointage.\n- **Idempotence** : un envoi rejoué avec le même `client_uuid` renvoie **200** et le pointage existant, sans doublon.\n- La première arrivée démarre la mission : affectation `active`, mission, besoin et chantier `en_cours`.\n\nRéponse **201** : la feuille de la journée à jour, `event_id` et `message`.\n\nPointage fermé (chantier non démarré) ou aucun ouvrier à pointer : la requête est sautée. Fichiers d’exemple : `docs/postman/fixtures`.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "assignment_id",
+                      "value": "{{assignment_id}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "type",
+                      "value": "arrivee",
+                      "type": "text"
+                    },
+                    {
+                      "key": "client_uuid",
+                      "value": "{{attendance_client_uuid}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "latitude",
+                      "value": "5.39880",
+                      "type": "text"
+                    },
+                    {
+                      "key": "longitude",
+                      "value": "-3.98420",
+                      "type": "text"
+                    },
+                    {
+                      "key": "accuracy",
+                      "value": "12",
+                      "type": "text"
+                    },
+                    {
+                      "key": "photo",
+                      "type": "file",
+                      "src": "fixtures/photo-ouvrier.png"
+                    },
+                    {
+                      "key": "signature",
+                      "type": "file",
+                      "src": "fixtures/signature.png"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "088c1864-ef58-560d-b969-585ccd602d63",
+                  "name": "201 · Arrivée pointée",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/attendance/events",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "attendance",
+                        "events"
+                      ]
+                    },
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "assignment_id",
+                          "value": "01a15346-cabf-7374-9288-4dad304d70aa",
+                          "type": "text"
+                        },
+                        {
+                          "key": "type",
+                          "value": "arrivee",
+                          "type": "text"
+                        },
+                        {
+                          "key": "client_uuid",
+                          "value": "9ad4b629-3f4c-46af-a0ba-cc9872c1024e",
+                          "type": "text"
+                        },
+                        {
+                          "key": "latitude",
+                          "value": "5.37220",
+                          "type": "text"
+                        },
+                        {
+                          "key": "longitude",
+                          "value": "-3.95830",
+                          "type": "text"
+                        },
+                        {
+                          "key": "accuracy",
+                          "value": "12",
+                          "type": "text"
+                        },
+                        {
+                          "key": "photo",
+                          "type": "file",
+                          "src": "fixtures/photo-ouvrier.png"
+                        },
+                        {
+                          "key": "signature",
+                          "type": "file",
+                          "src": "fixtures/signature.png"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "117"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"date\": \"2026-10-24\",\n    \"label\": \"Aujourd’hui · sam. 24 oct. 2026\",\n    \"is_open\": true,\n    \"opens_on\": \"2026-10-24\",\n    \"closed_message\": null,\n    \"stats\": {\n      \"present\": 1,\n      \"total\": 3,\n      \"absent\": 0,\n      \"pending\": 3\n    },\n    \"amount\": 0,\n    \"validated\": false,\n    \"validated_at\": null,\n    \"can_validate\": false,\n    \"validation_hint\": \"3 pointages à compléter (arrivée ou départ)\",\n    \"rows\": [\n      {\n        \"assignment_id\": \"01a15346-cabf-7374-9288-4dad304d70aa\",\n        \"worker_id\": \"01a15346-c5a4-7114-ae5e-1feb3fe31bb7\",\n        \"name\": \"Kouamé Koffi\",\n        \"initials\": \"KK\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n          \"code\": \"macon\",\n          \"label\": \"Maçon\"\n        },\n        \"role\": \"Maçon\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.7,\n          \"count\": 12\n        },\n        \"daily_rate\": 25000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"arrive\",\n          \"label\": \"Arrivé à 07:58\"\n        },\n        \"arrival\": {\n          \"id\": \"01a15346-cda2-7309-aa59-8ef1cd137394\",\n          \"time\": \"07:58\",\n          \"at\": \"2026-10-24T07:58:00+00:00\",\n          \"distance_m\": 10,\n          \"out_of_zone\": false,\n          \"photo_url\": \"http://127.0.0.1:8010/api/v1/media/01a15346-cd9b-7148-9790-b67e499f52e9?expires=1792830480&signature=cdfae2eb34d7a5b16802c6e8fc2452ccdcb304215aebbf6fd18ebafcd81c76f8\",\n          \"signature_url\": \"http://127.0.0.1:8010/api/v1/media/01a15346-cd9f-7277-b45d-a7f6fe3ad48c?expires=1792830480&signature=b12909708d26b1ef1c2694cde7102463b910700905d3988c3855aaf587ca3989\",\n          \"status\": {\n            \"value\": \"soumis\",\n            \"label\": \"Soumis\"\n          }\n        },\n        \"departure\": null,\n        \"worked_minutes\": null,\n        \"anomalies\": [],\n        \"actions\": [\n          \"depart\"\n        ]\n      },\n      {\n        \"assignment_id\": \"01a15346-cab0-73a8-bce7-cc9e23d179e2\",\n        \"worker_id\": \"01a15346-c5d7-7044-906c-1ba9777f780e\",\n        \"name\": \"Touré Ali\",\n        \"initials\": \"TA\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n          \"code\": \"macon\",\n          \"label\": \"Maçon\"\n        },\n        \"role\": \"Maçon\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.9,\n          \"count\": 12\n        },\n        \"daily_rate\": 26000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"non_pointe\",\n          \"label\": \"Non pointé\"\n        },\n        \"arrival\": null,\n        \"departure\": null,\n        \"worked_minutes\": null,\n        \"anomalies\": [],\n        \"actions\": [\n          \"arrivee\",\n          \"absent\"\n        ]\n      },\n      {\n        \"assignment_id\": \"01a15346-cb0b-7230-8072-5e67f828ef74\",\n        \"worker_id\": \"01a15346-c609-72d1-9c10-ad35afaf7dd4\",\n        \"name\": \"Serge Aka\",\n        \"initials\": \"SA\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b9fe-7226-a435-010a0bb0ad72\",\n          \"code\": \"peintre\",\n          \"label\": \"Peintre\"\n        },\n        \"role\": \"Peintre\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.7,\n          \"count\": 12\n        },\n        \"daily_rate\": 18000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"non_pointe\",\n          \"label\": \"Non pointé\"\n        },\n        \"arrival\": null,\n        \"departure\": null,\n        \"worked_minutes\": null,\n        \"anomalies\": [],\n        \"actions\": [\n          \"arrivee\",\n          \"absent\"\n        ]\n      }\n    ]\n  },\n  \"event_id\": \"01a15346-cda2-7309-aa59-8ef1cd137394\",\n  \"message\": \"Arrivée validée à 07:58\"\n}"
+                },
+                {
+                  "id": "02306ae3-dd15-51ee-b41a-3ae500ef1c29",
+                  "name": "200 · Envoi rejoué (même client_uuid)",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/attendance/events",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "attendance",
+                        "events"
+                      ]
+                    },
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "assignment_id",
+                          "value": "01a15346-cabf-7374-9288-4dad304d70aa",
+                          "type": "text"
+                        },
+                        {
+                          "key": "type",
+                          "value": "arrivee",
+                          "type": "text"
+                        },
+                        {
+                          "key": "client_uuid",
+                          "value": "9ad4b629-3f4c-46af-a0ba-cc9872c1024e",
+                          "type": "text"
+                        },
+                        {
+                          "key": "latitude",
+                          "value": "5.37220",
+                          "type": "text"
+                        },
+                        {
+                          "key": "longitude",
+                          "value": "-3.95830",
+                          "type": "text"
+                        },
+                        {
+                          "key": "accuracy",
+                          "value": "12",
+                          "type": "text"
+                        },
+                        {
+                          "key": "photo",
+                          "type": "file",
+                          "src": "fixtures/photo-ouvrier.png"
+                        },
+                        {
+                          "key": "signature",
+                          "type": "file",
+                          "src": "fixtures/signature.png"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "116"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"date\": \"2026-10-24\",\n    \"label\": \"Aujourd’hui · sam. 24 oct. 2026\",\n    \"is_open\": true,\n    \"opens_on\": \"2026-10-24\",\n    \"closed_message\": null,\n    \"stats\": {\n      \"present\": 1,\n      \"total\": 3,\n      \"absent\": 0,\n      \"pending\": 3\n    },\n    \"amount\": 0,\n    \"validated\": false,\n    \"validated_at\": null,\n    \"can_validate\": false,\n    \"validation_hint\": \"3 pointages à compléter (arrivée ou départ)\",\n    \"rows\": [\n      {\n        \"assignment_id\": \"01a15346-cabf-7374-9288-4dad304d70aa\",\n        \"worker_id\": \"01a15346-c5a4-7114-ae5e-1feb3fe31bb7\",\n        \"name\": \"Kouamé Koffi\",\n        \"initials\": \"KK\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n          \"code\": \"macon\",\n          \"label\": \"Maçon\"\n        },\n        \"role\": \"Maçon\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.7,\n          \"count\": 12\n        },\n        \"daily_rate\": 25000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"arrive\",\n          \"label\": \"Arrivé à 07:58\"\n        },\n        \"arrival\": {\n          \"id\": \"01a15346-cda2-7309-aa59-8ef1cd137394\",\n          \"time\": \"07:58\",\n          \"at\": \"2026-10-24T07:58:00+00:00\",\n          \"distance_m\": 10,\n          \"out_of_zone\": false,\n          \"photo_url\": \"http://127.0.0.1:8010/api/v1/media/01a15346-cd9b-7148-9790-b67e499f52e9?expires=1792830480&signature=cdfae2eb34d7a5b16802c6e8fc2452ccdcb304215aebbf6fd18ebafcd81c76f8\",\n          \"signature_url\": \"http://127.0.0.1:8010/api/v1/media/01a15346-cd9f-7277-b45d-a7f6fe3ad48c?expires=1792830480&signature=b12909708d26b1ef1c2694cde7102463b910700905d3988c3855aaf587ca3989\",\n          \"status\": {\n            \"value\": \"soumis\",\n            \"label\": \"Soumis\"\n          }\n        },\n        \"departure\": null,\n        \"worked_minutes\": null,\n        \"anomalies\": [],\n        \"actions\": [\n          \"depart\"\n        ]\n      },\n      {\n        \"assignment_id\": \"01a15346-cab0-73a8-bce7-cc9e23d179e2\",\n        \"worker_id\": \"01a15346-c5d7-7044-906c-1ba9777f780e\",\n        \"name\": \"Touré Ali\",\n        \"initials\": \"TA\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n          \"code\": \"macon\",\n          \"label\": \"Maçon\"\n        },\n        \"role\": \"Maçon\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.9,\n          \"count\": 12\n        },\n        \"daily_rate\": 26000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"non_pointe\",\n          \"label\": \"Non pointé\"\n        },\n        \"arrival\": null,\n        \"departure\": null,\n        \"worked_minutes\": null,\n        \"anomalies\": [],\n        \"actions\": [\n          \"arrivee\",\n          \"absent\"\n        ]\n      },\n      {\n        \"assignment_id\": \"01a15346-cb0b-7230-8072-5e67f828ef74\",\n        \"worker_id\": \"01a15346-c609-72d1-9c10-ad35afaf7dd4\",\n        \"name\": \"Serge Aka\",\n        \"initials\": \"SA\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b9fe-7226-a435-010a0bb0ad72\",\n          \"code\": \"peintre\",\n          \"label\": \"Peintre\"\n        },\n        \"role\": \"Peintre\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.7,\n          \"count\": 12\n        },\n        \"daily_rate\": 18000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"non_pointe\",\n          \"label\": \"Non pointé\"\n        },\n        \"arrival\": null,\n        \"departure\": null,\n        \"worked_minutes\": null,\n        \"anomalies\": [],\n        \"actions\": [\n          \"arrivee\",\n          \"absent\"\n        ]\n      }\n    ]\n  },\n  \"event_id\": \"01a15346-cda2-7309-aa59-8ef1cd137394\",\n  \"message\": \"Arrivée validée à 07:58\"\n}"
+                },
+                {
+                  "id": "747a153d-4481-5ce2-b383-1ed3e03aef3d",
+                  "name": "422 · Position trop imprécise",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/attendance/events",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "attendance",
+                        "events"
+                      ]
+                    },
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "assignment_id",
+                          "value": "01a15346-cab0-73a8-bce7-cc9e23d179e2",
+                          "type": "text"
+                        },
+                        {
+                          "key": "type",
+                          "value": "arrivee",
+                          "type": "text"
+                        },
+                        {
+                          "key": "client_uuid",
+                          "value": "d345d427-b5cd-4b84-8f49-ccd2256f1647",
+                          "type": "text"
+                        },
+                        {
+                          "key": "latitude",
+                          "value": "5.37220",
+                          "type": "text"
+                        },
+                        {
+                          "key": "longitude",
+                          "value": "-3.95830",
+                          "type": "text"
+                        },
+                        {
+                          "key": "accuracy",
+                          "value": "80",
+                          "type": "text"
+                        },
+                        {
+                          "key": "photo",
+                          "type": "file",
+                          "src": "fixtures/photo-ouvrier.png"
+                        },
+                        {
+                          "key": "signature",
+                          "type": "file",
+                          "src": "fixtures/signature.png"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "115"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Position trop imprécise (± 80 m, 50 m au plus) : réessayez à découvert.\",\n  \"errors\": {\n    \"accuracy\": [\n      \"Position trop imprécise (± 80 m, 50 m au plus) : réessayez à découvert.\"\n    ]\n  }\n}"
+                },
+                {
+                  "id": "f5faa517-5f2b-5a24-afc2-c2e67443a31c",
+                  "name": "422 · Chantier pas encore démarré",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/attendance/events",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "attendance",
+                        "events"
+                      ]
+                    },
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "assignment_id",
+                          "value": "01a15346-cabf-7374-9288-4dad304d70aa",
+                          "type": "text"
+                        },
+                        {
+                          "key": "type",
+                          "value": "arrivee",
+                          "type": "text"
+                        },
+                        {
+                          "key": "client_uuid",
+                          "value": "06e28b99-3056-42fb-84ac-e4f7fc7e546b",
+                          "type": "text"
+                        },
+                        {
+                          "key": "latitude",
+                          "value": "5.37220",
+                          "type": "text"
+                        },
+                        {
+                          "key": "longitude",
+                          "value": "-3.95830",
+                          "type": "text"
+                        },
+                        {
+                          "key": "accuracy",
+                          "value": "12",
+                          "type": "text"
+                        },
+                        {
+                          "key": "photo",
+                          "type": "file",
+                          "src": "fixtures/photo-ouvrier.png"
+                        },
+                        {
+                          "key": "signature",
+                          "type": "file",
+                          "src": "fixtures/signature.png"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "111"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Le pointage ouvrira le 24 oct. 2026, au démarrage du chantier.\",\n  \"errors\": {\n    \"assignment_id\": [\n      \"Le pointage ouvrira le 24 oct. 2026, au démarrage du chantier.\"\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "ed58d71a-3568-5403-a06d-74d5fb04c9ba",
+              "name": "Pointer le départ",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.sendRequest({",
+                      "    url: pm.variables.replaceIn('{{base_url}}/promoter/sites/{{site_id}}/attendance'),",
+                      "    header: { 'Accept': 'application/json', 'Authorization': 'Bearer ' + pm.collectionVariables.get('registered_access_token') },",
+                      "}, (err, res) => {",
+                      "    const sheet = res && res.code === 200 ? res.json().data : null;",
+                      "    const row = sheet && sheet.is_open ? sheet.rows.find(r => r.actions.includes('depart')) : null;",
+                      "    if (!row) { pm.execution.skipRequest(); return; }",
+                      "    pm.collectionVariables.set('assignment_id', row.assignment_id);",
+                      "    pm.collectionVariables.set('attendance_client_uuid', pm.variables.replaceIn('{{$guid}}'));",
+                      "});"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/sites/{{site_id}}/attendance/events",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "sites",
+                    "{{site_id}}",
+                    "attendance",
+                    "events"
+                  ]
+                },
+                "description": "Départ d’un ouvrier arrivé : mêmes champs que l’arrivée avec `type=depart`. Le temps travaillé est calculé (pause de 60 min déduite au-delà de 4 h de présence, arrondi à 5 min) et la ligne passe à `termine`.\n\nErreurs **422** : arrivée non pointée, départ déjà pointé, départ antérieur à l’arrivée, journée déjà validée, ouvrier marqué absent.\n\nPointage fermé (chantier non démarré) ou aucun ouvrier à pointer : la requête est sautée.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "assignment_id",
+                      "value": "{{assignment_id}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "type",
+                      "value": "depart",
+                      "type": "text"
+                    },
+                    {
+                      "key": "client_uuid",
+                      "value": "{{attendance_client_uuid}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "latitude",
+                      "value": "5.39880",
+                      "type": "text"
+                    },
+                    {
+                      "key": "longitude",
+                      "value": "-3.98420",
+                      "type": "text"
+                    },
+                    {
+                      "key": "accuracy",
+                      "value": "12",
+                      "type": "text"
+                    },
+                    {
+                      "key": "photo",
+                      "type": "file",
+                      "src": "fixtures/photo-ouvrier.png"
+                    },
+                    {
+                      "key": "signature",
+                      "type": "file",
+                      "src": "fixtures/signature.png"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "143fcd27-6e16-5c3b-b8d3-2f1c0f1ff719",
+                  "name": "201 · Départ pointé",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/attendance/events",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "attendance",
+                        "events"
+                      ]
+                    },
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "assignment_id",
+                          "value": "01a15346-cabf-7374-9288-4dad304d70aa",
+                          "type": "text"
+                        },
+                        {
+                          "key": "type",
+                          "value": "depart",
+                          "type": "text"
+                        },
+                        {
+                          "key": "client_uuid",
+                          "value": "997ab8b6-bae1-4b9e-a570-3f961f3ab59c",
+                          "type": "text"
+                        },
+                        {
+                          "key": "latitude",
+                          "value": "5.37220",
+                          "type": "text"
+                        },
+                        {
+                          "key": "longitude",
+                          "value": "-3.95830",
+                          "type": "text"
+                        },
+                        {
+                          "key": "accuracy",
+                          "value": "12",
+                          "type": "text"
+                        },
+                        {
+                          "key": "photo",
+                          "type": "file",
+                          "src": "fixtures/photo-ouvrier.png"
+                        },
+                        {
+                          "key": "signature",
+                          "type": "file",
+                          "src": "fixtures/signature.png"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "119"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"date\": \"2026-10-24\",\n    \"label\": \"Aujourd’hui · sam. 24 oct. 2026\",\n    \"is_open\": true,\n    \"opens_on\": \"2026-10-24\",\n    \"closed_message\": null,\n    \"stats\": {\n      \"present\": 1,\n      \"total\": 3,\n      \"absent\": 0,\n      \"pending\": 2\n    },\n    \"amount\": 25000,\n    \"validated\": false,\n    \"validated_at\": null,\n    \"can_validate\": false,\n    \"validation_hint\": \"2 pointages à compléter (arrivée ou départ)\",\n    \"rows\": [\n      {\n        \"assignment_id\": \"01a15346-cabf-7374-9288-4dad304d70aa\",\n        \"worker_id\": \"01a15346-c5a4-7114-ae5e-1feb3fe31bb7\",\n        \"name\": \"Kouamé Koffi\",\n        \"initials\": \"KK\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n          \"code\": \"macon\",\n          \"label\": \"Maçon\"\n        },\n        \"role\": \"Maçon\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.7,\n          \"count\": 12\n        },\n        \"daily_rate\": 25000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"termine\",\n          \"label\": \"07:58 → 17:34 · 8 h 35\"\n        },\n        \"arrival\": {\n          \"id\": \"01a15346-cda2-7309-aa59-8ef1cd137394\",\n          \"time\": \"07:58\",\n          \"at\": \"2026-10-24T07:58:00+00:00\",\n          \"distance_m\": 10,\n          \"out_of_zone\": false,\n          \"photo_url\": \"http://127.0.0.1:8010/api/v1/media/01a15346-cd9b-7148-9790-b67e499f52e9?expires=1792865040&signature=3e5853917facbb103a2588db1a13f618e970d0ec6b8d5fee3604a237ee0eea7e\",\n          \"signature_url\": \"http://127.0.0.1:8010/api/v1/media/01a15346-cd9f-7277-b45d-a7f6fe3ad48c?expires=1792865040&signature=8243326c4bc4c331ce06038db7c74e1822d1f922f500196a7166447290e19ec3\",\n          \"status\": {\n            \"value\": \"soumis\",\n            \"label\": \"Soumis\"\n          }\n        },\n        \"departure\": {\n          \"id\": \"01a15346-cf55-7191-be56-3d75fbb6f55a\",\n          \"time\": \"17:34\",\n          \"at\": \"2026-10-24T17:34:00+00:00\",\n          \"distance_m\": 10,\n          \"out_of_zone\": false,\n          \"photo_url\": \"http://127.0.0.1:8010/api/v1/media/01a15346-cf4d-7197-bede-41da6de64a5f?expires=1792865040&signature=a7a4437eb232795f60607bfb906d774e2ab23f3fafcb953dc719e11c0d8c55c9\",\n          \"signature_url\": \"http://127.0.0.1:8010/api/v1/media/01a15346-cf52-7208-9ce5-7085938af737?expires=1792865040&signature=efc50025c1290dde7927a29a6737c67ec7dfa93032b73f7df23f8d5de067ecf2\",\n          \"status\": {\n            \"value\": \"soumis\",\n            \"label\": \"Soumis\"\n          }\n        },\n        \"worked_minutes\": 515,\n        \"anomalies\": [],\n        \"actions\": []\n      },\n      {\n        \"assignment_id\": \"01a15346-cab0-73a8-bce7-cc9e23d179e2\",\n        \"worker_id\": \"01a15346-c5d7-7044-906c-1ba9777f780e\",\n        \"name\": \"Touré Ali\",\n        \"initials\": \"TA\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n          \"code\": \"macon\",\n          \"label\": \"Maçon\"\n        },\n        \"role\": \"Maçon\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.9,\n          \"count\": 12\n        },\n        \"daily_rate\": 26000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"non_pointe\",\n          \"label\": \"Non pointé\"\n        },\n        \"arrival\": null,\n        \"departure\": null,\n        \"worked_minutes\": null,\n        \"anomalies\": [],\n        \"actions\": [\n          \"arrivee\",\n          \"absent\"\n        ]\n      },\n      {\n        \"assignment_id\": \"01a15346-cb0b-7230-8072-5e67f828ef74\",\n        \"worker_id\": \"01a15346-c609-72d1-9c10-ad35afaf7dd4\",\n        \"name\": \"Serge Aka\",\n        \"initials\": \"SA\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b9fe-7226-a435-010a0bb0ad72\",\n          \"code\": \"peintre\",\n          \"label\": \"Peintre\"\n        },\n        \"role\": \"Peintre\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.7,\n          \"count\": 12\n        },\n        \"daily_rate\": 18000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"non_pointe\",\n          \"label\": \"Non pointé\"\n        },\n        \"arrival\": null,\n        \"departure\": null,\n        \"worked_minutes\": null,\n        \"anomalies\": [],\n        \"actions\": [\n          \"arrivee\",\n          \"absent\"\n        ]\n      }\n    ]\n  },\n  \"event_id\": \"01a15346-cf55-7191-be56-3d75fbb6f55a\",\n  \"message\": \"Départ validé à 17:34\"\n}"
+                },
+                {
+                  "id": "524a884d-f25c-55d8-9a72-fa3eebcd3cba",
+                  "name": "422 · Arrivée non pointée",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/attendance/events",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "attendance",
+                        "events"
+                      ]
+                    },
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "assignment_id",
+                          "value": "01a15346-cab0-73a8-bce7-cc9e23d179e2",
+                          "type": "text"
+                        },
+                        {
+                          "key": "type",
+                          "value": "depart",
+                          "type": "text"
+                        },
+                        {
+                          "key": "client_uuid",
+                          "value": "d36b0fbb-08e8-4899-bd0a-170a39a10b56",
+                          "type": "text"
+                        },
+                        {
+                          "key": "latitude",
+                          "value": "5.37220",
+                          "type": "text"
+                        },
+                        {
+                          "key": "longitude",
+                          "value": "-3.95830",
+                          "type": "text"
+                        },
+                        {
+                          "key": "accuracy",
+                          "value": "12",
+                          "type": "text"
+                        },
+                        {
+                          "key": "photo",
+                          "type": "file",
+                          "src": "fixtures/photo-ouvrier.png"
+                        },
+                        {
+                          "key": "signature",
+                          "type": "file",
+                          "src": "fixtures/signature.png"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "114"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Pointez d’abord l’arrivée de Touré Ali.\",\n  \"errors\": {\n    \"type\": [\n      \"Pointez d’abord l’arrivée de Touré Ali.\"\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "1e72080e-7172-5813-88d9-1fd7ccba76ee",
+              "name": "Déclarer une absence",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.sendRequest({",
+                      "    url: pm.variables.replaceIn('{{base_url}}/promoter/sites/{{site_id}}/attendance'),",
+                      "    header: { 'Accept': 'application/json', 'Authorization': 'Bearer ' + pm.collectionVariables.get('registered_access_token') },",
+                      "}, (err, res) => {",
+                      "    const sheet = res && res.code === 200 ? res.json().data : null;",
+                      "    const row = sheet && sheet.is_open ? sheet.rows.find(r => r.actions.includes('absent')) : null;",
+                      "    if (!row) { pm.execution.skipRequest(); return; }",
+                      "    pm.collectionVariables.set('absent_assignment_id', row.assignment_id);",
+                      "});"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "if (pm.response.json().data.rows.some(r => r.actions.includes('absent'))) { pm.execution.setNextRequest(pm.info.requestName); }"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/sites/{{site_id}}/attendance/absences",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "sites",
+                    "{{site_id}}",
+                    "attendance",
+                    "absences"
+                  ]
+                },
+                "description": "« Absent » : l’ouvrier n’est pas venu (`date` facultative, aujourd’hui par défaut). Impossible après une arrivée pointée ou une fois la journée validée. La journée n’est pas payée.\n\nLors de l’exécution de la collection, la requête se répète pour chaque ouvrier encore non pointé, afin de pouvoir valider la journée. Pointage fermé (chantier non démarré) ou aucun ouvrier à pointer : la requête est sautée.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"assignment_id\": \"{{absent_assignment_id}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "id": "4d93eae9-5be0-5352-a1e8-e889794e313e",
+                  "name": "200 · Ouvrier absent",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/attendance/absences",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "attendance",
+                        "absences"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"assignment_id\": \"01a15346-cab0-73a8-bce7-cc9e23d179e2\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "117"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"date\": \"2026-10-24\",\n    \"label\": \"Aujourd’hui · sam. 24 oct. 2026\",\n    \"is_open\": true,\n    \"opens_on\": \"2026-10-24\",\n    \"closed_message\": null,\n    \"stats\": {\n      \"present\": 1,\n      \"total\": 3,\n      \"absent\": 1,\n      \"pending\": 1\n    },\n    \"amount\": 25000,\n    \"validated\": false,\n    \"validated_at\": null,\n    \"can_validate\": false,\n    \"validation_hint\": \"1 pointage à compléter (arrivée ou départ)\",\n    \"rows\": [\n      {\n        \"assignment_id\": \"01a15346-cabf-7374-9288-4dad304d70aa\",\n        \"worker_id\": \"01a15346-c5a4-7114-ae5e-1feb3fe31bb7\",\n        \"name\": \"Kouamé Koffi\",\n        \"initials\": \"KK\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n          \"code\": \"macon\",\n          \"label\": \"Maçon\"\n        },\n        \"role\": \"Maçon\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.7,\n          \"count\": 12\n        },\n        \"daily_rate\": 25000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"termine\",\n          \"label\": \"07:58 → 17:34 · 8 h 35\"\n        },\n        \"arrival\": {\n          \"id\": \"01a15346-cda2-7309-aa59-8ef1cd137394\",\n          \"time\": \"07:58\",\n          \"at\": \"2026-10-24T07:58:00+00:00\",\n          \"distance_m\": 10,\n          \"out_of_zone\": false,\n          \"photo_url\": \"http://127.0.0.1:8010/api/v1/media/01a15346-cd9b-7148-9790-b67e499f52e9?expires=1792865040&signature=3e5853917facbb103a2588db1a13f618e970d0ec6b8d5fee3604a237ee0eea7e\",\n          \"signature_url\": \"http://127.0.0.1:8010/api/v1/media/01a15346-cd9f-7277-b45d-a7f6fe3ad48c?expires=1792865040&signature=8243326c4bc4c331ce06038db7c74e1822d1f922f500196a7166447290e19ec3\",\n          \"status\": {\n            \"value\": \"soumis\",\n            \"label\": \"Soumis\"\n          }\n        },\n        \"departure\": {\n          \"id\": \"01a15346-cf55-7191-be56-3d75fbb6f55a\",\n          \"time\": \"17:34\",\n          \"at\": \"2026-10-24T17:34:00+00:00\",\n          \"distance_m\": 10,\n          \"out_of_zone\": false,\n          \"photo_url\": \"http://127.0.0.1:8010/api/v1/media/01a15346-cf4d-7197-bede-41da6de64a5f?expires=1792865040&signature=a7a4437eb232795f60607bfb906d774e2ab23f3fafcb953dc719e11c0d8c55c9\",\n          \"signature_url\": \"http://127.0.0.1:8010/api/v1/media/01a15346-cf52-7208-9ce5-7085938af737?expires=1792865040&signature=efc50025c1290dde7927a29a6737c67ec7dfa93032b73f7df23f8d5de067ecf2\",\n          \"status\": {\n            \"value\": \"soumis\",\n            \"label\": \"Soumis\"\n          }\n        },\n        \"worked_minutes\": 515,\n        \"anomalies\": [],\n        \"actions\": []\n      },\n      {\n        \"assignment_id\": \"01a15346-cab0-73a8-bce7-cc9e23d179e2\",\n        \"worker_id\": \"01a15346-c5d7-7044-906c-1ba9777f780e\",\n        \"name\": \"Touré Ali\",\n        \"initials\": \"TA\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n          \"code\": \"macon\",\n          \"label\": \"Maçon\"\n        },\n        \"role\": \"Maçon\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.9,\n          \"count\": 12\n        },\n        \"daily_rate\": 26000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"absent\",\n          \"label\": \"Absent\"\n        },\n        \"arrival\": null,\n        \"departure\": null,\n        \"worked_minutes\": null,\n        \"anomalies\": [\n          {\n            \"value\": \"absence\",\n            \"label\": \"Absence\",\n            \"comment\": \"Absence déclarée par le promoteur\"\n          }\n        ],\n        \"actions\": []\n      },\n      {\n        \"assignment_id\": \"01a15346-cb0b-7230-8072-5e67f828ef74\",\n        \"worker_id\": \"01a15346-c609-72d1-9c10-ad35afaf7dd4\",\n        \"name\": \"Serge Aka\",\n        \"initials\": \"SA\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b9fe-7226-a435-010a0bb0ad72\",\n          \"code\": \"peintre\",\n          \"label\": \"Peintre\"\n        },\n        \"role\": \"Peintre\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.7,\n          \"count\": 12\n        },\n        \"daily_rate\": 18000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"non_pointe\",\n          \"label\": \"Non pointé\"\n        },\n        \"arrival\": null,\n        \"departure\": null,\n        \"worked_minutes\": null,\n        \"anomalies\": [],\n        \"actions\": [\n          \"arrivee\",\n          \"absent\"\n        ]\n      }\n    ]\n  },\n  \"message\": \"Touré Ali est marqué absent.\"\n}"
+                }
+              ]
+            },
+            {
+              "id": "f062c9ed-55cb-57a5-9b27-38ee27680796",
+              "name": "Valider la journée",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.sendRequest({",
+                      "    url: pm.variables.replaceIn('{{base_url}}/promoter/sites/{{site_id}}/attendance'),",
+                      "    header: { 'Accept': 'application/json', 'Authorization': 'Bearer ' + pm.collectionVariables.get('registered_access_token') },",
+                      "}, (err, res) => {",
+                      "    const sheet = res && res.code === 200 ? res.json().data : null;",
+                      "    if (!sheet || !sheet.can_validate) { pm.execution.skipRequest(); return; }",
+                      "    pm.collectionVariables.set('attendance_date', sheet.date);",
+                      "});"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/sites/{{site_id}}/attendance/{{attendance_date}}/validate",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "sites",
+                    "{{site_id}}",
+                    "attendance",
+                    "{{attendance_date}}",
+                    "validate"
+                  ]
+                },
+                "description": "« Valider la journée » : possible quand chaque ouvrier a son départ ou son absence. Les journées passent `valide` et ne sont plus modifiables ; la progression des missions est mise à jour (`validated_days`, `calendar_progress` = jours validés / jours prévus).\n\nErreurs **422** sur `date` : pointages à compléter, journée déjà validée, pointage pas encore ouvert, aucun ouvrier attendu.\n\nSautée si la journée ne peut pas être validée.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "1f445371-650f-5575-afe3-2a88ff4909dc",
+                  "name": "200 · Journée validée",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/attendance/2026-10-24/validate",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "attendance",
+                        "2026-10-24",
+                        "validate"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "115"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"date\": \"2026-10-24\",\n    \"label\": \"Aujourd’hui · sam. 24 oct. 2026\",\n    \"is_open\": true,\n    \"opens_on\": \"2026-10-24\",\n    \"closed_message\": null,\n    \"stats\": {\n      \"present\": 1,\n      \"total\": 3,\n      \"absent\": 2,\n      \"pending\": 0\n    },\n    \"amount\": 25000,\n    \"validated\": true,\n    \"validated_at\": \"2026-10-24T17:34:00+00:00\",\n    \"can_validate\": false,\n    \"validation_hint\": \"Journée validée · 1 présent · 25 000 FCFA\",\n    \"rows\": [\n      {\n        \"assignment_id\": \"01a15346-cabf-7374-9288-4dad304d70aa\",\n        \"worker_id\": \"01a15346-c5a4-7114-ae5e-1feb3fe31bb7\",\n        \"name\": \"Kouamé Koffi\",\n        \"initials\": \"KK\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n          \"code\": \"macon\",\n          \"label\": \"Maçon\"\n        },\n        \"role\": \"Maçon\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.7,\n          \"count\": 12\n        },\n        \"daily_rate\": 25000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"termine\",\n          \"label\": \"07:58 → 17:34 · 8 h 35\"\n        },\n        \"arrival\": {\n          \"id\": \"01a15346-cda2-7309-aa59-8ef1cd137394\",\n          \"time\": \"07:58\",\n          \"at\": \"2026-10-24T07:58:00+00:00\",\n          \"distance_m\": 10,\n          \"out_of_zone\": false,\n          \"photo_url\": \"http://127.0.0.1:8010/api/v1/media/01a15346-cd9b-7148-9790-b67e499f52e9?expires=1792865040&signature=3e5853917facbb103a2588db1a13f618e970d0ec6b8d5fee3604a237ee0eea7e\",\n          \"signature_url\": \"http://127.0.0.1:8010/api/v1/media/01a15346-cd9f-7277-b45d-a7f6fe3ad48c?expires=1792865040&signature=8243326c4bc4c331ce06038db7c74e1822d1f922f500196a7166447290e19ec3\",\n          \"status\": {\n            \"value\": \"valide\",\n            \"label\": \"Validé\"\n          }\n        },\n        \"departure\": {\n          \"id\": \"01a15346-cf55-7191-be56-3d75fbb6f55a\",\n          \"time\": \"17:34\",\n          \"at\": \"2026-10-24T17:34:00+00:00\",\n          \"distance_m\": 10,\n          \"out_of_zone\": false,\n          \"photo_url\": \"http://127.0.0.1:8010/api/v1/media/01a15346-cf4d-7197-bede-41da6de64a5f?expires=1792865040&signature=a7a4437eb232795f60607bfb906d774e2ab23f3fafcb953dc719e11c0d8c55c9\",\n          \"signature_url\": \"http://127.0.0.1:8010/api/v1/media/01a15346-cf52-7208-9ce5-7085938af737?expires=1792865040&signature=efc50025c1290dde7927a29a6737c67ec7dfa93032b73f7df23f8d5de067ecf2\",\n          \"status\": {\n            \"value\": \"valide\",\n            \"label\": \"Validé\"\n          }\n        },\n        \"worked_minutes\": 515,\n        \"anomalies\": [],\n        \"actions\": []\n      },\n      {\n        \"assignment_id\": \"01a15346-cab0-73a8-bce7-cc9e23d179e2\",\n        \"worker_id\": \"01a15346-c5d7-7044-906c-1ba9777f780e\",\n        \"name\": \"Touré Ali\",\n        \"initials\": \"TA\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n          \"code\": \"macon\",\n          \"label\": \"Maçon\"\n        },\n        \"role\": \"Maçon\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.9,\n          \"count\": 12\n        },\n        \"daily_rate\": 26000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"absent\",\n          \"label\": \"Absent\"\n        },\n        \"arrival\": null,\n        \"departure\": null,\n        \"worked_minutes\": null,\n        \"anomalies\": [\n          {\n            \"value\": \"absence\",\n            \"label\": \"Absence\",\n            \"comment\": \"Absence déclarée par le promoteur\"\n          }\n        ],\n        \"actions\": []\n      },\n      {\n        \"assignment_id\": \"01a15346-cb0b-7230-8072-5e67f828ef74\",\n        \"worker_id\": \"01a15346-c609-72d1-9c10-ad35afaf7dd4\",\n        \"name\": \"Serge Aka\",\n        \"initials\": \"SA\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b9fe-7226-a435-010a0bb0ad72\",\n          \"code\": \"peintre\",\n          \"label\": \"Peintre\"\n        },\n        \"role\": \"Peintre\",\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.7,\n          \"count\": 12\n        },\n        \"daily_rate\": 18000,\n        \"since\": \"2026-10-24\",\n        \"replaces\": null,\n        \"state\": {\n          \"value\": \"absent\",\n          \"label\": \"Absent\"\n        },\n        \"arrival\": null,\n        \"departure\": null,\n        \"worked_minutes\": null,\n        \"anomalies\": [\n          {\n            \"value\": \"absence\",\n            \"label\": \"Absence\",\n            \"comment\": \"Absence déclarée par le promoteur\"\n          }\n        ],\n        \"actions\": []\n      }\n    ]\n  },\n  \"message\": \"Journée du 24 oct. validée\"\n}"
+                },
+                {
+                  "id": "e281a50f-753d-5bdd-b8e4-443c34495d2b",
+                  "name": "422 · Pointages à compléter",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/attendance/2026-10-24/validate",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "attendance",
+                        "2026-10-24",
+                        "validate"
+                      ]
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "118"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Pointez le départ ou l’absence de chaque ouvrier : 2 pointages à compléter.\",\n  \"errors\": {\n    \"date\": [\n      \"Pointez le départ ou l’absence de chaque ouvrier : 2 pointages à compléter.\"\n    ]\n  }\n}"
+                },
+                {
+                  "id": "a7e89871-2b5f-5b21-832f-8b2fcfa86e5a",
+                  "name": "422 · Déjà validée",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/attendance/2026-10-24/validate",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "attendance",
+                        "2026-10-24",
+                        "validate"
+                      ]
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "114"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"La journée du 24 oct. 2026 est déjà validée.\",\n  \"errors\": {\n    \"date\": [\n      \"La journée du 24 oct. 2026 est déjà validée.\"\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "44fc0ac4-b0b0-5a63-93cf-8c9d8aa1f288",
+              "name": "Historique des pointages",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/sites/{{site_id}}/attendance/history",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "sites",
+                    "{{site_id}}",
+                    "attendance",
+                    "history"
+                  ]
+                },
+                "description": "« Historique des pointages » : journées passées ou validées, de la plus récente à la plus ancienne (présents, total, taux de présence, montant, ligne par ouvrier), et `meta.rates` : taux de présence de chaque ouvrier sur ces journées.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "c1442bd6-752b-58ad-9db6-9efca6a65537",
+                  "name": "200 · Journées pointées",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/attendance/history",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "attendance",
+                        "history"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "119"
+                    }
+                  ],
+                  "body": "{\n  \"data\": [\n    {\n      \"date\": \"2026-10-24\",\n      \"label\": \"sam. 24 oct.\",\n      \"validated\": true,\n      \"present\": 1,\n      \"total\": 3,\n      \"presence_rate\": 33,\n      \"amount\": 25000,\n      \"rows\": [\n        {\n          \"assignment_id\": \"01a15346-cabf-7374-9288-4dad304d70aa\",\n          \"name\": \"Kouamé Koffi\",\n          \"absent\": false,\n          \"arrival\": \"07:58\",\n          \"departure\": \"17:34\",\n          \"worked_minutes\": 515,\n          \"line\": \"07:58 → 17:34 · 8 h 35\"\n        },\n        {\n          \"assignment_id\": \"01a15346-cab0-73a8-bce7-cc9e23d179e2\",\n          \"name\": \"Touré Ali\",\n          \"absent\": true,\n          \"arrival\": null,\n          \"departure\": null,\n          \"worked_minutes\": null,\n          \"line\": \"Absent\"\n        },\n        {\n          \"assignment_id\": \"01a15346-cb0b-7230-8072-5e67f828ef74\",\n          \"name\": \"Serge Aka\",\n          \"absent\": true,\n          \"arrival\": null,\n          \"departure\": null,\n          \"worked_minutes\": null,\n          \"line\": \"Absent\"\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"days\": 1,\n    \"rates\": [\n      {\n        \"assignment_id\": \"01a15346-cabf-7374-9288-4dad304d70aa\",\n        \"name\": \"Kouamé Koffi\",\n        \"trade\": \"Maçon\",\n        \"days\": 1,\n        \"present\": 1,\n        \"presence_rate\": 100\n      },\n      {\n        \"assignment_id\": \"01a15346-cab0-73a8-bce7-cc9e23d179e2\",\n        \"name\": \"Touré Ali\",\n        \"trade\": \"Maçon\",\n        \"days\": 1,\n        \"present\": 0,\n        \"presence_rate\": 0\n      },\n      {\n        \"assignment_id\": \"01a15346-cb0b-7230-8072-5e67f828ef74\",\n        \"name\": \"Serge Aka\",\n        \"trade\": \"Peintre\",\n        \"days\": 1,\n        \"present\": 0,\n        \"presence_rate\": 0\n      }\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "45c9d8dd-f953-54f0-8360-7ddb54f6014b",
+              "name": "Chronologie",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/sites/{{site_id}}/steps",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "sites",
+                    "{{site_id}}",
+                    "steps"
+                  ]
+                },
+                "description": "« Chronologie » : étapes des travaux saisies par le promoteur, avec leur statut (`a_faire` « À démarrer », `en_cours`, `validee`), `subtitle` prêt à afficher et `actions` (`demarrer`, `retirer`, `valider`). `count_label` et `progress_percent` résument l’avancement.\n\n`editable` est faux avant le paiement de l’acompte (`lock_message`) et après la fin du chantier.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "55a529fb-1034-54d3-a13a-4767950ca131",
+                  "name": "200 · Aucune étape",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/steps",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "steps"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "113"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"editable\": true,\n    \"lock_message\": null,\n    \"done\": 0,\n    \"total\": 0,\n    \"progress_percent\": 0,\n    \"count_label\": \"Aucune étape\",\n    \"steps\": []\n  }\n}"
+                },
+                {
+                  "id": "f5a09137-bac2-5a09-9e56-e387ad04a8cd",
+                  "name": "200 · Acompte non payé",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-cbf6-73fa-a84d-6560ef038c86/steps",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-cbf6-73fa-a84d-6560ef038c86",
+                        "steps"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "109"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"editable\": false,\n    \"lock_message\": \"Disponible après validation de la réservation (paiement de l’acompte)\",\n    \"done\": 0,\n    \"total\": 0,\n    \"progress_percent\": 0,\n    \"count_label\": \"Aucune étape\",\n    \"steps\": []\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "49f0060e-0558-5935-9a2d-2ad3096a1464",
+              "name": "Ajouter une étape",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.sendRequest({",
+                      "    url: pm.variables.replaceIn('{{base_url}}/promoter/sites/{{site_id}}/steps'),",
+                      "    header: { 'Accept': 'application/json', 'Authorization': 'Bearer ' + pm.collectionVariables.get('registered_access_token') },",
+                      "}, (err, res) => {",
+                      "    const steps = res && res.code === 200 ? res.json().data : null;",
+                      "    if (!steps || !steps.editable) { pm.execution.skipRequest(); }",
+                      "});"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 201', () => pm.response.to.have.status(201));",
+                      "const step = pm.response.json().data.steps.filter(s => s.actions.includes('demarrer')).pop();",
+                      "pm.collectionVariables.set('step_id', step ? step.id : '');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/sites/{{site_id}}/steps",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "sites",
+                    "{{site_id}}",
+                    "steps"
+                  ]
+                },
+                "description": "Ajoute une étape (`title`, 160 caractères max.) à la fin de la chronologie. Réponse **201** : la chronologie à jour.\n\nErreur **422** sur `step` si la chronologie est verrouillée. Sautée lors de l’exécution de la collection si le chantier n’est pas confirmé.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Fondations\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "id": "e8b36ceb-c0c2-5f4e-9d3a-7e168adc5ec3",
+                  "name": "201 · Étape ajoutée",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/steps",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "steps"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"title\": \"Fondations\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "112"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"editable\": true,\n    \"lock_message\": null,\n    \"done\": 0,\n    \"total\": 1,\n    \"progress_percent\": 0,\n    \"count_label\": \"0/1 étapes validées\",\n    \"steps\": [\n      {\n        \"id\": \"01a15346-d2b7-70a4-bee3-e870610cfdcc\",\n        \"sequence\": 1,\n        \"title\": \"Fondations\",\n        \"status\": {\n          \"value\": \"a_faire\",\n          \"label\": \"À démarrer\"\n        },\n        \"started_at\": null,\n        \"completed_at\": null,\n        \"subtitle\": \"À démarrer\",\n        \"actions\": [\n          \"demarrer\",\n          \"retirer\"\n        ]\n      }\n    ]\n  },\n  \"message\": \"Étape ajoutée : Fondations\"\n}"
+                }
+              ]
+            },
+            {
+              "id": "039b01f1-a108-53b8-9fe5-7510e6bcbee1",
+              "name": "Démarrer l’étape",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.collectionVariables.get('step_id')) { pm.execution.skipRequest(); }"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/sites/{{site_id}}/steps/{{step_id}}/start",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "sites",
+                    "{{site_id}}",
+                    "steps",
+                    "{{step_id}}",
+                    "start"
+                  ]
+                },
+                "description": "« Démarrer » : une seule étape en cours à la fois.\n\nErreurs **422** sur `step` : une autre étape est en cours (« Validez d’abord … »), étape déjà démarrée, chronologie verrouillée.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "bcca7dfc-8db6-58bd-9a89-b17b4926388c",
+                  "name": "200 · Étape démarrée",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/steps/01a15346-d2b7-70a4-bee3-e870610cfdcc/start",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "steps",
+                        "01a15346-d2b7-70a4-bee3-e870610cfdcc",
+                        "start"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "109"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"editable\": true,\n    \"lock_message\": null,\n    \"done\": 0,\n    \"total\": 2,\n    \"progress_percent\": 0,\n    \"count_label\": \"0/2 étapes validées\",\n    \"steps\": [\n      {\n        \"id\": \"01a15346-d2b7-70a4-bee3-e870610cfdcc\",\n        \"sequence\": 1,\n        \"title\": \"Fondations\",\n        \"status\": {\n          \"value\": \"en_cours\",\n          \"label\": \"En cours\"\n        },\n        \"started_at\": \"2026-10-24T17:34:00+00:00\",\n        \"completed_at\": null,\n        \"subtitle\": \"En cours depuis le 24 oct. 2026\",\n        \"actions\": [\n          \"valider\"\n        ]\n      },\n      {\n        \"id\": \"01a15346-d2df-704e-839e-b48ded379441\",\n        \"sequence\": 2,\n        \"title\": \"Gros œuvre\",\n        \"status\": {\n          \"value\": \"a_faire\",\n          \"label\": \"À démarrer\"\n        },\n        \"started_at\": null,\n        \"completed_at\": null,\n        \"subtitle\": \"À démarrer\",\n        \"actions\": [\n          \"demarrer\",\n          \"retirer\"\n        ]\n      }\n    ]\n  },\n  \"message\": \"Étape démarrée : Fondations\"\n}"
+                },
+                {
+                  "id": "d5c615e8-af6b-5c2b-9ea5-6eead57ed28d",
+                  "name": "422 · Une autre étape est en cours",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/steps/01a15346-d2df-704e-839e-b48ded379441/start",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "steps",
+                        "01a15346-d2df-704e-839e-b48ded379441",
+                        "start"
+                      ]
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "108"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Validez d’abord « Fondations ».\",\n  \"errors\": {\n    \"step\": [\n      \"Validez d’abord « Fondations ».\"\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "c5900eb8-a77f-5774-bf4a-35f99e50be7c",
+              "name": "Valider l’étape",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.collectionVariables.get('step_id')) { pm.execution.skipRequest(); }"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/sites/{{site_id}}/steps/{{step_id}}/complete",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "sites",
+                    "{{site_id}}",
+                    "steps",
+                    "{{step_id}}",
+                    "complete"
+                  ]
+                },
+                "description": "« Valider l’étape » en cours.\n\nErreurs **422** sur `step` : étape pas encore démarrée, déjà validée, chronologie verrouillée.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "8c1c6951-0f06-5d45-ba07-b929df9ceb44",
+                  "name": "200 · Étape validée",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/steps/01a15346-d2b7-70a4-bee3-e870610cfdcc/complete",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "steps",
+                        "01a15346-d2b7-70a4-bee3-e870610cfdcc",
+                        "complete"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "107"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"editable\": true,\n    \"lock_message\": null,\n    \"done\": 1,\n    \"total\": 2,\n    \"progress_percent\": 50,\n    \"count_label\": \"1/2 étapes validées\",\n    \"steps\": [\n      {\n        \"id\": \"01a15346-d2b7-70a4-bee3-e870610cfdcc\",\n        \"sequence\": 1,\n        \"title\": \"Fondations\",\n        \"status\": {\n          \"value\": \"validee\",\n          \"label\": \"Validée\"\n        },\n        \"started_at\": \"2026-10-24T17:34:00+00:00\",\n        \"completed_at\": \"2026-10-24T17:34:00+00:00\",\n        \"subtitle\": \"Validée le 24 oct. 2026 · démarrée le 24 oct. 2026\",\n        \"actions\": []\n      },\n      {\n        \"id\": \"01a15346-d2df-704e-839e-b48ded379441\",\n        \"sequence\": 2,\n        \"title\": \"Gros œuvre\",\n        \"status\": {\n          \"value\": \"a_faire\",\n          \"label\": \"À démarrer\"\n        },\n        \"started_at\": null,\n        \"completed_at\": null,\n        \"subtitle\": \"À démarrer\",\n        \"actions\": [\n          \"demarrer\",\n          \"retirer\"\n        ]\n      }\n    ]\n  },\n  \"message\": \"Étape validée : Fondations\"\n}"
+                }
+              ]
+            },
+            {
+              "id": "cf5361e6-1b2b-5797-8877-c968cd2d14fc",
+              "name": "Retirer une étape",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.sendRequest({",
+                      "    url: pm.variables.replaceIn('{{base_url}}/promoter/sites/{{site_id}}/steps'),",
+                      "    header: { 'Accept': 'application/json', 'Authorization': 'Bearer ' + pm.collectionVariables.get('registered_access_token') },",
+                      "}, (err, res) => {",
+                      "    const steps = res && res.code === 200 ? res.json().data : null;",
+                      "    if (!steps || !steps.editable) { pm.execution.skipRequest(); return; }",
+                      "    pm.sendRequest({",
+                      "        url: pm.variables.replaceIn('{{base_url}}/promoter/sites/{{site_id}}/steps'),",
+                      "        method: 'POST',",
+                      "        header: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + pm.collectionVariables.get('registered_access_token') },",
+                      "        body: { mode: 'raw', raw: JSON.stringify({ title: 'Étape à retirer' }) },",
+                      "    }, (e, r) => {",
+                      "        const step = r && r.code === 201 ? r.json().data.steps.filter(s => s.title === 'Étape à retirer').pop() : null;",
+                      "        pm.collectionVariables.set('removable_step_id', step ? step.id : '');",
+                      "    });",
+                      "});"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/sites/{{site_id}}/steps/{{removable_step_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "sites",
+                    "{{site_id}}",
+                    "steps",
+                    "{{removable_step_id}}"
+                  ]
+                },
+                "description": "« Retirer » une étape pas encore démarrée.\n\nErreur **422** sur `step` : étape démarrée ou validée. Le script de pré-requête ajoute l’étape à retirer.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "078f186e-17fc-5ba7-b650-69657418cada",
+                  "name": "200 · Étape retirée",
+                  "originalRequest": {
+                    "method": "DELETE",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/steps/01a15346-d367-7000-ab27-79f0d3e3959a",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "steps",
+                        "01a15346-d367-7000-ab27-79f0d3e3959a"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "105"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"editable\": true,\n    \"lock_message\": null,\n    \"done\": 1,\n    \"total\": 2,\n    \"progress_percent\": 50,\n    \"count_label\": \"1/2 étapes validées\",\n    \"steps\": [\n      {\n        \"id\": \"01a15346-d2b7-70a4-bee3-e870610cfdcc\",\n        \"sequence\": 1,\n        \"title\": \"Fondations\",\n        \"status\": {\n          \"value\": \"validee\",\n          \"label\": \"Validée\"\n        },\n        \"started_at\": \"2026-10-24T17:34:00+00:00\",\n        \"completed_at\": \"2026-10-24T17:34:00+00:00\",\n        \"subtitle\": \"Validée le 24 oct. 2026 · démarrée le 24 oct. 2026\",\n        \"actions\": []\n      },\n      {\n        \"id\": \"01a15346-d2df-704e-839e-b48ded379441\",\n        \"sequence\": 2,\n        \"title\": \"Gros œuvre\",\n        \"status\": {\n          \"value\": \"a_faire\",\n          \"label\": \"À démarrer\"\n        },\n        \"started_at\": null,\n        \"completed_at\": null,\n        \"subtitle\": \"À démarrer\",\n        \"actions\": [\n          \"demarrer\",\n          \"retirer\"\n        ]\n      }\n    ]\n  },\n  \"message\": \"Étape retirée\"\n}"
+                },
+                {
+                  "id": "853149c9-ede1-5c3d-a7b5-d735a32a9486",
+                  "name": "422 · Étape démarrée",
+                  "originalRequest": {
+                    "method": "DELETE",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/01a15346-c69f-7005-bba1-e109baf2ed8c/steps/01a15346-d2b7-70a4-bee3-e870610cfdcc",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "01a15346-c69f-7005-bba1-e109baf2ed8c",
+                        "steps",
+                        "01a15346-d2b7-70a4-bee3-e870610cfdcc"
+                      ]
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "104"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Une étape démarrée ne peut plus être retirée.\",\n  \"errors\": {\n    \"step\": [\n      \"Une étape démarrée ne peut plus être retirée.\"\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "d3dd236e-7dcb-5c41-8e9c-3434227ffc44",
+              "name": "Remplacer un ouvrier",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.collectionVariables.get('replace_assignment_id')) { pm.execution.skipRequest(); }"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('replacement_id', pm.response.json().data.id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/assignments/{{replace_assignment_id}}/replacement",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "assignments",
+                    "{{replace_assignment_id}}",
+                    "replacement"
+                  ]
+                },
+                "description": "« Remplacer un ouvrier » (section Équipe) : `reason_code` parmi `absences_repetees`, `qualite`, `indisponibilite`, `autre` (`meta.replacement_reasons` de « Équipe ») et `comment` facultatif.\n\nLa demande est transmise au Back office, qui cherche un remplaçant du même métier, libre jusqu’à la fin de la mission, **au même tarif promoteur** (le tarif journalier figé de l’affectation d’origine). Réponse **201** : le remplacement (`status` `recherche`).\n\nErreurs **422** sur `assignment` : remplacement déjà en cours, ouvrier qui ne fait plus partie de l’équipe, mission qui se termine aujourd’hui. Sautée si aucun ouvrier n’est remplaçable.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reason_code\": \"absences_repetees\",\n  \"comment\": \"Absent deux jours cette semaine\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "id": "397a9262-550a-551d-a575-e52d1b1c4d3f",
+                  "name": "201 · Recherche d’un remplaçant",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/assignments/01a15346-cab0-73a8-bce7-cc9e23d179e2/replacement",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "assignments",
+                        "01a15346-cab0-73a8-bce7-cc9e23d179e2",
+                        "replacement"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"reason_code\": \"absences_repetees\",\n  \"comment\": \"Absent deux jours cette semaine\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "117"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"id\": \"01a15346-d4a6-7233-bc58-91666b36f26d\",\n    \"status\": {\n      \"value\": \"recherche\",\n      \"label\": \"Recherche\"\n    },\n    \"decision\": {\n      \"value\": \"en_attente\",\n      \"label\": \"En attente\"\n    },\n    \"site\": {\n      \"id\": \"01a15346-c69f-7005-bba1-e109baf2ed8c\",\n      \"title\": \"Résidence Les Palmiers\"\n    },\n    \"worker\": {\n      \"assignment_id\": \"01a15346-cab0-73a8-bce7-cc9e23d179e2\",\n      \"worker_id\": \"01a15346-c5d7-7044-906c-1ba9777f780e\",\n      \"name\": \"Touré Ali\",\n      \"initials\": \"TA\",\n      \"photo_url\": null,\n      \"trade\": {\n        \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n        \"code\": \"macon\",\n        \"label\": \"Maçon\"\n      },\n      \"role\": \"Maçon\",\n      \"experience_years\": 5,\n      \"rating\": {\n        \"average\": 4.9,\n        \"count\": 12\n      },\n      \"daily_rate\": 26000,\n      \"since\": \"2026-10-24\",\n      \"replaces\": null\n    },\n    \"reason\": {\n      \"code\": \"absences_repetees\",\n      \"label\": \"Absences répétées\"\n    },\n    \"comment\": \"Absent deux jours cette semaine\",\n    \"handover_date\": \"2026-10-26\",\n    \"message\": \"Nous cherchons un remplaçant disponible pour Touré Ali.\",\n    \"candidates\": [],\n    \"replacement\": null,\n    \"can_decide\": false,\n    \"created_at\": \"2026-10-25T09:00:00+00:00\"\n  },\n  \"message\": \"Demande envoyée : nous cherchons un remplaçant disponible.\"\n}"
+                },
+                {
+                  "id": "b8e4bd51-1cf0-5d8d-b932-0d4967eed666",
+                  "name": "422 · Remplacement déjà en cours",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/assignments/01a15346-cab0-73a8-bce7-cc9e23d179e2/replacement",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "assignments",
+                        "01a15346-cab0-73a8-bce7-cc9e23d179e2",
+                        "replacement"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"reason_code\": \"qualite\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "116"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Un remplacement de Touré Ali est déjà en cours.\",\n  \"errors\": {\n    \"assignment\": [\n      \"Un remplacement de Touré Ali est déjà en cours.\"\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "65c9f5e6-effd-5b6f-92c8-ecc60051e5fd",
+              "name": "Remplacement",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.collectionVariables.get('replacement_id')) { pm.execution.skipRequest(); }"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "const candidate = pm.response.json().data.candidates[0];",
+                      "pm.collectionVariables.set('suggestion_id', candidate ? candidate.suggestion_id : '');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/replacements/{{replacement_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "replacements",
+                    "{{replacement_id}}"
+                  ]
+                },
+                "description": "Suivi d’un remplacement : statut (`recherche`, `propose`, `valide`…), décision du promoteur, ouvrier remplacé, motif, `handover_date` (jour de relève : le lendemain, ou le démarrage prévu si la mission n’a pas commencé), `message` prêt à afficher et, au statut `propose`, jusqu’à 3 `candidates` (identité publique, expérience, note, tarif promoteur inchangé).\n\n**Remplaçants en local** : ils sont proposés par le Back office. Sans Back office, lancez depuis `ochantier-api` :\n\n```\nphp artisan ochantier:simulate-replacement [--site=CH-2026-0001]\n```\n\n(commande refusée en production).",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "bb6a1126-8685-546f-97c4-8de2383d6158",
+                  "name": "200 · Recherche en cours",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/replacements/01a15346-d4a6-7233-bc58-91666b36f26d",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "replacements",
+                        "01a15346-d4a6-7233-bc58-91666b36f26d"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "115"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"id\": \"01a15346-d4a6-7233-bc58-91666b36f26d\",\n    \"status\": {\n      \"value\": \"recherche\",\n      \"label\": \"Recherche\"\n    },\n    \"decision\": {\n      \"value\": \"en_attente\",\n      \"label\": \"En attente\"\n    },\n    \"site\": {\n      \"id\": \"01a15346-c69f-7005-bba1-e109baf2ed8c\",\n      \"title\": \"Résidence Les Palmiers\"\n    },\n    \"worker\": {\n      \"assignment_id\": \"01a15346-cab0-73a8-bce7-cc9e23d179e2\",\n      \"worker_id\": \"01a15346-c5d7-7044-906c-1ba9777f780e\",\n      \"name\": \"Touré Ali\",\n      \"initials\": \"TA\",\n      \"photo_url\": null,\n      \"trade\": {\n        \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n        \"code\": \"macon\",\n        \"label\": \"Maçon\"\n      },\n      \"role\": \"Maçon\",\n      \"experience_years\": 5,\n      \"rating\": {\n        \"average\": 4.9,\n        \"count\": 12\n      },\n      \"daily_rate\": 26000,\n      \"since\": \"2026-10-24\",\n      \"replaces\": null\n    },\n    \"reason\": {\n      \"code\": \"absences_repetees\",\n      \"label\": \"Absences répétées\"\n    },\n    \"comment\": \"Absent deux jours cette semaine\",\n    \"handover_date\": \"2026-10-26\",\n    \"message\": \"Nous cherchons un remplaçant disponible pour Touré Ali.\",\n    \"candidates\": [],\n    \"replacement\": null,\n    \"can_decide\": false,\n    \"created_at\": \"2026-10-25T09:00:00+00:00\"\n  }\n}"
+                },
+                {
+                  "id": "ac4a9faa-240d-513f-a843-ebcc98bc6492",
+                  "name": "200 · Remplaçants proposés",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/replacements/01a15346-d4a6-7233-bc58-91666b36f26d",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "replacements",
+                        "01a15346-d4a6-7233-bc58-91666b36f26d"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "114"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"id\": \"01a15346-d4a6-7233-bc58-91666b36f26d\",\n    \"status\": {\n      \"value\": \"propose\",\n      \"label\": \"Proposé\"\n    },\n    \"decision\": {\n      \"value\": \"en_attente\",\n      \"label\": \"En attente\"\n    },\n    \"site\": {\n      \"id\": \"01a15346-c69f-7005-bba1-e109baf2ed8c\",\n      \"title\": \"Résidence Les Palmiers\"\n    },\n    \"worker\": {\n      \"assignment_id\": \"01a15346-cab0-73a8-bce7-cc9e23d179e2\",\n      \"worker_id\": \"01a15346-c5d7-7044-906c-1ba9777f780e\",\n      \"name\": \"Touré Ali\",\n      \"initials\": \"TA\",\n      \"photo_url\": null,\n      \"trade\": {\n        \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n        \"code\": \"macon\",\n        \"label\": \"Maçon\"\n      },\n      \"role\": \"Maçon\",\n      \"experience_years\": 5,\n      \"rating\": {\n        \"average\": 4.9,\n        \"count\": 12\n      },\n      \"daily_rate\": 26000,\n      \"since\": \"2026-10-24\",\n      \"replaces\": null\n    },\n    \"reason\": {\n      \"code\": \"absences_repetees\",\n      \"label\": \"Absences répétées\"\n    },\n    \"comment\": \"Absent deux jours cette semaine\",\n    \"handover_date\": \"2026-10-26\",\n    \"message\": \"Choisissez un remplaçant : il rejoint le chantier le 26 oct. 2026. Le pointage et la rémunération de Touré Ali s’arrêtent la veille au soir.\",\n    \"candidates\": [\n      {\n        \"suggestion_id\": \"01a15346-d5eb-72c0-b728-0c173237fa39\",\n        \"worker_id\": \"01a15346-d53e-725f-836e-d9e6ef5b1e61\",\n        \"name\": \"Bamba Issa\",\n        \"initials\": \"BI\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n          \"code\": \"macon\",\n          \"label\": \"Maçon\"\n        },\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.6,\n          \"count\": 12\n        },\n        \"daily_rate\": 26000,\n        \"available\": true\n      },\n      {\n        \"suggestion_id\": \"01a15346-d5f2-70ad-bdc5-a67209b6aec5\",\n        \"worker_id\": \"01a15346-d563-729d-bcc4-7a1a84f2cd68\",\n        \"name\": \"Diallo Moussa\",\n        \"initials\": \"DM\",\n        \"photo_url\": null,\n        \"trade\": {\n          \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n          \"code\": \"macon\",\n          \"label\": \"Maçon\"\n        },\n        \"experience_years\": 5,\n        \"rating\": {\n          \"average\": 4.4,\n          \"count\": 12\n        },\n        \"daily_rate\": 26000,\n        \"available\": true\n      }\n    ],\n    \"replacement\": null,\n    \"can_decide\": true,\n    \"created_at\": \"2026-10-25T09:00:00+00:00\"\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "79616a9a-ebb0-5762-9cc9-febff416c47a",
+              "name": "Confirmer le remplacement",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.collectionVariables.get('suggestion_id')) { pm.execution.skipRequest(); }"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/replacements/{{replacement_id}}/accept",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "replacements",
+                    "{{replacement_id}}",
+                    "accept"
+                  ]
+                },
+                "description": "« Confirmer le remplacement » avec le remplaçant choisi (`suggestion_id`). Le remplaçant est affecté **à partir du lendemain**, au tarif promoteur de l’ouvrier remplacé ; le pointage et la rémunération de l’ouvrier remplacé s’arrêtent le soir même (affectation `remplacee`). Les autres candidats sont écartés.\n\nErreurs **422** sur `suggestion_id` : aucun remplaçant proposé, remplaçant hors de la liste. Sautée sans remplaçant proposé (voir « Remplacement »).",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"suggestion_id\": \"{{suggestion_id}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "id": "6f12f564-61aa-5854-9756-00df3d7129ff",
+                  "name": "200 · Remplaçant confirmé",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/replacements/01a15346-d4a6-7233-bc58-91666b36f26d/accept",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "replacements",
+                        "01a15346-d4a6-7233-bc58-91666b36f26d",
+                        "accept"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"suggestion_id\": \"01a15346-d5eb-72c0-b728-0c173237fa39\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "112"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"id\": \"01a15346-d4a6-7233-bc58-91666b36f26d\",\n    \"status\": {\n      \"value\": \"valide\",\n      \"label\": \"Validé\"\n    },\n    \"decision\": {\n      \"value\": \"accepte\",\n      \"label\": \"Accepté\"\n    },\n    \"site\": {\n      \"id\": \"01a15346-c69f-7005-bba1-e109baf2ed8c\",\n      \"title\": \"Résidence Les Palmiers\"\n    },\n    \"worker\": {\n      \"assignment_id\": \"01a15346-cab0-73a8-bce7-cc9e23d179e2\",\n      \"worker_id\": \"01a15346-c5d7-7044-906c-1ba9777f780e\",\n      \"name\": \"Touré Ali\",\n      \"initials\": \"TA\",\n      \"photo_url\": null,\n      \"trade\": {\n        \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n        \"code\": \"macon\",\n        \"label\": \"Maçon\"\n      },\n      \"role\": \"Maçon\",\n      \"experience_years\": 5,\n      \"rating\": {\n        \"average\": 4.9,\n        \"count\": 12\n      },\n      \"daily_rate\": 26000,\n      \"since\": \"2026-10-24\",\n      \"replaces\": null\n    },\n    \"reason\": {\n      \"code\": \"absences_repetees\",\n      \"label\": \"Absences répétées\"\n    },\n    \"comment\": \"Absent deux jours cette semaine\",\n    \"handover_date\": \"2026-10-26\",\n    \"message\": \"Bamba Issa remplace Touré Ali depuis le 26 oct. 2026.\",\n    \"candidates\": [],\n    \"replacement\": {\n      \"assignment_id\": \"01a15346-d6c0-707e-b091-5b7b506b808b\",\n      \"worker_id\": \"01a15346-d53e-725f-836e-d9e6ef5b1e61\",\n      \"name\": \"Bamba Issa\",\n      \"initials\": \"BI\",\n      \"photo_url\": null,\n      \"trade\": {\n        \"id\": \"01a15346-b96a-7264-a611-84fb12a80bd6\",\n        \"code\": \"macon\",\n        \"label\": \"Maçon\"\n      },\n      \"role\": \"Maçon\",\n      \"experience_years\": 5,\n      \"rating\": {\n        \"average\": 4.6,\n        \"count\": 12\n      },\n      \"daily_rate\": 26000,\n      \"since\": \"2026-10-26\",\n      \"replaces\": \"Touré Ali\"\n    },\n    \"can_decide\": false,\n    \"created_at\": \"2026-10-25T09:00:00+00:00\"\n  },\n  \"message\": \"Bamba Issa remplace Touré Ali\"\n}"
+                },
+                {
+                  "id": "c8b8560a-af0d-5d27-8368-3961dac42423",
+                  "name": "422 · Remplaçant hors de la liste",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/replacements/01a15346-d4a6-7233-bc58-91666b36f26d/accept",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "replacements",
+                        "01a15346-d4a6-7233-bc58-91666b36f26d",
+                        "accept"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"suggestion_id\": \"4b40c848-0221-4da4-b4db-5838fe3bae71\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "113"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Choisissez un remplaçant parmi ceux proposés.\",\n  \"errors\": {\n    \"suggestion_id\": [\n      \"Choisissez un remplaçant parmi ceux proposés.\"\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "74fe8009-5bfb-51d7-b9b5-4dfaad690ad9",
+              "name": "Refuser les remplaçants",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.collectionVariables.get('replacement_id')) {",
+                      "    pm.execution.skipRequest();",
+                      "} else {",
+                      "    pm.sendRequest({",
+                      "        url: pm.variables.replaceIn('{{base_url}}/promoter/replacements/{{replacement_id}}'),",
+                      "        header: { 'Accept': 'application/json', 'Authorization': 'Bearer ' + pm.collectionVariables.get('registered_access_token') },",
+                      "    }, (err, res) => {",
+                      "        const replacement = res && res.code === 200 ? res.json().data : null;",
+                      "        if (!replacement || !replacement.can_decide) { pm.execution.skipRequest(); }",
+                      "    });",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/replacements/{{replacement_id}}/refuse",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "replacements",
+                    "{{replacement_id}}",
+                    "refuse"
+                  ]
+                },
+                "description": "Refuse les remplaçants proposés (`comment` facultatif) : ils sont écartés et ne seront plus proposés ; la recherche reprend (`status` `recherche`).\n\nErreur **422** sur `replacement` : aucun remplaçant proposé. Sautée si aucun remplaçant n’est en attente de décision.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"comment\": \"Je préfère un ouvrier plus expérimenté\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "id": "52117300-d513-550e-b0b5-41b8c44c5196",
+                  "name": "200 · Remplaçants refusés",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/replacements/01a15346-d852-723b-b177-3fde9551c8d0/refuse",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "replacements",
+                        "01a15346-d852-723b-b177-3fde9551c8d0",
+                        "refuse"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"comment\": \"Je préfère un peintre plus expérimenté\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "108"
+                    }
+                  ],
+                  "body": "{\n  \"data\": {\n    \"id\": \"01a15346-d852-723b-b177-3fde9551c8d0\",\n    \"status\": {\n      \"value\": \"recherche\",\n      \"label\": \"Recherche\"\n    },\n    \"decision\": {\n      \"value\": \"refuse\",\n      \"label\": \"Refusé\"\n    },\n    \"site\": {\n      \"id\": \"01a15346-c69f-7005-bba1-e109baf2ed8c\",\n      \"title\": \"Résidence Les Palmiers\"\n    },\n    \"worker\": {\n      \"assignment_id\": \"01a15346-cb0b-7230-8072-5e67f828ef74\",\n      \"worker_id\": \"01a15346-c609-72d1-9c10-ad35afaf7dd4\",\n      \"name\": \"Serge Aka\",\n      \"initials\": \"SA\",\n      \"photo_url\": null,\n      \"trade\": {\n        \"id\": \"01a15346-b9fe-7226-a435-010a0bb0ad72\",\n        \"code\": \"peintre\",\n        \"label\": \"Peintre\"\n      },\n      \"role\": \"Peintre\",\n      \"experience_years\": 5,\n      \"rating\": {\n        \"average\": 4.7,\n        \"count\": 12\n      },\n      \"daily_rate\": 18000,\n      \"since\": \"2026-10-24\",\n      \"replaces\": null\n    },\n    \"reason\": {\n      \"code\": \"indisponibilite\",\n      \"label\": \"Indisponibilité déclarée\"\n    },\n    \"comment\": null,\n    \"handover_date\": \"2026-10-26\",\n    \"message\": \"Nous cherchons un remplaçant disponible pour Serge Aka.\",\n    \"candidates\": [],\n    \"replacement\": null,\n    \"can_decide\": false,\n    \"created_at\": \"2026-10-25T09:00:00+00:00\"\n  },\n  \"message\": \"Remplaçants refusés — nous cherchons d’autres profils.\"\n}"
+                },
+                {
+                  "id": "69a62059-14d6-51b9-812f-b03e7bbc488a",
+                  "name": "422 · Aucun remplaçant proposé",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/replacements/01a15346-d4a6-7233-bc58-91666b36f26d/refuse",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "replacements",
+                        "01a15346-d4a6-7233-bc58-91666b36f26d",
+                        "refuse"
+                      ]
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "111"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Aucun remplaçant n’est proposé pour le moment.\",\n  \"errors\": {\n    \"replacement\": [\n      \"Aucun remplaçant n’est proposé pour le moment.\"\n    ]\n  }\n}"
+                }
+              ]
+            }
+          ]
         }
       ],
-      "description": "Application Promoteur : profil, pièces justificatives et vérification du compte, préférences de notification, centre d’aide."
+      "description": "Application Promoteur : profil, pièces justificatives et vérification du compte, préférences de notification, centre d’aide, chantiers, réservations, paiements et suivi de chantier (équipe, pointage, chronologie, remplacements)."
     },
     {
       "id": "16de0c9e-243f-54be-89db-078338f4335e",
@@ -11272,6 +14315,60 @@
       "value": "0711111111",
       "type": "string",
       "description": "Numéro Mobile Money (Orange Money : 07…). Un numéro finissant par 0000 échoue (paiement simulé)."
+    },
+    {
+      "key": "assignment_id",
+      "value": "",
+      "type": "string",
+      "description": "Ouvrier à pointer (renseigné par le script de pré-requête)."
+    },
+    {
+      "key": "attendance_client_uuid",
+      "value": "",
+      "type": "string",
+      "description": "Identifiant du pointage généré par l’application (idempotence)."
+    },
+    {
+      "key": "absent_assignment_id",
+      "value": "",
+      "type": "string",
+      "description": "Ouvrier déclaré absent."
+    },
+    {
+      "key": "attendance_date",
+      "value": "",
+      "type": "string",
+      "description": "Journée de pointage affichée (AAAA-MM-JJ)."
+    },
+    {
+      "key": "step_id",
+      "value": "",
+      "type": "string",
+      "description": "Étape de la chronologie à démarrer puis valider."
+    },
+    {
+      "key": "removable_step_id",
+      "value": "",
+      "type": "string",
+      "description": "Étape ajoutée pour « Retirer une étape »."
+    },
+    {
+      "key": "replace_assignment_id",
+      "value": "",
+      "type": "string",
+      "description": "Ouvrier à remplacer (renseigné par « Équipe »)."
+    },
+    {
+      "key": "replacement_id",
+      "value": "",
+      "type": "string",
+      "description": "Remplacement demandé."
+    },
+    {
+      "key": "suggestion_id",
+      "value": "",
+      "type": "string",
+      "description": "Remplaçant proposé à confirmer."
     }
   ]
 }
