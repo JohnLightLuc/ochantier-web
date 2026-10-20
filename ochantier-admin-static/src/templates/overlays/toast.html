@@ -1,6 +1,0 @@
-    <sc-if value="{{ hasToast }}">
-      <div data-component="Toast" role="status" style="position:fixed;right:var(--space-6);bottom:var(--space-6);z-index:60;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);min-width:280px;max-width:420px;background:var(--c-primary-strong);color:var(--c-on-dark);border-radius:var(--radius-xl);box-shadow:var(--shadow-popover);animation:och-rise var(--dur) var(--ease)">
-        <span class="material-symbols-rounded" style="font-size:var(--icon-sm);color:{{ toastIconC }}">{{ toastIcon }}</span><span style="flex:1;font-size:var(--fs-md);font-weight:var(--fw-medium)">{{ toast }}</span><sc-if value="{{ hasToastRetry }}"><button onClick="{{ toastRetry }}" style="border:1px solid var(--c-on-dark-line);background:transparent;color:var(--c-on-dark);border-radius:var(--radius-md);padding:var(--space-1) var(--space-2_5);cursor:pointer;font-weight:var(--fw-semibold);font-size:var(--fs-sm)">Réessayer</button></sc-if>
-        <button onClick="{{ closeToast }}" aria-label="Fermer" style="border:0;background:transparent;color:var(--c-on-dark-muted);cursor:pointer;display:grid;place-items:center"><span class="material-symbols-rounded" style="font-size:var(--icon-sm)">close</span></button>
-      </div>
-    </sc-if>

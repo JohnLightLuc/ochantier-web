@@ -1,9 +1,0 @@
-<div role="{{ role }}" style="display:flex;flex-direction:{{ dir }};align-items:center;gap:{{ gap }};text-align:{{ align }};padding:{{ pad }};border:1px {{ lineStyle }} {{ line }};border-radius:var(--radius-xl);background:{{ bg }};font-family:var(--font-sans);color:var(--c-ink)">
-  <sc-if value="{{ isSpin }}"><span style="width:var(--icon-lg);height:var(--icon-lg);flex:none;border-radius:var(--radius-round);border:3px solid var(--c-primary-200);border-top-color:var(--c-primary);animation:och-spin .8s linear infinite"></span></sc-if>
-  <sc-if value="{{ hasIcon }}"><span style="width:{{ tile }};height:{{ tile }};flex:none;border-radius:var(--radius-round);display:grid;place-items:center;background:{{ iconBg }}"><span class="material-symbols-rounded" style="font-size:{{ iconSize }};color:{{ iconFg }}">{{ icon }}</span></span></sc-if>
-  <div style="flex:1;min-width:0">
-    <div style="font-size:{{ titleFs }};font-weight:var(--fw-bold)">{{ title }}</div>
-    <sc-if value="{{ hasText }}"><div style="margin-top:var(--space-1);font-size:var(--fs-sm);color:var(--c-muted);line-height:var(--lh-normal);text-wrap:pretty">{{ text }}</div></sc-if>
-  </div>
-  <sc-if value="{{ hasAction }}"><button onClick="{{ onAction }}" style="flex:none;height:var(--control-xs);padding:0 var(--space-3);border:1px solid var(--c-line-strong);border-radius:var(--radius-lg);background:var(--c-surface);font-family:var(--font-sans);font-size:var(--fs-sm);font-weight:var(--fw-semibold);color:var(--c-ink);cursor:pointer;white-space:nowrap" style-hover="border-color:var(--c-line-hover)">{{ actionLabel }}</button></sc-if>
-</div>
