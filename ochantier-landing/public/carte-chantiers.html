@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chantiers qui recrutent — O'CHANTIER</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Play:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font-family:'Play',sans-serif;color:#14261F;background:#E8E6DF}
+a{color:#1E6B4F}a:hover{color:#14261F}
+.wrap{position:relative;height:100%;display:grid;grid-template-columns:340px minmax(0,1fr)}
+.panel{background:#F8F7F3;display:flex;flex-direction:column;min-height:0;border-right:1px solid #D9D6CD}
+.ph{padding:18px 18px 12px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid #E8E6DF}
+.ph h3{margin:0;font-size:17px;font-weight:900;text-transform:uppercase}
+.mono{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#1E6B4F}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1.5px solid #14261F;background:transparent;padding:6px 10px;font:700 12px 'Play',sans-serif;cursor:pointer;color:#14261F}
+.chip.on{background:#14261F;color:#F8F7F3}
+.near{display:flex;align-items:center;justify-content:center;gap:8px;background:#FAB82A;border:none;padding:12px;font:800 13px 'Play',sans-serif;cursor:pointer;color:#14261F;text-transform:uppercase}
+.near:hover{background:#3EB884}
+.list{flex:1;overflow-y:auto;padding:10px 12px 14px;display:flex;flex-direction:column;gap:8px}
+.item{text-align:left;background:#FFFFFF;border:none;border-left:5px solid #3EB884;padding:12px;cursor:pointer;display:flex;flex-direction:column;gap:6px;font-family:'Play',sans-serif;color:#14261F}
+.item:hover,.item.sel{box-shadow:0 0 0 2px #14261F}
+.item .t{display:flex;justify-content:space-between;gap:8px;font-size:14px;font-weight:800}
+.item .d{font-family:'JetBrains Mono',monospace;font-size:11px;color:#1E6B4F;white-space:nowrap}
+.item .s{font-size:12px;color:#5B645F}
+.tags{display:flex;gap:4px;flex-wrap:wrap}
+.tag{font-size:11px;font-weight:700;background:#ECF8F3;color:#1E6B4F;padding:3px 7px}
+.tag.urg{background:#FEEDCA;color:#7A5200}
+#map{height:100%;min-height:0}
+.leaflet-container{font-family:'Play',sans-serif;background:#E8E6DF}
+.pin{width:42px;height:42px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#1E6B4F;border:3px solid #F8F7F3;box-shadow:0 6px 14px rgba(20,38,31,.35);display:flex;align-items:center;justify-content:center}
+.pin span{transform:rotate(45deg);color:#FAB82A;font:900 14px 'Play',sans-serif}
+.pin.hot{background:#14261F}
+.pin.sel{background:#FAB82A}.pin.sel span{color:#14261F}
+.me{width:20px;height:20px;border-radius:50%;background:#3EB884;border:4px solid #FFFFFF;box-shadow:0 0 0 8px rgba(62,184,132,.25)}
+.leaflet-popup-content-wrapper{border-radius:0;box-shadow:0 12px 30px rgba(20,38,31,.3)}
+.leaflet-popup-content{margin:14px 16px;min-width:220px}
+.pp h4{margin:0 0 2px;font-size:16px;font-weight:900}
+.pp .s{font-size:12px;color:#5B645F;margin-bottom:8px}
+.pp .row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-top:1px solid #E8E6DF}
+.pp .go{margin-top:10px;width:100%;background:#14261F;color:#F8F7F3;border:none;padding:12px;font:800 13px 'Play',sans-serif;cursor:pointer}
+.pp .go:hover{background:#1E6B4F}
+.legend{position:absolute;right:12px;bottom:28px;z-index:500;background:#F8F7F3;padding:10px 12px;font-size:11px;display:flex;flex-direction:column;gap:6px;box-shadow:0 4px 12px rgba(20,38,31,.2)}
+.legend div{display:flex;align-items:center;gap:8px}
+.legend i{width:12px;height:12px;border-radius:50%;display:inline-block}
+@media (max-width:760px){
+  .wrap{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) 300px}
+  .panel{order:2;border-right:none;border-top:1px solid #D9D6CD}
+  .ph{padding:12px}
+  .legend{display:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside class="panel">
+    <div class="ph">
+      <div class="mono">Chantiers qui recrutent · Abidjan</div>
+      <h3 id="count">—</h3>
+      <div class="chips" id="chips"></div>
+      <button class="near" id="near">◎ Près de chez moi</button>
+    </div>
+    <div class="list" id="list"></div>
+  </aside>
+  <div style="position:relative;min-height:0">
+    <div id="map"></div>
+    <div class="legend"><div><i style="background:#14261F"></i>Démarrage urgent</div><div><i style="background:#1E6B4F"></i>Recrute</div><div><i style="background:#3EB884"></i>Votre position</div></div>
+  </div>
+</div>
+<script>
+const CH=[
+  {id:1,name:'Résidence Les Palmiers',commune:'Cocody',ll:[5.3600,-3.9900],needs:{'Maçon':3,'Ferrailleur':2},start:'Dès demain',dur:'30 jours',rate:'25 000 FCFA/j',urgent:true},
+  {id:2,name:'Résidence Les Acacias',commune:'Angré',ll:[5.3950,-3.9850],needs:{'Électricien':2,'Plombier':1},start:'15 oct. 2026',dur:'21 jours',rate:'30 000 FCFA/j'},
+  {id:3,name:'Immeuble Horizon',commune:'Marcory',ll:[5.3030,-3.9930],needs:{'Peintre':4,'Carreleur':2},start:'Lun. 13 oct.',dur:'15 jours',rate:'18 000 FCFA/j',urgent:true},
+  {id:4,name:'Villa Riviera',commune:'Riviera 3',ll:[5.3700,-3.9550],needs:{'Maçon':2,'Coffreur':1},start:'20 oct. 2026',dur:'45 jours',rate:'25 000 FCFA/j'},
+  {id:5,name:'Duplex Bingerville',commune:'Bingerville',ll:[5.3550,-3.8900],needs:{'Maçon':2,'Plombier':1},start:'3 nov. 2026',dur:'40 jours',rate:'22 000 FCFA/j'},
+  {id:6,name:'Bureaux Le Plateau',commune:'Plateau',ll:[5.3230,-4.0180],needs:{'Électricien':3,'Plaquiste':2},start:'Dès demain',dur:'10 jours',rate:'30 000 FCFA/j',urgent:true},
+  {id:7,name:'Lotissement Niangon',commune:'Yopougon',ll:[5.3330,-4.1050],needs:{'Maçon':5,'Ferrailleur':3},start:'27 oct. 2026',dur:'90 jours',rate:'20 000 FCFA/j'},
+  {id:8,name:'Entrepôt Vridi',commune:'Port-Bouët',ll:[5.2600,-3.9750],needs:{'Soudeur':2,'Coffreur':2},start:'18 oct. 2026',dur:'25 jours',rate:'28 000 FCFA/j'},
+  {id:9,name:'Résidence Koumassi',commune:'Koumassi',ll:[5.2950,-3.9500],needs:{'Carreleur':2,'Peintre':2},start:'Lun. 13 oct.',dur:'12 jours',rate:'20 000 FCFA/j'},
+];
+const METIERS=['Tous',...[...new Set(CH.flatMap(c=>Object.keys(c.needs)))]];
+let filter='Tous', me=null, sel=null;
+const map=L.map('map',{zoomControl:true,scrollWheelZoom:false}).setView([5.335,-3.99],12);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
+map.on('click',()=>map.scrollWheelZoom.enable());
+const total=c=>Object.values(c.needs).reduce((a,b)=>a+b,0);
+const icon=(c)=>L.divIcon({className:'',iconSize:[42,42],iconAnchor:[21,42],popupAnchor:[0,-40],html:`<div class="pin ${c.urgent?'hot':''} ${sel===c.id?'sel':''}"><span>${total(c)}</span></div>`});
+const dist=(a,b)=>{const R=6371,t=x=>x*Math.PI/180,dl=t(b[0]-a[0]),dn=t(b[1]-a[1]);const h=Math.sin(dl/2)**2+Math.cos(t(a[0]))*Math.cos(t(b[0]))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h));};
+const markers={};
+const popup=c=>`<div class="pp"><h4>${c.name}</h4><div class="s">${c.commune}, Abidjan${me?' · à '+dist(me,c.ll).toFixed(1).replace('.',',')+' km':''}</div>
+  ${Object.entries(c.needs).map(([m,n])=>`<div class="row"><span>${m}</span><strong>${n} poste${n>1?'s':''}</strong></div>`).join('')}
+  <div class="row"><span>Démarrage</span><strong>${c.start}</strong></div><div class="row"><span>Durée</span><strong>${c.dur}</strong></div><div class="row"><span>Tarif</span><strong>${c.rate}</strong></div>
+  <button class="go" data-apply="${c.id}">Postuler à ce chantier</button></div>`;
+CH.forEach(c=>{const m=L.marker(c.ll,{icon:icon(c)}).addTo(map).bindPopup(()=>popup(c));m.on('click',()=>select(c.id,false));markers[c.id]=m;});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-apply]');if(!b)return;const c=CH.find(x=>x.id==b.dataset.apply);
+  const metier=filter!=='Tous'&&c.needs[filter]?filter:Object.keys(c.needs)[0];
+  window.parent&&window.parent.postMessage({type:'och-apply',chantier:c.name,commune:c.commune,metier},'*');});
+function select(id,fly){sel=id;CH.forEach(c=>markers[c.id].setIcon(icon(c)));const c=CH.find(x=>x.id===id);if(fly){map.flyTo(c.ll,14,{duration:.8});setTimeout(()=>markers[id].openPopup(),850);}render();}
+function render(){
+  let rows=CH.filter(c=>filter==='Tous'||c.needs[filter]);
+  rows.forEach(c=>{const on=filter==='Tous'||c.needs[filter];markers[c.id].setOpacity(1);});
+  CH.forEach(c=>markers[c.id].setOpacity(filter==='Tous'||c.needs[filter]?1:.25));
+  if(me) rows=rows.slice().sort((a,b)=>dist(me,a.ll)-dist(me,b.ll));
+  const postes=rows.reduce((s,c)=>s+(filter==='Tous'?total(c):c.needs[filter]),0);
+  document.getElementById('count').textContent=`${rows.length} chantiers · ${postes} postes ouverts`;
+  document.getElementById('chips').innerHTML=METIERS.map(m=>`<button class="chip ${m===filter?'on':''}" data-m="${m}">${m}</button>`).join('');
+  document.getElementById('list').innerHTML=rows.map(c=>`<button class="item ${sel===c.id?'sel':''}" data-id="${c.id}" style="border-left-color:${c.urgent?'#FAB82A':'#3EB884'}">
+    <span class="t"><span>${c.name}</span><span class="d">${me?dist(me,c.ll).toFixed(1).replace('.',',')+' km':c.commune}</span></span>
+    <span class="s">${c.commune} · ${c.start} · ${c.dur}</span>
+    <span class="tags">${c.urgent?'<span class="tag urg">Urgent</span>':''}${Object.entries(c.needs).map(([m,n])=>`<span class="tag">${n} ${m}</span>`).join('')}</span></button>`).join('');
+}
+document.getElementById('chips').addEventListener('click',e=>{const b=e.target.closest('[data-m]');if(!b)return;filter=b.dataset.m;render();});
+document.getElementById('list').addEventListener('click',e=>{const b=e.target.closest('[data-id]');if(b)select(+b.dataset.id,true);});
+let meMarker=null;
+function setMe(ll,label){me=ll;if(meMarker)meMarker.remove();meMarker=L.marker(ll,{icon:L.divIcon({className:'',iconSize:[20,20],iconAnchor:[10,10],html:'<div class="me"></div>'})}).addTo(map).bindTooltip(label,{direction:'top',offset:[0,-12]});
+  map.flyTo(ll,13,{duration:.8});render();}
+document.getElementById('near').addEventListener('click',()=>{
+  const fallback=()=>setMe([5.3480,-3.9870],'Votre position (exemple : Cocody)');
+  if(!navigator.geolocation) return fallback();
+  navigator.geolocation.getCurrentPosition(p=>{const ll=[p.coords.latitude,p.coords.longitude];dist(ll,[5.335,-3.99])>60?fallback():setMe(ll,'Votre position');},fallback,{timeout:5000});
+});
+render();
+</script>
+</body>
+</html>
