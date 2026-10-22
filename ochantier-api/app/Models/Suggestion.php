@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\SuggestionStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,14 +11,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Suggestion = un ouvrier classé pour un besoin, avec son explication.
  */
-#[Fillable([
-    'matching_run_id', 'need_id', 'worker_id', 'rank', 'score', 'score_factors', 'distance_km', 'worker_daily_rate',
-    'promoter_daily_rate', 'net_daily_rate', 'is_manual', 'added_by_admin_id', 'status', 'published_to_promoter_at',
-    'published_by_admin_id', 'proposal_id',
-])]
 class Suggestion extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'matching_run_id', 'need_id', 'worker_id', 'rank', 'score', 'score_factors', 'distance_km', 'worker_daily_rate',
+        'promoter_daily_rate', 'net_daily_rate', 'is_manual', 'added_by_admin_id', 'status', 'published_to_promoter_at',
+        'published_by_admin_id', 'proposal_id',
+    ];
 
     /**
      * Get the attributes that should be cast.

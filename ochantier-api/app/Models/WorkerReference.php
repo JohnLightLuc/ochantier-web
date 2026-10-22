@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,13 +9,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Référence professionnelle d’un ouvrier (chantier, employeur, contact).
  */
-#[Fillable([
-    'worker_id', 'project_name', 'role', 'employer_name', 'start_date', 'end_date', 'contact_name', 'contact_phone',
-    'contact_consent', 'verified_at', 'verified_by_admin_id',
-])]
 class WorkerReference extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'worker_id', 'project_name', 'role', 'employer_name', 'start_date', 'end_date', 'contact_name', 'contact_phone',
+        'contact_consent', 'verified_at', 'verified_by_admin_id',
+    ];
 
     public const UPDATED_AT = null;
 

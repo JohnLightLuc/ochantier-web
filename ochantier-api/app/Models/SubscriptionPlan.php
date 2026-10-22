@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\BillingPeriod;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,13 +10,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Formules d'abonnement des promoteurs (distinctes de la commission Y).
  */
-#[Fillable([
-    'code', 'name', 'subtitle', 'description', 'price_amount', 'billing_period', 'max_users', 'features',
-    'is_featured', 'sort_order', 'is_active',
-])]
 class SubscriptionPlan extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'code', 'name', 'subtitle', 'description', 'price_amount', 'billing_period', 'max_users', 'features',
+        'is_featured', 'sort_order', 'is_active',
+    ];
 
     /**
      * Get the attributes that should be cast.

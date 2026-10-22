@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,12 +9,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Transfert de portefeuille entre commerciaux.
  */
-#[Fillable([
-    'worker_id', 'from_commercial_id', 'to_commercial_id', 'reason', 'effective_at', 'transferred_by_admin_id',
-])]
 class WorkerCommercialTransfer extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'worker_id', 'from_commercial_id', 'to_commercial_id', 'reason', 'effective_at', 'transferred_by_admin_id',
+    ];
 
     public const UPDATED_AT = null;
 

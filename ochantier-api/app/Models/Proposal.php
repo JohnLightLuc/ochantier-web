@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\ProposalStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,14 +11,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Proposition d’équipe présentée au promoteur pour une offre.
  */
-#[Fillable([
-    'reference', 'offer_id', 'site_id', 'sequence', 'status', 'requested_count', 'proposed_count', 'is_partial',
-    'daily_amount', 'days', 'total_amount', 'deposit_amount', 'published_at', 'published_by_admin_id', 'expires_at',
-    'decided_at', 'decided_by_user_id', 'refusal_reason_id', 'refusal_comment', 'workers_amount', 'commission_amount',
-])]
 class Proposal extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'offer_id', 'site_id', 'sequence', 'status', 'requested_count', 'proposed_count', 'is_partial',
+        'daily_amount', 'days', 'total_amount', 'deposit_amount', 'published_at', 'published_by_admin_id', 'expires_at',
+        'decided_at', 'decided_by_user_id', 'refusal_reason_id', 'refusal_comment', 'workers_amount', 'commission_amount',
+    ];
 
     /**
      * Get the attributes that should be cast.

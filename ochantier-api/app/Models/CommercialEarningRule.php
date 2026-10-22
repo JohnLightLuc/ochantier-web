@@ -6,7 +6,6 @@ use App\Enums\CommercialEarningEvent;
 use App\Enums\EarningCalculation;
 use App\Enums\EarningCapPeriod;
 use App\Enums\ParameterStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,13 +14,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Règle de calcul des gains des commerciaux.
  */
-#[Fillable([
-    'event_type', 'calculation', 'amount', 'rate', 'cap_amount', 'cap_period', 'effective_from', 'effective_to',
-    'status', 'created_by_admin_id', 'approved_by_admin_id',
-])]
 class CommercialEarningRule extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'event_type', 'calculation', 'amount', 'rate', 'cap_amount', 'cap_period', 'effective_from', 'effective_to',
+        'status', 'created_by_admin_id', 'approved_by_admin_id',
+    ];
 
     public const UPDATED_AT = null;
 

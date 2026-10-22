@@ -3,8 +3,6 @@
 namespace App\Models;
 
 use App\Enums\MatchingRunType;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\WithoutTimestamps;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,14 +11,21 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Exécution du matching pour un besoin.
  */
-#[Fillable([
-    'need_id', 'cycle_id', 'weight_set_id', 'run_type', 'replacement_id', 'filters', 'triggered_by_admin_id',
-    'candidate_count', 'executed_at',
-])]
-#[WithoutTimestamps]
 class MatchingRun extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'need_id', 'cycle_id', 'weight_set_id', 'run_type', 'replacement_id', 'filters', 'triggered_by_admin_id',
+        'candidate_count', 'executed_at',
+    ];
+
+    public $timestamps = false;
 
     /**
      * Get the attributes that should be cast.

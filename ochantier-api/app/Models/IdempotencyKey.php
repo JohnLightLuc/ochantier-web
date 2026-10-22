@@ -2,21 +2,31 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
-use Illuminate\Database\Eloquent\Attributes\WithoutIncrementing;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Clé d’idempotence d’une requête (rejeu sans double effet).
  */
-#[Fillable([
-    'scope', 'key', 'actor_type', 'actor_id', 'request_hash', 'response_status', 'response_body', 'expires_at',
-])]
-#[Hidden(['request_hash'])]
-#[WithoutIncrementing]
 class IdempotencyKey extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'scope', 'key', 'actor_type', 'actor_id', 'request_hash', 'response_status', 'response_body', 'expires_at',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = ['request_hash'];
+
+    public $incrementing = false;
+
     public const UPDATED_AT = null;
 
     /**

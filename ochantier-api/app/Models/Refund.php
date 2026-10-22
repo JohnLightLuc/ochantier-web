@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\RefundStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,13 +12,19 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 /**
  * Remboursement au promoteur (double validation).
  */
-#[Fillable([
-    'reference', 'mission_id', 'original_transaction_id', 'beneficiary_type', 'beneficiary_id', 'amount', 'reason_id',
-    'reason', 'dispute_id', 'status', 'requested_by_admin_id', 'approved_by_admin_id', 'second_approver_admin_id',
-])]
 class Refund extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'mission_id', 'original_transaction_id', 'beneficiary_type', 'beneficiary_id', 'amount', 'reason_id',
+        'reason', 'dispute_id', 'status', 'requested_by_admin_id', 'approved_by_admin_id', 'second_approver_admin_id',
+    ];
 
     /**
      * Get the attributes that should be cast.

@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,12 +9,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Historique des modifications d’un paramètre applicatif.
  */
-#[Fillable([
-    'setting_key', 'old_value', 'new_value', 'reason', 'changed_by_admin_id',
-])]
 class SettingHistory extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'setting_key', 'old_value', 'new_value', 'reason', 'changed_by_admin_id',
+    ];
 
     public const UPDATED_AT = null;
 

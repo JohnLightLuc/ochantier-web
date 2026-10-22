@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\ResponseRecorder;
 use App\Enums\WorkerResponseDecision;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,14 +11,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Accord ou refus recueilli (consentement : date, auteur, mission, tarif net, preuve).
  */
-#[Fillable([
-    'suggestion_id', 'contact_id', 'worker_id', 'decision', 'reason_id', 'conditions', 'net_daily_rate_shown',
-    'responded_at', 'recorded_by_type', 'recorded_by_id', 'proof_media_id', 'validated_by_admin_id', 'validated_at',
-    'client_uuid',
-])]
 class WorkerResponse extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'suggestion_id', 'contact_id', 'worker_id', 'decision', 'reason_id', 'conditions', 'net_daily_rate_shown',
+        'responded_at', 'recorded_by_type', 'recorded_by_id', 'proof_media_id', 'validated_by_admin_id', 'validated_at',
+        'client_uuid',
+    ];
 
     public const UPDATED_AT = null;
 

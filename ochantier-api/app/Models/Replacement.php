@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\ReplacementPromoterDecision;
 use App\Enums\ReplacementStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,15 +12,21 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Remplacement d’un ouvrier indisponible.
  */
-#[Fillable([
-    'unavailability_request_id', 'mission_id', 'original_assignment_id', 'replacement_assignment_id',
-    'requested_by_user_id', 'requested_criteria', 'proposed_suggestion_id', 'promoter_decision',
-    'promoter_decision_reason', 'promoter_decided_at', 'handover_at', 'handover_instructions', 'acknowledged_at',
-    'financial_impact', 'amendment_document_id', 'status', 'cancellation_reason',
-])]
 class Replacement extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'unavailability_request_id', 'mission_id', 'original_assignment_id', 'replacement_assignment_id',
+        'requested_by_user_id', 'requested_criteria', 'proposed_suggestion_id', 'promoter_decision',
+        'promoter_decision_reason', 'promoter_decided_at', 'handover_at', 'handover_instructions', 'acknowledged_at',
+        'financial_impact', 'amendment_document_id', 'status', 'cancellation_reason',
+    ];
 
     /**
      * Get the attributes that should be cast.

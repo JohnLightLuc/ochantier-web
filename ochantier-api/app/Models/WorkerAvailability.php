@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Enums\AvailabilityConfirmationChannel;
 use App\Enums\AvailabilityStatus;
 use App\Enums\WorkerAvailabilitySource;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,13 +12,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Historique de disponibilité (source, preuve, auteur).
  */
-#[Fillable([
-    'worker_id', 'status', 'effective_from', 'effective_to', 'next_available_date', 'source', 'recorded_by_type',
-    'recorded_by_id', 'confirmation_channel', 'proof_media_id', 'comment', 'client_uuid',
-])]
 class WorkerAvailability extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'worker_id', 'status', 'effective_from', 'effective_to', 'next_available_date', 'source', 'recorded_by_type',
+        'recorded_by_id', 'confirmation_channel', 'proof_media_id', 'comment', 'client_uuid',
+    ];
 
     public const UPDATED_AT = null;
 

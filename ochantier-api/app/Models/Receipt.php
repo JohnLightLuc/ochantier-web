@@ -3,8 +3,6 @@
 namespace App\Models;
 
 use App\Enums\ReceiptType;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\WithoutTimestamps;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,14 +11,21 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 /**
  * Reçus, factures, relevés (numérotation unique).
  */
-#[Fillable([
-    'number', 'receipt_type', 'transaction_id', 'subject_type', 'subject_id', 'issued_to_type', 'issued_to_id',
-    'amount', 'media_file_id', 'issued_at',
-])]
-#[WithoutTimestamps]
 class Receipt extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'number', 'receipt_type', 'transaction_id', 'subject_type', 'subject_id', 'issued_to_type', 'issued_to_id',
+        'amount', 'media_file_id', 'issued_at',
+    ];
+
+    public $timestamps = false;
 
     /**
      * Get the attributes that should be cast.

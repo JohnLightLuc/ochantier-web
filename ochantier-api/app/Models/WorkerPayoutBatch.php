@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\WorkerPayoutBatchStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,13 +11,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Lot de reversements exécuté en une fois auprès du prestataire.
  */
-#[Fillable([
-    'reference', 'status', 'payout_count', 'total_net_amount', 'total_commission_amount', 'results',
-    'created_by_admin_id', 'approved_by_admin_id', 'executed_at',
-])]
 class WorkerPayoutBatch extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'status', 'payout_count', 'total_net_amount', 'total_commission_amount', 'results',
+        'created_by_admin_id', 'approved_by_admin_id', 'executed_at',
+    ];
 
     public const UPDATED_AT = null;
 

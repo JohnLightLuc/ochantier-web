@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\FinancialPeriodClosingStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,13 +10,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Clôture comptable mensuelle : fige les montants de la période.
  */
-#[Fillable([
-    'period_month', 'status', 'version', 'snapshot', 'closed_by_admin_id', 'closed_at', 'reopened_by_admin_id',
-    'reopened_at', 'reopen_reason',
-])]
 class FinancialPeriodClosing extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'period_month', 'status', 'version', 'snapshot', 'closed_by_admin_id', 'closed_at', 'reopened_by_admin_id',
+        'reopened_at', 'reopen_reason',
+    ];
 
     /**
      * Get the attributes that should be cast.

@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Enums\UnavailabilityDeclarant;
 use App\Enums\UnavailabilityRequestPhase;
 use App\Enums\UnavailabilityRequestStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,14 +13,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Indisponibilité d’un ouvrier affecté, déclarée avant ou pendant la mission.
  */
-#[Fillable([
-    'assignment_id', 'mission_id', 'worker_id', 'phase', 'declared_by_type', 'declared_by_id', 'effective_at',
-    'last_worked_date', 'reason_id', 'reason_comment', 'estimated_duration_days', 'is_urgent', 'proof_media_id',
-    'status', 'cancellation_reason', 'client_uuid',
-])]
 class UnavailabilityRequest extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'assignment_id', 'mission_id', 'worker_id', 'phase', 'declared_by_type', 'declared_by_id', 'effective_at',
+        'last_worked_date', 'reason_id', 'reason_comment', 'estimated_duration_days', 'is_urgent', 'proof_media_id',
+        'status', 'cancellation_reason', 'client_uuid',
+    ];
 
     /**
      * Get the attributes that should be cast.

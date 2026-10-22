@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\WorkDayStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,14 +11,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Journée travaillée : unité payable.
  */
-#[Fillable([
-    'assignment_id', 'mission_id', 'worker_id', 'work_date', 'arrival_event_id', 'departure_event_id',
-    'worked_minutes', 'status', 'observation', 'validated_by_user_id', 'validated_at', 'is_locked',
-    'payment_schedule_id',
-])]
 class WorkDay extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'assignment_id', 'mission_id', 'worker_id', 'work_date', 'arrival_event_id', 'departure_event_id',
+        'worked_minutes', 'status', 'observation', 'validated_by_user_id', 'validated_at', 'is_locked',
+        'payment_schedule_id',
+    ];
 
     /**
      * Get the attributes that should be cast.

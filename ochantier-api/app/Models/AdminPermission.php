@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\PermissionAction;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -11,12 +10,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 /**
  * Permission élémentaire du Back Office (module + action).
  */
-#[Fillable([
-    'code', 'module', 'action', 'label',
-])]
 class AdminPermission extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'code', 'module', 'action', 'label',
+    ];
 
     public const UPDATED_AT = null;
 

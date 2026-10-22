@@ -3,8 +3,6 @@
 namespace App\Models;
 
 use App\Enums\ProgressDeclarationStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\WithoutTimestamps;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,14 +10,21 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Progression métier déclarée (distincte de la progression calendaire).
  */
-#[Fillable([
-    'mission_id', 'percent', 'comment', 'declared_by_user_id', 'declared_at', 'status', 'verified_by_admin_id',
-    'verified_at', 'client_uuid',
-])]
-#[WithoutTimestamps]
 class ProgressDeclaration extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'mission_id', 'percent', 'comment', 'declared_by_user_id', 'declared_at', 'status', 'verified_by_admin_id',
+        'verified_at', 'client_uuid',
+    ];
+
+    public $timestamps = false;
 
     /**
      * Get the attributes that should be cast.

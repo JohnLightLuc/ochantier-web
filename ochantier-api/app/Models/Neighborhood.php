@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,12 +10,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Quartier d’une commune.
  */
-#[Fillable([
-    'commune_id', 'name', 'location', 'is_active',
-])]
 class Neighborhood extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'commune_id', 'name', 'location', 'is_active',
+    ];
 
     /**
      * Get the attributes that should be cast.

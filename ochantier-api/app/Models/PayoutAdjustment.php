@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\PayoutAdjustmentKind;
 use App\Enums\PayoutAdjustmentStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,13 +11,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Retenue ou bonus appliqué à un reversement, motivé et approuvé.
  */
-#[Fillable([
-    'worker_payout_id', 'kind', 'amount', 'reason', 'basis', 'proof_media_id', 'status', 'created_by_admin_id',
-    'approved_by_admin_id',
-])]
 class PayoutAdjustment extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'worker_payout_id', 'kind', 'amount', 'reason', 'basis', 'proof_media_id', 'status', 'created_by_admin_id',
+        'approved_by_admin_id',
+    ];
 
     public const UPDATED_AT = null;
 

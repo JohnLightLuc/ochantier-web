@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Enums\AnomalyDetector;
 use App\Enums\AttendanceAnomalyStatus;
 use App\Enums\AttendanceAnomalyType;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,13 +12,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Anomalie de pointage (absence, retard, hors zone, preuve manquante…).
  */
-#[Fillable([
-    'assignment_id', 'work_day_id', 'anomaly_type', 'detected_by', 'reported_by_type', 'reported_by_id',
-    'occurred_at', 'comment', 'media_file_id', 'status', 'resolution', 'resolved_by_admin_id', 'resolved_at',
-])]
 class AttendanceAnomaly extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'assignment_id', 'work_day_id', 'anomaly_type', 'detected_by', 'reported_by_type', 'reported_by_id',
+        'occurred_at', 'comment', 'media_file_id', 'status', 'resolution', 'resolved_by_admin_id', 'resolved_at',
+    ];
 
     public const UPDATED_AT = null;
 

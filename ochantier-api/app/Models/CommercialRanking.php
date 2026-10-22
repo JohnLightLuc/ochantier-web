@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,12 +11,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Classement mensuel des commerciaux.
  */
-#[Fillable([
-    'period_month', 'criteria', 'closed_at', 'published_at', 'created_by_admin_id',
-])]
 class CommercialRanking extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'period_month', 'criteria', 'closed_at', 'published_at', 'created_by_admin_id',
+    ];
 
     public const UPDATED_AT = null;
 

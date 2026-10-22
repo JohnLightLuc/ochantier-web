@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,12 +9,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Ouvrier choisi directement par le promoteur pour un besoin.
  */
-#[Fillable([
-    'need_id', 'worker_id', 'promoter_daily_rate', 'requested_by_user_id',
-])]
 class NeedRequestedWorker extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'need_id', 'worker_id', 'promoter_daily_rate', 'requested_by_user_id',
+    ];
 
     public const UPDATED_AT = null;
 

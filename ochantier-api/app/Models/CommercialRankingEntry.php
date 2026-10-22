@@ -2,22 +2,27 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\WithoutIncrementing;
-use Illuminate\Database\Eloquent\Attributes\WithoutTimestamps;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Rang d’un commercial dans un classement mensuel.
  */
-#[Fillable([
-    'ranking_id', 'commercial_id', 'rank', 'score', 'metrics',
-])]
-#[WithoutTimestamps]
-#[WithoutIncrementing]
 class CommercialRankingEntry extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'ranking_id', 'commercial_id', 'rank', 'score', 'metrics',
+    ];
+
+    public $timestamps = false;
+
+    public $incrementing = false;
+
     /**
      * Clé primaire composite : le modèle n’a pas de clé simple.
      *

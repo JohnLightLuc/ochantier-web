@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\SiteStepStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,12 +10,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Étape des travaux d’un chantier (chronologie).
  */
-#[Fillable([
-    'site_id', 'sequence', 'title', 'status', 'started_at', 'completed_at', 'created_by_user_id', 'completed_by_user_id',
-])]
 class SiteStep extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'site_id', 'sequence', 'title', 'status', 'started_at', 'completed_at', 'created_by_user_id', 'completed_by_user_id',
+    ];
 
     /**
      * Get the attributes that should be cast.

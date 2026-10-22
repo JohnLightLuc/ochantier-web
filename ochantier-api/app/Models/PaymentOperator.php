@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,12 +10,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Opérateurs Mobile Money / prestataires de paiement.
  */
-#[Fillable([
-    'code', 'name', 'country_id', 'provider', 'number_pattern', 'supports_collection', 'supports_payout', 'is_active', 'collection_fee_percent',
-])]
 class PaymentOperator extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'code', 'name', 'country_id', 'provider', 'number_pattern', 'supports_collection', 'supports_payout', 'is_active', 'collection_fee_percent',
+    ];
 
     /**
      * Get the attributes that should be cast.

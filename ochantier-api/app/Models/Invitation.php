@@ -3,9 +3,6 @@
 namespace App\Models;
 
 use App\Enums\MessageChannel;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
-use Illuminate\Database\Eloquent\Attributes\WithoutTimestamps;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,15 +11,28 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 /**
  * Invitation à activer un compte, envoyée par le Back Office ou un promoteur.
  */
-#[Fillable([
-    'authenticatable_type', 'authenticatable_id', 'channel', 'token_hash', 'invited_by_admin_id',
-    'invited_by_user_id', 'sent_at', 'expires_at', 'accepted_at', 'cancelled_at',
-])]
-#[Hidden(['token_hash'])]
-#[WithoutTimestamps]
 class Invitation extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'authenticatable_type', 'authenticatable_id', 'channel', 'token_hash', 'invited_by_admin_id',
+        'invited_by_user_id', 'sent_at', 'expires_at', 'accepted_at', 'cancelled_at',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = ['token_hash'];
+
+    public $timestamps = false;
 
     /**
      * Get the attributes that should be cast.

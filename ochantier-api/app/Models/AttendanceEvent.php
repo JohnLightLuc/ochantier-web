@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Casts\GeoPoint;
 use App\Enums\AttendanceEventStatus;
 use App\Enums\AttendanceEventType;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,14 +13,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Événement de pointage (arrivée ou départ) saisi par le promoteur ou un responsable autorisé.
  */
-#[Fillable([
-    'assignment_id', 'mission_id', 'site_id', 'worker_id', 'work_date', 'event_type', 'recorded_at',
-    'device_recorded_at', 'author_user_id', 'photo_media_id', 'signature_media_id', 'location', 'location_accuracy_m',
-    'distance_to_site_m', 'out_of_zone', 'device_id', 'app_version', 'status', 'superseded_by_id', 'client_uuid',
-])]
 class AttendanceEvent extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'assignment_id', 'mission_id', 'site_id', 'worker_id', 'work_date', 'event_type', 'recorded_at',
+        'device_recorded_at', 'author_user_id', 'photo_media_id', 'signature_media_id', 'location', 'location_accuracy_m',
+        'distance_to_site_m', 'out_of_zone', 'device_id', 'app_version', 'status', 'superseded_by_id', 'client_uuid',
+    ];
 
     public const UPDATED_AT = null;
 

@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\SubscriptionStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,14 +11,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Abonnement d'un promoteur ; pour une entreprise, organization_id est renseigné.
  */
-#[Fillable([
-    'reference', 'promoter_profile_id', 'organization_id', 'plan_id', 'previous_plan_id', 'pending_plan_id',
-    'pending_effective_at', 'status', 'started_at', 'current_period_start', 'current_period_end', 'next_due_date',
-    'auto_renew', 'payment_method_id', 'cancelled_at', 'cancellation_reason',
-])]
 class Subscription extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'promoter_profile_id', 'organization_id', 'plan_id', 'previous_plan_id', 'pending_plan_id',
+        'pending_effective_at', 'status', 'started_at', 'current_period_start', 'current_period_end', 'next_due_date',
+        'auto_renew', 'payment_method_id', 'cancelled_at', 'cancellation_reason',
+    ];
 
     /**
      * Get the attributes that should be cast.

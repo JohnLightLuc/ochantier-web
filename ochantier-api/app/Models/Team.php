@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,12 +10,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Équipe d'une offre contractuelle : regroupe les affectations de ses besoins.
  */
-#[Fillable([
-    'offer_id', 'name', 'lead_worker_id',
-])]
 class Team extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'offer_id', 'name', 'lead_worker_id',
+    ];
 
     /**
      * @return BelongsTo<Offer, $this>

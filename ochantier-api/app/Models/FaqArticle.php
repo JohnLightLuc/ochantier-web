@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\Audience;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,13 +10,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Article d’aide (FAQ, aide contextuelle d’un écran).
  */
-#[Fillable([
-    'section', 'audience', 'title', 'content', 'context_key', 'version', 'is_published', 'published_at',
-    'updated_by_admin_id',
-])]
 class FaqArticle extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'section', 'audience', 'title', 'content', 'context_key', 'version', 'is_published', 'published_at',
+        'updated_by_admin_id',
+    ];
 
     /**
      * Get the attributes that should be cast.

@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\SkillLevel;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,12 +10,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Métier exercé par un ouvrier, avec son expérience et son niveau.
  */
-#[Fillable([
-    'worker_id', 'trade_id', 'is_primary', 'years_experience', 'verified_years', 'start_year', 'level',
-])]
 class WorkerTrade extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'worker_id', 'trade_id', 'is_primary', 'years_experience', 'verified_years', 'start_year', 'level',
+    ];
 
     /**
      * Get the attributes that should be cast.

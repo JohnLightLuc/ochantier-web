@@ -8,7 +8,6 @@ use App\Enums\OfferType;
 use App\Enums\OfferVisibility;
 use App\Enums\PriceOrigin;
 use App\Enums\Priority;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,15 +19,21 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * Offre promoteur publiée sur un chantier : un ou plusieurs besoins, prix fixé par l'ouvrier ou le promoteur.
  */
-#[Fillable([
-    'reference', 'site_id', 'offer_type', 'price_origin', 'title', 'description', 'urgency', 'start_date', 'end_date',
-    'contract_total_amount', 'quote_document_id', 'quote_amount', 'deliverables', 'visibility', 'published_at',
-    'application_deadline', 'applications_open', 'extension_count', 'auto_renew', 'status', 'submitted_at',
-    'assigned_admin_id', 'created_by_user_id', 'cancellation_reason', 'client_uuid', 'lock_version', 'payment_mode',
-])]
 class Offer extends Model
 {
     use HasUuids, SoftDeletes;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'site_id', 'offer_type', 'price_origin', 'title', 'description', 'urgency', 'start_date', 'end_date',
+        'contract_total_amount', 'quote_document_id', 'quote_amount', 'deliverables', 'visibility', 'published_at',
+        'application_deadline', 'applications_open', 'extension_count', 'auto_renew', 'status', 'submitted_at',
+        'assigned_admin_id', 'created_by_user_id', 'cancellation_reason', 'client_uuid', 'lock_version', 'payment_mode',
+    ];
 
     /**
      * Get the attributes that should be cast.

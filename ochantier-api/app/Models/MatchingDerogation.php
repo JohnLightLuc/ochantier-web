@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,13 +9,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Dérogation à un critère pour retenir malgré tout un ouvrier (double validation).
  */
-#[Fillable([
-    'need_id', 'worker_id', 'criterion', 'justification', 'requested_by_admin_id', 'approved_by_admin_id',
-    'approved_at', 'revoked_at',
-])]
 class MatchingDerogation extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'need_id', 'worker_id', 'criterion', 'justification', 'requested_by_admin_id', 'approved_by_admin_id',
+        'approved_at', 'revoked_at',
+    ];
 
     public const UPDATED_AT = null;
 

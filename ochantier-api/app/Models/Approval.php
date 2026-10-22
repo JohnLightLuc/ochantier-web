@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\ApprovalStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,13 +11,19 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 /**
  * Validation à deux personnes (maker-checker) pour les actions sensibles.
  */
-#[Fillable([
-    'subject_type', 'subject_id', 'action', 'payload', 'requested_by_admin_id', 'decided_by_admin_id', 'status',
-    'comment', 'decided_at',
-])]
 class Approval extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'subject_type', 'subject_id', 'action', 'payload', 'requested_by_admin_id', 'decided_by_admin_id', 'status',
+        'comment', 'decided_at',
+    ];
 
     public const UPDATED_AT = null;
 

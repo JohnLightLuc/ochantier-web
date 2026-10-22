@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,12 +9,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Appréciation écrite sur un commercial par le Back Office.
  */
-#[Fillable([
-    'commercial_id', 'author_admin_id', 'body',
-])]
 class CommercialAppreciation extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'commercial_id', 'author_admin_id', 'body',
+    ];
 
     public const UPDATED_AT = null;
 

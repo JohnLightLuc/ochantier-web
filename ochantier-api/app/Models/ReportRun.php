@@ -3,8 +3,6 @@
 namespace App\Models;
 
 use App\Enums\ExportFormat;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\WithoutTimestamps;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,14 +10,21 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Rapport généré (planifié ou à la demande).
  */
-#[Fillable([
-    'schedule_id', 'report_kind', 'name', 'format', 'filters', 'row_count', 'media_file_id', 'generated_by_admin_id',
-    'generated_at',
-])]
-#[WithoutTimestamps]
 class ReportRun extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'schedule_id', 'report_kind', 'name', 'format', 'filters', 'row_count', 'media_file_id', 'generated_by_admin_id',
+        'generated_at',
+    ];
+
+    public $timestamps = false;
 
     /**
      * Get the attributes that should be cast.

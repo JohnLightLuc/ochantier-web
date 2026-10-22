@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\CommercialPayoutStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,13 +11,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Paiement des gains d’un commercial sur une période.
  */
-#[Fillable([
-    'reference', 'commercial_id', 'period_start', 'period_end', 'total_amount', 'payment_method_id', 'status',
-    'statement_media_id', 'created_by_admin_id', 'approved_by_admin_id', 'paid_at',
-])]
 class CommercialPayout extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'commercial_id', 'period_start', 'period_end', 'total_amount', 'payment_method_id', 'status',
+        'statement_media_id', 'created_by_admin_id', 'approved_by_admin_id', 'paid_at',
+    ];
 
     public const UPDATED_AT = null;
 

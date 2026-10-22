@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\SelectionStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,13 +11,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Sélection par le promoteur.
  */
-#[Fillable([
-    'need_id', 'suggestion_id', 'worker_id', 'selected_by_user_id', 'selected_at', 'validated_by_admin_id',
-    'validated_at', 'status', 'deselected_at', 'deselection_reason',
-])]
 class Selection extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'need_id', 'suggestion_id', 'worker_id', 'selected_by_user_id', 'selected_at', 'validated_by_admin_id',
+        'validated_at', 'status', 'deselected_at', 'deselection_reason',
+    ];
 
     /**
      * Get the attributes that should be cast.

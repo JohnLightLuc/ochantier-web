@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\Audience;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,12 +11,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Textes applicables versionnés (CGU, confidentialité, conditions financières…).
  */
-#[Fillable([
-    'code', 'audience', 'version', 'title', 'content', 'media_file_id', 'effective_from', 'published_by_admin_id',
-])]
 class LegalDocument extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'code', 'audience', 'version', 'title', 'content', 'media_file_id', 'effective_from', 'published_by_admin_id',
+    ];
 
     public const UPDATED_AT = null;
 

@@ -4,8 +4,6 @@ namespace App\Console\Commands;
 
 use App\Models\Offer;
 use App\Support\Matching\MatchingSimulator;
-use Illuminate\Console\Attributes\Description;
-use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use RuntimeException;
 
@@ -13,12 +11,14 @@ use RuntimeException;
  * Simule localement le contrôle Back office et le matching des offres publiées depuis l’application Promoteur, pour
  * recevoir une proposition d’équipe sans Back office. Refusée en production.
  */
-#[Signature('ochantier:simulate-matching
-    {--site= : Référence (CH-2026-0001) ou identifiant d’un chantier}
-    {--missing=0 : Nombre d’ouvriers à laisser manquer pour obtenir une proposition partielle}')]
-#[Description('Simule le matching des offres publiées et présente une proposition d’équipe au promoteur (hors production)')]
 class SimulateMatching extends Command
 {
+    protected $signature = 'ochantier:simulate-matching
+        {--site= : Référence (CH-2026-0001) ou identifiant d’un chantier}
+        {--missing=0 : Nombre d’ouvriers à laisser manquer pour obtenir une proposition partielle}';
+
+    protected $description = 'Simule le matching des offres publiées et présente une proposition d’équipe au promoteur (hors production)';
+
     public function handle(MatchingSimulator $simulator): int
     {
         if (app()->isProduction()) {

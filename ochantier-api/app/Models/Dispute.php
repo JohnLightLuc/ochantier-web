@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\DisputeStatus;
 use App\Enums\Priority;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,14 +14,20 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 /**
  * Litige entre parties, instruit par le Back Office.
  */
-#[Fillable([
-    'reference', 'category', 'opened_by_type', 'opened_by_id', 'site_id', 'mission_id', 'assignment_id',
-    'transaction_id', 'rating_id', 'commercial_earning_id', 'description', 'urgency', 'status', 'assigned_admin_id',
-    'decision', 'financial_impact', 'decided_by_admin_id', 'decided_at', 'appeal_of_dispute_id', 'appeal_deadline',
-])]
 class Dispute extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'category', 'opened_by_type', 'opened_by_id', 'site_id', 'mission_id', 'assignment_id',
+        'transaction_id', 'rating_id', 'commercial_earning_id', 'description', 'urgency', 'status', 'assigned_admin_id',
+        'decision', 'financial_impact', 'decided_by_admin_id', 'decided_at', 'appeal_of_dispute_id', 'appeal_deadline',
+    ];
 
     /**
      * Get the attributes that should be cast.

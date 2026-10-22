@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Casts\GeoPoint;
 use App\Enums\PromoterVerificationStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,14 +14,20 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * Organisation promotrice (entreprise) : facultative.
  */
-#[Fillable([
-    'owner_user_id', 'legal_name', 'trade_name', 'legal_form', 'rccm', 'tax_identifier', 'address', 'commune_id', 'neighborhood_id', 'location',
-    'phone', 'email', 'legal_representative', 'logo_media_id', 'billing_name', 'billing_address',
-    'verification_status', 'validated_at', 'validated_by_admin_id', 'suspended_reason',
-])]
 class Organization extends Model
 {
     use HasUuids, SoftDeletes;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'owner_user_id', 'legal_name', 'trade_name', 'legal_form', 'rccm', 'tax_identifier', 'address', 'commune_id', 'neighborhood_id', 'location',
+        'phone', 'email', 'legal_representative', 'logo_media_id', 'billing_name', 'billing_address',
+        'verification_status', 'validated_at', 'validated_by_admin_id', 'suspended_reason',
+    ];
 
     /**
      * Get the attributes that should be cast.

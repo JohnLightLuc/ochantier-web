@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\NotificationChannel;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,12 +10,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Modèle de message par événement, canal et langue.
  */
-#[Fillable([
-    'event_code', 'channel', 'locale', 'subject', 'body', 'variables', 'is_active',
-])]
 class NotificationTemplate extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'event_code', 'channel', 'locale', 'subject', 'body', 'variables', 'is_active',
+    ];
 
     /**
      * Get the attributes that should be cast.

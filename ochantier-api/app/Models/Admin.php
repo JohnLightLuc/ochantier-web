@@ -3,8 +3,6 @@
 namespace App\Models;
 
 use App\Enums\AdminStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -16,15 +14,27 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 /**
  * Administrateurs du Back Office (séparés des utilisateurs).
  */
-#[Fillable([
-    'first_name', 'last_name', 'email', 'phone', 'department', 'password_hash', 'status', 'mfa_enabled',
-    'mfa_secret_encrypted', 'must_change_password', 'failed_login_count', 'locked_until', 'access_expires_at',
-    'last_login_at', 'last_login_ip', 'preferences', 'invited_by_admin_id', 'suspended_at', 'suspended_reason',
-])]
-#[Hidden(['password_hash', 'mfa_secret_encrypted'])]
 class Admin extends Authenticatable
 {
     use HasUuids, SoftDeletes;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'first_name', 'last_name', 'email', 'phone', 'department', 'password_hash', 'status', 'mfa_enabled',
+        'mfa_secret_encrypted', 'must_change_password', 'failed_login_count', 'locked_until', 'access_expires_at',
+        'last_login_at', 'last_login_ip', 'preferences', 'invited_by_admin_id', 'suspended_at', 'suspended_reason',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = ['password_hash', 'mfa_secret_encrypted'];
 
     /**
      * Colonne du mot de passe haché.

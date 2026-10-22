@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Enums\PromoterProfileKind;
 use App\Enums\PromoterVerificationStatus;
 use Database\Factories\PromoterProfileFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -17,13 +16,19 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * Profil promoteur : un particulier n'a pas besoin d'organisation.
  */
-#[Fillable([
-    'user_id', 'profile_kind', 'job_title', 'photo_media_id', 'address', 'commune_id', 'neighborhood_id', 'billing_name',
-    'billing_address', 'tax_identifier', 'verification_status', 'validated_at', 'validated_by_admin_id',
-    'suspended_reason',
-])]
 class PromoterProfile extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'user_id', 'profile_kind', 'job_title', 'photo_media_id', 'address', 'commune_id', 'neighborhood_id', 'billing_name',
+        'billing_address', 'tax_identifier', 'verification_status', 'validated_at', 'validated_by_admin_id',
+        'suspended_reason',
+    ];
+
     /** @use HasFactory<PromoterProfileFactory> */
     use HasFactory, HasUuids, SoftDeletes;
 

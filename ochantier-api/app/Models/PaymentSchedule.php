@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\PaymentScheduleStatus;
 use App\Enums\PaymentScheduleType;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,15 +12,21 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Échéance due par le promoteur ; l'acompte X est déduit des échéances suivantes.
  */
-#[Fillable([
-    'reference', 'mission_id', 'schedule_type', 'sequence', 'period_start', 'period_end', 'milestone_id',
-    'threshold_percent', 'workers_amount', 'promoter_commission_amount', 'deposit_deduction_amount',
-    'adjustment_amount', 'amount_due', 'amount_paid', 'due_date', 'status', 'pricing_snapshot_id',
-    'calculation_details', 'notified_at', 'last_reminder_at',
-])]
 class PaymentSchedule extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'mission_id', 'schedule_type', 'sequence', 'period_start', 'period_end', 'milestone_id',
+        'threshold_percent', 'workers_amount', 'promoter_commission_amount', 'deposit_deduction_amount',
+        'adjustment_amount', 'amount_due', 'amount_paid', 'due_date', 'status', 'pricing_snapshot_id',
+        'calculation_details', 'notified_at', 'last_reminder_at',
+    ];
 
     /**
      * Get the attributes that should be cast.

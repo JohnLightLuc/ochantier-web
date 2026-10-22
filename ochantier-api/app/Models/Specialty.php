@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,12 +11,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Spécialité d’un métier (ex. maçon coffreur).
  */
-#[Fillable([
-    'trade_id', 'code', 'label', 'is_active',
-])]
 class Specialty extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'trade_id', 'code', 'label', 'is_active',
+    ];
 
     /**
      * Get the attributes that should be cast.

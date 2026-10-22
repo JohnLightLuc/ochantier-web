@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\DevicePlatform;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -11,12 +10,18 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 /**
  * Jeton de notification push d’un appareil.
  */
-#[Fillable([
-    'owner_type', 'owner_id', 'platform', 'push_token', 'device_id', 'last_seen_at', 'revoked_at',
-])]
 class DeviceToken extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'owner_type', 'owner_id', 'platform', 'push_token', 'device_id', 'last_seen_at', 'revoked_at',
+    ];
 
     public const UPDATED_AT = null;
 

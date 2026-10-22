@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\ClaimStatus;
 use App\Enums\Priority;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,14 +13,20 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 /**
  * Réclamation : demande simple traitée par le support ; escaladée en litige si besoin.
  */
-#[Fillable([
-    'reference', 'claimant_type', 'claimant_id', 'other_party_type', 'other_party_id', 'site_id', 'mission_id',
-    'assignment_id', 'rating_id', 'category', 'subject', 'description', 'priority', 'owner_admin_id', 'due_at',
-    'status', 'resolution', 'dispute_id',
-])]
 class Claim extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'claimant_type', 'claimant_id', 'other_party_type', 'other_party_id', 'site_id', 'mission_id',
+        'assignment_id', 'rating_id', 'category', 'subject', 'description', 'priority', 'owner_admin_id', 'due_at',
+        'status', 'resolution', 'dispute_id',
+    ];
 
     /**
      * Get the attributes that should be cast.

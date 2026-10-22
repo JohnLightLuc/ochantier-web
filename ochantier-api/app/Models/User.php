@@ -5,8 +5,6 @@ namespace App\Models;
 use App\Enums\UserStatus;
 use App\Enums\UserType;
 use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,14 +18,26 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 /**
  * Utilisateurs des applications (promoteurs, commerciaux, ouvriers en V2).
  */
-#[Fillable([
-    'user_type', 'first_name', 'last_name', 'dial_code', 'phone_number', 'phone_verified_at', 'email', 'email_verified_at',
-    'password_hash', 'status', 'must_change_password', 'failed_login_count', 'locked_until', 'locale', 'preferences',
-    'last_login_at', 'created_by_admin_id', 'suspended_at', 'suspended_by_admin_id', 'suspended_reason',
-])]
-#[Hidden(['password_hash'])]
 class User extends Authenticatable
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'user_type', 'first_name', 'last_name', 'dial_code', 'phone_number', 'phone_verified_at', 'email', 'email_verified_at',
+        'password_hash', 'status', 'must_change_password', 'failed_login_count', 'locked_until', 'locale', 'preferences',
+        'last_login_at', 'created_by_admin_id', 'suspended_at', 'suspended_by_admin_id', 'suspended_reason',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = ['password_hash'];
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasUuids, SoftDeletes;
 

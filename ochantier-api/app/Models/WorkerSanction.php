@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\SanctionAppealStatus;
 use App\Enums\WorkerSanctionType;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,13 +11,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Avertissement, suspension ou exclusion d’un ouvrier.
  */
-#[Fillable([
-    'worker_id', 'sanction_type', 'reason_id', 'comment', 'starts_at', 'ends_at', 'decided_by_admin_id',
-    'appeal_status', 'lifted_at',
-])]
 class WorkerSanction extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'worker_id', 'sanction_type', 'reason_id', 'comment', 'starts_at', 'ends_at', 'decided_by_admin_id',
+        'appeal_status', 'lifted_at',
+    ];
 
     public const UPDATED_AT = null;
 

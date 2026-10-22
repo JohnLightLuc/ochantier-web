@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Enums\OfferType;
 use App\Enums\PriceOrigin;
 use App\Enums\PricingSnapshotKind;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,15 +13,21 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Instantané tarifaire : simulations, devis, puis valeurs figées à la confirmation.
  */
-#[Fillable([
-    'need_id', 'kind', 'offer_type', 'price_origin', 'x_rate', 'y_rate', 'z_rate', 'r_rate', 'parameter_ids',
-    'subscription_id', 'headcount', 'planned_days', 'workers_base_amount', 'promoter_commission_amount',
-    'worker_commission_amount', 'total_promoter_amount', 'deposit_amount', 'balance_amount', 'rounding_rule', 'lines',
-    'computed_by_type', 'computed_by_id',
-])]
 class PricingSnapshot extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'need_id', 'kind', 'offer_type', 'price_origin', 'x_rate', 'y_rate', 'z_rate', 'r_rate', 'parameter_ids',
+        'subscription_id', 'headcount', 'planned_days', 'workers_base_amount', 'promoter_commission_amount',
+        'worker_commission_amount', 'total_promoter_amount', 'deposit_amount', 'balance_amount', 'rounding_rule', 'lines',
+        'computed_by_type', 'computed_by_id',
+    ];
 
     public const UPDATED_AT = null;
 

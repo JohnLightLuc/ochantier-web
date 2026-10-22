@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -10,12 +9,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Hiérarchie géographique : pays > ville > commune > quartier.
  */
-#[Fillable([
-    'iso_code', 'name', 'phone_prefix', 'is_active',
-])]
 class Country extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'iso_code', 'name', 'phone_prefix', 'is_active',
+    ];
 
     /**
      * Get the attributes that should be cast.

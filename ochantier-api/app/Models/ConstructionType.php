@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -10,12 +9,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Type de construction d’un chantier (villa, immeuble, rénovation…).
  */
-#[Fillable([
-    'code', 'label', 'is_active',
-])]
 class ConstructionType extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'code', 'label', 'is_active',
+    ];
 
     /**
      * Get the attributes that should be cast.

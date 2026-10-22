@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Enums\CommercialProfileStatus;
 use App\Enums\CommercialProfileVerificationStatus;
 use Database\Factories\CommercialProfileFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -17,12 +16,18 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * Profil d’un commercial terrain : matricule, superviseur, statut.
  */
-#[Fillable([
-    'user_id', 'employee_number', 'supervisor_id', 'is_supervisor', 'photo_media_id', 'address', 'secondary_phone',
-    'verification_status', 'status', 'started_at', 'ended_at', 'created_by_admin_id',
-])]
 class CommercialProfile extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'user_id', 'employee_number', 'supervisor_id', 'is_supervisor', 'photo_media_id', 'address', 'secondary_phone',
+        'verification_status', 'status', 'started_at', 'ended_at', 'created_by_admin_id',
+    ];
+
     /** @use HasFactory<CommercialProfileFactory> */
     use HasFactory, HasUuids, SoftDeletes;
 

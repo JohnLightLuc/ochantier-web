@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\VerificationCorrectionPriority;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,12 +10,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Correction demandée lors d’un contrôle de dossier.
  */
-#[Fillable([
-    'review_id', 'target_field', 'document_id', 'reason', 'priority', 'due_at', 'resolved_at', 'resolution_comment',
-])]
 class VerificationCorrection extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'review_id', 'target_field', 'document_id', 'reason', 'priority', 'due_at', 'resolved_at', 'resolution_comment',
+    ];
 
     public const UPDATED_AT = null;
 

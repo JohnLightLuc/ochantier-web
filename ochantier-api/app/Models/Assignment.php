@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\AssignmentStatus;
 use App\Enums\SalaryPeriod;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,15 +12,21 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Affectation d'un ouvrier à une mission (conditions financières figées).
  */
-#[Fillable([
-    'mission_id', 'need_id', 'worker_id', 'selection_id', 'team_id', 'role_label', 'is_team_lead', 'commercial_id',
-    'planned_start_date', 'planned_end_date', 'actual_start_at', 'actual_end_at', 'promoter_daily_rate',
-    'worker_net_daily_rate', 'salary_amount', 'salary_period', 'z_rate', 'status', 'replaces_assignment_id',
-    'end_reason',
-])]
 class Assignment extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'mission_id', 'need_id', 'worker_id', 'selection_id', 'team_id', 'role_label', 'is_team_lead', 'commercial_id',
+        'planned_start_date', 'planned_end_date', 'actual_start_at', 'actual_end_at', 'promoter_daily_rate',
+        'worker_net_daily_rate', 'salary_amount', 'salary_period', 'z_rate', 'status', 'replaces_assignment_id',
+        'end_reason',
+    ];
 
     /**
      * Get the attributes that should be cast.

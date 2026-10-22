@@ -6,7 +6,6 @@ use App\Enums\RatingModerationStatus;
 use App\Enums\RatingScope;
 use App\Enums\RatingStatus;
 use App\Enums\RatingVerificationStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,15 +14,21 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Évaluation d’un ouvrier ou d’une équipe par le promoteur.
  */
-#[Fillable([
-    'rating_scope', 'mission_id', 'assignment_id', 'worker_id', 'team_id', 'author_user_id', 'overall_score',
-    'criteria_scores', 'comment', 'recommends', 'publish_consent', 'verification_status', 'fraud_suspected',
-    'response', 'response_at', 'status', 'published_at', 'editable_until', 'version', 'reported_at',
-    'moderation_status', 'moderated_by_admin_id', 'moderation_reason',
-])]
 class Rating extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'rating_scope', 'mission_id', 'assignment_id', 'worker_id', 'team_id', 'author_user_id', 'overall_score',
+        'criteria_scores', 'comment', 'recommends', 'publish_consent', 'verification_status', 'fraud_suspected',
+        'response', 'response_at', 'status', 'published_at', 'editable_until', 'version', 'reported_at',
+        'moderation_status', 'moderated_by_admin_id', 'moderation_reason',
+    ];
 
     /**
      * Get the attributes that should be cast.

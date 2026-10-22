@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\OfferMilestoneStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,13 +11,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Jalons d'une offre contractuelle (paiement par jalon).
  */
-#[Fillable([
-    'offer_id', 'sequence', 'label', 'description', 'amount', 'percent_of_total', 'due_date', 'status', 'reached_at',
-    'proof_document_id', 'validated_by_admin_id', 'validated_at',
-])]
 class OfferMilestone extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'offer_id', 'sequence', 'label', 'description', 'amount', 'percent_of_total', 'due_date', 'status', 'reached_at',
+        'proof_document_id', 'validated_by_admin_id', 'validated_at',
+    ];
 
     /**
      * Get the attributes that should be cast.

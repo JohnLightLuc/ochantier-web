@@ -8,7 +8,6 @@ use App\Enums\OfferType;
 use App\Enums\PaymentFrequency;
 use App\Enums\SalaryPeriod;
 use App\Enums\SkillLevel;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,17 +19,23 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * Besoin métier : une ligne de l'offre (un métier, un effectif, une rémunération).
  */
-#[Fillable([
-    'reference', 'offer_id', 'site_id', 'offer_type', 'trade_id', 'specialty_id', 'role_label', 'is_team_lead',
-    'headcount', 'min_experience_years', 'required_level', 'title', 'description', 'expected_results', 'instructions',
-    'equipment_required', 'constraints', 'start_date', 'end_date', 'duration_days', 'work_days', 'work_start_time',
-    'work_end_time', 'payment_frequency', 'indicative_daily_budget', 'salary_amount', 'salary_period', 'status',
-    'submitted_at', 'published_at', 'assigned_admin_id', 'duplicated_from_need_id', 'created_by_user_id',
-    'cancellation_reason', 'client_uuid', 'lock_version',
-])]
 class Need extends Model
 {
     use HasUuids, SoftDeletes;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'offer_id', 'site_id', 'offer_type', 'trade_id', 'specialty_id', 'role_label', 'is_team_lead',
+        'headcount', 'min_experience_years', 'required_level', 'title', 'description', 'expected_results', 'instructions',
+        'equipment_required', 'constraints', 'start_date', 'end_date', 'duration_days', 'work_days', 'work_start_time',
+        'work_end_time', 'payment_frequency', 'indicative_daily_budget', 'salary_amount', 'salary_period', 'status',
+        'submitted_at', 'published_at', 'assigned_admin_id', 'duplicated_from_need_id', 'created_by_user_id',
+        'cancellation_reason', 'client_uuid', 'lock_version',
+    ];
 
     /**
      * Get the attributes that should be cast.

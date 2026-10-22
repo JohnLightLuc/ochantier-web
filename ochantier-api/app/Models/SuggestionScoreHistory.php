@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,13 +9,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Recalcul d'un score (nouveau barème ou donnée corrigée).
  */
-#[Fillable([
-    'suggestion_id', 'old_score', 'new_score', 'old_weight_set_id', 'new_weight_set_id', 'reason',
-    'recalculated_by_admin_id',
-])]
 class SuggestionScoreHistory extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'suggestion_id', 'old_score', 'new_score', 'old_weight_set_id', 'new_weight_set_id', 'reason',
+        'recalculated_by_admin_id',
+    ];
 
     public const UPDATED_AT = null;
 

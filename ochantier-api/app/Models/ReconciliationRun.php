@@ -3,8 +3,6 @@
 namespace App\Models;
 
 use App\Enums\ReconciliationRunStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\WithoutTimestamps;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,13 +11,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Rapprochement des opérations avec un prestataire de paiement.
  */
-#[Fillable([
-    'provider', 'period_start', 'period_end', 'status', 'summary', 'run_by_admin_id', 'started_at', 'completed_at',
-])]
-#[WithoutTimestamps]
 class ReconciliationRun extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'provider', 'period_start', 'period_end', 'status', 'summary', 'run_by_admin_id', 'started_at', 'completed_at',
+    ];
+
+    public $timestamps = false;
 
     /**
      * Get the attributes that should be cast.

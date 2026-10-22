@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\WorkerPayoutStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,14 +11,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Reversement à un ouvrier (ordre transmis au prestataire, double validation).
  */
-#[Fillable([
-    'reference', 'worker_id', 'mission_id', 'payment_schedule_id', 'batch_id', 'period_start', 'period_end',
-    'gross_amount', 'commission_amount', 'deduction_amount', 'bonus_amount', 'net_amount', 'payment_method_id',
-    'status', 'created_by_admin_id', 'approved_by_admin_id', 'approved_at',
-])]
 class WorkerPayout extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'worker_id', 'mission_id', 'payment_schedule_id', 'batch_id', 'period_start', 'period_end',
+        'gross_amount', 'commission_amount', 'deduction_amount', 'bonus_amount', 'net_amount', 'payment_method_id',
+        'status', 'created_by_admin_id', 'approved_by_admin_id', 'approved_at',
+    ];
 
     /**
      * Get the attributes that should be cast.

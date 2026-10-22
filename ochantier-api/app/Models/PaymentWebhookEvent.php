@@ -3,8 +3,6 @@
 namespace App\Models;
 
 use App\Enums\WebhookProcessingStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\WithoutTimestamps;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,14 +11,21 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Webhooks persistés avant traitement, traités de façon idempotente.
  */
-#[Fillable([
-    'provider', 'provider_event_id', 'event_type', 'signature_valid', 'payload', 'received_at', 'processing_status',
-    'processed_at', 'attempts', 'error', 'transaction_id',
-])]
-#[WithoutTimestamps]
 class PaymentWebhookEvent extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'provider', 'provider_event_id', 'event_type', 'signature_valid', 'payload', 'received_at', 'processing_status',
+        'processed_at', 'attempts', 'error', 'transaction_id',
+    ];
+
+    public $timestamps = false;
 
     /**
      * Get the attributes that should be cast.

@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,12 +9,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Commune affectée à un commercial sur une période.
  */
-#[Fillable([
-    'commercial_id', 'commune_id', 'is_primary', 'effective_from', 'effective_to', 'assigned_by_admin_id',
-])]
 class CommercialZone extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'commercial_id', 'commune_id', 'is_primary', 'effective_from', 'effective_to', 'assigned_by_admin_id',
+    ];
 
     public const UPDATED_AT = null;
 

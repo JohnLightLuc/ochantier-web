@@ -6,7 +6,6 @@ use App\Casts\PostgresArray;
 use App\Enums\AvailabilityStatus;
 use App\Enums\Gender;
 use App\Enums\WorkerVerificationStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,22 +17,28 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * Ouvrier : sans compte en V1 (user_id nul), compte de l'application Ouvrier en V2.
  */
-#[Fillable([
-    'reference', 'user_id', 'origin_commercial_id', 'current_commercial_id', 'prospect_id', 'first_name', 'last_name',
-    'birth_date', 'birth_place', 'gender', 'nationality_country_id', 'photo_media_id', 'dial_code', 'phone_number', 'phone_verified_at',
-    'secondary_phone', 'emergency_contact_name', 'emergency_contact_relation', 'emergency_contact_dial_code', 'emergency_contact_phone_number',
-    'residence_commune_id', 'residence_neighborhood_id', 'residence_address', 'residence_landmark',
-    'residence_location', 'mobility_radius_km', 'accepts_long_travel', 'needs_accommodation', 'transport_mode',
-    'works_solo', 'works_in_team', 'acquisition_channel', 'estimated_daily_rate', 'estimated_daily_rate_at',
-    'accepted_offer_types', 'accepted_payment_frequencies', 'preferred_schedule', 'verification_status',
-    'submitted_at', 'validated_at', 'validated_by_admin_id', 'suspended_until', 'availability_status',
-    'available_from', 'rating_avg', 'rating_count', 'missions_completed', 'attendance_rate', 'acceptance_rate',
-    'replacement_count', 'last_assignment_at', 'merged_into_worker_id', 'identity_mismatch', 'client_uuid',
-    'lock_version',
-])]
 class Worker extends Model
 {
     use HasUuids, SoftDeletes;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'user_id', 'origin_commercial_id', 'current_commercial_id', 'prospect_id', 'first_name', 'last_name',
+        'birth_date', 'birth_place', 'gender', 'nationality_country_id', 'photo_media_id', 'dial_code', 'phone_number', 'phone_verified_at',
+        'secondary_phone', 'emergency_contact_name', 'emergency_contact_relation', 'emergency_contact_dial_code', 'emergency_contact_phone_number',
+        'residence_commune_id', 'residence_neighborhood_id', 'residence_address', 'residence_landmark',
+        'residence_location', 'mobility_radius_km', 'accepts_long_travel', 'needs_accommodation', 'transport_mode',
+        'works_solo', 'works_in_team', 'acquisition_channel', 'estimated_daily_rate', 'estimated_daily_rate_at',
+        'accepted_offer_types', 'accepted_payment_frequencies', 'preferred_schedule', 'verification_status',
+        'submitted_at', 'validated_at', 'validated_by_admin_id', 'suspended_until', 'availability_status',
+        'available_from', 'rating_avg', 'rating_count', 'missions_completed', 'attendance_rate', 'acceptance_rate',
+        'replacement_count', 'last_assignment_at', 'merged_into_worker_id', 'identity_mismatch', 'client_uuid',
+        'lock_version',
+    ];
 
     /**
      * Get the attributes that should be cast.

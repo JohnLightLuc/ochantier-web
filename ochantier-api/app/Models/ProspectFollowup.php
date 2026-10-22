@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\ProspectFollowupChannel;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,12 +10,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Relance planifiée ou réalisée auprès d’un prospect.
  */
-#[Fillable([
-    'prospect_id', 'commercial_id', 'channel', 'subject', 'planned_at', 'done_at', 'result', 'client_uuid',
-])]
 class ProspectFollowup extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'prospect_id', 'commercial_id', 'channel', 'subject', 'planned_at', 'done_at', 'result', 'client_uuid',
+    ];
 
     public const UPDATED_AT = null;
 

@@ -5,8 +5,6 @@ namespace App\Models;
 use App\Enums\IntegrationEnvironment;
 use App\Enums\IntegrationServiceType;
 use App\Enums\IntegrationStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,15 +12,27 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Connexions aux prestataires ; le secret est chiffré par l'application, jamais stocké en clair.
  */
-#[Fillable([
-    'code', 'provider', 'service_type', 'environment', 'endpoint', 'client_id', 'secret_encrypted',
-    'credentials_expire_at', 'status', 'last_tested_at', 'last_test_ok', 'last_test_message', 'latency_ms',
-    'error_rate', 'updated_by_admin_id',
-])]
-#[Hidden(['secret_encrypted'])]
 class Integration extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'code', 'provider', 'service_type', 'environment', 'endpoint', 'client_id', 'secret_encrypted',
+        'credentials_expire_at', 'status', 'last_tested_at', 'last_test_ok', 'last_test_message', 'latency_ms',
+        'error_rate', 'updated_by_admin_id',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = ['secret_encrypted'];
 
     /**
      * Get the attributes that should be cast.

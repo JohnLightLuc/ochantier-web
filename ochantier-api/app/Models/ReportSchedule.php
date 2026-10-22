@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Enums\ExportFormat;
 use App\Enums\ReportFrequency;
 use App\Enums\ReportScheduleStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,13 +13,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Rapport planifié envoyé automatiquement.
  */
-#[Fillable([
-    'report_kind', 'name', 'frequency', 'next_run_at', 'recipients', 'format', 'filters', 'status',
-    'created_by_admin_id',
-])]
 class ReportSchedule extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'report_kind', 'name', 'frequency', 'next_run_at', 'recipients', 'format', 'filters', 'status',
+        'created_by_admin_id',
+    ];
 
     /**
      * Get the attributes that should be cast.

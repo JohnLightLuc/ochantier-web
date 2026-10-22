@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\FinancialExceptionStatus;
 use App\Enums\PricingVariable;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,13 +12,19 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 /**
  * Dérogations ponctuelles (plafonds, exceptions) avec approbation renforcée.
  */
-#[Fillable([
-    'parameter_code', 'subject_type', 'subject_id', 'override_value', 'reason', 'valid_from', 'valid_to', 'status',
-    'requested_by_admin_id', 'approved_by_admin_id', 'approved_at',
-])]
 class FinancialException extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'parameter_code', 'subject_type', 'subject_id', 'override_value', 'reason', 'valid_from', 'valid_to', 'status',
+        'requested_by_admin_id', 'approved_by_admin_id', 'approved_at',
+    ];
 
     public const UPDATED_AT = null;
 

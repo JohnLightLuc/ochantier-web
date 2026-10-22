@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationStatus;
 use App\Enums\Priority;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,13 +13,19 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 /**
  * Notification envoyée à un administrateur, un utilisateur ou un ouvrier.
  */
-#[Fillable([
-    'recipient_type', 'recipient_id', 'event_code', 'channel', 'template_id', 'title', 'body', 'data', 'related_type',
-    'related_id', 'priority', 'status', 'failure_reason', 'sent_at', 'delivered_at', 'read_at', 'dedup_key',
-])]
 class Notification extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'recipient_type', 'recipient_id', 'event_code', 'channel', 'template_id', 'title', 'body', 'data', 'related_type',
+        'related_id', 'priority', 'status', 'failure_reason', 'sent_at', 'delivered_at', 'read_at', 'dedup_key',
+    ];
 
     public const UPDATED_AT = null;
 

@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,12 +9,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Certification ou diplôme d’un ouvrier.
  */
-#[Fillable([
-    'worker_id', 'trade_id', 'title', 'organization', 'obtained_at', 'expires_at', 'document_id',
-])]
 class WorkerCertification extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'worker_id', 'trade_id', 'title', 'organization', 'obtained_at', 'expires_at', 'document_id',
+    ];
 
     public const UPDATED_AT = null;
 

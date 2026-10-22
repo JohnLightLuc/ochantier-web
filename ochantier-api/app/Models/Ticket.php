@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\Priority;
 use App\Enums\TicketStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,13 +14,19 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 /**
  * Demande d’assistance adressée au support.
  */
-#[Fillable([
-    'reference', 'requester_type', 'requester_id', 'category', 'subject', 'description', 'priority', 'status',
-    'assigned_admin_id', 'escalation_level', 'sla_due_at', 'related_type', 'related_id', 'client_uuid', 'closed_at',
-])]
 class Ticket extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'requester_type', 'requester_id', 'category', 'subject', 'description', 'priority', 'status',
+        'assigned_admin_id', 'escalation_level', 'sla_due_at', 'related_type', 'related_id', 'client_uuid', 'closed_at',
+    ];
 
     /**
      * Get the attributes that should be cast.

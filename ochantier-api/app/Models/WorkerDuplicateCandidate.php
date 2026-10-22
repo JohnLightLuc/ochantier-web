@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Casts\PostgresArray;
 use App\Enums\DuplicateCandidateStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,12 +11,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Doublon potentiel détecté entre deux dossiers d’ouvriers.
  */
-#[Fillable([
-    'worker_id', 'duplicate_worker_id', 'match_criteria', 'score', 'status', 'resolved_by_admin_id', 'resolved_at',
-])]
 class WorkerDuplicateCandidate extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'worker_id', 'duplicate_worker_id', 'match_criteria', 'score', 'status', 'resolved_by_admin_id', 'resolved_at',
+    ];
 
     public const UPDATED_AT = null;
 

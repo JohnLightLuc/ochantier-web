@@ -3,9 +3,6 @@
 namespace App\Models;
 
 use App\Enums\DisputePartyRole;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\WithoutIncrementing;
-use Illuminate\Database\Eloquent\Attributes\WithoutTimestamps;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -13,13 +10,21 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 /**
  * Partie à un litige (demandeur, défendeur, tiers).
  */
-#[Fillable([
-    'dispute_id', 'party_type', 'party_id', 'role',
-])]
-#[WithoutTimestamps]
-#[WithoutIncrementing]
 class DisputeParty extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'dispute_id', 'party_type', 'party_id', 'role',
+    ];
+
+    public $timestamps = false;
+
+    public $incrementing = false;
+
     /**
      * Clé primaire composite : le modèle n’a pas de clé simple.
      *

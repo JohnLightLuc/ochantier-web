@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\CommercialAdjustmentKind;
 use App\Enums\CommercialAdjustmentStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,13 +11,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Prime ou retenue appliquée à un commercial.
  */
-#[Fillable([
-    'commercial_id', 'kind', 'amount', 'reason', 'granted_on', 'status', 'created_by_admin_id',
-    'approved_by_admin_id', 'commercial_payout_id',
-])]
 class CommercialAdjustment extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'commercial_id', 'kind', 'amount', 'reason', 'granted_on', 'status', 'created_by_admin_id',
+        'approved_by_admin_id', 'commercial_payout_id',
+    ];
 
     public const UPDATED_AT = null;
 

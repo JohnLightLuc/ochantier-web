@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\RetentionAction;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,12 +10,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Durée de conservation d’une catégorie de données.
  */
-#[Fillable([
-    'data_category', 'retention_days', 'action', 'updated_by_admin_id',
-])]
 class DataRetentionPolicy extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'data_category', 'retention_days', 'action', 'updated_by_admin_id',
+    ];
 
     public const CREATED_AT = null;
 

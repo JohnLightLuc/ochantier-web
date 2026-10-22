@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,12 +9,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Escalade d’un ticket vers un niveau de support supérieur.
  */
-#[Fillable([
-    'ticket_id', 'from_level', 'to_level', 'to_admin_id', 'reason', 'due_at', 'created_by_admin_id',
-])]
 class TicketEscalation extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'ticket_id', 'from_level', 'to_level', 'to_admin_id', 'reason', 'due_at', 'created_by_admin_id',
+    ];
 
     public const UPDATED_AT = null;
 

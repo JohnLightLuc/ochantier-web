@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\SubscriptionInvoiceStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,13 +11,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Facture d’une période d’abonnement.
  */
-#[Fillable([
-    'reference', 'subscription_id', 'plan_id', 'label', 'period_start', 'period_end', 'amount', 'due_date', 'status',
-    'paid_at',
-])]
 class SubscriptionInvoice extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'subscription_id', 'plan_id', 'label', 'period_start', 'period_end', 'amount', 'due_date', 'status',
+        'paid_at',
+    ];
 
     /**
      * Get the attributes that should be cast.

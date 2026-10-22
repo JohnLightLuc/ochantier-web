@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\AttendanceCorrectionStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,13 +11,19 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 /**
  * Correction motivée : l'ancienne valeur est conservée.
  */
-#[Fillable([
-    'attendance_event_id', 'work_day_id', 'requested_by_type', 'requested_by_id', 'reason', 'old_values',
-    'new_values', 'status', 'decided_by_admin_id', 'decided_at',
-])]
 class AttendanceCorrection extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'attendance_event_id', 'work_day_id', 'requested_by_type', 'requested_by_id', 'reason', 'old_values',
+        'new_values', 'status', 'decided_by_admin_id', 'decided_at',
+    ];
 
     public const UPDATED_AT = null;
 

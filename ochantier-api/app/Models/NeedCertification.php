@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\WithoutTimestamps;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,13 +9,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Certification demandée pour un besoin.
  */
-#[Fillable([
-    'need_id', 'label', 'is_required',
-])]
-#[WithoutTimestamps]
 class NeedCertification extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'need_id', 'label', 'is_required',
+    ];
+
+    public $timestamps = false;
 
     /**
      * Get the attributes that should be cast.

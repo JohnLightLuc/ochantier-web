@@ -4,19 +4,24 @@ namespace App\Models;
 
 use App\Enums\AppName;
 use App\Enums\AppPlatform;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Versions minimale et courante d’une application mobile par plateforme.
  */
-#[Fillable([
-    'app_name', 'platform', 'min_version', 'latest_version', 'force_update', 'message', 'store_url',
-])]
 class AppVersion extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'app_name', 'platform', 'min_version', 'latest_version', 'force_update', 'message', 'store_url',
+    ];
 
     public const CREATED_AT = null;
 

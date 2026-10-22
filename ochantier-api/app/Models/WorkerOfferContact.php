@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\ContactChannel;
 use App\Enums\ContactStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,13 +12,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Contact de l'ouvrier : appel du commercial ou notification (pas d'application en V1).
  */
-#[Fillable([
-    'suggestion_id', 'worker_id', 'commercial_id', 'channel', 'contacted_by_type', 'contacted_by_id', 'contacted_at',
-    'response_deadline_at', 'reminder_count', 'last_reminder_at', 'status', 'client_uuid',
-])]
 class WorkerOfferContact extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'suggestion_id', 'worker_id', 'commercial_id', 'channel', 'contacted_by_type', 'contacted_by_id', 'contacted_at',
+        'response_deadline_at', 'reminder_count', 'last_reminder_at', 'status', 'client_uuid',
+    ];
 
     public const UPDATED_AT = null;
 

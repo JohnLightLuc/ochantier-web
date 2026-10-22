@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\OrganizationMemberStatus;
 use App\Enums\OrganizationRole;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,12 +11,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Membre d’une organisation promotrice, avec son rôle.
  */
-#[Fillable([
-    'organization_id', 'user_id', 'role', 'status', 'invited_by_user_id', 'joined_at', 'revoked_at',
-])]
 class OrganizationMember extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'organization_id', 'user_id', 'role', 'status', 'invited_by_user_id', 'joined_at', 'revoked_at',
+    ];
 
     /**
      * Get the attributes that should be cast.

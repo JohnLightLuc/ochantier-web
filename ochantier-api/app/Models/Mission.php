@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\MissionStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,15 +12,21 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 /**
  * Mission = engagement confirmé, un par besoin, après paiement de l'acompte.
  */
-#[Fillable([
-    'reference', 'need_id', 'site_id', 'pricing_snapshot_id', 'status', 'planned_start_date', 'planned_end_date',
-    'planned_days', 'actual_start_date', 'actual_end_date', 'terms_consent_id', 'deposit_paid_at', 'confirmed_at',
-    'activated_by_admin_id', 'validated_days', 'calendar_progress', 'business_progress', 'closed_at',
-    'closed_by_admin_id', 'cancellation_reason',
-])]
 class Mission extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'need_id', 'site_id', 'pricing_snapshot_id', 'status', 'planned_start_date', 'planned_end_date',
+        'planned_days', 'actual_start_date', 'actual_end_date', 'terms_consent_id', 'deposit_paid_at', 'confirmed_at',
+        'activated_by_admin_id', 'validated_days', 'calendar_progress', 'business_progress', 'closed_at',
+        'closed_by_admin_id', 'cancellation_reason',
+    ];
 
     /**
      * Get the attributes that should be cast.

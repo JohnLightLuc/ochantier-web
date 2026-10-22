@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -10,12 +9,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 /**
  * Rôle du Back Office regroupant des permissions.
  */
-#[Fillable([
-    'code', 'label', 'description', 'is_system',
-])]
 class AdminRole extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'code', 'label', 'description', 'is_system',
+    ];
 
     /**
      * Get the attributes that should be cast.

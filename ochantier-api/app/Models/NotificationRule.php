@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\NotificationChannel;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,12 +10,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Règle d’envoi d’une notification par événement, destinataire et canal.
  */
-#[Fillable([
-    'event_code', 'recipient_role', 'channel', 'template_id', 'delay_minutes', 'is_critical', 'is_active',
-])]
 class NotificationRule extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'event_code', 'recipient_role', 'channel', 'template_id', 'delay_minutes', 'is_critical', 'is_active',
+    ];
 
     public const UPDATED_AT = null;
 

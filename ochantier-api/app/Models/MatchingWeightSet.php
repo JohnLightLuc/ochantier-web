@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,13 +10,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Barème versionné (poids w1..w6, exclusions, règles d'équité).
  */
-#[Fillable([
-    'version', 'weights', 'exclusion_rules', 'fairness_rules', 'reason', 'is_active', 'effective_from',
-    'created_by_admin_id',
-])]
 class MatchingWeightSet extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'version', 'weights', 'exclusion_rules', 'fairness_rules', 'reason', 'is_active', 'effective_from',
+        'created_by_admin_id',
+    ];
 
     public const UPDATED_AT = null;
 

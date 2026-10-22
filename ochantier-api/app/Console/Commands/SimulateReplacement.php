@@ -4,8 +4,6 @@ namespace App\Console\Commands;
 
 use App\Models\Replacement;
 use App\Support\Matching\MatchingSimulator;
-use Illuminate\Console\Attributes\Description;
-use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use RuntimeException;
 
@@ -13,11 +11,13 @@ use RuntimeException;
  * Simule localement la recherche de remplaçants par le Back office, pour qu’un promoteur reçoive des remplaçants à
  * choisir sans Back office. Refusée en production.
  */
-#[Signature('ochantier:simulate-replacement
-    {--site= : Référence (CH-2026-0001) ou identifiant d’un chantier}')]
-#[Description('Simule la recherche de remplaçants des remplacements demandés par les promoteurs (hors production)')]
 class SimulateReplacement extends Command
 {
+    protected $signature = 'ochantier:simulate-replacement
+        {--site= : Référence (CH-2026-0001) ou identifiant d’un chantier}';
+
+    protected $description = 'Simule la recherche de remplaçants des remplacements demandés par les promoteurs (hors production)';
+
     public function handle(MatchingSimulator $simulator): int
     {
         if (app()->isProduction()) {

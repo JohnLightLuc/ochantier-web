@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Enums\SiteIncidentSeverity;
 use App\Enums\SiteIncidentStatus;
 use App\Enums\SiteIncidentType;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,13 +14,19 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 /**
  * Incident survenu sur un chantier (accident, sécurité, matériel…).
  */
-#[Fillable([
-    'reference', 'site_id', 'mission_id', 'occurred_at', 'incident_type', 'severity', 'description',
-    'reported_by_type', 'reported_by_id', 'status', 'resolution', 'resolved_by_admin_id', 'resolved_at',
-])]
 class SiteIncident extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'site_id', 'mission_id', 'occurred_at', 'incident_type', 'severity', 'description',
+        'reported_by_type', 'reported_by_id', 'status', 'resolution', 'resolved_by_admin_id', 'resolved_at',
+    ];
 
     /**
      * Get the attributes that should be cast.

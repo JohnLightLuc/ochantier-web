@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,12 +9,23 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Paramètres applicatifs (délais, seuils de verrouillage, arrondis, sessions…).
  */
-#[Fillable([
-    'key', 'value', 'description', 'updated_by_admin_id',
-])]
-#[Table(key: 'key', keyType: 'string', incrementing: false)]
 class Setting extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'key', 'value', 'description', 'updated_by_admin_id',
+    ];
+
+    protected $primaryKey = 'key';
+
+    protected $keyType = 'string';
+
+    public $incrementing = false;
+
     public const CREATED_AT = null;
 
     /**

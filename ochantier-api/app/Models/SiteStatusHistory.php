@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\SiteStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,12 +10,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Historique des statuts d’un chantier.
  */
-#[Fillable([
-    'site_id', 'from_status', 'to_status', 'reason', 'actor_type', 'actor_id',
-])]
 class SiteStatusHistory extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'site_id', 'from_status', 'to_status', 'reason', 'actor_type', 'actor_id',
+    ];
 
     public const UPDATED_AT = null;
 

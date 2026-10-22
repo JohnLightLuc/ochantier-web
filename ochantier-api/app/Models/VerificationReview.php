@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\VerificationReviewStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,13 +12,19 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 /**
  * Cycle de contrôle générique : ouvrier, promoteur, organisation, chantier, besoin.
  */
-#[Fillable([
-    'subject_type', 'subject_id', 'submission_number', 'submitted_by_type', 'submitted_by_id', 'submitted_at',
-    'assigned_admin_id', 'status', 'checklist', 'snapshot', 'decision_reason', 'decided_by_admin_id', 'decided_at',
-])]
 class VerificationReview extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'subject_type', 'subject_id', 'submission_number', 'submitted_by_type', 'submitted_by_id', 'submitted_at',
+        'assigned_admin_id', 'status', 'checklist', 'snapshot', 'decision_reason', 'decided_by_admin_id', 'decided_at',
+    ];
 
     /**
      * Get the attributes that should be cast.

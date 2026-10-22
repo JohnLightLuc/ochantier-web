@@ -3,22 +3,27 @@
 namespace App\Models;
 
 use App\Enums\PreferenceChannel;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\WithoutIncrementing;
-use Illuminate\Database\Eloquent\Attributes\WithoutTimestamps;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Préférence de notification d’un utilisateur par catégorie et canal.
  */
-#[Fillable([
-    'user_id', 'category', 'channel', 'enabled',
-])]
-#[WithoutTimestamps]
-#[WithoutIncrementing]
 class NotificationPreference extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'user_id', 'category', 'channel', 'enabled',
+    ];
+
+    public $timestamps = false;
+
+    public $incrementing = false;
+
     /**
      * Clé primaire composite : le modèle n’a pas de clé simple.
      *

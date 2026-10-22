@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\SubscriptionStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,12 +10,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Historique des statuts et des changements de formule d’un abonnement.
  */
-#[Fillable([
-    'subscription_id', 'from_status', 'to_status', 'from_plan_id', 'to_plan_id', 'reason', 'actor_type', 'actor_id',
-])]
 class SubscriptionStatusHistory extends Model
 {
     use HasUuids;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'subscription_id', 'from_status', 'to_status', 'from_plan_id', 'to_plan_id', 'reason', 'actor_type', 'actor_id',
+    ];
 
     public const UPDATED_AT = null;
 
