@@ -16,7 +16,7 @@ class PromoterAuthTest extends AuthTestCase
     {
         $this->postJson('/api/v1/auth/promoter/register', ['profile_kind' => 'particulier', 'dial_code' => '225', 'phone_number' => '07 08 09 10 11', 'accept_terms' => true])
             ->assertAccepted()
-            ->assertJson(['data' => ['channel' => 'sms', 'destination' => '+225 07 •• •• •• 11', 'resend_in' => 45]]);
+            ->assertJson(['data' => ['channel' => 'sms', 'destination' => '+225 07 •• •• •• 11', 'resend_in' => 45, 'code_length' => 6]]);
 
         $this->assertCount(1, $this->sms->sent);
         $this->assertStringContainsString('123456', $this->sms->sent[0]['message']);
@@ -93,6 +93,22 @@ class PromoterAuthTest extends AuthTestCase
         $this->postJson('/api/v1/auth/promoter/register', $payload)->assertAccepted();
         $this->assertCount(2, $this->sms->sent);
         $this->assertSame(1, User::count());
+    }
+
+    public function test_the_code_length_is_read_from_the_configuration(): void
+    {
+        config(['services.otp.length' => 4, 'services.otp.test_code' => null]);
+        $payload = ['dial_code' => '225', 'phone_number' => '0708091011'];
+
+        $this->postJson('/api/v1/auth/promoter/register', [...$payload, 'profile_kind' => 'particulier', 'accept_terms' => true])
+            ->assertAccepted()
+            ->assertJsonPath('data.code_length', 4);
+
+        $this->assertMatchesRegularExpression('/ est \d{4}\. /', $this->sms->sent[0]['message']);
+
+        $this->postJson('/api/v1/auth/promoter/register/verify', [...$payload, 'code' => '123456', ...$this->device()])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['code' => 'Saisissez les 4 chiffres du code.']);
     }
 
     public function test_a_wrong_code_is_rejected_and_counted(): void

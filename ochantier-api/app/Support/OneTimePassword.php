@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 
 /**
- * Codes à usage unique (6 chiffres) envoyés par SMS ou e-mail : activation, connexion,
+ * Codes à usage unique (OTP_LENGTH chiffres, 6 par défaut) envoyés par SMS ou e-mail : activation, connexion,
  * réinitialisation du mot de passe, changement de numéro.
  */
 class OneTimePassword
@@ -48,7 +48,7 @@ class OneTimePassword
             ->where('expires_at', '>', now())
             ->update(['expires_at' => now()]);
 
-        $code = $this->testCode() ?? str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $code = $this->testCode() ?? str_pad((string) random_int(0, 10 ** self::length() - 1), self::length(), '0', STR_PAD_LEFT);
 
         OtpCode::create([
             'authenticatable_type' => 'user',
@@ -100,6 +100,14 @@ class OneTimePassword
         $otp->update(['consumed_at' => now()]);
 
         return true;
+    }
+
+    /**
+     * Nombre de chiffres d’un code, borné de 4 à 10 ; 6 si OTP_LENGTH est vide.
+     */
+    public static function length(): int
+    {
+        return max(4, min(10, (int) config('services.otp.length') ?: 6));
     }
 
     public function lifetime(): int

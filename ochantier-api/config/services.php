@@ -36,6 +36,8 @@ return [
     ],
 
     'otp' => [
+        // Nombre de chiffres d’un code (de 4 à 10).
+        'length' => (int) env('OTP_LENGTH', 6),
         // Validité d’un code, en minutes.
         'lifetime' => (int) env('OTP_LIFETIME', 5),
         // Délai avant de pouvoir redemander un code, en secondes.

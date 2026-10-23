@@ -4,6 +4,7 @@ namespace App\Http\Requests\V1\Auth;
 
 use App\Enums\MessageChannel;
 use App\Http\Requests\V1\PhoneFields;
+use App\Support\OneTimePassword;
 use App\Support\PhoneNumber;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
@@ -65,7 +66,7 @@ abstract class AuthRequest extends FormRequest
      */
     protected function codeRules(): array
     {
-        return ['required', 'digits:6'];
+        return ['required', 'digits:'.OneTimePassword::length()];
     }
 
     /**
@@ -89,7 +90,7 @@ abstract class AuthRequest extends FormRequest
             'required_without' => 'Saisissez un numéro de téléphone ou une adresse e-mail.',
             'required_if' => 'Ce champ est obligatoire.',
             'email' => 'Saisissez une adresse e-mail valide.',
-            'code.digits' => 'Saisissez les 6 chiffres du code.',
+            'code.digits' => 'Saisissez les '.OneTimePassword::length().' chiffres du code.',
             'accept_terms.accepted' => 'Acceptez les conditions d’utilisation et la politique de confidentialité.',
             'password.confirmed' => 'Les deux mots de passe ne correspondent pas.',
             'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.',

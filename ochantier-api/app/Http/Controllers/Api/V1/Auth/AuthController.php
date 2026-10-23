@@ -53,6 +53,7 @@ abstract class AuthController extends Controller
             'destination' => $bySms ? $recipient->masked() : self::maskEmail($recipient),
             'expires_in' => $this->otp->lifetime() * 60,
             'resend_in' => $this->otp->resendAfter(),
+            'code_length' => OneTimePassword::length(),
         ], $message, 202);
     }
 
