@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\UserResource;
 use App\Models\LoginAttempt;
 use App\Models\User;
+use App\Support\ApiResponse;
 use App\Support\Auth\AuthSessions;
 use App\Support\Auth\IssuedTokens;
 use App\Support\OneTimePassword;
@@ -47,13 +48,12 @@ abstract class AuthController extends Controller
     {
         $bySms = $recipient instanceof PhoneNumber;
 
-        return response()->json([
-            'message' => $message,
+        return ApiResponse::success([
             'channel' => ($bySms ? MessageChannel::Sms : MessageChannel::Email)->value,
             'destination' => $bySms ? $recipient->masked() : self::maskEmail($recipient),
             'expires_in' => $this->otp->lifetime() * 60,
             'resend_in' => $this->otp->resendAfter(),
-        ], 202);
+        ], $message, 202);
     }
 
     /**
@@ -63,7 +63,7 @@ abstract class AuthController extends Controller
     {
         $user->load(['promoterProfile', 'commercialProfile', 'ownedOrganizations']);
 
-        return response()->json([...$tokens->toArray(), 'user' => UserResource::make($user)], $status);
+        return ApiResponse::success([...$tokens->toArray(), 'user' => UserResource::make($user)], status: $status);
     }
 
     protected function invalidCode(): ValidationException

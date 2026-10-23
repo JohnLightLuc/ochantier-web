@@ -9,10 +9,10 @@ use App\Http\Resources\V1\DocumentResource;
 use App\Http\Resources\V1\Promoter\SiteDetailResource;
 use App\Models\Document;
 use App\Models\Site;
+use App\Support\ApiResponse;
 use App\Support\Promoter\SiteManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 
 /**
  * Photo du chantier et documents joints (« Ajouter une photo », « Ajouter un document »).
@@ -40,12 +40,12 @@ class SiteMediaController extends Controller
         $document = $this->sites->attachDocument($site, $request->user(), $request->documentType(), $request->sides());
 
         return DocumentResource::make($document)
-            ->additional(['message' => 'Document ajouté', 'lock_version' => $site->lock_version])
+            ->additional(['message' => 'Document ajouté', 'meta' => ['lock_version' => $site->lock_version]])
             ->response()
             ->setStatusCode(201);
     }
 
-    public function destroyDocument(Request $request, Site $site, string $document): Response
+    public function destroyDocument(Request $request, Site $site, string $document): JsonResponse
     {
         $model = $this->sites->activeDocuments($site)->first(fn (Document $item) => $item->getKey() === $document);
 
@@ -53,6 +53,6 @@ class SiteMediaController extends Controller
 
         $this->sites->removeDocument($site, $model);
 
-        return response()->noContent();
+        return ApiResponse::success(message: 'Document retiré');
     }
 }

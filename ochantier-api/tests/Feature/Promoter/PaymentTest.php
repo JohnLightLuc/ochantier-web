@@ -44,10 +44,10 @@ class PaymentTest extends PromoterTestCase
     {
         $this->getJson('/api/v1/promoter/payments/options')
             ->assertOk()
-            ->assertJsonPath('operators.*.code', ['orange_money', 'mtn_momo', 'moov_money', 'wave'])
-            ->assertJsonPath('operators.0.fee_percent', 1.5)
-            ->assertJsonPath('default_phone.phone', '+225 07 12 34 56 34')
-            ->assertJsonPath('saved_numbers', []);
+            ->assertJsonPath('data.operators.*.code', ['orange_money', 'mtn_momo', 'moov_money', 'wave'])
+            ->assertJsonPath('data.operators.0.fee_percent', 1.5)
+            ->assertJsonPath('data.default_phone.phone', '+225 07 12 34 56 34')
+            ->assertJsonPath('data.saved_numbers', []);
     }
 
     public function test_the_deposit_quote_details_the_amount_and_the_operator_fees(): void
@@ -129,7 +129,7 @@ class PaymentTest extends PromoterTestCase
             ->assertJsonPath('data.state.value', 'confirmee')
             ->assertJsonPath('data.can_pay_deposit', false);
 
-        $this->getJson('/api/v1/promoter/payments/options')->assertJsonPath('saved_numbers.0.phone', '+225 07 •• •• •• 34');
+        $this->getJson('/api/v1/promoter/payments/options')->assertJsonPath('data.saved_numbers.0.phone', '+225 07 •• •• •• 34');
     }
 
     public function test_the_same_idempotency_key_never_pays_twice(): void

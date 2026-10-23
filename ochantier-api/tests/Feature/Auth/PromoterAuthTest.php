@@ -16,7 +16,7 @@ class PromoterAuthTest extends AuthTestCase
     {
         $this->postJson('/api/v1/auth/promoter/register', ['profile_kind' => 'particulier', 'dial_code' => '225', 'phone_number' => '07 08 09 10 11', 'accept_terms' => true])
             ->assertAccepted()
-            ->assertJson(['channel' => 'sms', 'destination' => '+225 07 •• •• •• 11', 'resend_in' => 45]);
+            ->assertJson(['data' => ['channel' => 'sms', 'destination' => '+225 07 •• •• •• 11', 'resend_in' => 45]]);
 
         $this->assertCount(1, $this->sms->sent);
         $this->assertStringContainsString('123456', $this->sms->sent[0]['message']);
@@ -24,10 +24,10 @@ class PromoterAuthTest extends AuthTestCase
 
         $this->postJson('/api/v1/auth/promoter/register/verify', ['dial_code' => '225', 'phone_number' => '0708091011', 'code' => '123456', ...$this->device()])
             ->assertCreated()
-            ->assertJsonStructure(['access_token', 'refresh_token', 'expires_in', 'refresh_expires_at', 'user' => ['id', 'promoter']])
-            ->assertJsonPath('user.status.value', 'actif')
-            ->assertJsonPath('user.phone', '+225 07 08 09 10 11')
-            ->assertJsonPath('user.promoter.profile_kind.value', 'particulier');
+            ->assertJsonStructure(['message', 'data' => ['access_token', 'refresh_token', 'expires_in', 'refresh_expires_at', 'user' => ['id', 'promoter']]])
+            ->assertJsonPath('data.user.status.value', 'actif')
+            ->assertJsonPath('data.user.phone', '+225 07 08 09 10 11')
+            ->assertJsonPath('data.user.promoter.profile_kind.value', 'particulier');
 
         $user = User::sole();
         $this->assertSame(UserStatus::Actif, $user->status);
@@ -47,14 +47,14 @@ class PromoterAuthTest extends AuthTestCase
 
         $this->postJson('/api/v1/auth/promoter/register', ['profile_kind' => 'entreprise', 'company_name' => 'Bâtir CI', 'email' => 'Contact@Batir.ci', 'accept_terms' => true])
             ->assertAccepted()
-            ->assertJson(['channel' => 'email', 'destination' => 'c•••@batir.ci']);
+            ->assertJson(['data' => ['channel' => 'email', 'destination' => 'c•••@batir.ci']]);
 
         $this->assertSame('email', OtpCode::sole()->channel->value);
         $this->assertEmpty($this->sms->sent);
 
         $this->postJson('/api/v1/auth/promoter/register/verify', ['email' => 'contact@batir.ci', 'code' => '123456', ...$this->device()])
             ->assertCreated()
-            ->assertJsonPath('user.promoter.organization.legal_name', 'Bâtir CI');
+            ->assertJsonPath('data.user.promoter.organization.legal_name', 'Bâtir CI');
 
         $user = User::sole();
         $this->assertNull($user->phone);
@@ -125,7 +125,7 @@ class PromoterAuthTest extends AuthTestCase
 
         $this->postJson('/api/v1/auth/promoter/login/verify', ['dial_code' => '225', 'phone_number' => '0708091011', 'code' => '123456', ...$this->device()])
             ->assertOk()
-            ->assertJsonPath('user.id', $user->id);
+            ->assertJsonPath('data.user.id', $user->id);
 
         $this->assertNotNull($user->fresh()->last_login_at);
     }

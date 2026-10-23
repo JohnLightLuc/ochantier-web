@@ -15,14 +15,14 @@ class CommercialAuthTest extends AuthTestCase
 
         $this->postJson('/api/v1/auth/commercial/login', ['dial_code' => '225', 'phone_number' => '01 02 03 04 05', 'password' => 'motdepasse1'])
             ->assertAccepted()
-            ->assertJsonPath('destination', '+225 01 •• •• •• 05');
+            ->assertJsonPath('data.destination', '+225 01 •• •• •• 05');
 
         $this->assertSame('+2250102030405', $this->sms->sent[0]['phone']);
 
         $this->postJson('/api/v1/auth/commercial/login/verify', ['dial_code' => '225', 'phone_number' => '0102030405', 'code' => '123456', ...$this->device('Samsung A54')])
             ->assertOk()
-            ->assertJsonPath('user.commercial.employee_number', $user->commercialProfile->employee_number)
-            ->assertJsonPath('user.must_change_password', false);
+            ->assertJsonPath('data.user.commercial.employee_number', $user->commercialProfile->employee_number)
+            ->assertJsonPath('data.user.must_change_password', false);
 
         $this->assertTrue(LoginAttempt::query()->where('success', true)->exists());
     }
@@ -50,9 +50,9 @@ class CommercialAuthTest extends AuthTestCase
 
         $this->postJson('/api/v1/auth/commercial/login/verify', ['dial_code' => '00225', 'phone_number' => '0102030405', 'code' => '123456', ...$this->device()])
             ->assertOk()
-            ->assertJsonPath('user.dial_code', '225')
-            ->assertJsonPath('user.phone_number', '0102030405')
-            ->assertJsonPath('user.phone', '+225 01 02 03 04 05');
+            ->assertJsonPath('data.user.dial_code', '225')
+            ->assertJsonPath('data.user.phone_number', '0102030405')
+            ->assertJsonPath('data.user.phone', '+225 01 02 03 04 05');
     }
 
     public function test_a_wrong_password_is_rejected_without_sending_a_code(): void
@@ -97,9 +97,9 @@ class CommercialAuthTest extends AuthTestCase
 
         $token = $this->postJson('/api/v1/auth/commercial/login/verify', ['dial_code' => '225', 'phone_number' => '0102030405', 'code' => '123456', ...$this->device()])
             ->assertOk()
-            ->assertJsonPath('user.must_change_password', true)
-            ->assertJsonPath('user.status.value', 'actif')
-            ->json('access_token');
+            ->assertJsonPath('data.user.must_change_password', true)
+            ->assertJsonPath('data.user.status.value', 'actif')
+            ->json('data.access_token');
 
         $this->assertSame(UserStatus::Actif, $user->fresh()->status);
 
@@ -116,7 +116,7 @@ class CommercialAuthTest extends AuthTestCase
 
         $this->withAccessToken($token)->putJson('/api/v1/auth/password', ['current_password' => 'Provisoire1', 'password' => 'NouveauMdp2026', 'password_confirmation' => 'NouveauMdp2026'])
             ->assertOk()
-            ->assertJsonPath('user.must_change_password', false);
+            ->assertJsonPath('data.must_change_password', false);
 
         $this->withAccessToken($token)->getJson('/api/v1/auth/sessions')->assertOk()->assertJsonCount(1, 'data');
     }

@@ -23,7 +23,7 @@ class ProfileDocumentController extends Controller
         $document = $this->account->attachDocument($profile, $request->user(), $request->documentType(), $request->sides(), $request->input('number'), $request->input('expires_at'));
 
         return PromoterProfileResource::make($profile->refresh()->load(ProfileController::WITH))
-            ->additional(['message' => $document->documentType->label.' ajouté', 'document_id' => $document->getKey()])
+            ->additional(['message' => $document->documentType->label.' ajouté', 'meta' => ['document_id' => $document->getKey()]])
             ->response()
             ->setStatusCode(201);
     }

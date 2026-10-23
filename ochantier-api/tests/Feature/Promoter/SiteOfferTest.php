@@ -25,11 +25,11 @@ class SiteOfferTest extends PromoterTestCase
     {
         $this->getJson('/api/v1/promoter/sites/form-options')
             ->assertOk()
-            ->assertJsonPath('trades.0.code', 'macon')
-            ->assertJsonPath('trades.0.reference_rate', 25000)
-            ->assertJsonPath('deposit_percent', 30)
-            ->assertJsonPath('low_rate_percent', 70)
-            ->assertJsonPath('payment_modes.*.value', ['hebdomadaire', 'par_etape', 'fin_de_chantier']);
+            ->assertJsonPath('data.trades.0.code', 'macon')
+            ->assertJsonPath('data.trades.0.reference_rate', 25000)
+            ->assertJsonPath('data.deposit_percent', 30)
+            ->assertJsonPath('data.low_rate_percent', 70)
+            ->assertJsonPath('data.payment_modes.*.value', ['hebdomadaire', 'par_etape', 'fin_de_chantier']);
     }
 
     public function test_the_catalogue_shows_validated_workers_with_the_promoter_rate(): void

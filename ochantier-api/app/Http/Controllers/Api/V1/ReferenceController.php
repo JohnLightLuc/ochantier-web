@@ -8,6 +8,7 @@ use App\Models\City;
 use App\Models\DocumentType;
 use App\Models\ReasonCode;
 use App\Models\Trade;
+use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -34,7 +35,7 @@ class ReferenceController extends Controller
             ->orderBy('sort_order')
             ->get();
 
-        return response()->json([
+        return ApiResponse::success([
             'cities' => $cities->map(fn (City $city) => [
                 'id' => $city->id,
                 'name' => $city->name,
@@ -75,6 +76,6 @@ class ReferenceController extends Controller
                 ->get(['category', 'code', 'label'])
                 ->groupBy('category')
                 ->map(fn ($reasons) => $reasons->map->only(['code', 'label'])->values()),
-        ])->header('Cache-Control', 'private, max-age=3600');
+        ], headers: ['Cache-Control' => 'private, max-age=3600']);
     }
 }

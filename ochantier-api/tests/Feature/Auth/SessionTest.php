@@ -39,12 +39,15 @@ class SessionTest extends AuthTestCase
 
         $refreshed = $this->postJson('/api/v1/auth/refresh', ['refresh_token' => $tokens->refreshToken])
             ->assertOk()
-            ->assertJsonPath('session_id', $tokens->session->id)
+            ->assertJsonPath('data.session_id', $tokens->session->id)
             ->json();
 
         $this->postJson('/api/v1/auth/refresh', ['refresh_token' => $tokens->refreshToken])->assertUnauthorized();
         $this->withAccessToken($tokens->accessToken)->getJson('/api/v1/me')->assertUnauthorized();
-        $this->withAccessToken($refreshed['access_token'])->getJson('/api/v1/me')->assertOk();
+        $this->withAccessToken($refreshed['data']['access_token'])->getJson('/api/v1/me')
+            ->assertOk()
+            ->assertJsonStructure(['message', 'data' => ['id']])
+            ->assertJsonPath('message', null);
     }
 
     public function test_a_session_cannot_be_refreshed_once_the_account_is_suspended(): void
@@ -65,9 +68,9 @@ class SessionTest extends AuthTestCase
 
         $this->withAccessToken($tokens->accessToken)
             ->postJson('/api/v1/devices', ['push_token' => 'fcm:abc-123', 'platform' => 'ios', 'device_id' => 'device-iPhone 15'])
-            ->assertNoContent();
+            ->assertOk()->assertJsonPath('data', null);
 
-        $this->withAccessToken($tokens->accessToken)->postJson('/api/v1/auth/logout')->assertNoContent();
+        $this->withAccessToken($tokens->accessToken)->postJson('/api/v1/auth/logout')->assertOk()->assertJsonPath('data', null);
 
         $this->withAccessToken($tokens->accessToken)->getJson('/api/v1/me')->assertUnauthorized();
         $this->postJson('/api/v1/auth/refresh', ['refresh_token' => $tokens->refreshToken])->assertUnauthorized();
@@ -88,7 +91,7 @@ class SessionTest extends AuthTestCase
             ->assertJsonFragment(['device_name' => 'Galaxy Tab', 'current' => false]);
 
         $this->withAccessToken($phone->accessToken)->deleteJson("/api/v1/auth/sessions/{$other->session->id}")->assertNotFound();
-        $this->withAccessToken($phone->accessToken)->deleteJson("/api/v1/auth/sessions/{$tablet->session->id}")->assertNoContent();
+        $this->withAccessToken($phone->accessToken)->deleteJson("/api/v1/auth/sessions/{$tablet->session->id}")->assertOk()->assertJsonPath('data', null);
 
         $this->withAccessToken($tablet->accessToken)->getJson('/api/v1/me')->assertUnauthorized();
         $this->withAccessToken($phone->accessToken)->getJson('/api/v1/auth/sessions')->assertJsonCount(1, 'data');

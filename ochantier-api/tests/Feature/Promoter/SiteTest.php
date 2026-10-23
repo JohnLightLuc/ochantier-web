@@ -111,7 +111,7 @@ class SiteTest extends PromoterTestCase
 
         $this->getJson("/api/v1/promoter/sites/{$site['id']}")->assertJsonCount(3, 'data.documents');
 
-        $this->deleteJson("/api/v1/promoter/sites/{$site['id']}/documents/{$plan}")->assertNoContent();
+        $this->deleteJson("/api/v1/promoter/sites/{$site['id']}/documents/{$plan}")->assertOk()->assertJsonPath('data', null);
         $this->deleteJson("/api/v1/promoter/sites/{$site['id']}/documents/{$plan}")->assertNotFound();
         $this->getJson("/api/v1/promoter/sites/{$site['id']}")->assertJsonCount(2, 'data.documents');
 
@@ -162,7 +162,7 @@ class SiteTest extends PromoterTestCase
         $this->deleteJson("/api/v1/promoter/sites/{$published['id']}")
             ->assertJsonValidationErrors(['site' => 'Seul un brouillon peut être supprimé.']);
 
-        $this->deleteJson("/api/v1/promoter/sites/{$draft['id']}")->assertNoContent();
+        $this->deleteJson("/api/v1/promoter/sites/{$draft['id']}")->assertOk()->assertJsonPath('data', null);
         $this->getJson("/api/v1/promoter/sites/{$draft['id']}")->assertNotFound();
     }
 
@@ -175,12 +175,12 @@ class SiteTest extends PromoterTestCase
 
         $this->getJson('/api/v1/promoter/sites/form-options')
             ->assertOk()
-            ->assertJsonPath('work_types.*.value', ['construction_neuve', 'renovation', 'extension', 'finitions'])
-            ->assertJsonPath('property_types.*.code', ['villa', 'duplex', 'immeuble', 'local_commercial', 'bureaux', 'equipement_public', 'batiment_industriel', 'voirie_reseaux'])
-            ->assertJsonPath('responsibles.0.role', 'Moi-même')
-            ->assertJsonPath('responsibles.1.name', 'Jean Kouamé')
-            ->assertJsonPath('responsibles.1.phone', '+225 07 00 00 00 00')
-            ->assertJsonPath('document_types.*.code', ['site_building_permit', 'site_plan', 'site_quote', 'site_specifications', 'site_other', 'site_photo']);
+            ->assertJsonPath('data.work_types.*.value', ['construction_neuve', 'renovation', 'extension', 'finitions'])
+            ->assertJsonPath('data.property_types.*.code', ['villa', 'duplex', 'immeuble', 'local_commercial', 'bureaux', 'equipement_public', 'batiment_industriel', 'voirie_reseaux'])
+            ->assertJsonPath('data.responsibles.0.role', 'Moi-même')
+            ->assertJsonPath('data.responsibles.1.name', 'Jean Kouamé')
+            ->assertJsonPath('data.responsibles.1.phone', '+225 07 00 00 00 00')
+            ->assertJsonPath('data.document_types.*.code', ['site_building_permit', 'site_plan', 'site_quote', 'site_specifications', 'site_other', 'site_photo']);
 
         $this->postJson('/api/v1/promoter/sites', ['title' => 'Villa Riviera', 'responsible_user_id' => $stranger->id])
             ->assertJsonValidationErrors(['responsible_user_id' => 'Choisissez vous-même ou un utilisateur de votre entreprise.']);

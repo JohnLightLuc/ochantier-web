@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureActiveCommercial;
 use App\Http\Middleware\EnsurePasswordChanged;
+use App\Http\Middleware\EnsureResponseMessage;
 use App\Http\Middleware\EnsureUserType;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -27,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'commercial' => EnsureActiveCommercial::class,
         ]);
         $middleware->throttleApi();
+        $middleware->api(append: [EnsureResponseMessage::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

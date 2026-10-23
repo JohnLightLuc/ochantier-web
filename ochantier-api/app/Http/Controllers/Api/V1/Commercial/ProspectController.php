@@ -13,6 +13,7 @@ use App\Http\Resources\V1\Commercial\ProspectDetailResource;
 use App\Http\Resources\V1\Commercial\ProspectResource;
 use App\Models\Prospect;
 use App\Models\ReasonCode;
+use App\Support\ApiResponse;
 use App\Support\Commercial\ProspectDossier;
 use App\Support\PhoneNumber;
 use Illuminate\Http\JsonResponse;
@@ -149,15 +150,12 @@ class ProspectController extends Controller
     {
         $worker = $this->dossier->submit($prospect, $request->user());
 
-        return response()->json([
-            'message' => 'Dossier transmis au Back office',
-            'worker' => [
-                'id' => $worker->id,
-                'reference' => $worker->reference,
-                'status' => ['value' => $worker->verification_status->value, 'label' => $worker->verification_status->label()],
-                'submitted_at' => $worker->submitted_at->toIso8601String(),
-            ],
-        ]);
+        return ApiResponse::success([
+            'id' => $worker->id,
+            'reference' => $worker->reference,
+            'status' => ['value' => $worker->verification_status->value, 'label' => $worker->verification_status->label()],
+            'submitted_at' => $worker->submitted_at->toIso8601String(),
+        ], 'Dossier transmis au Back office');
     }
 
     /**
@@ -176,10 +174,9 @@ class ProspectController extends Controller
         $phone = PhoneNumber::from($request->input('dial_code'), $request->input('phone_number'));
         $conflict = $this->dossier->phoneConflict($commercial, $phone, $ignore);
 
-        return response()->json([
+        return ApiResponse::success([
             ...$phone->toArray(),
             'available' => $conflict === null,
-            'message' => $conflict ?? 'Aucun doublon trouvé',
-        ]);
+        ], $conflict ?? 'Aucun doublon trouvé');
     }
 }

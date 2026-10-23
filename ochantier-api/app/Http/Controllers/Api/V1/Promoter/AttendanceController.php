@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Promoter\AttendanceAbsenceRequest;
 use App\Http\Requests\V1\Promoter\AttendanceEventRequest;
 use App\Models\Site;
+use App\Support\ApiResponse;
 use App\Support\Promoter\SiteAttendance;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -43,11 +44,12 @@ class AttendanceController extends Controller
         [$event, $created] = $this->attendance->record($site, $request->user(), $request->validated(), $request->file('photo'), $request->file('signature'));
         $time = CarbonImmutable::parse($event->device_recorded_at ?? $event->recorded_at)->setTimezone(config('app.timezone'))->format('H:i');
 
-        return response()->json([
-            'data' => $this->attendance->day($site, CarbonImmutable::parse($event->work_date)),
-            'event_id' => $event->id,
-            'message' => ($event->event_type === AttendanceEventType::Arrivee ? 'Arrivée validée' : 'Départ validé').' à '.$time,
-        ], $created ? 201 : 200);
+        return ApiResponse::success(
+            $this->attendance->day($site, CarbonImmutable::parse($event->work_date)),
+            ($event->event_type === AttendanceEventType::Arrivee ? 'Arrivée validée' : 'Départ validé').' à '.$time,
+            $created ? 201 : 200,
+            ['event_id' => $event->id],
+        );
     }
 
     public function storeAbsence(AttendanceAbsenceRequest $request, Site $site): JsonResponse

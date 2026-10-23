@@ -66,11 +66,11 @@ class ProspectTest extends CommercialTestCase
 
         $this->getJson('/api/v1/commercial/prospects/phone-check?dial_code=225&phone_number=0712345678')
             ->assertOk()
-            ->assertJsonPath('available', false);
+            ->assertJsonPath('data.available', false);
 
         $this->getJson('/api/v1/commercial/prospects/phone-check?dial_code=225&phone_number=0799999999')
             ->assertOk()
-            ->assertJsonPath('available', true)
+            ->assertJsonPath('data.available', true)
             ->assertJsonPath('message', 'Aucun doublon trouvé');
     }
 
@@ -180,7 +180,7 @@ class ProspectTest extends CommercialTestCase
         $this->uploadPhoto($id);
         $document = Document::query()->sole();
 
-        $this->deleteJson("/api/v1/commercial/prospects/{$id}/documents/{$document->id}")->assertNoContent();
+        $this->deleteJson("/api/v1/commercial/prospects/{$id}/documents/{$document->id}")->assertOk()->assertJsonPath('data', null);
 
         $this->assertSoftDeleted($document);
         $this->assertNull(Worker::query()->sole()->photo_media_id);
@@ -203,7 +203,7 @@ class ProspectTest extends CommercialTestCase
         $this->postJson("/api/v1/commercial/prospects/{$id}/submit")
             ->assertOk()
             ->assertJsonPath('message', 'Dossier transmis au Back office')
-            ->assertJsonPath('worker.status.value', 'soumis');
+            ->assertJsonPath('data.status.value', 'soumis');
 
         $worker = Worker::query()->sole();
         $this->assertSame(WorkerVerificationStatus::Soumis, $worker->verification_status);
@@ -283,9 +283,9 @@ class ProspectTest extends CommercialTestCase
     {
         $this->getJson('/api/v1/referentials')
             ->assertOk()
-            ->assertJsonPath('cities.0.name', 'Abidjan')
-            ->assertJsonPath('trades.0.code', 'macon')
-            ->assertJsonPath('worker_document_types.0.code', 'worker_cni')
-            ->assertJsonPath('worker_document_types.0.has_back_side', true);
+            ->assertJsonPath('data.cities.0.name', 'Abidjan')
+            ->assertJsonPath('data.trades.0.code', 'macon')
+            ->assertJsonPath('data.worker_document_types.0.code', 'worker_cni')
+            ->assertJsonPath('data.worker_document_types.0.has_back_side', true);
     }
 }

@@ -14,13 +14,13 @@ use App\Models\ConstructionType;
 use App\Models\DocumentType;
 use App\Models\Site;
 use App\Models\Trade;
+use App\Support\ApiResponse;
 use App\Support\Pricing\PricingRules;
 use App\Support\Promoter\OfferDraft;
 use App\Support\Promoter\SiteManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Http\Response;
 
 /**
  * Chantiers du promoteur connecté (« Mes chantiers », « Nouveau chantier », « Détail chantier »).
@@ -100,11 +100,11 @@ class SiteController extends Controller
         return SiteDetailResource::make($site->load(self::WITH))->additional(['message' => 'Brouillon enregistré']);
     }
 
-    public function destroy(Site $site): Response
+    public function destroy(Site $site): JsonResponse
     {
         $this->sites->delete($site);
 
-        return response()->noContent();
+        return ApiResponse::success(message: 'Brouillon supprimé');
     }
 
     /**
@@ -115,7 +115,7 @@ class SiteController extends Controller
     {
         $rates = $pricing->referenceRates();
 
-        return response()->json([
+        return ApiResponse::success([
             'trades' => Trade::query()->where('is_active', true)->orderBy('sort_order')->get()->map(fn (Trade $trade) => [
                 'id' => $trade->id,
                 'code' => $trade->code,

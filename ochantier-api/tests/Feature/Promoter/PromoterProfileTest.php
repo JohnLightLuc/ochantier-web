@@ -158,7 +158,7 @@ class PromoterProfileTest extends PromoterTestCase
     {
         $first = $this->post('/api/v1/promoter/profile/documents', ['document_type' => 'promoter_other', 'file' => $this->pdf('attestation.pdf')], ['Accept' => 'application/json'])
             ->assertCreated()
-            ->json('document_id');
+            ->json('meta.document_id');
         $this->post('/api/v1/promoter/profile/documents', ['document_type' => 'promoter_other', 'file' => $this->pdf('plan.pdf')], ['Accept' => 'application/json'])
             ->assertCreated()
             ->assertJsonCount(2, 'data.documents.others');
@@ -215,9 +215,9 @@ class PromoterProfileTest extends PromoterTestCase
 
         $this->getJson('/api/v1/help')
             ->assertOk()
-            ->assertJsonCount(5, 'faq')
-            ->assertJsonPath('support.phone', '+225 27 22 00 00 00')
-            ->assertJsonPath('support.email', 'support@ochantier.ci');
+            ->assertJsonCount(5, 'data.faq')
+            ->assertJsonPath('data.support.phone', '+225 27 22 00 00 00')
+            ->assertJsonPath('data.support.email', 'support@ochantier.ci');
     }
 
     public function test_the_promoter_space_is_closed_to_commercials(): void

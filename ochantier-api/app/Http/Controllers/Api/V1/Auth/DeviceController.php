@@ -5,8 +5,9 @@ namespace App\Http\Controllers\Api\V1\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Auth\DeviceTokenRequest;
 use App\Models\DeviceToken;
+use App\Support\ApiResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 
 /**
  * Jetons de notification push des appareils du compte connecté.
@@ -16,7 +17,7 @@ class DeviceController extends Controller
     /**
      * Enregistre (ou rattache au compte connecté) le jeton push de l’appareil.
      */
-    public function store(DeviceTokenRequest $request): Response
+    public function store(DeviceTokenRequest $request): JsonResponse
     {
         DeviceToken::query()->updateOrCreate(['push_token' => $request->input('push_token')], [
             'owner_type' => $request->user()->getMorphClass(),
@@ -27,15 +28,15 @@ class DeviceController extends Controller
             'revoked_at' => null,
         ]);
 
-        return response()->noContent();
+        return ApiResponse::success();
     }
 
-    public function destroy(Request $request, string $token): Response
+    public function destroy(Request $request, string $token): JsonResponse
     {
         $request->user()->deviceTokens()
             ->where('push_token', $token)
             ->update(['revoked_at' => now()]);
 
-        return response()->noContent();
+        return ApiResponse::success();
     }
 }

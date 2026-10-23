@@ -10,6 +10,7 @@ use App\Http\Requests\V1\Auth\ResetPasswordRequest;
 use App\Http\Requests\V1\Auth\UpdatePasswordRequest;
 use App\Http\Resources\V1\UserResource;
 use App\Models\User;
+use App\Support\ApiResponse;
 use App\Support\Auth\JwtAuthenticator;
 use Illuminate\Http\JsonResponse;
 
@@ -57,7 +58,7 @@ class PasswordController extends AuthController
 
         $this->sessions->revokeAll($user, 'password_reset');
 
-        return response()->json(['message' => 'Mot de passe mis à jour. Connectez-vous avec votre nouveau mot de passe.']);
+        return ApiResponse::success(message: 'Mot de passe mis à jour. Connectez-vous avec votre nouveau mot de passe.');
     }
 
     /**
@@ -70,9 +71,9 @@ class PasswordController extends AuthController
         $user->forceFill(['password_hash' => $request->input('password'), 'must_change_password' => false])->save();
         $this->sessions->revokeAll($user, 'password_changed', JwtAuthenticator::session($request));
 
-        return response()->json([
-            'message' => 'Mot de passe mis à jour',
-            'user' => UserResource::make($user->load(['promoterProfile', 'commercialProfile', 'ownedOrganizations'])),
-        ]);
+        return ApiResponse::success(
+            UserResource::make($user->load(['promoterProfile', 'commercialProfile', 'ownedOrganizations'])),
+            'Mot de passe mis à jour',
+        );
     }
 }

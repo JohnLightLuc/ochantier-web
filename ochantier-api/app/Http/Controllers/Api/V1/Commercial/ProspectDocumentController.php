@@ -7,9 +7,9 @@ use App\Http\Requests\V1\Commercial\ProspectDocumentRequest;
 use App\Http\Resources\V1\DocumentResource;
 use App\Models\Document;
 use App\Models\Prospect;
+use App\Support\ApiResponse;
 use App\Support\Commercial\ProspectDossier;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Response;
 
 /**
  * Pièces du dossier d’un prospect (« Documents et photo »).
@@ -35,7 +35,7 @@ class ProspectDocumentController extends Controller
     /**
      * Retire une pièce du dossier (« Retirer »).
      */
-    public function destroy(Prospect $prospect, string $document): Response
+    public function destroy(Prospect $prospect, string $document): JsonResponse
     {
         $worker = $this->dossier->draft($prospect);
         $model = $worker ? $this->dossier->activeDocuments($worker)->first(fn (Document $item) => $item->getKey() === $document) : null;
@@ -44,6 +44,6 @@ class ProspectDocumentController extends Controller
 
         $this->dossier->removeDocument($prospect, $model);
 
-        return response()->noContent();
+        return ApiResponse::success(message: 'Document retiré');
     }
 }

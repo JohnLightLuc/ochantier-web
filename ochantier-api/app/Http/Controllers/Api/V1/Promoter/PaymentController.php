@@ -9,6 +9,7 @@ use App\Models\PaymentMethod;
 use App\Models\PaymentOperator;
 use App\Models\PaymentSchedule;
 use App\Models\PaymentTransaction;
+use App\Support\ApiResponse;
 use App\Support\PhoneNumber;
 use App\Support\Promoter\PromoterPayments;
 use Illuminate\Http\JsonResponse;
@@ -84,7 +85,7 @@ class PaymentController extends Controller
     {
         $profile = ProfileController::profile($request);
 
-        return response()->json([
+        return ApiResponse::success([
             'operators' => $this->payments->operators()->map(fn (PaymentOperator $operator) => [
                 'code' => $operator->code,
                 'name' => $operator->name,

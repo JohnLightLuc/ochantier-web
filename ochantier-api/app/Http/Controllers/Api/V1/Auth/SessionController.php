@@ -6,11 +6,11 @@ use App\Http\Requests\V1\Auth\RefreshTokenRequest;
 use App\Http\Resources\V1\AuthSessionResource;
 use App\Models\AuthSession;
 use App\Models\User;
+use App\Support\ApiResponse;
 use App\Support\Auth\JwtAuthenticator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Http\Response;
 
 /**
  * Cycle de vie des sessions : rafraîchissement des jetons, déconnexion, appareils connectés.
@@ -37,7 +37,7 @@ class SessionController extends AuthController
     /**
      * Déconnexion de cet appareil : la session est révoquée et l’appareil ne reçoit plus de notifications.
      */
-    public function logout(Request $request): Response
+    public function logout(Request $request): JsonResponse
     {
         $session = JwtAuthenticator::session($request);
 
@@ -50,7 +50,7 @@ class SessionController extends AuthController
                 ->update(['revoked_at' => now()]);
         }
 
-        return response()->noContent();
+        return ApiResponse::success(message: 'Vous êtes déconnecté.');
     }
 
     /**
@@ -70,12 +70,12 @@ class SessionController extends AuthController
     /**
      * Déconnecte un autre appareil du compte.
      */
-    public function destroy(Request $request, AuthSession $session): Response
+    public function destroy(Request $request, AuthSession $session): JsonResponse
     {
         abort_unless($session->authenticatable_type === 'user' && $session->authenticatable_id === $request->user()->getKey(), 404);
 
         $this->sessions->revoke($session, 'revoked_by_user');
 
-        return response()->noContent();
+        return ApiResponse::success(message: 'Appareil déconnecté');
     }
 }

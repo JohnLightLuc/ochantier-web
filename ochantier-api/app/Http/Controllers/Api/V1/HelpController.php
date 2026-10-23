@@ -6,6 +6,7 @@ use App\Enums\UserType;
 use App\Http\Controllers\Controller;
 use App\Models\FaqArticle;
 use App\Models\Setting;
+use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -33,7 +34,7 @@ class HelpController extends Controller
                 'context_key' => $article->context_key,
             ]);
 
-        return response()->json([
+        return ApiResponse::success([
             'faq' => $faq->values(),
             'support' => [
                 'phone' => $settings['support.phone'] ?? null,
@@ -41,6 +42,6 @@ class HelpController extends Controller
                 'email' => $settings['support.email'] ?? null,
                 'hours' => $settings['support.hours'] ?? null,
             ],
-        ])->header('Cache-Control', 'private, max-age=3600');
+        ], headers: ['Cache-Control' => 'private, max-age=3600']);
     }
 }

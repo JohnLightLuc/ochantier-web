@@ -30,7 +30,7 @@ class DatabaseSeederTest extends AuthTestCase
         $this->postJson('/api/v1/auth/commercial/login', ['dial_code' => '225', 'phone_number' => '0500000001', 'password' => 'motdepasse1'])->assertAccepted();
         $this->postJson('/api/v1/auth/commercial/login/verify', ['dial_code' => '225', 'phone_number' => '0500000001', 'code' => '123456', ...$this->device()])
             ->assertOk()
-            ->assertJsonPath('user.must_change_password', false);
+            ->assertJsonPath('data.user.must_change_password', false);
 
         $this->postJson('/api/v1/auth/promoter/login', ['email' => 'promoteur@demo.ochantier.ci'])->assertAccepted();
         $this->postJson('/api/v1/auth/promoter/login/verify', ['email' => 'promoteur@demo.ochantier.ci', 'code' => '123456', ...$this->device('Pixel 8')])
