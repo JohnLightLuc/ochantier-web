@@ -2,7 +2,11 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+// Fin de période des abonnements promoteur : renouvellement, retard, expiration, fin après résiliation.
+Schedule::command('ochantier:renew-subscriptions')->dailyAt('01:00');

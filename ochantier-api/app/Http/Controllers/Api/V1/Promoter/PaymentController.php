@@ -12,12 +12,14 @@ use App\Models\PaymentTransaction;
 use App\Support\ApiResponse;
 use App\Support\PhoneNumber;
 use App\Support\Promoter\PromoterPayments;
+use App\Support\Promoter\PromoterSubscriptions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 /**
- * « Paiements », « Détail paiement » et paiement Mobile Money d’un acompte ou d’une échéance.
+ * « Paiements », « Détail paiement » et paiement Mobile Money d’un acompte, d’une échéance, d’un versement de
+ * paiement flexible ou d’un abonnement.
  */
 class PaymentController extends Controller
 {
@@ -34,7 +36,7 @@ class PaymentController extends Controller
         'finalises' => ['finalise'],
     ];
 
-    public function __construct(private PromoterPayments $payments) {}
+    public function __construct(private PromoterPayments $payments, private PromoterSubscriptions $subscriptions) {}
 
     /**
      * Acomptes et échéances, les plus urgents d’abord. Filtres : filter (a_payer, en_retard, a_venir, effectues,
@@ -99,20 +101,29 @@ class PaymentController extends Controller
                 'is_default' => $method->is_default,
             ])->values(),
             'default_phone' => PhoneNumber::of($request->user())?->toArray(),
+            'flexible' => [
+                'available' => $this->subscriptions->allowsFlexiblePayment($profile),
+                'min_amount' => PromoterPayments::FLEXIBLE_MIN,
+                'installments' => [1, 2, 3],
+                'interval_days' => 7,
+            ],
         ]);
     }
 
     /**
-     * Détail du montant avant de payer, avec les frais de l’opérateur choisi.
+     * Détail du montant avant de payer, avec les frais de l’opérateur choisi ; installments (2 ou 3) détaille le
+     * paiement flexible (versement du jour et versements suivants).
      */
     public function quote(PaymentRequest $request): JsonResponse
     {
-        $payable = $this->payments->payable($request->user(), $request->target());
+        $payable = $this->payments->split($this->payments->payable($request->user(), $request->target()), ProfileController::profile($request), $request->installments());
 
         return response()->json(['data' => [
             'label' => $payable['label'],
             'kind' => $payable['kind'],
             ...$this->payments->quote($payable, $request->operator()),
+            'total_amount' => $payable['total_amount'] ?? $payable['amount'],
+            'installments' => $payable['installments'] ?? null,
         ]]);
     }
 
@@ -129,7 +140,7 @@ class PaymentController extends Controller
             return PaymentTransactionResource::make($existing->load(['operator', 'receipts.mediaFile']))->response()->setStatusCode(200);
         }
 
-        $payable = $this->payments->payable($request->user(), $request->target());
+        $payable = $this->payments->split($this->payments->payable($request->user(), $request->target()), $profile, $request->installments());
         $transaction = $this->payments->pay($request->user(), $profile, $payable, $request->operator(), $request->phoneNumber(), $key, $request->boolean('remember_number'));
 
         return PaymentTransactionResource::make($transaction->load(['operator', 'receipts.mediaFile']))->response()->setStatusCode(201);

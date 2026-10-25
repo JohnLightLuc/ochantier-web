@@ -25,6 +25,16 @@ trait ConfirmedSite
 
     protected function confirmSite(): void
     {
+        $proposal = $this->acceptProposal();
+        $this->postJson('/api/v1/promoter/payments', ['proposal_id' => $proposal->id, 'operator_code' => 'orange_money', 'dial_code' => '225', 'phone_number' => '0712345634'])->assertCreated();
+        $this->site->refresh();
+    }
+
+    /**
+     * Même chantier, proposition acceptée mais acompte pas encore payé.
+     */
+    protected function acceptProposal(): Proposal
+    {
         $this->seed([AdminAccessSeeder::class, PlatformRulesSeeder::class, CommercialOfferSeeder::class]);
         $this->worker('Kouamé Koffi', 'macon', 22700, rating: 4.7);
         $this->worker('Touré Ali', 'macon', 23600, rating: 4.9);
@@ -47,10 +57,11 @@ trait ConfirmedSite
 
         $proposal = Proposal::query()->sole();
         $this->postJson("/api/v1/promoter/proposals/{$proposal->id}/accept")->assertOk();
-        $this->postJson('/api/v1/promoter/payments', ['proposal_id' => $proposal->id, 'operator_code' => 'orange_money', 'dial_code' => '225', 'phone_number' => '0712345634'])->assertCreated();
 
         $this->site = Site::query()->findOrFail($site['id']);
         $this->startDate = CarbonImmutable::today()->addDays(5);
+
+        return $proposal->refresh();
     }
 
     /**

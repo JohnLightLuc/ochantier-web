@@ -34,6 +34,7 @@ class CommercialOfferSeeder extends Seeder
         'solo' => ['Solo', '1 utilisateur', 'Compte à utilisateur unique · propriétaire', 0, 1, ['Propriétaire uniquement', 'Chantiers, réservations et pointage', 'Paiement en une fois · sans rapport global'], false],
         'equipe' => ['Équipe', 'Jusqu’à 5 utilisateurs', 'Compte équipe · rôles clés', 15000, 5, ['Jusqu’à 5 utilisateurs · rôles clés', 'Paiement flexible en 2 ou 3 fois', 'Rapport global de fin de chantier'], true],
         'pro' => ['Pro', 'Jusqu’à 15 utilisateurs', 'Compte entreprise · équipes multiples', 35000, 15, ['Jusqu’à 15 utilisateurs', 'Paiement flexible et rapports de fin de chantier', 'Journal d’activité détaillé'], false],
+        'entreprise' => ['Entreprise', 'Jusqu’à 50 utilisateurs', 'Grands comptes · multi-agences', 75000, 50, ['Jusqu’à 50 utilisateurs', 'Paiement flexible, rapports et multi-agences', 'Support prioritaire dédié'], false],
     ];
 
     public function run(): void

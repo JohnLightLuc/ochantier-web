@@ -195,6 +195,7 @@ class AppServiceProvider extends ServiceProvider
             'otp_code' => Models\OtpCode::class,
             'password_reset' => Models\PasswordReset::class,
             'payment_allocation' => Models\PaymentAllocation::class,
+            'payment_installment' => Models\PaymentInstallment::class,
             'payment_method' => Models\PaymentMethod::class,
             'payment_operator' => Models\PaymentOperator::class,
             'payment_schedule' => Models\PaymentSchedule::class,

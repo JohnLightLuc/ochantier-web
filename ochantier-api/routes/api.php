@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\V1\Promoter\SiteOfferController;
 use App\Http\Controllers\Api\V1\Promoter\SiteReportController;
 use App\Http\Controllers\Api\V1\Promoter\SiteStepController;
 use App\Http\Controllers\Api\V1\Promoter\SiteTrackingController;
+use App\Http\Controllers\Api\V1\Promoter\SubscriptionController;
 use App\Http\Controllers\Api\V1\Promoter\WorkerCatalogController;
 use App\Http\Controllers\Api\V1\ReferenceController;
 use Illuminate\Support\Facades\Route;
@@ -41,7 +42,7 @@ use Illuminate\Support\Facades\Route;
 | Commercial : compte créé par le Back Office, connexion par mot de passe puis code SMS.
 | Espace commercial (prefix commercial) : prospects et dossiers ouvriers, contrat actif exigé.
 | Espace promoteur (prefix promoter) : profil, vérification, préférences, chantiers, réservations, paiements et suivi
-| (équipe, pointage, chronologie, remplacements), évaluations, factures et rapport de fin de chantier.
+| (équipe, pointage, chronologie, remplacements), évaluations, factures et rapport de fin de chantier, abonnement.
 |
 */
 
@@ -141,6 +142,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::get('sites/{site}/invoices', [SiteReportController::class, 'invoices'])->name('sites.invoices');
                 Route::get('sites/{site}/report', [SiteReportController::class, 'show'])->name('sites.report');
                 Route::get('sites/{site}/report/pdf', [SiteReportController::class, 'pdf'])->name('sites.report.pdf');
+
+                Route::get('subscription', [SubscriptionController::class, 'show'])->name('subscription.show');
+                Route::post('subscription/cancel', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');
             });
 
             // Application Commercial : prospects et dossiers ouvriers.

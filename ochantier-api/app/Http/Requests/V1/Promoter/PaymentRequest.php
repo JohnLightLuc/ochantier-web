@@ -9,14 +9,20 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 /**
- * Paiement Mobile Money (« Payer ») ou son devis : ce qui est réglé (acompte d’une proposition ou échéances),
- * l’opérateur et, pour payer, le numéro qui reçoit la demande de paiement.
+ * Paiement Mobile Money (« Payer ») ou son devis : ce qui est réglé (acompte d’une proposition, échéances, versement
+ * d’un paiement flexible, formule d’abonnement ou facture de renouvellement), l’opérateur et, pour payer, le numéro
+ * qui reçoit la demande de paiement. installments (2 ou 3) règle un acompte ou des échéances en plusieurs fois.
  */
 class PaymentRequest extends FormRequest
 {
     use PhoneFields;
 
     private ?PaymentOperator $operatorModel = null;
+
+    /**
+     * Ce que l’on peut payer : une seule cible par paiement.
+     */
+    private const TARGETS = ['proposal_id', 'schedule_ids', 'installment_id', 'plan_code', 'subscription_invoice_id'];
 
     /**
      * @return array<string, mixed>
@@ -26,9 +32,13 @@ class PaymentRequest extends FormRequest
         $paying = $this->routeIs('*.payments.store');
 
         return [
-            'proposal_id' => ['required_without:schedule_ids', 'prohibits:schedule_ids', 'nullable', 'uuid'],
-            'schedule_ids' => ['required_without:proposal_id', 'nullable', 'array', 'min:1', 'max:20'],
+            'proposal_id' => ['nullable', 'uuid'],
+            'schedule_ids' => ['nullable', 'array', 'min:1', 'max:20'],
             'schedule_ids.*' => ['uuid', 'distinct'],
+            'installment_id' => ['nullable', 'uuid'],
+            'plan_code' => ['nullable', 'string', 'max:30'],
+            'subscription_invoice_id' => ['nullable', 'uuid'],
+            'installments' => ['sometimes', 'integer', 'in:1,2,3'],
             'operator_code' => ['required', 'string', Rule::exists('payment_operators', 'code')->where('is_active', true)->where('supports_collection', true)],
             ...($paying ? $this->phoneRules() : []),
             'remember_number' => ['sometimes', 'boolean'],
@@ -42,6 +52,18 @@ class PaymentRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
+                $targets = collect(self::TARGETS)->filter(fn (string $key) => $this->filled($key));
+
+                if ($targets->count() !== 1) {
+                    $validator->errors()->add($targets->first() ?? 'proposal_id', $targets->isEmpty()
+                        ? 'Indiquez ce que vous payez : proposal_id (acompte), schedule_ids (échéances), installment_id (versement), plan_code (formule) ou subscription_invoice_id (facture d’abonnement).'
+                        : 'Payez une seule chose à la fois.');
+                }
+
+                if ($this->installments() > 1 && ! $targets->intersect(['proposal_id', 'schedule_ids'])->count()) {
+                    $validator->errors()->add('installments', 'Seuls un acompte ou des échéances peuvent être réglés en plusieurs fois.');
+                }
+
                 $operator = $this->operator();
                 $phone = $this->phoneNumber();
 
@@ -59,9 +81,8 @@ class PaymentRequest extends FormRequest
     {
         return [
             ...$this->phoneMessages(),
-            'proposal_id.required_without' => 'Indiquez ce que vous payez : proposal_id (acompte) ou schedule_ids (échéances).',
-            'schedule_ids.required_without' => 'Indiquez ce que vous payez : proposal_id (acompte) ou schedule_ids (échéances).',
-            'proposal_id.prohibits' => 'Payez un acompte ou des échéances, pas les deux.',
+            'installments.in' => 'Payez en 1, 2 ou 3 fois.',
+            'installments.integer' => 'Payez en 1, 2 ou 3 fois.',
             'operator_code.required' => 'Choisissez un moyen de paiement.',
             'operator_code.exists' => 'Moyen de paiement indisponible.',
         ];
@@ -73,10 +94,24 @@ class PaymentRequest extends FormRequest
     }
 
     /**
-     * @return array{proposal_id?: string, schedule_ids?: list<string>}
+     * @return array{proposal_id?: string, schedule_ids?: list<string>, installment_id?: string, plan_code?: string, subscription_invoice_id?: string}
      */
     public function target(): array
     {
-        return $this->filled('proposal_id') ? ['proposal_id' => (string) $this->input('proposal_id')] : ['schedule_ids' => array_values((array) $this->input('schedule_ids'))];
+        if ($this->filled('schedule_ids')) {
+            return ['schedule_ids' => array_values((array) $this->input('schedule_ids'))];
+        }
+
+        $key = collect(self::TARGETS)->first(fn (string $key) => $this->filled($key));
+
+        return [$key => (string) $this->input($key)];
+    }
+
+    /**
+     * Nombre de versements demandé (paiement flexible), 1 par défaut.
+     */
+    public function installments(): int
+    {
+        return (int) ($this->input('installments') ?: 1);
     }
 }

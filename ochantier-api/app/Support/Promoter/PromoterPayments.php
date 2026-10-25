@@ -3,6 +3,7 @@
 namespace App\Support\Promoter;
 
 use App\Enums\MissionStatus;
+use App\Enums\PaymentInstallmentStatus;
 use App\Enums\PaymentMethodStatus;
 use App\Enums\PaymentMethodType;
 use App\Enums\PaymentScheduleStatus;
@@ -16,6 +17,7 @@ use App\Enums\ReceiptType;
 use App\Enums\TransactionStatusSource;
 use App\Enums\WorkerReservationStatus;
 use App\Models\Mission;
+use App\Models\PaymentInstallment;
 use App\Models\PaymentMethod;
 use App\Models\PaymentOperator;
 use App\Models\PaymentSchedule;
@@ -32,17 +34,21 @@ use App\Support\PhoneNumber;
 use App\Support\Pricing\PricingRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Paiements du promoteur (« Paiements », « Payer ») : acompte d’une proposition acceptée et échéances des missions,
- * par Mobile Money.
+ * Paiements du promoteur (« Paiements », « Payer ») : acompte d’une proposition acceptée, échéances des missions,
+ * versements d’un paiement flexible et abonnement, par Mobile Money.
  *
- * Un paiement porte sur l’acompte d’une proposition (il crée alors les missions et leur échéancier) ou sur une
- * échéance (regroupant les missions d’une même réservation). Les frais de l’opérateur s’ajoutent au montant ; un
- * reçu PDF est émis pour chaque paiement réussi.
+ * Un paiement porte sur l’acompte d’une proposition (il crée alors les missions et leur échéancier), sur une
+ * échéance (regroupant les missions d’une même réservation), sur un versement ou sur une formule d’abonnement. Un
+ * abonné peut régler un acompte ou une échéance d’au moins FLEXIBLE_MIN en 2 ou 3 versements espacés de 7 jours ;
+ * le 1er versement valide la réservation. Les frais de l’opérateur s’ajoutent au montant ; un reçu PDF est émis pour
+ * chaque paiement réussi.
  */
 class PromoterPayments
 {
@@ -59,11 +65,17 @@ class PromoterPayments
         'finalise' => 'Finalisé',
     ];
 
+    /**
+     * Montant minimal d’un paiement flexible (FCFA).
+     */
+    public const FLEXIBLE_MIN = 20000;
+
     public function __construct(
         private PricingRules $pricing,
         private MissionPlanner $planner,
         private PaymentGateway $gateway,
         private MediaStore $media,
+        private PromoterSubscriptions $subscriptions,
     ) {}
 
     /**
@@ -77,15 +89,73 @@ class PromoterPayments
     }
 
     /**
-     * Ce que règle le paiement demandé : acompte d’une proposition acceptée, ou échéances non payées d’une même
-     * réservation.
+     * Ce que règle le paiement demandé : acompte d’une proposition acceptée, échéances non payées d’une même
+     * réservation, versement d’un paiement flexible, formule ou facture d’abonnement.
      *
-     * @param  array{proposal_id?: string|null, schedule_ids?: list<string>|null}  $target
-     * @return array{kind: string, label: string, amount: int, site: Site, proposal: Proposal|null, schedules: Collection<int, PaymentSchedule>, lines: list<array{label: string, amount: int}>, done_text: string}
+     * @param  array{proposal_id?: string|null, schedule_ids?: list<string>|null, installment_id?: string, plan_code?: string, subscription_invoice_id?: string}  $target
+     * @return array{kind: string, label: string, amount: int, site: Site|null, proposal: Proposal|null, schedules: Collection<int, PaymentSchedule>, lines: list<array{label: string, amount: int}>, done_text: string}
      */
     public function payable(User $user, array $target): array
     {
-        return isset($target['proposal_id']) ? $this->deposit($user, $target['proposal_id']) : $this->installments($user, $target['schedule_ids'] ?? []);
+        return match (true) {
+            isset($target['proposal_id']) => $this->deposit($user, $target['proposal_id']),
+            isset($target['installment_id']) => $this->flexibleInstallment($user, $target['installment_id']),
+            isset($target['plan_code']) || isset($target['subscription_invoice_id']) => $this->subscriptions->payable($user->promoterProfile, $target),
+            default => $this->installments($user, $target['schedule_ids'] ?? []),
+        };
+    }
+
+    /**
+     * « Paiement flexible » : règle aujourd’hui le 1er de $count versements (arrondis à la centaine), les suivants
+     * tous les 7 jours. Réservé aux abonnés, pour un acompte ou des échéances d’au moins FLEXIBLE_MIN.
+     *
+     * @param  array<string, mixed>  $payable
+     * @return array<string, mixed>
+     */
+    public function split(array $payable, PromoterProfile $profile, int $count): array
+    {
+        if ($count <= 1) {
+            return $payable;
+        }
+
+        if (! in_array($payable['kind'], ['acompte', 'echeance'], true)) {
+            throw ValidationException::withMessages(['installments' => 'Seuls un acompte ou des échéances peuvent être réglés en plusieurs fois.']);
+        }
+
+        if (! $this->subscriptions->allowsFlexiblePayment($profile)) {
+            throw ValidationException::withMessages(['installments' => 'Le paiement en plusieurs fois est réservé aux abonnés.']);
+        }
+
+        if ($payable['amount'] < self::FLEXIBLE_MIN) {
+            throw ValidationException::withMessages(['installments' => 'Le paiement en plusieurs fois est possible à partir de '.$this->money(self::FLEXIBLE_MIN).'.']);
+        }
+
+        $total = (int) $payable['amount'];
+        $first = (int) (round($total / $count / 100) * 100);
+        $per = (int) (round(($total - $first) / ($count - 1) / 100) * 100);
+        $today = CarbonImmutable::today();
+        $plan = collect(range(1, $count))->map(fn (int $sequence) => [
+            'sequence' => $sequence,
+            'amount' => match ($sequence) {
+                1 => $first,
+                $count => $total - $first - $per * ($count - 2),
+                default => $per,
+            },
+            'due_date' => $today->addDays(7 * ($sequence - 1))->toDateString(),
+        ])->all();
+
+        return [
+            ...$payable,
+            'amount' => $first,
+            'total_amount' => $total,
+            'installments' => $plan,
+            'lines' => [
+                ...$payable['lines'],
+                ['label' => 'Versement 1/'.$count.' aujourd’hui', 'amount' => $first],
+                ['label' => 'Reste en '.($count - 1).' versement'.($count > 2 ? 's' : '').' · tous les 7 jours', 'amount' => $total - $first],
+            ],
+            'done_text' => $payable['done_text'].' Prochain versement le '.$this->date($today->addDays(7)).'.',
+        ];
     }
 
     /**
@@ -125,11 +195,16 @@ class PromoterPayments
         $transaction = PaymentTransaction::query()->create([
             'reference' => sprintf('PAY-%s-%06d', now()->format('Y'), DB::scalar("SELECT nextval('payment_transaction_reference_seq')")),
             'direction' => PaymentTransactionDirection::Encaissement,
-            'purpose' => $payable['kind'] === 'acompte' ? PaymentTransactionPurpose::Acompte : PaymentTransactionPurpose::Echeance,
+            'purpose' => match ($payable['kind']) {
+                'acompte' => PaymentTransactionPurpose::Acompte,
+                'abonnement' => PaymentTransactionPurpose::Abonnement,
+                default => PaymentTransactionPurpose::Echeance,
+            },
             'payer_type' => $profile->getMorphClass(),
             'payer_id' => $profile->getKey(),
             'payee_type' => 'plateforme',
             'payment_schedule_id' => $payable['schedules']->count() === 1 ? $payable['schedules']->first()->getKey() : null,
+            'subscription_invoice_id' => ($payable['invoice'] ?? null)?->getKey(),
             'payment_method_id' => $method?->getKey(),
             'operator_id' => $operator->getKey(),
             'provider' => $operator->provider,
@@ -142,8 +217,11 @@ class PromoterPayments
             'metadata' => [
                 'allocations' => [],
                 'label' => $payable['label'],
-                'site_id' => $payable['site']->getKey(),
+                'site_id' => $payable['site']?->getKey(),
                 'proposal_id' => $payable['proposal']?->getKey(),
+                'installment_id' => ($payable['installment'] ?? null)?->getKey(),
+                'installments' => isset($payable['installments']) ? count($payable['installments']) : null,
+                'plan_code' => ($payable['plan'] ?? null)?->code,
                 'schedule_ids' => $this->keys($payable['schedules']),
                 'phone' => $phone->masked(),
                 'lines' => $quote['lines'],
@@ -162,14 +240,30 @@ class PromoterPayments
         }
 
         return DB::transaction(function () use ($transaction, $payable, $user, $profile, $result): PaymentTransaction {
+            if ($payable['kind'] === 'abonnement') {
+                $invoice = $this->subscriptions->settle($transaction, $profile, $user, $payable);
+                $transaction->forceFill(['status' => PaymentTransactionStatus::Reussie, 'provider_reference' => $result->providerReference, 'completed_at' => now(), 'subscription_invoice_id' => $invoice->getKey()])->save();
+                $this->history($transaction, PaymentTransactionStatus::Initiee, PaymentTransactionStatus::Reussie, $user);
+                $this->issueReceipt($transaction, $profile, null, $invoice);
+
+                return $transaction->refresh();
+            }
+
             $schedules = $payable['kind'] === 'acompte'
                 ? $this->planner->confirm(Proposal::query()->lockForUpdate()->findOrFail($payable['proposal']->getKey()), $user)
                 : $payable['schedules'];
 
-            foreach ($schedules as $schedule) {
-                $due = $schedule->amount_due - $schedule->amount_paid;
-                $schedule->forceFill(['amount_paid' => $schedule->amount_due, 'status' => PaymentScheduleStatus::Payee])->save();
-                $transaction->allocations()->create(['payment_schedule_id' => $schedule->getKey(), 'amount' => $due]);
+            if (isset($payable['installments']) || $payable['kind'] === 'versement') {
+                $this->allocate($transaction, $schedules, $transaction->amount);
+                $payable['kind'] === 'versement'
+                    ? $payable['installment']->update(['status' => PaymentInstallmentStatus::Payee, 'transaction_id' => $transaction->getKey(), 'paid_at' => now()])
+                    : $this->createInstallments($transaction, $profile, $payable, $schedules);
+            } else {
+                foreach ($schedules as $schedule) {
+                    $due = $schedule->amount_due - $schedule->amount_paid;
+                    $schedule->forceFill(['amount_paid' => $schedule->amount_due, 'status' => PaymentScheduleStatus::Payee])->save();
+                    $transaction->allocations()->create(['payment_schedule_id' => $schedule->getKey(), 'amount' => $due]);
+                }
             }
 
             $transaction->forceFill([
@@ -180,7 +274,7 @@ class PromoterPayments
                 'metadata' => [...$transaction->metadata, 'allocations' => $this->keys($schedules)],
             ])->save();
             $this->history($transaction, PaymentTransactionStatus::Initiee, PaymentTransactionStatus::Reussie, $user);
-            $this->issueReceipt($transaction, $profile, $payable['site']);
+            $this->issueReceipt($transaction, $profile, $payable['site'], $payable['site']);
 
             return $transaction->refresh();
         });
@@ -205,8 +299,18 @@ class PromoterPayments
             ->get()
             ->map(fn (Proposal $proposal) => $this->depositRow($proposal));
 
+        $flexible = PaymentInstallment::query()
+            ->whereIn('group_id', PaymentInstallment::query()->where('status', PaymentInstallmentStatus::APayer)->whereHas('site', $mine)->select('group_id'))
+            ->with(['site', 'proposal', 'transaction.operator', 'transaction.receipts.mediaFile'])
+            ->orderBy('sequence')
+            ->get();
+        $covered = $flexible->pluck('schedule_ids')->flatten()->unique()->values()->all();
+        $nextOf = $flexible->where('status', PaymentInstallmentStatus::APayer)->groupBy('group_id')->map(fn (Collection $group) => $group->min('sequence'));
+        $versements = $flexible->map(fn (PaymentInstallment $installment) => $this->installmentRow($installment, $nextOf->get($installment->group_id) === $installment->sequence));
+
         $schedules = PaymentSchedule::query()
             ->whereHas('mission.site', $mine)
+            ->whereKeyNot($covered)
             ->where('status', '!=', PaymentScheduleStatus::Annulee)
             ->with(['mission.site', 'mission.need', 'mission.assignments', 'allocations.transaction.operator', 'allocations.transaction.receipts.mediaFile'])
             ->get()
@@ -215,7 +319,7 @@ class PromoterPayments
 
         $order = array_flip(array_keys(self::STATES));
 
-        return $deposits->concat($schedules->values())
+        return $deposits->concat($schedules->values())->concat($versements)
             ->sortBy([fn (array $a, array $b) => $order[$a['status']['value']] <=> $order[$b['status']['value']], fn (array $a, array $b) => strcmp((string) $a['due_date'], (string) $b['due_date'])])
             ->values();
     }
@@ -438,9 +542,9 @@ class PromoterPayments
     }
 
     /**
-     * Reçu de paiement PDF, adressé au promoteur.
+     * Reçu de paiement PDF, adressé au promoteur ; $subject est le chantier ou la facture d’abonnement réglés.
      */
-    private function issueReceipt(PaymentTransaction $transaction, PromoterProfile $profile, Site $site): Receipt
+    private function issueReceipt(PaymentTransaction $transaction, PromoterProfile $profile, ?Site $site, Model $subject): Receipt
     {
         $number = sprintf('REC-%s-%06d', now()->format('Y'), DB::scalar("SELECT nextval('receipt_number_seq')"));
         $user = $profile->user;
@@ -454,9 +558,13 @@ class PromoterPayments
             ->row('Reçu n°', $number, true)
             ->row('Date', $this->date(CarbonImmutable::now()).' · '.now()->timezone('Africa/Abidjan')->format('H:i'))
             ->row('Payé par', trim(($company ? $company.' · ' : '').$user->first_name.' '.$user->last_name))
-            ->row('Chantier', $site->label.' ('.$site->reference.')')
-            ->row('Objet', $metadata['label'])
-            ->heading('Détail');
+            ->row('Objet', $metadata['label']);
+
+        if ($site) {
+            $pdf->row('Chantier', $site->label.' ('.$site->reference.')');
+        }
+
+        $pdf->heading('Détail');
 
         foreach ($metadata['lines'] as $line) {
             $pdf->row($line['label'], $this->money((int) $line['amount']));
@@ -474,8 +582,8 @@ class PromoterPayments
         return $transaction->receipts()->create([
             'number' => $number,
             'receipt_type' => ReceiptType::Recu,
-            'subject_type' => $site->getMorphClass(),
-            'subject_id' => $site->getKey(),
+            'subject_type' => $subject->getMorphClass(),
+            'subject_id' => $subject->getKey(),
             'issued_to_type' => $profile->getMorphClass(),
             'issued_to_id' => $profile->getKey(),
             'amount' => $transaction->amount + $transaction->fees_amount,
@@ -507,6 +615,144 @@ class PromoterPayments
             'created_by_type' => $user->getMorphClass(),
             'created_by_id' => $user->getKey(),
         ]);
+    }
+
+    /**
+     * Versement suivant d’un paiement flexible, dans l’ordre des versements.
+     *
+     * @return array<string, mixed>
+     */
+    private function flexibleInstallment(User $user, string $id): array
+    {
+        $installment = PaymentInstallment::query()
+            ->whereKey($id)
+            ->whereHas('promoterProfile', fn (Builder $query) => $query->where('user_id', $user->getKey()))
+            ->with('site')
+            ->first() ?? throw ValidationException::withMessages(['installment_id' => 'Versement introuvable.']);
+
+        if ($installment->status !== PaymentInstallmentStatus::APayer) {
+            throw ValidationException::withMessages(['installment_id' => $installment->status === PaymentInstallmentStatus::Payee ? 'Ce versement est déjà réglé.' : 'Ce versement est annulé.']);
+        }
+
+        $previous = PaymentInstallment::query()
+            ->where('group_id', $installment->group_id)
+            ->where('sequence', '<', $installment->sequence)
+            ->where('status', PaymentInstallmentStatus::APayer)
+            ->orderBy('sequence')
+            ->first();
+
+        if ($previous) {
+            throw ValidationException::withMessages(['installment_id' => 'Réglez d’abord le versement '.$previous->sequence.'/'.$previous->installments_count.'.']);
+        }
+
+        $short = 'Versement '.$installment->sequence.'/'.$installment->installments_count;
+
+        return [
+            'kind' => 'versement',
+            'label' => $installment->label.' · '.mb_strtolower($short),
+            'amount' => $installment->amount,
+            'site' => $installment->site,
+            'proposal' => null,
+            'schedules' => PaymentSchedule::query()->whereKey($installment->schedule_ids)->orderBy('reference')->get(),
+            'installment' => $installment,
+            'lines' => [['label' => $short, 'amount' => $installment->amount]],
+            'done_text' => $short.' réglé.',
+        ];
+    }
+
+    /**
+     * Répartit $amount sur les échéances, dans l’ordre : une échéance couverte en partie est « partiellement payée ».
+     *
+     * @param  Collection<int, PaymentSchedule>  $schedules
+     */
+    private function allocate(PaymentTransaction $transaction, Collection $schedules, int $amount): void
+    {
+        foreach ($schedules->sortBy('reference') as $schedule) {
+            $part = min($amount, $schedule->amount_due - $schedule->amount_paid);
+
+            if ($part <= 0) {
+                continue;
+            }
+
+            $paid = $schedule->amount_paid + $part;
+            $schedule->forceFill(['amount_paid' => $paid, 'status' => $paid >= $schedule->amount_due ? PaymentScheduleStatus::Payee : PaymentScheduleStatus::PartiellementPayee])->save();
+            $transaction->allocations()->create(['payment_schedule_id' => $schedule->getKey(), 'amount' => $part]);
+            $amount -= $part;
+        }
+    }
+
+    /**
+     * Versements d’un paiement flexible dont le 1er vient d’être réglé.
+     *
+     * @param  array<string, mixed>  $payable
+     * @param  Collection<int, PaymentSchedule>  $schedules
+     */
+    private function createInstallments(PaymentTransaction $transaction, PromoterProfile $profile, array $payable, Collection $schedules): void
+    {
+        $group = (string) Str::uuid();
+
+        foreach ($payable['installments'] as $row) {
+            $first = $row['sequence'] === 1;
+
+            PaymentInstallment::query()->create([
+                'group_id' => $group,
+                'promoter_profile_id' => $profile->getKey(),
+                'site_id' => $payable['site']->getKey(),
+                'kind' => $payable['kind'],
+                'proposal_id' => $payable['proposal']?->getKey(),
+                'schedule_ids' => $this->keys($schedules),
+                'label' => $payable['label'],
+                'sequence' => $row['sequence'],
+                'installments_count' => count($payable['installments']),
+                'amount' => $row['amount'],
+                'due_date' => $row['due_date'],
+                'status' => $first ? PaymentInstallmentStatus::Payee : PaymentInstallmentStatus::APayer,
+                'transaction_id' => $first ? $transaction->getKey() : null,
+                'paid_at' => $first ? now() : null,
+            ]);
+        }
+    }
+
+    /**
+     * Ligne « Versement 2/3 » de « Paiements » ; seul le prochain versement à régler est payable.
+     *
+     * @return array<string, mixed>
+     */
+    private function installmentRow(PaymentInstallment $installment, bool $isNext): array
+    {
+        $paid = $installment->status === PaymentInstallmentStatus::Payee;
+        $due = CarbonImmutable::parse($installment->due_date);
+        $today = CarbonImmutable::today();
+        $transaction = $installment->transaction;
+        $receipt = $transaction?->receipts->first();
+        $short = 'Versement '.$installment->sequence.'/'.$installment->installments_count;
+        $state = match (true) {
+            $paid => 'effectue',
+            $due->lessThan($today) => 'en_retard',
+            $due->equalTo($today) => 'a_payer',
+            default => 'a_venir',
+        };
+
+        return [
+            'key' => 'installment:'.$installment->id,
+            'target' => ['installment_id' => $installment->id],
+            'kind' => ['value' => 'versement', 'label' => 'Versement'],
+            'short' => $short,
+            'title' => $short.' · '.$installment->site->label,
+            'site' => ['id' => $installment->site->id, 'title' => $installment->site->label],
+            'reservation_id' => $installment->proposal?->offer_id,
+            'who' => $installment->label,
+            'amount' => $installment->amount,
+            'status' => ['value' => $state, 'label' => self::STATES[$state]],
+            'due_date' => $due->toDateString(),
+            'when' => $paid ? 'Payé le '.$this->date(CarbonImmutable::parse($installment->paid_at)) : 'Échéance le '.$this->date($due),
+            'installment' => ['group_id' => $installment->group_id, 'sequence' => $installment->sequence, 'count' => $installment->installments_count],
+            'paid_at' => $installment->paid_at?->toIso8601String(),
+            'method' => $transaction?->operator?->name,
+            'transaction_reference' => $transaction?->reference,
+            'receipt' => $receipt ? ['number' => $receipt->number, 'url' => $receipt->mediaFile ? $this->media->temporaryUrl($receipt->mediaFile) : null] : null,
+            'can_pay' => ! $paid && $isNext,
+        ];
     }
 
     private function history(PaymentTransaction $transaction, ?PaymentTransactionStatus $from, PaymentTransactionStatus $to, User $user): void

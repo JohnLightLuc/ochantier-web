@@ -8,7 +8,6 @@ use App\Enums\RatingScope;
 use App\Enums\RatingStatus;
 use App\Enums\SiteStatus;
 use App\Enums\SiteStepStatus;
-use App\Enums\SubscriptionStatus;
 use App\Enums\WorkDayStatus;
 use App\Models\Assignment;
 use App\Models\Rating;
@@ -29,17 +28,13 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  */
 class SiteReport
 {
-    /**
-     * Abonnements qui donnent accès au rapport (le retard de paiement laisse l’accès pendant la relance).
-     */
-    private const SUBSCRIBED = [SubscriptionStatus::Essai, SubscriptionStatus::Active, SubscriptionStatus::EnRetard];
-
     public function __construct(
         private SiteManager $sites,
         private SiteRatings $ratings,
         private SiteInvoices $invoices,
         private SiteAttendance $attendance,
         private PromoterPayments $payments,
+        private PromoterSubscriptions $subscriptions,
         private MediaStore $media,
     ) {}
 
@@ -51,7 +46,7 @@ class SiteReport
     public function access(Site $site): array
     {
         $ended = $site->status === SiteStatus::Termine;
-        $subscribed = $site->promoterProfile->subscriptions()->whereIn('status', self::SUBSCRIBED)->exists();
+        $subscribed = $this->subscriptions->isSubscribed($site->promoterProfile);
 
         return [
             'available' => $ended && $subscribed,
