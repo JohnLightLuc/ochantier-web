@@ -97,6 +97,13 @@ class CollaboratorAccessTest extends PromoterTestCase
         $this->postJson("/api/v1/promoter/sites/{$this->site->id}/steps", ['title' => 'Fondations'])->assertForbidden();
         $this->deleteJson("/api/v1/promoter/sites/{$this->site->id}")->assertForbidden();
         $this->getJson('/api/v1/promoter/team/activity')->assertForbidden();
+
+        $this->postJson('/api/v1/promoter/payments', ['schedule_ids' => [$schedule->id], 'operator_code' => 'wave', 'dial_code' => '225', 'phone_number' => '0712345634'])->assertCreated();
+        $this->actingAsPromoter($this->promoter);
+        $this->getJson('/api/v1/promoter/team/activity')
+            ->assertJsonPath('data.0.who.role', 'Comptable')
+            ->assertJsonPath('data.0.what', 'a effectué un paiement')
+            ->assertJsonPath('data.0.site.title', 'Résidence Les Palmiers');
     }
 
     public function test_an_observer_only_reads(): void

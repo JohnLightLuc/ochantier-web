@@ -2,8 +2,12 @@
 
 namespace App\Support\Promoter;
 
+use App\Models\Assignment;
 use App\Models\AuditLog;
+use App\Models\Offer;
 use App\Models\PromoterProfile;
+use App\Models\Proposal;
+use App\Models\Replacement;
 use App\Models\Site;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -69,13 +73,14 @@ class PromoterActivity
     public function recordRequest(Request $request, Response $response): void
     {
         $action = str((string) $request->route()?->getName())->after('v1.promoter.')->toString();
-        $site = $request->route('site');
 
         if (! isset(self::LABELS[$action])) {
             return;
         }
 
-        $message = json_decode((string) $response->getContent(), true)['message'] ?? null;
+        $payload = json_decode((string) $response->getContent(), true);
+        $message = $payload['message'] ?? null;
+        $site = $this->siteOf($request, $payload['data'] ?? null);
 
         $this->record($request->user(), $action, [
             'site' => $site instanceof Site ? ['id' => $site->id, 'title' => $site->label] : null,
@@ -129,6 +134,25 @@ class PromoterActivity
                     : ($at->isYesterday() ? 'Hier · '.$at->format('H:i') : $at->locale('fr')->translatedFormat('j M Y · H:i')),
             ];
         })->values()->all();
+    }
+
+    /**
+     * Chantier concerné : paramètre de route, ou chantier de la proposition, de la réservation, de l’affectation ou du
+     * remplacement, ou encore site_id de la réponse (paiement).
+     */
+    private function siteOf(Request $request, mixed $data): ?Site
+    {
+        $route = $request->route();
+        $model = $route?->parameter('site') ?? $route?->parameter('proposal') ?? $route?->parameter('reservation')
+            ?? $route?->parameter('assignment') ?? $route?->parameter('replacement');
+
+        return match (true) {
+            $model instanceof Site => $model,
+            $model instanceof Proposal, $model instanceof Offer => $model->site,
+            $model instanceof Assignment, $model instanceof Replacement => $model->mission?->site,
+            is_array($data) && is_string($data['site_id'] ?? null) => Site::query()->find($data['site_id']),
+            default => null,
+        };
     }
 
     /**
