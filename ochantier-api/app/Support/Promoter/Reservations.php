@@ -53,16 +53,16 @@ class Reservations
 
     public const WITH = ['site.mainImageMedia', 'site.commune', 'needs.trade', 'needs.requestedWorkers.worker', 'proposals.refusalReason'];
 
-    public function __construct(private SitePublisher $publisher) {}
+    public function __construct(private SitePublisher $publisher, private PromoterAccess $access) {}
 
     /**
-     * Réservations des chantiers du promoteur.
+     * Réservations des chantiers que l’utilisateur peut voir dans son compte.
      *
      * @return Builder<Offer>
      */
     public function query(User $user): Builder
     {
-        return Offer::query()->whereHas('site.promoterProfile', fn (Builder $query) => $query->where('user_id', $user->getKey()));
+        return Offer::query()->whereHas('site', fn (Builder $query) => $this->access->scopeSites($query, $user));
     }
 
     /**

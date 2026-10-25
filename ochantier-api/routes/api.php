@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\Promoter\SiteReportController;
 use App\Http\Controllers\Api\V1\Promoter\SiteStepController;
 use App\Http\Controllers\Api\V1\Promoter\SiteTrackingController;
 use App\Http\Controllers\Api\V1\Promoter\SubscriptionController;
+use App\Http\Controllers\Api\V1\Promoter\TeamController;
 use App\Http\Controllers\Api\V1\Promoter\WorkerCatalogController;
 use App\Http\Controllers\Api\V1\ReferenceController;
 use Illuminate\Support\Facades\Route;
@@ -42,7 +43,9 @@ use Illuminate\Support\Facades\Route;
 | Commercial : compte créé par le Back Office, connexion par mot de passe puis code SMS.
 | Espace commercial (prefix commercial) : prospects et dossiers ouvriers, contrat actif exigé.
 | Espace promoteur (prefix promoter) : profil, vérification, préférences, chantiers, réservations, paiements et suivi
-| (équipe, pointage, chronologie, remplacements), évaluations, factures et rapport de fin de chantier, abonnement.
+| (équipe, pointage, chronologie, remplacements), évaluations, factures et rapport de fin de chantier, abonnement,
+| utilisateurs et activité. Chaque route exige un droit du rôle de l’utilisateur dans le compte (promoter.can, voir
+| PromoterAccess::ABILITIES) ; les actions d’écriture sont inscrites au journal d’activité (promoter.activity).
 |
 */
 
@@ -85,66 +88,100 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('help', HelpController::class)->name('help');
 
             // Application Promoteur : profil, pièces justificatives, préférences, chantiers, réservations, paiements, suivi et bilan.
-            Route::middleware('user.type:promoter')->prefix('promoter')->name('promoter.')->group(function () {
-                Route::get('profile', [PromoterProfileController::class, 'show'])->name('profile.show');
-                Route::patch('profile', [PromoterProfileController::class, 'update'])->name('profile.update');
-                Route::post('profile/photo', [PromoterProfileController::class, 'storePhoto'])->name('profile.photo.store');
-                Route::delete('profile/photo', [PromoterProfileController::class, 'destroyPhoto'])->name('profile.photo.destroy');
-                Route::post('profile/documents', [ProfileDocumentController::class, 'store'])->name('profile.documents.store');
-                Route::delete('profile/documents/{document}', [ProfileDocumentController::class, 'destroy'])->name('profile.documents.destroy');
-                Route::get('notification-preferences', [NotificationPreferenceController::class, 'show'])->name('notification-preferences.show');
-                Route::put('notification-preferences', [NotificationPreferenceController::class, 'update'])->name('notification-preferences.update');
-
-                Route::get('sites/form-options', [SiteController::class, 'formOptions'])->name('sites.form-options');
-                Route::apiResource('sites', SiteController::class);
-                Route::post('sites/{site}/photo', [SiteMediaController::class, 'storePhoto'])->name('sites.photo.store');
-                Route::delete('sites/{site}/photo', [SiteMediaController::class, 'destroyPhoto'])->name('sites.photo.destroy');
-                Route::post('sites/{site}/documents', [SiteMediaController::class, 'storeDocument'])->name('sites.documents.store');
-                Route::delete('sites/{site}/documents/{document}', [SiteMediaController::class, 'destroyDocument'])->name('sites.documents.destroy');
-                Route::put('sites/{site}/offer', [SiteOfferController::class, 'update'])->name('sites.offer.update');
-                Route::post('sites/{site}/publish', [SiteOfferController::class, 'publish'])->name('sites.publish');
-                Route::get('workers', WorkerCatalogController::class)->name('workers.index');
-                Route::post('sites/{site}/reservations', [ReservationController::class, 'store'])->name('sites.reservations.store');
-                Route::get('reservations', [ReservationController::class, 'index'])->name('reservations.index');
-                Route::get('reservations/{reservation}', [ReservationController::class, 'show'])->name('reservations.show');
-                Route::post('proposals/{proposal}/accept', [ReservationController::class, 'accept'])->name('proposals.accept');
-                Route::post('proposals/{proposal}/refuse', [ReservationController::class, 'refuse'])->name('proposals.refuse');
-                Route::get('payments', [PaymentController::class, 'index'])->name('payments.index');
-                Route::get('payments/options', [PaymentController::class, 'options'])->name('payments.options');
-                Route::post('payments/quote', [PaymentController::class, 'quote'])->name('payments.quote');
-                Route::post('payments', [PaymentController::class, 'store'])->middleware('throttle:10,1')->name('payments.store');
-                Route::get('payments/schedules/{schedule}', [PaymentController::class, 'show'])->name('payments.show');
-                Route::get('payments/transactions/{transaction}', [PaymentController::class, 'transaction'])->name('payments.transactions.show');
-
-                Route::get('sites/{site}/tracking', [SiteTrackingController::class, 'show'])->name('sites.tracking');
-                Route::get('sites/{site}/team', [SiteTrackingController::class, 'team'])->name('sites.team');
-                Route::get('sites/{site}/attendance', [AttendanceController::class, 'index'])->name('sites.attendance.index');
-                Route::get('sites/{site}/attendance/history', [AttendanceController::class, 'history'])->name('sites.attendance.history');
-                Route::post('sites/{site}/attendance/events', [AttendanceController::class, 'storeEvent'])->name('sites.attendance.events.store');
-                Route::post('sites/{site}/attendance/absences', [AttendanceController::class, 'storeAbsence'])->name('sites.attendance.absences.store');
-                Route::post('sites/{site}/attendance/{date}/validate', [AttendanceController::class, 'validateDay'])->where('date', '\d{4}-\d{2}-\d{2}')->name('sites.attendance.validate');
-                Route::scopeBindings()->group(function () {
+            Route::middleware(['user.type:promoter', 'promoter.activity'])->prefix('promoter')->name('promoter.')->group(function () {
+                // Tous les utilisateurs du compte : consultation (le technicien ne voit que ses chantiers).
+                Route::middleware('promoter.can:sites.view')->group(function () {
+                    Route::get('profile', [PromoterProfileController::class, 'show'])->name('profile.show');
+                    Route::get('notification-preferences', [NotificationPreferenceController::class, 'show'])->name('notification-preferences.show');
+                    Route::put('notification-preferences', [NotificationPreferenceController::class, 'update'])->name('notification-preferences.update');
+                    Route::get('sites/form-options', [SiteController::class, 'formOptions'])->name('sites.form-options');
+                    Route::apiResource('sites', SiteController::class)->only(['index', 'show']);
+                    Route::get('workers', WorkerCatalogController::class)->name('workers.index');
+                    Route::get('reservations', [ReservationController::class, 'index'])->name('reservations.index');
+                    Route::get('reservations/{reservation}', [ReservationController::class, 'show'])->name('reservations.show');
+                    Route::get('sites/{site}/tracking', [SiteTrackingController::class, 'show'])->name('sites.tracking');
+                    Route::get('sites/{site}/team', [SiteTrackingController::class, 'team'])->name('sites.team');
+                    Route::get('sites/{site}/attendance', [AttendanceController::class, 'index'])->name('sites.attendance.index');
+                    Route::get('sites/{site}/attendance/history', [AttendanceController::class, 'history'])->name('sites.attendance.history');
                     Route::get('sites/{site}/steps', [SiteStepController::class, 'index'])->name('sites.steps.index');
+                    Route::get('replacements/{replacement}', [ReplacementController::class, 'show'])->name('replacements.show');
+                    Route::get('sites/{site}/ratings', [RatingController::class, 'site'])->name('sites.ratings.index');
+                    Route::get('ratings', [RatingController::class, 'index'])->name('ratings.index');
+                });
+
+                // Chantiers, besoins et réservations : propriétaire, administrateur, chef de chantier.
+                Route::middleware('promoter.can:sites.manage')->group(function () {
+                    Route::apiResource('sites', SiteController::class)->only(['store', 'update', 'destroy']);
+                    Route::post('sites/{site}/photo', [SiteMediaController::class, 'storePhoto'])->name('sites.photo.store');
+                    Route::delete('sites/{site}/photo', [SiteMediaController::class, 'destroyPhoto'])->name('sites.photo.destroy');
+                    Route::post('sites/{site}/documents', [SiteMediaController::class, 'storeDocument'])->name('sites.documents.store');
+                    Route::delete('sites/{site}/documents/{document}', [SiteMediaController::class, 'destroyDocument'])->name('sites.documents.destroy');
+                    Route::put('sites/{site}/offer', [SiteOfferController::class, 'update'])->name('sites.offer.update');
+                    Route::post('sites/{site}/publish', [SiteOfferController::class, 'publish'])->name('sites.publish');
+                    Route::post('sites/{site}/reservations', [ReservationController::class, 'store'])->name('sites.reservations.store');
+                });
+
+                Route::middleware('promoter.can:proposals.decide')->group(function () {
+                    Route::post('proposals/{proposal}/accept', [ReservationController::class, 'accept'])->name('proposals.accept');
+                    Route::post('proposals/{proposal}/refuse', [ReservationController::class, 'refuse'])->name('proposals.refuse');
+                });
+
+                // Suivi : pointage et chronologie (y compris le technicien sur ses chantiers), remplacements, avis.
+                Route::middleware('promoter.can:attendance.manage')->group(function () {
+                    Route::post('sites/{site}/attendance/events', [AttendanceController::class, 'storeEvent'])->name('sites.attendance.events.store');
+                    Route::post('sites/{site}/attendance/absences', [AttendanceController::class, 'storeAbsence'])->name('sites.attendance.absences.store');
+                    Route::post('sites/{site}/attendance/{date}/validate', [AttendanceController::class, 'validateDay'])->where('date', '\d{4}-\d{2}-\d{2}')->name('sites.attendance.validate');
+                });
+                Route::middleware('promoter.can:steps.manage')->scopeBindings()->group(function () {
                     Route::post('sites/{site}/steps', [SiteStepController::class, 'store'])->name('sites.steps.store');
                     Route::post('sites/{site}/steps/{step}/start', [SiteStepController::class, 'start'])->name('sites.steps.start');
                     Route::post('sites/{site}/steps/{step}/complete', [SiteStepController::class, 'complete'])->name('sites.steps.complete');
                     Route::delete('sites/{site}/steps/{step}', [SiteStepController::class, 'destroy'])->name('sites.steps.destroy');
                 });
-                Route::post('assignments/{assignment}/replacement', [ReplacementController::class, 'store'])->name('assignments.replacement.store');
-                Route::get('replacements/{replacement}', [ReplacementController::class, 'show'])->name('replacements.show');
-                Route::post('replacements/{replacement}/accept', [ReplacementController::class, 'accept'])->name('replacements.accept');
-                Route::post('replacements/{replacement}/refuse', [ReplacementController::class, 'refuse'])->name('replacements.refuse');
+                Route::middleware('promoter.can:replacements.manage')->group(function () {
+                    Route::post('assignments/{assignment}/replacement', [ReplacementController::class, 'store'])->name('assignments.replacement.store');
+                    Route::post('replacements/{replacement}/accept', [ReplacementController::class, 'accept'])->name('replacements.accept');
+                    Route::post('replacements/{replacement}/refuse', [ReplacementController::class, 'refuse'])->name('replacements.refuse');
+                });
+                Route::middleware('promoter.can:ratings.manage')->group(function () {
+                    Route::post('sites/{site}/ratings', [RatingController::class, 'store'])->name('sites.ratings.store');
+                    Route::put('ratings/{rating}', [RatingController::class, 'update'])->name('ratings.update');
+                });
 
-                Route::get('sites/{site}/ratings', [RatingController::class, 'site'])->name('sites.ratings.index');
-                Route::post('sites/{site}/ratings', [RatingController::class, 'store'])->name('sites.ratings.store');
-                Route::get('ratings', [RatingController::class, 'index'])->name('ratings.index');
-                Route::put('ratings/{rating}', [RatingController::class, 'update'])->name('ratings.update');
-                Route::get('sites/{site}/invoices', [SiteReportController::class, 'invoices'])->name('sites.invoices');
-                Route::get('sites/{site}/report', [SiteReportController::class, 'show'])->name('sites.report');
-                Route::get('sites/{site}/report/pdf', [SiteReportController::class, 'pdf'])->name('sites.report.pdf');
+                // Finances : paiements (propriétaire, administrateur, comptable), factures et rapport.
+                Route::middleware('promoter.can:finance.view')->group(function () {
+                    Route::get('payments', [PaymentController::class, 'index'])->name('payments.index');
+                    Route::get('payments/schedules/{schedule}', [PaymentController::class, 'show'])->name('payments.show');
+                    Route::get('payments/transactions/{transaction}', [PaymentController::class, 'transaction'])->name('payments.transactions.show');
+                    Route::get('sites/{site}/invoices', [SiteReportController::class, 'invoices'])->name('sites.invoices');
+                    Route::get('sites/{site}/report', [SiteReportController::class, 'show'])->name('sites.report');
+                    Route::get('sites/{site}/report/pdf', [SiteReportController::class, 'pdf'])->name('sites.report.pdf');
+                });
+                Route::middleware('promoter.can:payments.manage')->group(function () {
+                    Route::get('payments/options', [PaymentController::class, 'options'])->name('payments.options');
+                    Route::post('payments/quote', [PaymentController::class, 'quote'])->name('payments.quote');
+                    Route::post('payments', [PaymentController::class, 'store'])->middleware('throttle:10,1')->name('payments.store');
+                });
 
-                Route::get('subscription', [SubscriptionController::class, 'show'])->name('subscription.show');
-                Route::post('subscription/cancel', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');
+                // Équipe : utilisateurs et rôles, activité (propriétaire, administrateur).
+                Route::middleware('promoter.can:team.manage')->group(function () {
+                    Route::get('team', [TeamController::class, 'index'])->name('team.index');
+                    Route::post('team/invitations', [TeamController::class, 'invite'])->name('team.invitations.store');
+                    Route::patch('team/members/{member}', [TeamController::class, 'update'])->whereUuid('member')->name('team.members.update');
+                    Route::delete('team/members/{member}', [TeamController::class, 'destroy'])->whereUuid('member')->name('team.members.destroy');
+                });
+                Route::get('team/activity', [TeamController::class, 'activity'])->middleware('promoter.can:activity.view')->name('team.activity');
+
+                // Compte : profil du compte et abonnement (propriétaire).
+                Route::middleware('promoter.can:account.manage')->group(function () {
+                    Route::patch('profile', [PromoterProfileController::class, 'update'])->name('profile.update');
+                    Route::post('profile/photo', [PromoterProfileController::class, 'storePhoto'])->name('profile.photo.store');
+                    Route::delete('profile/photo', [PromoterProfileController::class, 'destroyPhoto'])->name('profile.photo.destroy');
+                    Route::post('profile/documents', [ProfileDocumentController::class, 'store'])->name('profile.documents.store');
+                    Route::delete('profile/documents/{document}', [ProfileDocumentController::class, 'destroy'])->name('profile.documents.destroy');
+                    Route::get('subscription', [SubscriptionController::class, 'show'])->name('subscription.show');
+                    Route::post('subscription/cancel', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');
+                });
             });
 
             // Application Commercial : prospects et dossiers ouvriers.

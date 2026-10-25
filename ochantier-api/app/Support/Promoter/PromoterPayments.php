@@ -76,6 +76,7 @@ class PromoterPayments
         private PaymentGateway $gateway,
         private MediaStore $media,
         private PromoterSubscriptions $subscriptions,
+        private PromoterAccess $access,
     ) {}
 
     /**
@@ -100,7 +101,7 @@ class PromoterPayments
         return match (true) {
             isset($target['proposal_id']) => $this->deposit($user, $target['proposal_id']),
             isset($target['installment_id']) => $this->flexibleInstallment($user, $target['installment_id']),
-            isset($target['plan_code']) || isset($target['subscription_invoice_id']) => $this->subscriptions->payable($user->promoterProfile, $target),
+            isset($target['plan_code']) || isset($target['subscription_invoice_id']) => $this->subscriptions->payable($this->access->profile($user), $target),
             default => $this->installments($user, $target['schedule_ids'] ?? []),
         };
     }
@@ -288,7 +289,7 @@ class PromoterPayments
      */
     public function rows(User $user, ?string $siteId = null): Collection
     {
-        $mine = fn (Builder $query) => $query->whereHas('promoterProfile', fn (Builder $query) => $query->where('user_id', $user->getKey()))
+        $mine = fn (Builder $query) => $this->access->scopeSites($query, $user)
             ->when($siteId, fn (Builder $query) => $query->whereKey($siteId));
 
         $deposits = Proposal::query()
@@ -373,7 +374,7 @@ class PromoterPayments
     {
         $proposal = Proposal::query()
             ->whereKey($proposalId)
-            ->whereHas('site.promoterProfile', fn (Builder $query) => $query->where('user_id', $user->getKey()))
+            ->whereHas('site', fn (Builder $query) => $this->access->scopeSites($query, $user))
             ->with(['site', 'suggestions.need.workerReservations'])
             ->first() ?? throw ValidationException::withMessages(['proposal_id' => 'Proposition introuvable.']);
 
@@ -423,7 +424,7 @@ class PromoterPayments
     {
         $schedules = PaymentSchedule::query()
             ->whereKey($ids)
-            ->whereHas('mission.site.promoterProfile', fn (Builder $query) => $query->where('user_id', $user->getKey()))
+            ->whereHas('mission.site', fn (Builder $query) => $this->access->scopeSites($query, $user))
             ->with(['mission.site', 'mission.need'])
             ->get();
 
@@ -626,7 +627,7 @@ class PromoterPayments
     {
         $installment = PaymentInstallment::query()
             ->whereKey($id)
-            ->whereHas('promoterProfile', fn (Builder $query) => $query->where('user_id', $user->getKey()))
+            ->where('promoter_profile_id', $this->access->profile($user)?->getKey())
             ->with('site')
             ->first() ?? throw ValidationException::withMessages(['installment_id' => 'Versement introuvable.']);
 

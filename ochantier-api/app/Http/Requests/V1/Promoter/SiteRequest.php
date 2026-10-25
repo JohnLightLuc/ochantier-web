@@ -4,6 +4,7 @@ namespace App\Http\Requests\V1\Promoter;
 
 use App\Enums\SiteWorkType;
 use App\Models\Site;
+use App\Support\Promoter\PromoterAccess;
 use App\Support\Promoter\SiteManager;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
@@ -62,8 +63,8 @@ class SiteRequest extends FormRequest
 
                 $responsible = $this->input('responsible_user_id');
 
-                if ($responsible && ! app(SiteManager::class)->isAllowedResponsible($this->user()->promoterProfile()->firstOrFail(), $responsible)) {
-                    $validator->errors()->add('responsible_user_id', 'Choisissez vous-même ou un utilisateur de votre entreprise.');
+                if ($responsible && ! app(SiteManager::class)->isAllowedResponsible(app(PromoterAccess::class)->profile($this->user()), $responsible)) {
+                    $validator->errors()->add('responsible_user_id', 'Choisissez vous-même ou un utilisateur de votre équipe.');
                 }
             },
         ];

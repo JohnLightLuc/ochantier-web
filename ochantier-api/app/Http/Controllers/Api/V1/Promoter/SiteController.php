@@ -17,6 +17,7 @@ use App\Models\Trade;
 use App\Support\ApiResponse;
 use App\Support\Pricing\PricingRules;
 use App\Support\Promoter\OfferDraft;
+use App\Support\Promoter\PromoterAccess;
 use App\Support\Promoter\SiteManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -48,7 +49,10 @@ class SiteController extends Controller
             ->where('label', 'ilike', '%'.addcslashes($search, '%_\\').'%')
             ->orWhere('address', 'ilike', '%'.addcslashes($search, '%_\\').'%')));
 
-        $sites = $profile->sites()
+        $access = app(PromoterAccess::class);
+        $mine = fn () => $access->scopeSites($profile->sites(), $request->user());
+
+        $sites = $mine()
             ->with(self::WITH)
             ->tap($search)
             ->when($filters['filter'] ?? null, fn ($query, $filter) => $query->whereIn('status', SiteManager::FILTERS[$filter]))
@@ -56,10 +60,10 @@ class SiteController extends Controller
             ->paginate((int) ($filters['per_page'] ?? 20))
             ->withQueryString();
 
-        $counts = ['tous' => $profile->sites()->tap($search)->count()];
+        $counts = ['tous' => $mine()->tap($search)->count()];
 
         foreach (SiteManager::FILTERS as $filter => $statuses) {
-            $counts[$filter] = $profile->sites()->tap($search)->whereIn('status', $statuses)->count();
+            $counts[$filter] = $mine()->tap($search)->whereIn('status', $statuses)->count();
         }
 
         return SiteResource::collection($sites)->additional(['meta' => ['counts' => $counts]]);

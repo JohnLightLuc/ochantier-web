@@ -63,6 +63,11 @@ class SiteManager
         'termines' => [SiteStatus::Termine],
     ];
 
+    /**
+     * Collaborateurs pouvant être désignés responsables d’un chantier.
+     */
+    private const TEAM_STATUSES = [OrganizationMemberStatus::Actif, OrganizationMemberStatus::Invite];
+
     public function __construct(private DocumentStore $documents, private MediaStore $media) {}
 
     /**
@@ -229,8 +234,8 @@ class SiteManager
     }
 
     /**
-     * Personnes pouvant être désignées responsables : le promoteur lui-même, puis les utilisateurs actifs de son
-     * entreprise.
+     * Personnes pouvant être désignées responsables : le propriétaire du compte, puis les collaborateurs actifs ou
+     * invités de son équipe (un technicien invité depuis le formulaire peut être désigné aussitôt).
      *
      * @return list<array<string, mixed>>
      */
@@ -238,17 +243,17 @@ class SiteManager
     {
         $organization = $profile->user->ownedOrganizations()->first();
         $members = $organization
-            ? $organization->members()->where('status', OrganizationMemberStatus::Actif)->with('user')->get()
+            ? $organization->members()->whereIn('status', self::TEAM_STATUSES)->with('user')->oldest()->get()
             : collect();
 
-        $people = collect([['user' => $profile->user, 'role' => 'Moi-même']])
-            ->concat($members->reject(fn ($member) => $member->user_id === $profile->user_id)->map(fn ($member) => ['user' => $member->user, 'role' => $member->role->label()]));
+        $people = collect([['user' => $profile->user, 'role' => PromoterAccess::ROLE_LABELS[PromoterAccess::OWNER]]])
+            ->concat($members->reject(fn ($member) => $member->user_id === $profile->user_id)->map(fn ($member) => ['user' => $member->user, 'role' => PromoterAccess::ROLE_LABELS[$member->role->value]]));
 
         return $people->map(fn (array $person) => $this->person($person['user'], $person['user']->is($me) ? 'Moi-même' : $person['role']))->values()->all();
     }
 
     /**
-     * Le responsable doit être le promoteur ou un utilisateur actif de son entreprise.
+     * Le responsable doit être le propriétaire du compte ou un collaborateur actif ou invité de son équipe.
      */
     public function isAllowedResponsible(PromoterProfile $profile, string $userId): bool
     {
@@ -258,7 +263,7 @@ class SiteManager
 
         return (bool) $profile->user->ownedOrganizations()->first()?->members()
             ->where('user_id', $userId)
-            ->where('status', OrganizationMemberStatus::Actif)
+            ->whereIn('status', self::TEAM_STATUSES)
             ->exists();
     }
 

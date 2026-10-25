@@ -2,8 +2,10 @@
 
 namespace App\Http\Resources\V1;
 
+use App\Enums\UserType;
 use App\Models\User;
 use App\Support\PhoneNumber;
+use App\Support\Promoter\PromoterAccess;
 use Illuminate\Http\Request;
 
 /**
@@ -37,6 +39,7 @@ class UserResource extends Resource
                 'verification_status' => $this->status($this->promoterProfile->verification_status),
                 'organization' => $this->ownedOrganizations->first()?->only(['id', 'legal_name', 'trade_name']),
             ] : null),
+            'promoter_account' => $this->user_type === UserType::Promoter ? app(PromoterAccess::class)->summary($this->resource) : null,
             'commercial' => $this->whenLoaded('commercialProfile', fn () => $this->commercialProfile ? [
                 'id' => $this->commercialProfile->id,
                 'employee_number' => $this->commercialProfile->employee_number,

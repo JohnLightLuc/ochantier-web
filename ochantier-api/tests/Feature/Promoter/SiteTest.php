@@ -183,7 +183,7 @@ class SiteTest extends PromoterTestCase
             ->assertJsonPath('data.document_types.*.code', ['site_building_permit', 'site_plan', 'site_quote', 'site_specifications', 'site_other', 'site_photo']);
 
         $this->postJson('/api/v1/promoter/sites', ['title' => 'Villa Riviera', 'responsible_user_id' => $stranger->id])
-            ->assertJsonValidationErrors(['responsible_user_id' => 'Choisissez vous-même ou un utilisateur de votre entreprise.']);
+            ->assertJsonValidationErrors(['responsible_user_id' => 'Choisissez vous-même ou un utilisateur de votre équipe.']);
 
         $this->postJson('/api/v1/promoter/sites', ['title' => 'Villa Riviera', 'responsible_user_id' => $technician->id])
             ->assertCreated()

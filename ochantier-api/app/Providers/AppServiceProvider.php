@@ -7,6 +7,7 @@ use App\Support\Auth\JwtAuthenticator;
 use App\Support\Payments\PaymentGateway;
 use App\Support\Payments\SimulatedPaymentGateway;
 use App\Support\PhoneNumber;
+use App\Support\Promoter\PromoterAccess;
 use App\Support\Sms\LogSmsGateway;
 use App\Support\Sms\SmsGateway;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -29,6 +30,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->scoped(PromoterAccess::class);
+
         $this->app->bind(SmsGateway::class, fn () => match (config('services.sms.driver')) {
             default => new LogSmsGateway,
         });
@@ -56,33 +59,37 @@ class AppServiceProvider extends ServiceProvider
             ? Models\Prospect::query()->whereKey($id)->where('commercial_id', request()->user()?->commercialProfile?->getKey())->firstOrFail()
             : throw (new ModelNotFoundException)->setModel(Models\Prospect::class, [$id]));
 
-        // Un promoteur n’accède qu’à ses propres chantiers : ceux des autres sont introuvables (404).
+        // Un promoteur n’accède qu’aux chantiers de son compte (le technicien, à ceux dont il est responsable) : les
+        // autres sont introuvables (404).
+        $sites = fn ($query) => $this->app->make(PromoterAccess::class)->scopeSites($query, request()->user());
+        $account = fn () => $this->app->make(PromoterAccess::class)->profile(request()->user())?->getKey();
+
         Route::bind('site', fn (string $id) => Str::isUuid($id)
-            ? Models\Site::query()->whereKey($id)->whereHas('promoterProfile', fn ($query) => $query->where('user_id', request()->user()?->getKey()))->firstOrFail()
+            ? $sites(Models\Site::query())->whereKey($id)->firstOrFail()
             : throw (new ModelNotFoundException)->setModel(Models\Site::class, [$id]));
 
         Route::bind('reservation', fn (string $id) => Str::isUuid($id)
-            ? Models\Offer::query()->whereKey($id)->whereHas('site.promoterProfile', fn ($query) => $query->where('user_id', request()->user()?->getKey()))->firstOrFail()
+            ? Models\Offer::query()->whereKey($id)->whereHas('site', $sites)->firstOrFail()
             : throw (new ModelNotFoundException)->setModel(Models\Offer::class, [$id]));
 
         Route::bind('proposal', fn (string $id) => Str::isUuid($id)
-            ? Models\Proposal::query()->whereKey($id)->whereHas('site.promoterProfile', fn ($query) => $query->where('user_id', request()->user()?->getKey()))->firstOrFail()
+            ? Models\Proposal::query()->whereKey($id)->whereHas('site', $sites)->firstOrFail()
             : throw (new ModelNotFoundException)->setModel(Models\Proposal::class, [$id]));
 
         Route::bind('schedule', fn (string $id) => Str::isUuid($id)
-            ? Models\PaymentSchedule::query()->whereKey($id)->whereHas('mission.site.promoterProfile', fn ($query) => $query->where('user_id', request()->user()?->getKey()))->firstOrFail()
+            ? Models\PaymentSchedule::query()->whereKey($id)->whereHas('mission.site', $sites)->firstOrFail()
             : throw (new ModelNotFoundException)->setModel(Models\PaymentSchedule::class, [$id]));
 
         Route::bind('transaction', fn (string $id) => Str::isUuid($id)
-            ? Models\PaymentTransaction::query()->whereKey($id)->where('payer_type', 'promoter_profile')->whereIn('payer_id', Models\PromoterProfile::query()->where('user_id', request()->user()?->getKey())->select('id'))->firstOrFail()
+            ? Models\PaymentTransaction::query()->whereKey($id)->where('payer_type', 'promoter_profile')->where('payer_id', $account())->firstOrFail()
             : throw (new ModelNotFoundException)->setModel(Models\PaymentTransaction::class, [$id]));
 
         Route::bind('assignment', fn (string $id) => Str::isUuid($id)
-            ? Models\Assignment::query()->whereKey($id)->whereHas('mission.site.promoterProfile', fn ($query) => $query->where('user_id', request()->user()?->getKey()))->firstOrFail()
+            ? Models\Assignment::query()->whereKey($id)->whereHas('mission.site', $sites)->firstOrFail()
             : throw (new ModelNotFoundException)->setModel(Models\Assignment::class, [$id]));
 
         Route::bind('replacement', fn (string $id) => Str::isUuid($id)
-            ? Models\Replacement::query()->whereKey($id)->whereHas('mission.site.promoterProfile', fn ($query) => $query->where('user_id', request()->user()?->getKey()))->firstOrFail()
+            ? Models\Replacement::query()->whereKey($id)->whereHas('mission.site', $sites)->firstOrFail()
             : throw (new ModelNotFoundException)->setModel(Models\Replacement::class, [$id]));
 
         Route::bind('rating', fn (string $id) => Str::isUuid($id)

@@ -2,8 +2,10 @@
 
 use App\Http\Middleware\EnsureActiveCommercial;
 use App\Http\Middleware\EnsurePasswordChanged;
+use App\Http\Middleware\EnsurePromoterAbility;
 use App\Http\Middleware\EnsureResponseMessage;
 use App\Http\Middleware\EnsureUserType;
+use App\Http\Middleware\RecordPromoterActivity;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
@@ -26,6 +28,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'user.type' => EnsureUserType::class,
             'password.changed' => EnsurePasswordChanged::class,
             'commercial' => EnsureActiveCommercial::class,
+            'promoter.can' => EnsurePromoterAbility::class,
+            'promoter.activity' => RecordPromoterActivity::class,
         ]);
         $middleware->throttleApi();
         $middleware->api(append: [EnsureResponseMessage::class]);

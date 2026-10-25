@@ -8,6 +8,8 @@ use App\Http\Requests\V1\Auth\ContactRequest;
 use App\Http\Requests\V1\Auth\VerifyContactRequest;
 use App\Models\User;
 use App\Support\Auth\DeviceContext;
+use App\Support\Promoter\PromoterActivity;
+use App\Support\Promoter\PromoterTeam;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -32,6 +34,9 @@ class PromoterLoginController extends AuthController
         return $this->codeSent($request->recipient(), 'Si un compte est associé à ces coordonnées, un code vient de lui être envoyé.');
     }
 
+    /**
+     * Vérifie le code ; un collaborateur invité rejoint alors le compte qui l’a invité.
+     */
     public function verify(VerifyContactRequest $request): JsonResponse
     {
         [, $destination] = $request->contact();
@@ -48,6 +53,8 @@ class PromoterLoginController extends AuthController
         }
 
         $this->recordAttempt($request, $destination, true, $user);
+        app(PromoterTeam::class)->acceptInvitations($user);
+        app(PromoterActivity::class)->recordLogin($user, $request);
 
         return $this->signedIn($this->sessions->open($user, DeviceContext::fromRequest($request)), $user);
     }

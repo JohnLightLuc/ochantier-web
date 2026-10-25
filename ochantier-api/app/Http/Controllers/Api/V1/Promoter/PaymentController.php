@@ -11,11 +11,13 @@ use App\Models\PaymentSchedule;
 use App\Models\PaymentTransaction;
 use App\Support\ApiResponse;
 use App\Support\PhoneNumber;
+use App\Support\Promoter\PromoterAccess;
 use App\Support\Promoter\PromoterPayments;
 use App\Support\Promoter\PromoterSubscriptions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * « Paiements », « Détail paiement » et paiement Mobile Money d’un acompte, d’une échéance, d’un versement de
@@ -36,7 +38,7 @@ class PaymentController extends Controller
         'finalises' => ['finalise'],
     ];
 
-    public function __construct(private PromoterPayments $payments, private PromoterSubscriptions $subscriptions) {}
+    public function __construct(private PromoterPayments $payments, private PromoterSubscriptions $subscriptions, private PromoterAccess $access) {}
 
     /**
      * Acomptes et échéances, les plus urgents d’abord. Filtres : filter (a_payer, en_retard, a_venir, effectues,
@@ -116,6 +118,7 @@ class PaymentController extends Controller
      */
     public function quote(PaymentRequest $request): JsonResponse
     {
+        $this->ensureCanPay($request);
         $payable = $this->payments->split($this->payments->payable($request->user(), $request->target()), ProfileController::profile($request), $request->installments());
 
         return response()->json(['data' => [
@@ -132,6 +135,7 @@ class PaymentController extends Controller
      */
     public function store(PaymentRequest $request): JsonResponse
     {
+        $this->ensureCanPay($request);
         $profile = ProfileController::profile($request);
         $key = (string) ($request->header('Idempotency-Key') ?: Str::uuid7());
         $existing = PaymentTransaction::query()->where('idempotency_key', $key)->where('payer_type', $profile->getMorphClass())->where('payer_id', $profile->getKey())->first();
@@ -144,6 +148,18 @@ class PaymentController extends Controller
         $transaction = $this->payments->pay($request->user(), $profile, $payable, $request->operator(), $request->phoneNumber(), $key, $request->boolean('remember_number'));
 
         return PaymentTransactionResource::make($transaction->load(['operator', 'receipts.mediaFile']))->response()->setStatusCode(201);
+    }
+
+    /**
+     * L’abonnement (formule ou facture) n’est payé que par le propriétaire du compte.
+     */
+    private function ensureCanPay(PaymentRequest $request): void
+    {
+        $target = $request->target();
+
+        if ((isset($target['plan_code']) || isset($target['subscription_invoice_id'])) && ! $this->access->can($request->user(), 'account.manage')) {
+            throw new AccessDeniedHttpException('Seul le propriétaire du compte gère l’abonnement.');
+        }
     }
 
     /**

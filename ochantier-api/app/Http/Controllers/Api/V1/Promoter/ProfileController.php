@@ -7,6 +7,7 @@ use App\Http\Requests\V1\Promoter\PromoterPhotoRequest;
 use App\Http\Requests\V1\Promoter\UpdatePromoterProfileRequest;
 use App\Http\Resources\V1\Promoter\PromoterProfileResource;
 use App\Models\PromoterProfile;
+use App\Support\Promoter\PromoterAccess;
 use App\Support\Promoter\PromoterAccount;
 use Illuminate\Http\Request;
 
@@ -49,10 +50,11 @@ class ProfileController extends Controller
     }
 
     /**
-     * Profil relu en base à chaque requête (la relation peut être restée en cache sur l’utilisateur authentifié).
+     * Profil du compte de l’utilisateur (le sien, ou celui du propriétaire pour un collaborateur), relu en base à
+     * chaque requête.
      */
     public static function profile(Request $request): PromoterProfile
     {
-        return $request->user()->promoterProfile()->with(self::WITH)->firstOrFail();
+        return PromoterProfile::query()->whereKey(app(PromoterAccess::class)->profile($request->user())?->getKey())->with(self::WITH)->firstOrFail();
     }
 }
