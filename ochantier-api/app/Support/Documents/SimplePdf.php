@@ -3,18 +3,23 @@
 namespace App\Support\Documents;
 
 /**
- * PDF d’une page, texte seul (Helvetica), pour les reçus de paiement : pas de dépendance externe.
+ * PDF A4 texte seul (Helvetica), pour les reçus de paiement et les rapports : pas de dépendance externe. Une
+ * nouvelle page commence quand la précédente est pleine.
  *
  * Le texte est encodé en Windows-1252 (accents français, apostrophe typographique, espace insécable).
  */
 class SimplePdf
 {
-    /**
-     * @var list<array{0: float, 1: float, 2: float, 3: bool, 4: string}> x, y, taille, gras, texte
-     */
-    private array $lines = [];
+    private const TOP = 790;
 
-    private float $y = 790;
+    private const BOTTOM = 56;
+
+    /**
+     * @var list<list<array{0: float, 1: float, 2: float, 3: bool, 4: string}>> par page : x, y, taille, gras, texte
+     */
+    private array $pages = [[]];
+
+    private float $y = self::TOP;
 
     public function title(string $text): static
     {
@@ -38,8 +43,9 @@ class SimplePdf
      */
     public function row(string $label, string $value, bool $bold = false): static
     {
-        $this->lines[] = [56, $this->y, 10, $bold, $label];
-        $this->lines[] = [539 - $this->width($value, 10, $bold), $this->y, 10, $bold, $value];
+        $this->ensureRoom(16);
+        $this->pages[array_key_last($this->pages)][] = [56, $this->y, 10, $bold, $label];
+        $this->pages[array_key_last($this->pages)][] = [539 - $this->width($value, 10, $bold), $this->y, 10, $bold, $value];
         $this->y -= 16;
 
         return $this;
@@ -54,20 +60,27 @@ class SimplePdf
 
     public function render(): string
     {
-        $content = '';
-
-        foreach ($this->lines as [$x, $y, $size, $bold, $text]) {
-            $content .= sprintf("BT /%s %.1F Tf %.2F %.2F Td (%s) Tj ET\n", $bold ? 'F2' : 'F1', $size, $x, $y, $this->escape($text));
-        }
-
+        $count = count($this->pages);
+        $fonts = 3 + 2 * $count;
+        $kids = implode(' ', array_map(fn (int $i) => (3 + 2 * $i).' 0 R', array_keys($this->pages)));
         $objects = [
             '<< /Type /Catalog /Pages 2 0 R >>',
-            '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-            '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>',
-            '<< /Length '.strlen($content)." >>\nstream\n".$content.'endstream',
-            '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
-            '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+            '<< /Type /Pages /Kids ['.$kids.'] /Count '.$count.' >>',
         ];
+
+        foreach ($this->pages as $i => $lines) {
+            $content = '';
+
+            foreach ($lines as [$x, $y, $size, $bold, $text]) {
+                $content .= sprintf("BT /%s %.1F Tf %.2F %.2F Td (%s) Tj ET\n", $bold ? 'F2' : 'F1', $size, $x, $y, $this->escape($text));
+            }
+
+            $objects[] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents '.(4 + 2 * $i).' 0 R /Resources << /Font << /F1 '.$fonts.' 0 R /F2 '.($fonts + 1).' 0 R >> >> >>';
+            $objects[] = '<< /Length '.strlen($content)." >>\nstream\n".$content.'endstream';
+        }
+
+        $objects[] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
+        $objects[] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
 
         $pdf = "%PDF-1.4\n";
         $offsets = [];
@@ -89,10 +102,19 @@ class SimplePdf
 
     private function write(string $text, float $size, bool $bold, float $height): static
     {
-        $this->lines[] = [56, $this->y, $size, $bold, $text];
+        $this->ensureRoom($height);
+        $this->pages[array_key_last($this->pages)][] = [56, $this->y, $size, $bold, $text];
         $this->y -= $height;
 
         return $this;
+    }
+
+    private function ensureRoom(float $height): void
+    {
+        if ($this->y - $height < self::BOTTOM) {
+            $this->pages[] = [];
+            $this->y = self::TOP;
+        }
     }
 
     private function escape(string $text): string

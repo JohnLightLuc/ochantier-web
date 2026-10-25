@@ -19,7 +19,7 @@ class RatingVersion extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'rating_id', 'version', 'overall_score', 'criteria_scores', 'comment',
+        'rating_id', 'version', 'overall_score', 'criteria_scores', 'comment', 'satisfaction_tag',
     ];
 
     public const UPDATED_AT = null;

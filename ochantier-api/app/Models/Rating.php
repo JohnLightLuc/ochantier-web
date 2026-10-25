@@ -24,10 +24,10 @@ class Rating extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'rating_scope', 'mission_id', 'assignment_id', 'worker_id', 'team_id', 'author_user_id', 'overall_score',
+        'rating_scope', 'mission_id', 'assignment_id', 'worker_id', 'team_id', 'site_id', 'author_user_id', 'overall_score',
         'criteria_scores', 'comment', 'recommends', 'publish_consent', 'verification_status', 'fraud_suspected',
         'response', 'response_at', 'status', 'published_at', 'editable_until', 'version', 'reported_at',
-        'moderation_status', 'moderated_by_admin_id', 'moderation_reason',
+        'moderation_status', 'moderated_by_admin_id', 'moderation_reason', 'satisfaction_tag',
     ];
 
     /**
@@ -83,6 +83,14 @@ class Rating extends Model
     public function team(): BelongsTo
     {
         return $this->belongsTo(Team::class);
+    }
+
+    /**
+     * @return BelongsTo<Site, $this>
+     */
+    public function site(): BelongsTo
+    {
+        return $this->belongsTo(Site::class);
     }
 
     /**

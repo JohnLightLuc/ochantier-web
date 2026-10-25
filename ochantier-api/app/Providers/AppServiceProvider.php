@@ -85,6 +85,10 @@ class AppServiceProvider extends ServiceProvider
             ? Models\Replacement::query()->whereKey($id)->whereHas('mission.site.promoterProfile', fn ($query) => $query->where('user_id', request()->user()?->getKey()))->firstOrFail()
             : throw (new ModelNotFoundException)->setModel(Models\Replacement::class, [$id]));
 
+        Route::bind('rating', fn (string $id) => Str::isUuid($id)
+            ? Models\Rating::query()->whereKey($id)->where('author_user_id', request()->user()?->getKey())->firstOrFail()
+            : throw (new ModelNotFoundException)->setModel(Models\Rating::class, [$id]));
+
         Route::bind('media', fn (string $id) => Str::isUuid($id)
             ? Models\MediaFile::query()->findOrFail($id)
             : throw (new ModelNotFoundException)->setModel(Models\MediaFile::class, [$id]));

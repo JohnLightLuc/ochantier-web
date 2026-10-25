@@ -169,6 +169,14 @@ class Site extends Model
     }
 
     /**
+     * @return HasMany<Rating, $this>
+     */
+    public function ratings(): HasMany
+    {
+        return $this->hasMany(Rating::class);
+    }
+
+    /**
      * @return HasMany<Offer, $this>
      */
     public function offers(): HasMany

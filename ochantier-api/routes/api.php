@@ -16,11 +16,13 @@ use App\Http\Controllers\Api\V1\Promoter\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\Promoter\PaymentController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileController as PromoterProfileController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileDocumentController;
+use App\Http\Controllers\Api\V1\Promoter\RatingController;
 use App\Http\Controllers\Api\V1\Promoter\ReplacementController;
 use App\Http\Controllers\Api\V1\Promoter\ReservationController;
 use App\Http\Controllers\Api\V1\Promoter\SiteController;
 use App\Http\Controllers\Api\V1\Promoter\SiteMediaController;
 use App\Http\Controllers\Api\V1\Promoter\SiteOfferController;
+use App\Http\Controllers\Api\V1\Promoter\SiteReportController;
 use App\Http\Controllers\Api\V1\Promoter\SiteStepController;
 use App\Http\Controllers\Api\V1\Promoter\SiteTrackingController;
 use App\Http\Controllers\Api\V1\Promoter\WorkerCatalogController;
@@ -39,7 +41,7 @@ use Illuminate\Support\Facades\Route;
 | Commercial : compte créé par le Back Office, connexion par mot de passe puis code SMS.
 | Espace commercial (prefix commercial) : prospects et dossiers ouvriers, contrat actif exigé.
 | Espace promoteur (prefix promoter) : profil, vérification, préférences, chantiers, réservations, paiements et suivi
-| (équipe, pointage, chronologie, remplacements).
+| (équipe, pointage, chronologie, remplacements), évaluations, factures et rapport de fin de chantier.
 |
 */
 
@@ -81,7 +83,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('referentials', ReferenceController::class)->name('referentials');
             Route::get('help', HelpController::class)->name('help');
 
-            // Application Promoteur : profil, pièces justificatives, préférences, chantiers, réservations, paiements et suivi.
+            // Application Promoteur : profil, pièces justificatives, préférences, chantiers, réservations, paiements, suivi et bilan.
             Route::middleware('user.type:promoter')->prefix('promoter')->name('promoter.')->group(function () {
                 Route::get('profile', [PromoterProfileController::class, 'show'])->name('profile.show');
                 Route::patch('profile', [PromoterProfileController::class, 'update'])->name('profile.update');
@@ -131,6 +133,14 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::get('replacements/{replacement}', [ReplacementController::class, 'show'])->name('replacements.show');
                 Route::post('replacements/{replacement}/accept', [ReplacementController::class, 'accept'])->name('replacements.accept');
                 Route::post('replacements/{replacement}/refuse', [ReplacementController::class, 'refuse'])->name('replacements.refuse');
+
+                Route::get('sites/{site}/ratings', [RatingController::class, 'site'])->name('sites.ratings.index');
+                Route::post('sites/{site}/ratings', [RatingController::class, 'store'])->name('sites.ratings.store');
+                Route::get('ratings', [RatingController::class, 'index'])->name('ratings.index');
+                Route::put('ratings/{rating}', [RatingController::class, 'update'])->name('ratings.update');
+                Route::get('sites/{site}/invoices', [SiteReportController::class, 'invoices'])->name('sites.invoices');
+                Route::get('sites/{site}/report', [SiteReportController::class, 'show'])->name('sites.report');
+                Route::get('sites/{site}/report/pdf', [SiteReportController::class, 'pdf'])->name('sites.report.pdf');
             });
 
             // Application Commercial : prospects et dossiers ouvriers.
