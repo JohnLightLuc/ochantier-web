@@ -26,6 +26,7 @@ use App\Models\Site;
 use App\Models\Suggestion;
 use App\Models\Worker;
 use App\Support\Pricing\PricingRules;
+use App\Support\Promoter\PromoterNotifier;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -149,6 +150,7 @@ class MatchingSimulator
             $proposal->suggestions()->saveMany($proposed);
 
             $this->moveSite($site, SiteStatus::Paiement);
+            app(PromoterNotifier::class)->proposalReceived($proposal);
 
             return $proposal;
         });
@@ -228,6 +230,7 @@ class MatchingSimulator
                 $replacement->statusHistories()->create(['from_status' => $replacement->status->value, 'to_status' => ReplacementStatus::Propose->value, 'reason' => 'Simulation locale du matching', 'actor_type' => 'systeme']);
                 $replacement->forceFill(['status' => ReplacementStatus::Propose, 'promoter_decision' => ReplacementPromoterDecision::EnAttente, 'promoter_decision_reason' => null, 'promoter_decided_at' => null])->save();
                 $replacement->unavailabilityRequest->update(['status' => UnavailabilityRequestStatus::RemplacantPropose]);
+                app(PromoterNotifier::class)->replacementsProposed($replacement, $workers->count());
             }
 
             return $workers->count();

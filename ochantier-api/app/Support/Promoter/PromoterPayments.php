@@ -246,6 +246,7 @@ class PromoterPayments
                 $transaction->forceFill(['status' => PaymentTransactionStatus::Reussie, 'provider_reference' => $result->providerReference, 'completed_at' => now(), 'subscription_invoice_id' => $invoice->getKey()])->save();
                 $this->history($transaction, PaymentTransactionStatus::Initiee, PaymentTransactionStatus::Reussie, $user);
                 $this->issueReceipt($transaction, $profile, null, $invoice);
+                app(PromoterNotifier::class)->paymentSucceeded($transaction, $profile, null);
 
                 return $transaction->refresh();
             }
@@ -276,6 +277,11 @@ class PromoterPayments
             ])->save();
             $this->history($transaction, PaymentTransactionStatus::Initiee, PaymentTransactionStatus::Reussie, $user);
             $this->issueReceipt($transaction, $profile, $payable['site'], $payable['site']);
+            app(PromoterNotifier::class)->paymentSucceeded($transaction, $profile, $payable['site']);
+
+            if ($payable['kind'] === 'acompte') {
+                app(PromoterNotifier::class)->siteConfirmed($payable['site']->refresh());
+            }
 
             return $transaction->refresh();
         });

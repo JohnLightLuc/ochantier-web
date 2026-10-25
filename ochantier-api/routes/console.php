@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Fin de période des abonnements promoteur : renouvellement, retard, expiration, fin après résiliation.
 Schedule::command('ochantier:renew-subscriptions')->dailyAt('01:00');
+
+// Rappels aux promoteurs : paiements à régler demain ou en retard, journées de pointage de la veille à valider.
+Schedule::command('ochantier:promoter-reminders')->dailyAt('08:00');

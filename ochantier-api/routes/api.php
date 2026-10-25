@@ -12,11 +12,14 @@ use App\Http\Controllers\Api\V1\Commercial\ProspectDocumentController;
 use App\Http\Controllers\Api\V1\HelpController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\Promoter\AttendanceController;
+use App\Http\Controllers\Api\V1\Promoter\HomeController;
+use App\Http\Controllers\Api\V1\Promoter\NotificationController;
 use App\Http\Controllers\Api\V1\Promoter\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\Promoter\PaymentController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileController as PromoterProfileController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileDocumentController;
 use App\Http\Controllers\Api\V1\Promoter\RatingController;
+use App\Http\Controllers\Api\V1\Promoter\ReferralController;
 use App\Http\Controllers\Api\V1\Promoter\ReplacementController;
 use App\Http\Controllers\Api\V1\Promoter\ReservationController;
 use App\Http\Controllers\Api\V1\Promoter\SiteController;
@@ -44,7 +47,7 @@ use Illuminate\Support\Facades\Route;
 | Espace commercial (prefix commercial) : prospects et dossiers ouvriers, contrat actif exigé.
 | Espace promoteur (prefix promoter) : profil, vérification, préférences, chantiers, réservations, paiements et suivi
 | (équipe, pointage, chronologie, remplacements), évaluations, factures et rapport de fin de chantier, abonnement,
-| utilisateurs et activité. Chaque route exige un droit du rôle de l’utilisateur dans le compte (promoter.can, voir
+| utilisateurs et activité, accueil, notifications et parrainage. Chaque route exige un droit du rôle de l’utilisateur dans le compte (promoter.can, voir
 | PromoterAccess::ABILITIES) ; les actions d’écriture sont inscrites au journal d’activité (promoter.activity).
 |
 */
@@ -91,6 +94,12 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::middleware(['user.type:promoter', 'promoter.activity'])->prefix('promoter')->name('promoter.')->group(function () {
                 // Tous les utilisateurs du compte : consultation (le technicien ne voit que ses chantiers).
                 Route::middleware('promoter.can:sites.view')->group(function () {
+                    Route::get('home', HomeController::class)->name('home');
+                    Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+                    Route::post('notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
+                    Route::post('notifications/{notification}/read', [NotificationController::class, 'read'])->whereUuid('notification')->name('notifications.read');
+                    Route::get('referrals', [ReferralController::class, 'show'])->name('referrals.show');
+                    Route::post('referrals', [ReferralController::class, 'store'])->middleware('throttle:10,1')->name('referrals.store');
                     Route::get('profile', [PromoterProfileController::class, 'show'])->name('profile.show');
                     Route::get('notification-preferences', [NotificationPreferenceController::class, 'show'])->name('notification-preferences.show');
                     Route::put('notification-preferences', [NotificationPreferenceController::class, 'update'])->name('notification-preferences.update');

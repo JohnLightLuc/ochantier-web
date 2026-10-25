@@ -187,11 +187,14 @@ class PromoterTeam
 
         $accepted = DB::transaction(function () use ($user, $invitation): int {
             $invitation->update(['accepted_at' => now()]);
+            $members = OrganizationMember::query()->where('user_id', $user->getKey())->where('status', OrganizationMemberStatus::Invite)->with(['organization.ownerUser.promoterProfile', 'user'])->get();
 
-            return OrganizationMember::query()
-                ->where('user_id', $user->getKey())
-                ->where('status', OrganizationMemberStatus::Invite)
-                ->update(['status' => OrganizationMemberStatus::Actif, 'joined_at' => now()]);
+            foreach ($members as $member) {
+                $member->update(['status' => OrganizationMemberStatus::Actif, 'joined_at' => now()]);
+                app(PromoterNotifier::class)->teamJoined($member);
+            }
+
+            return $members->count();
         });
 
         $this->access->forget($user);

@@ -621,6 +621,7 @@ class SiteAttendance
         if ($site->status === SiteStatus::Confirme) {
             $site->statusHistories()->create(['from_status' => $site->status, 'to_status' => SiteStatus::EnCours, 'reason' => 'Première arrivée pointée', ...$actor]);
             $site->forceFill(['status' => SiteStatus::EnCours])->save();
+            app(PromoterNotifier::class)->siteStarted($site);
         }
     }
 

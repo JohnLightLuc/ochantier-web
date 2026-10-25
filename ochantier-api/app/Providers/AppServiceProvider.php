@@ -8,6 +8,8 @@ use App\Support\Payments\PaymentGateway;
 use App\Support\Payments\SimulatedPaymentGateway;
 use App\Support\PhoneNumber;
 use App\Support\Promoter\PromoterAccess;
+use App\Support\Push\LogPushGateway;
+use App\Support\Push\PushGateway;
 use App\Support\Sms\LogSmsGateway;
 use App\Support\Sms\SmsGateway;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -34,6 +36,10 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind(SmsGateway::class, fn () => match (config('services.sms.driver')) {
             default => new LogSmsGateway,
+        });
+
+        $this->app->bind(PushGateway::class, fn () => match (config('services.push.driver')) {
+            default => new LogPushGateway,
         });
 
         $this->app->bind(PaymentGateway::class, fn () => match (true) {
@@ -222,6 +228,7 @@ class AppServiceProvider extends ServiceProvider
             'rating_version' => Models\RatingVersion::class,
             'reason_code' => Models\ReasonCode::class,
             'receipt' => Models\Receipt::class,
+            'referral' => Models\Referral::class,
             'reconciliation_item' => Models\ReconciliationItem::class,
             'reconciliation_run' => Models\ReconciliationRun::class,
             'refund' => Models\Refund::class,

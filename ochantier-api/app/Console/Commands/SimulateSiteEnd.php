@@ -8,6 +8,8 @@ use App\Enums\SiteStatus;
 use App\Models\Assignment;
 use App\Models\Mission;
 use App\Models\Site;
+use App\Support\Promoter\PromoterNotifier;
+use App\Support\Promoter\PromoterSubscriptions;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -51,6 +53,7 @@ class SimulateSiteEnd extends Command
         }
 
         $closed = DB::transaction(fn (): int => $this->close($site));
+        app(PromoterNotifier::class)->siteEnded($site->refresh(), app(PromoterSubscriptions::class)->isSubscribed($site->promoterProfile));
 
         $this->info("{$site->label} : chantier terminé, {$closed} mission(s) clôturée(s).");
 

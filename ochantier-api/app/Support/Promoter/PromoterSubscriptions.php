@@ -445,7 +445,7 @@ class PromoterSubscriptions
         $start = CarbonImmutable::parse($subscription->current_period_end)->addDay();
         $counts['invoiced']++;
 
-        return $subscription->invoices()->create([
+        return tap($subscription->invoices()->create([
             'reference' => $this->invoiceReference(),
             'plan_id' => $subscription->plan_id,
             'label' => 'Abonnement '.$subscription->plan->name.' · '.$this->month($start),
@@ -454,7 +454,7 @@ class PromoterSubscriptions
             'amount' => $subscription->plan->price_amount,
             'due_date' => $start,
             'status' => SubscriptionInvoiceStatus::APayer,
-        ]);
+        ]), fn (SubscriptionInvoice $invoice) => app(PromoterNotifier::class)->invoiceIssued($invoice));
     }
 
     private function openInvoice(Subscription $subscription): ?SubscriptionInvoice

@@ -58,6 +58,7 @@ class PromoterActivity
         'profile.photo.destroy' => 'a retiré la photo du profil',
         'profile.documents.store' => 'a ajouté un document au profil',
         'profile.documents.destroy' => 'a retiré un document du profil',
+        'referrals.store' => 'a invité un proche sur O’CHANTIER',
     ];
 
     public function __construct(private PromoterAccess $access) {}

@@ -30,6 +30,13 @@ class Notification extends Model
     public const UPDATED_AT = null;
 
     /**
+     * Horodatage à la microseconde : les notifications d’une même seconde restent ordonnées.
+     *
+     * @var string
+     */
+    protected $dateFormat = 'Y-m-d H:i:s.uP';
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

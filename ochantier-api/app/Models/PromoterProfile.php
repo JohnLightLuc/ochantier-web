@@ -26,7 +26,7 @@ class PromoterProfile extends Model
     protected $fillable = [
         'user_id', 'profile_kind', 'job_title', 'photo_media_id', 'address', 'commune_id', 'neighborhood_id', 'billing_name',
         'billing_address', 'tax_identifier', 'verification_status', 'validated_at', 'validated_by_admin_id',
-        'suspended_reason',
+        'suspended_reason', 'referral_code', 'referred_by_profile_id',
     ];
 
     /** @use HasFactory<PromoterProfileFactory> */
@@ -92,6 +92,22 @@ class PromoterProfile extends Model
     public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);
+    }
+
+    /**
+     * @return BelongsTo<PromoterProfile, $this>
+     */
+    public function referredByProfile(): BelongsTo
+    {
+        return $this->belongsTo(PromoterProfile::class, 'referred_by_profile_id');
+    }
+
+    /**
+     * @return HasMany<Referral, $this>
+     */
+    public function referrals(): HasMany
+    {
+        return $this->hasMany(Referral::class, 'referrer_profile_id');
     }
 
     /**

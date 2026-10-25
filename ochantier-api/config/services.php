@@ -52,6 +52,16 @@ return [
         'driver' => env('SMS_DRIVER', 'log'),
     ],
 
+    // Parrainage : lien d’invitation partagé par le promoteur (suivi du code parrain).
+    'referrals' => [
+        'url' => env('REFERRAL_URL', 'https://ochantier.ci/i'),
+    ],
+
+    // Notifications push : « log » (journal) en attendant le fournisseur retenu (FCM).
+    'push' => [
+        'driver' => env('PUSH_DRIVER', 'log'),
+    ],
+
     // Encaissement Mobile Money : « simulation » hors production, en attendant le prestataire retenu.
     'payments' => [
         'driver' => env('PAYMENT_DRIVER', 'simulation'),

@@ -20,6 +20,7 @@ class PromoterRegisterRequest extends AuthRequest
             'company_name' => ['required_if:profile_kind,entreprise', 'nullable', 'string', 'max:200'],
             ...$this->contactRules(),
             'accept_terms' => ['accepted'],
+            'referral_code' => ['nullable', 'string', 'max:20', Rule::exists('promoter_profiles', 'referral_code')],
         ];
     }
 
@@ -28,6 +29,6 @@ class PromoterRegisterRequest extends AuthRequest
      */
     public function messages(): array
     {
-        return [...parent::messages(), 'company_name.required_if' => 'Indiquez le nom de votre entreprise.'];
+        return [...parent::messages(), 'company_name.required_if' => 'Indiquez le nom de votre entreprise.', 'referral_code.exists' => 'Code parrain inconnu.', 'referral_code.max' => 'Code parrain inconnu.'];
     }
 }

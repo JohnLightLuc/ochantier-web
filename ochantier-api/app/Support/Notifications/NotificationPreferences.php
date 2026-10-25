@@ -61,6 +61,17 @@ class NotificationPreferences
     }
 
     /**
+     * Un message part sur ce canal si le canal est activé (et disponible) et, pour une alerte, si elle l’est aussi.
+     */
+    public function allows(User $user, string $channel, ?string $alert = null): bool
+    {
+        $preferences = $this->forUser($user);
+        $channelEnabled = collect($preferences['channels'])->firstWhere('key', $channel)['enabled'] ?? false;
+
+        return $channelEnabled && ($alert === null || (collect($preferences['alerts'])->firstWhere('key', $alert)['enabled'] ?? true));
+    }
+
+    /**
      * @param  array<string, bool>  $channels
      * @param  array<string, bool>  $alerts
      */

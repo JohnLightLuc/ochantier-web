@@ -13,9 +13,11 @@ use App\Enums\UserType;
 use App\Http\Requests\V1\Auth\PromoterRegisterRequest;
 use App\Http\Requests\V1\Auth\VerifyContactRequest;
 use App\Models\LegalDocument;
+use App\Models\PromoterProfile;
 use App\Models\User;
 use App\Support\Auth\DeviceContext;
 use App\Support\PhoneNumber;
+use App\Support\Promoter\PromoterReferrals;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -51,7 +53,10 @@ class PromoterRegistrationController extends AuthController
             ]);
 
             $kind = PromoterProfileKind::from($request->input('profile_kind'));
-            $user->promoterProfile()->updateOrCreate([], ['profile_kind' => $kind]);
+            $user->promoterProfile()->updateOrCreate([], [
+                'profile_kind' => $kind,
+                'referred_by_profile_id' => $request->filled('referral_code') ? PromoterProfile::query()->where('referral_code', mb_strtoupper((string) $request->input('referral_code')))->value('id') : null,
+            ]);
 
             $organization = $user->ownedOrganizations()->first();
 
@@ -120,6 +125,7 @@ class PromoterRegistrationController extends AuthController
         });
 
         $this->recordAttempt($request, $destination, true, $user);
+        app(PromoterReferrals::class)->registered($user);
 
         return $this->signedIn($this->sessions->open($user, $device), $user, 201);
     }
