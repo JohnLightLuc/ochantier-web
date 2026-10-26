@@ -3,6 +3,7 @@
 namespace App\Support\Notifications;
 
 use App\Enums\PreferenceChannel;
+use App\Enums\UserType;
 use App\Models\NotificationPreference;
 use App\Models\User;
 use App\Support\PhoneNumber;
@@ -27,6 +28,18 @@ class NotificationPreferences
         'offres' => ['Offres et propositions', 'Ouvriers trouvés, offres reçues'],
         'paiements' => ['Paiements', 'Échéances, retards, reçus'],
         'pointages' => ['Pointages', 'Arrivées, départs, absences'],
+    ];
+
+    /**
+     * Types d’alertes de l’application Commercial : code => [libellé, précision].
+     *
+     * @var array<string, array{0: string, 1: string}>
+     */
+    public const COMMERCIAL_ALERTS = [
+        'dossiers' => ['Dossiers validés', 'Validation de vos ouvriers par le Back office'],
+        'corrections' => ['Corrections demandées', 'Pièce ou information à reprendre'],
+        'paiements' => ['Paiements', 'Versement de vos commissions'],
+        'relances' => ['Relances conseillées', 'Prospects sans nouvelles depuis 7 jours'],
     ];
 
     private const DEFAULT_CHANNELS = ['push' => true, 'sms' => true, 'email' => false];
@@ -56,8 +69,18 @@ class NotificationPreferences
                 'label' => $alert[0],
                 'hint' => $alert[1],
                 'enabled' => $stored[$key.'.push'] ?? true,
-            ], array_keys(self::PROMOTER_ALERTS), self::PROMOTER_ALERTS),
+            ], array_keys(self::alertsFor($user)), self::alertsFor($user)),
         ];
+    }
+
+    /**
+     * Types d’alertes de l’application de l’utilisateur.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function alertsFor(User $user): array
+    {
+        return $user->user_type === UserType::Commercial ? self::COMMERCIAL_ALERTS : self::PROMOTER_ALERTS;
     }
 
     /**

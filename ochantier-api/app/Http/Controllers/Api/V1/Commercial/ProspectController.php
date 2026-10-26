@@ -144,10 +144,11 @@ class ProspectController extends Controller
     }
 
     /**
-     * Transmet le dossier complet au Back office (« Soumettre au Back office »).
+     * Transmet le dossier complet au Back office (« Soumettre au Back office »), ou le renvoie après correction.
      */
     public function submit(Request $request, Prospect $prospect): JsonResponse
     {
+        $resubmitted = $this->dossier->isCorrectable($prospect);
         $worker = $this->dossier->submit($prospect, $request->user());
 
         return ApiResponse::success([
@@ -155,7 +156,7 @@ class ProspectController extends Controller
             'reference' => $worker->reference,
             'status' => ['value' => $worker->verification_status->value, 'label' => $worker->verification_status->label()],
             'submitted_at' => $worker->submitted_at->toIso8601String(),
-        ], 'Dossier transmis au Back office');
+        ], $resubmitted ? 'Dossier corrigé renvoyé au Back office' : 'Dossier transmis au Back office');
     }
 
     /**

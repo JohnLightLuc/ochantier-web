@@ -5,12 +5,15 @@ namespace Database\Seeders;
 use App\Enums\AppName;
 use App\Enums\AppPlatform;
 use App\Enums\Audience;
+use App\Enums\CommercialEarningEvent;
+use App\Enums\EarningCalculation;
 use App\Enums\ParameterStatus;
 use App\Enums\PricingParameterScope;
 use App\Enums\PricingVariable;
 use App\Enums\RetentionAction;
 use App\Models\Admin;
 use App\Models\AppVersion;
+use App\Models\CommercialEarningRule;
 use App\Models\DataRetentionPolicy;
 use App\Models\LegalDocument;
 use App\Models\MatchingWeightSet;
@@ -112,6 +115,11 @@ class PlatformRulesSeeder extends Seeder
         'pieces_comptables' => [3650, RetentionAction::Archiver],
     ];
 
+    /**
+     * Commission d’un commercial par ouvrier validé (FCFA).
+     */
+    private const COMMERCIAL_COMMISSION = 25000;
+
     public function run(): void
     {
         $author = Admin::query()->whereHas('roles', fn ($roles) => $roles->where('code', 'super_admin'))->oldest()->firstOrFail();
@@ -151,6 +159,18 @@ class PlatformRulesSeeder extends Seeder
                 'reason' => 'Barème de lancement (PM-2026-09 · v4).',
                 'is_active' => true,
                 'effective_from' => self::LAUNCH_DATE,
+                'created_by_admin_id' => $author->getKey(),
+            ]);
+        }
+
+        // Commission du commercial : montant fixe par ouvrier validé par le Back office.
+        if (CommercialEarningRule::query()->doesntExist()) {
+            CommercialEarningRule::query()->create([
+                'event_type' => CommercialEarningEvent::OuvrierValide,
+                'calculation' => EarningCalculation::MontantFixe,
+                'amount' => self::COMMERCIAL_COMMISSION,
+                'effective_from' => self::LAUNCH_DATE,
+                'status' => ParameterStatus::Actif,
                 'created_by_admin_id' => $author->getKey(),
             ]);
         }

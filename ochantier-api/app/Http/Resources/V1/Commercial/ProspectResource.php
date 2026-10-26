@@ -65,6 +65,7 @@ class ProspectResource extends Resource
     private function hint(array $completion): string
     {
         return match (true) {
+            app(ProspectDossier::class)->isCorrectable($this->resource) => 'Correction demandée par le Back office',
             $this->status === ProspectStatus::Converti => 'Dossier transmis au Back office',
             $this->status === ProspectStatus::Abandonne => 'Prospect archivé',
             $completion['ready'] => 'Prêt à soumettre',

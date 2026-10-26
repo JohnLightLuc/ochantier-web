@@ -7,14 +7,20 @@ use App\Http\Controllers\Api\V1\Auth\ProfileController;
 use App\Http\Controllers\Api\V1\Auth\PromoterLoginController;
 use App\Http\Controllers\Api\V1\Auth\PromoterRegistrationController;
 use App\Http\Controllers\Api\V1\Auth\SessionController;
+use App\Http\Controllers\Api\V1\Commercial\AccountController as CommercialAccountController;
+use App\Http\Controllers\Api\V1\Commercial\EarningController as CommercialEarningController;
+use App\Http\Controllers\Api\V1\Commercial\HomeController as CommercialHomeController;
+use App\Http\Controllers\Api\V1\Commercial\NotificationController as CommercialNotificationController;
+use App\Http\Controllers\Api\V1\Commercial\PerformanceController as CommercialPerformanceController;
 use App\Http\Controllers\Api\V1\Commercial\ProspectController;
 use App\Http\Controllers\Api\V1\Commercial\ProspectDocumentController;
+use App\Http\Controllers\Api\V1\Commercial\WorkerController as CommercialWorkerController;
 use App\Http\Controllers\Api\V1\HelpController;
 use App\Http\Controllers\Api\V1\MediaController;
+use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\Promoter\AttendanceController;
 use App\Http\Controllers\Api\V1\Promoter\HomeController;
 use App\Http\Controllers\Api\V1\Promoter\NotificationController;
-use App\Http\Controllers\Api\V1\Promoter\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\Promoter\PaymentController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileController as PromoterProfileController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileDocumentController;
@@ -44,7 +50,8 @@ use Illuminate\Support\Facades\Route;
 |
 | Promoteur : inscription et connexion sans mot de passe, par code SMS ou e-mail.
 | Commercial : compte créé par le Back Office, connexion par mot de passe puis code SMS.
-| Espace commercial (prefix commercial) : prospects et dossiers ouvriers, contrat actif exigé.
+| Espace commercial (prefix commercial) : prospects et dossiers ouvriers, ouvriers transmis et corrections, gains,
+| accueil, objectifs et classement, profil et zone, préférences et notifications ; contrat actif exigé.
 | Espace promoteur (prefix promoter) : profil, vérification, préférences, chantiers, réservations, paiements et suivi
 | (équipe, pointage, chronologie, remplacements), évaluations, factures et rapport de fin de chantier, abonnement,
 | utilisateurs et activité, accueil, notifications et parrainage. Chaque route exige un droit du rôle de l’utilisateur dans le compte (promoter.can, voir
@@ -193,7 +200,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 });
             });
 
-            // Application Commercial : prospects et dossiers ouvriers.
+            // Application Commercial : prospects, dossiers ouvriers, gains, activité, profil et notifications.
             Route::middleware(['user.type:commercial', 'commercial'])->prefix('commercial')->name('commercial.')->group(function () {
                 Route::get('prospects/phone-check', [ProspectController::class, 'checkPhone'])->name('prospects.phone-check');
                 Route::apiResource('prospects', ProspectController::class)->except('destroy');
@@ -201,6 +208,20 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::post('prospects/{prospect}/submit', [ProspectController::class, 'submit'])->name('prospects.submit');
                 Route::post('prospects/{prospect}/documents', [ProspectDocumentController::class, 'store'])->name('prospects.documents.store');
                 Route::delete('prospects/{prospect}/documents/{document}', [ProspectDocumentController::class, 'destroy'])->name('prospects.documents.destroy');
+
+                Route::get('home', CommercialHomeController::class)->name('home');
+                Route::get('workers', [CommercialWorkerController::class, 'index'])->name('workers.index');
+                Route::get('earnings', [CommercialEarningController::class, 'index'])->name('earnings.index');
+                Route::get('objectives', [CommercialPerformanceController::class, 'objectives'])->name('objectives');
+                Route::get('ranking', [CommercialPerformanceController::class, 'ranking'])->name('ranking');
+                Route::get('profile', [CommercialAccountController::class, 'show'])->name('profile.show');
+                Route::patch('profile', [CommercialAccountController::class, 'update'])->name('profile.update');
+                Route::post('zone-requests', [CommercialAccountController::class, 'requestZone'])->name('zone-requests.store');
+                Route::get('notification-preferences', [NotificationPreferenceController::class, 'show'])->name('notification-preferences.show');
+                Route::put('notification-preferences', [NotificationPreferenceController::class, 'update'])->name('notification-preferences.update');
+                Route::get('notifications', [CommercialNotificationController::class, 'index'])->name('notifications.index');
+                Route::post('notifications/read-all', [CommercialNotificationController::class, 'readAll'])->name('notifications.read-all');
+                Route::post('notifications/{notification}/read', [CommercialNotificationController::class, 'read'])->whereUuid('notification')->name('notifications.read');
             });
         });
     });

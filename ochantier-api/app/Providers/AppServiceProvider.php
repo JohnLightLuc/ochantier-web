@@ -162,6 +162,7 @@ class AppServiceProvider extends ServiceProvider
             'commercial_ranking' => Models\CommercialRanking::class,
             'commercial_ranking_entry' => Models\CommercialRankingEntry::class,
             'commercial_zone' => Models\CommercialZone::class,
+            'commercial_zone_request' => Models\CommercialZoneRequest::class,
             'commune' => Models\Commune::class,
             'consent' => Models\Consent::class,
             'construction_type' => Models\ConstructionType::class,

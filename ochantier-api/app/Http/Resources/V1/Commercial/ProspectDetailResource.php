@@ -3,10 +3,12 @@
 namespace App\Http\Resources\V1\Commercial;
 
 use App\Enums\DocumentAudience;
+use App\Enums\ProspectStatus;
 use App\Http\Resources\V1\DocumentResource;
 use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\Prospect;
+use App\Support\Commercial\CommercialWorkers;
 use App\Support\Commercial\ProspectDossier;
 use App\Support\PhoneNumber;
 use Illuminate\Http\Request;
@@ -57,7 +59,8 @@ class ProspectDetailResource extends ProspectResource
             'documents' => $this->documentSlots($documents, $dossier),
             'checklist' => $completion['items'],
             'missing' => array_map(fn (array $item) => ['key' => $item['key'], 'label' => $item['label']], $completion['blocking']),
-            'can_submit' => $completion['ready'],
+            'can_submit' => $completion['ready'] && ($this->status !== ProspectStatus::Converti || $dossier->isCorrectable($this->resource)),
+            'submission' => app(CommercialWorkers::class)->submission($this->convertedWorker?->loadMissing('verificationReviews.verificationCorrections.document.documentType')),
         ];
     }
 

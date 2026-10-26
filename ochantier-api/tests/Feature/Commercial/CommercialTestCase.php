@@ -111,9 +111,9 @@ abstract class CommercialTestCase extends AuthTestCase
     /**
      * Prospect au dossier complet, prêt à être soumis.
      */
-    protected function readyProspect(): string
+    protected function readyProspect(array $contact = []): string
     {
-        $id = $this->createProspect();
+        $id = $this->createProspect($contact);
         $this->patchJson("/api/v1/commercial/prospects/{$id}", $this->dossier())->assertOk();
         $this->uploadIdentity($id);
         $this->uploadPhoto($id);

@@ -88,6 +88,14 @@ class CommercialProfile extends Model
     }
 
     /**
+     * @return HasMany<CommercialZoneRequest, $this>
+     */
+    public function zoneRequests(): HasMany
+    {
+        return $this->hasMany(CommercialZoneRequest::class, 'commercial_id');
+    }
+
+    /**
      * @return HasMany<CommercialObjective, $this>
      */
     public function commercialObjectives(): HasMany

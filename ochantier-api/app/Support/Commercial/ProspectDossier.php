@@ -14,6 +14,7 @@ use App\Models\DocumentType;
 use App\Models\Prospect;
 use App\Models\ReasonCode;
 use App\Models\User;
+use App\Models\VerificationCorrection;
 use App\Models\Worker;
 use App\Support\Documents\DocumentStore;
 use App\Support\PhoneNumber;
@@ -29,7 +30,8 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
  * Le prospect porte le contact (nom, téléphone, commune, métier pressenti) et le suivi. Dès qu’une information du
  * dossier (naissance, coût, contact d’urgence…) ou une pièce est saisie, un ouvrier « brouillon » lié au prospect est
  * créé : il porte le dossier complet. La soumission passe l’ouvrier en « soumis » pour le contrôle du Back office et
- * le prospect en « converti ».
+ * le prospect en « converti » ; la commission du commercial est alors estimée. Si le Back office demande une
+ * correction, le dossier redevient modifiable jusqu’à son renvoi (nouvelle soumission).
  */
 class ProspectDossier
 {
@@ -58,7 +60,7 @@ class ProspectDossier
      */
     private ?array $documentLabels = null;
 
-    public function __construct(private DocumentStore $documents) {}
+    public function __construct(private DocumentStore $documents, private CommercialEarnings $earnings) {}
 
     /**
      * @param  array<string, mixed>  $data
@@ -123,6 +125,10 @@ class ProspectDossier
     {
         $this->ensureEditable($prospect);
 
+        if ($prospect->status === ProspectStatus::Converti) {
+            throw ValidationException::withMessages(['prospect' => 'Dossier transmis : il ne peut plus être archivé.']);
+        }
+
         DB::transaction(function () use ($prospect, $reason, $comment): void {
             $prospect->forceFill([
                 'status' => ProspectStatus::Abandonne,
@@ -185,7 +191,7 @@ class ProspectDossier
     }
 
     /**
-     * Transmet le dossier complet au Back office.
+     * Transmet le dossier complet au Back office, ou le renvoie après une correction demandée.
      */
     public function submit(Prospect $prospect, User $author): Worker
     {
@@ -200,6 +206,7 @@ class ProspectDossier
 
         return DB::transaction(function () use ($prospect, $author): Worker {
             $worker = $this->draft($prospect);
+            $from = $worker->verification_status;
             $worker->forceFill([
                 'verification_status' => WorkerVerificationStatus::Soumis,
                 'submitted_at' => now(),
@@ -207,11 +214,19 @@ class ProspectDossier
             ])->save();
 
             $worker->statusHistories()->create([
-                'from_status' => WorkerVerificationStatus::Brouillon,
-                'to_status' => WorkerVerificationStatus::Soumis,
+                'from_status' => $from->value,
+                'to_status' => WorkerVerificationStatus::Soumis->value,
+                'reason' => $from === WorkerVerificationStatus::ACorriger ? 'Dossier corrigé et renvoyé' : null,
                 'actor_type' => $author->getMorphClass(),
                 'actor_id' => $author->getKey(),
             ]);
+
+            if ($from === WorkerVerificationStatus::ACorriger) {
+                VerificationCorrection::query()
+                    ->whereIn('review_id', $worker->verificationReviews()->select('id'))
+                    ->whereNull('resolved_at')
+                    ->update(['resolved_at' => now(), 'resolution_comment' => 'Corrigé par le commercial']);
+            }
 
             $worker->verificationReviews()->create([
                 'submission_number' => $worker->verificationReviews()->count() + 1,
@@ -219,26 +234,37 @@ class ProspectDossier
                 'submitted_by_id' => $author->getKey(),
                 'submitted_at' => now(),
                 'status' => VerificationReviewStatus::Soumis,
-                'snapshot' => $this->snapshot($prospect),
+                'snapshot' => $this->snapshot($prospect, $worker),
             ]);
 
             $prospect->forceFill([
                 'status' => ProspectStatus::Converti,
                 'converted_worker_id' => $worker->getKey(),
-                'converted_at' => now(),
+                'converted_at' => $prospect->converted_at ?? now(),
                 'lock_version' => $prospect->lock_version + 1,
             ])->save();
+
+            $this->earnings->estimate($worker);
 
             return $worker;
         });
     }
 
     /**
-     * Ouvrier brouillon du prospect, s’il a été créé.
+     * Dossier modifiable du prospect : l’ouvrier brouillon s’il a été créé, ou l’ouvrier transmis dont le Back office
+     * demande la correction.
      */
     public function draft(Prospect $prospect): ?Worker
     {
-        return $prospect->draftWorker;
+        return $prospect->draftWorker ?? ($this->isCorrectable($prospect) ? $prospect->convertedWorker : null);
+    }
+
+    /**
+     * Dossier transmis que le Back office a renvoyé « à corriger ».
+     */
+    public function isCorrectable(Prospect $prospect): bool
+    {
+        return $prospect->status === ProspectStatus::Converti && $prospect->convertedWorker?->verification_status === WorkerVerificationStatus::ACorriger;
     }
 
     /**
@@ -337,9 +363,9 @@ class ProspectDossier
      *
      * @return array<string, mixed>
      */
-    public function snapshot(Prospect $prospect): array
+    public function snapshot(Prospect $prospect, ?Worker $worker = null): array
     {
-        $worker = $this->draft($prospect)->load(['workerTrades', 'specialties', 'skills', 'references']);
+        $worker = ($worker ?? $this->draft($prospect))->load(['workerTrades', 'specialties', 'skills', 'references']);
 
         return [
             'prospect_id' => $prospect->getKey(),
@@ -530,7 +556,7 @@ class ProspectDossier
 
     private function ensureEditable(Prospect $prospect): void
     {
-        if (in_array($prospect->status, [ProspectStatus::Converti, ProspectStatus::Abandonne], true)) {
+        if (in_array($prospect->status, [ProspectStatus::Converti, ProspectStatus::Abandonne], true) && ! $this->isCorrectable($prospect)) {
             throw ValidationException::withMessages([
                 'prospect' => $prospect->status === ProspectStatus::Converti
                     ? 'Dossier transmis : la modification se fait via le Back office.'

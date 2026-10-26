@@ -1,15 +1,15 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Promoter;
+namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\V1\Promoter\NotificationPreferencesRequest;
+use App\Http\Requests\V1\NotificationPreferencesRequest;
 use App\Support\Notifications\NotificationPreferences;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * « Notifications » (Profil › Préférences) : canaux et types d’alertes.
+ * « Notifications » (Profil › Préférences) des applications Promoteur et Commercial : canaux et types d’alertes.
  */
 class NotificationPreferenceController extends Controller
 {

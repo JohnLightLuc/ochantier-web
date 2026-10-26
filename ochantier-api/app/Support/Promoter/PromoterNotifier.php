@@ -2,14 +2,11 @@
 
 namespace App\Support\Promoter;
 
-use App\Enums\NotificationChannel;
-use App\Enums\NotificationStatus;
 use App\Enums\OrganizationMemberStatus;
 use App\Enums\PaymentInstallmentStatus;
 use App\Enums\PaymentScheduleStatus;
 use App\Enums\Priority;
 use App\Enums\ProposalStatus;
-use App\Models\DeviceToken;
 use App\Models\Notification;
 use App\Models\OrganizationMember;
 use App\Models\PaymentInstallment;
@@ -23,10 +20,7 @@ use App\Models\Site;
 use App\Models\SubscriptionInvoice;
 use App\Models\User;
 use App\Models\WorkDay;
-use App\Support\Notifications\NotificationPreferences;
-use App\Support\PhoneNumber;
-use App\Support\Push\PushGateway;
-use App\Support\Sms\SmsGateway;
+use App\Support\Notifications\NotificationInbox;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -68,12 +62,7 @@ class PromoterNotifier
      */
     public const TABS = ['all' => 'Toutes', 'unread' => 'Non lues', 'offres' => 'Offres', 'paiements' => 'Paiements', 'chantiers' => 'Chantiers'];
 
-    public function __construct(
-        private NotificationPreferences $preferences,
-        private PushGateway $push,
-        private SmsGateway $sms,
-        private PromoterPayments $payments,
-    ) {}
+    public function __construct(private NotificationInbox $inbox, private PromoterPayments $payments) {}
 
     public function proposalReceived(Proposal $proposal): void
     {
@@ -202,66 +191,30 @@ class PromoterNotifier
      */
     public function center(User $user, string $filter = 'all'): array
     {
-        $notifications = Notification::query()
-            ->where('recipient_type', $user->getMorphClass())
-            ->where('recipient_id', $user->getKey())
-            ->where('channel', NotificationChannel::InApp)
-            ->latest('created_at')
-            ->limit(100)
-            ->get();
-        $unread = $notifications->whereNull('read_at');
-        $proposals = Proposal::query()->whereKey($notifications->where('event_code', 'proposal.received')->pluck('related_id'))->get()->keyBy('id');
-        $list = $notifications->filter(fn (Notification $notification) => match ($filter) {
-            'all' => true,
-            'unread' => $notification->read_at === null,
-            default => ($notification->data['tab'] ?? null) === $filter,
-        });
-        $today = CarbonImmutable::today();
+        $proposals = Proposal::query()
+            ->whereIn('id', Notification::query()->where('recipient_id', $user->getKey())->where('event_code', 'proposal.received')->select('related_id'))
+            ->get()
+            ->keyBy('id');
 
-        return [
-            'data' => collect(['today' => 'AUJOURD’HUI', 'week' => 'CETTE SEMAINE', 'older' => 'PLUS ANCIENNES'])
-                ->map(fn (string $label, string $key) => [
-                    'key' => $key,
-                    'label' => $label,
-                    'items' => $list->filter(fn (Notification $notification) => $this->group($notification, $today) === $key)
-                        ->map(fn (Notification $notification) => $this->item($notification, $proposals))
-                        ->values()
-                        ->all(),
-                ])
-                ->filter(fn (array $group) => $group['items'] !== [])
-                ->values()
-                ->all(),
-            'meta' => [
-                'unread' => $unread->count(),
-                'summary' => $unread->isEmpty() ? 'Tout est lu' : $unread->count().' non lue'.($unread->count() > 1 ? 's' : ''),
-                'tabs' => collect(self::TABS)->map(fn (string $label, string $key) => [
-                    'key' => $key,
-                    'label' => $label,
-                    'unread' => in_array($key, ['all', 'unread'], true) ? null : $unread->filter(fn (Notification $notification) => ($notification->data['tab'] ?? null) === $key)->count(),
-                ])->values()->all(),
-            ],
-        ];
+        return $this->inbox->center($user, $filter, self::TABS,
+            fn (Notification $notification, string $tab) => match ($tab) {
+                'all' => true,
+                'unread' => $notification->read_at === null,
+                default => ($notification->data['tab'] ?? null) === $tab,
+            },
+            fn (Notification $notification) => $this->extra($notification, $proposals),
+            ['all', 'unread'],
+        );
     }
 
     public function unreadCount(User $user): int
     {
-        return Notification::query()
-            ->where('recipient_type', $user->getMorphClass())
-            ->where('recipient_id', $user->getKey())
-            ->where('channel', NotificationChannel::InApp)
-            ->whereNull('read_at')
-            ->count();
+        return $this->inbox->unreadCount($user);
     }
 
     public function markRead(User $user, ?string $id = null): int
     {
-        return Notification::query()
-            ->where('recipient_type', $user->getMorphClass())
-            ->where('recipient_id', $user->getKey())
-            ->where('channel', NotificationChannel::InApp)
-            ->whereNull('read_at')
-            ->when($id, fn ($query) => $query->whereKey($id))
-            ->update(['read_at' => now()]);
+        return $this->inbox->markRead($user, $id);
     }
 
     /**
@@ -273,37 +226,11 @@ class PromoterNotifier
     public function notify(PromoterProfile $profile, string $event, string $title, string $body, ?Site $site, array $target, ?Model $related = null, ?string $dedup = null): int
     {
         $definition = self::EVENTS[$event];
-        $sent = 0;
+        $data = ['target' => $target, 'site' => $site ? ['id' => $site->id, 'title' => $site->label] : null];
 
-        foreach ($this->recipients($profile, $definition['ability'], $site) as $user) {
-            $key = $dedup ? $dedup.':'.$user->getKey() : null;
-
-            if ($key && Notification::query()->where('dedup_key', $key)->exists()) {
-                continue;
-            }
-
-            Notification::query()->create([
-                'recipient_type' => $user->getMorphClass(),
-                'recipient_id' => $user->getKey(),
-                'event_code' => $event,
-                'channel' => NotificationChannel::InApp,
-                'title' => $title,
-                'body' => $body,
-                'data' => ['tab' => $definition['tab'], 'target' => $target, 'site' => $site ? ['id' => $site->id, 'title' => $site->label] : null],
-                'related_type' => $related?->getMorphClass(),
-                'related_id' => $related?->getKey(),
-                'priority' => $definition['priority'],
-                'status' => NotificationStatus::Livree,
-                'sent_at' => now(),
-                'delivered_at' => now(),
-                'dedup_key' => $key,
-            ]);
-            $sent++;
-
-            $this->deliver($user, $definition, $title, $body, ['event' => $event, 'target' => $target]);
-        }
-
-        return $sent;
+        return $this->recipients($profile, $definition['ability'], $site)
+            ->filter(fn (User $user) => $this->inbox->send($user, $event, $definition, $title, $body, $data, $related, $dedup))
+            ->count();
     }
 
     /**
@@ -323,25 +250,6 @@ class PromoterNotifier
             ->reject(fn (OrganizationMember $member) => $member->role->value === 'responsable_chantier' && (! $site || $site->responsible_user_id !== $member->user_id));
 
         return collect([$profile->user])->concat($members->pluck('user'))->unique('id')->values();
-    }
-
-    /**
-     * @param  array{tab: string, alert: string|null, ability: string, priority: Priority, sms: bool}  $definition
-     * @param  array<string, mixed>  $data
-     */
-    private function deliver(User $user, array $definition, string $title, string $body, array $data): void
-    {
-        if ($this->preferences->allows($user, 'push', $definition['alert'])) {
-            $tokens = DeviceToken::query()->where('owner_type', $user->getMorphClass())->where('owner_id', $user->getKey())->whereNull('revoked_at')->pluck('push_token')->all();
-
-            if ($tokens !== []) {
-                $this->push->send($tokens, $title, $body, $data);
-            }
-        }
-
-        if ($definition['sms'] && ($phone = PhoneNumber::of($user)) && $this->preferences->allows($user, 'sms', $definition['alert'])) {
-            $this->sms->send($phone->e164(), 'O’CHANTIER : '.$title.'. '.$body);
-        }
     }
 
     /**
@@ -374,26 +282,19 @@ class PromoterNotifier
     }
 
     /**
+     * Chantier, tag (« Acompte réglé », « Action requise ») et actions d’une notification.
+     *
      * @param  Collection<string, Proposal>  $proposals
      * @return array<string, mixed>
      */
-    private function item(Notification $notification, Collection $proposals): array
+    private function extra(Notification $notification, Collection $proposals): array
     {
         $proposal = $notification->event_code === 'proposal.received' ? $proposals->get($notification->related_id) : null;
         $awaiting = $proposal && in_array($proposal->status, [ProposalStatus::AValider, ProposalStatus::Acceptee], true) && ! $proposal->suggestions()->whereHas('need.missions')->exists();
         $paid = $proposal && $proposal->status === ProposalStatus::Acceptee && ! $awaiting;
 
         return [
-            'id' => $notification->id,
-            'event' => $notification->event_code,
-            'tab' => $notification->data['tab'] ?? null,
-            'title' => $notification->title,
-            'body' => $notification->body,
-            'time' => $this->time(CarbonImmutable::parse($notification->created_at)),
-            'created_at' => CarbonImmutable::parse($notification->created_at)->toIso8601String(),
-            'unread' => $notification->read_at === null,
             'site' => $notification->data['site'] ?? null,
-            'target' => $notification->data['target'] ?? null,
             'tag' => match (true) {
                 $paid => ['label' => 'Acompte réglé', 'tone' => 'positive'],
                 $notification->event_code === 'payment.late' => ['label' => 'Action requise', 'tone' => 'negative'],
@@ -401,31 +302,6 @@ class PromoterNotifier
             },
             'actions' => $awaiting ? ['voir_offre', 'payer_acompte'] : [],
         ];
-    }
-
-    private function group(Notification $notification, CarbonImmutable $today): string
-    {
-        $date = CarbonImmutable::parse($notification->created_at)->setTimezone(config('app.timezone'))->startOfDay();
-
-        return match (true) {
-            $date->greaterThanOrEqualTo($today) => 'today',
-            $date->greaterThan($today->subDays(7)) => 'week',
-            default => 'older',
-        };
-    }
-
-    private function time(CarbonImmutable $at): string
-    {
-        $minutes = (int) $at->diffInMinutes(now());
-        $local = $at->setTimezone(config('app.timezone'));
-
-        return match (true) {
-            $minutes < 1 => 'À l’instant',
-            $minutes < 60 => 'Il y a '.$minutes.' min',
-            $local->isToday() => 'Il y a '.intdiv($minutes, 60).' h',
-            $local->isYesterday() => 'Hier · '.$local->format('H:i'),
-            default => $local->locale('fr')->translatedFormat('j M · H:i'),
-        };
     }
 
     private function date(CarbonInterface $date): string

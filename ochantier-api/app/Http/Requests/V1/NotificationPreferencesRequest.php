@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Requests\V1\Promoter;
+namespace App\Http\Requests\V1;
 
 use App\Support\Notifications\NotificationPreferences;
 use Illuminate\Foundation\Http\FormRequest;
@@ -19,7 +19,7 @@ class NotificationPreferencesRequest extends FormRequest
         return [
             'channels' => ['sometimes', 'array:push,sms,email'],
             'channels.*' => ['boolean'],
-            'alerts' => ['sometimes', 'array:'.implode(',', array_keys(NotificationPreferences::PROMOTER_ALERTS))],
+            'alerts' => ['sometimes', 'array:'.implode(',', array_keys(NotificationPreferences::alertsFor($this->user())))],
             'alerts.*' => ['boolean'],
         ];
     }
@@ -49,7 +49,7 @@ class NotificationPreferencesRequest extends FormRequest
     {
         return [
             'channels.array' => 'Canal inconnu : push, sms ou email.',
-            'alerts.array' => 'Alerte inconnue : '.implode(', ', array_keys(NotificationPreferences::PROMOTER_ALERTS)).'.',
+            'alerts.array' => 'Alerte inconnue : '.implode(', ', array_keys(NotificationPreferences::alertsFor($this->user()))).'.',
             'channels.*.boolean' => 'Valeur attendue : true ou false.',
             'alerts.*.boolean' => 'Valeur attendue : true ou false.',
         ];

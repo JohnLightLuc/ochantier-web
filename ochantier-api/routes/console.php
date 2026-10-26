@@ -13,3 +13,6 @@ Schedule::command('ochantier:renew-subscriptions')->dailyAt('01:00');
 
 // Rappels aux promoteurs : paiements à régler demain ou en retard, journées de pointage de la veille à valider.
 Schedule::command('ochantier:promoter-reminders')->dailyAt('08:00');
+
+// Rappels aux commerciaux : relances conseillées, et le lundi objectif du mois et classement.
+Schedule::command('ochantier:commercial-reminders')->dailyAt('08:00');
