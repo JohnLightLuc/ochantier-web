@@ -6,13 +6,21 @@ use App\Models\FaqArticle;
 use Illuminate\Database\Seeder;
 
 /**
- * Questions fréquentes du centre d’aide de l’application Promoteur.
+ * Questions fréquentes du centre d’aide des applications Promoteur et Commercial.
  */
 class HelpCenterSeeder extends Seeder
 {
     /**
-     * Rubrique => [question => réponse].
+     * Application => rubrique => [question => réponse].
      *
+     * @var array<string, array<string, array<string, string>>>
+     */
+    private const FAQ = [
+        'promoter' => self::PROMOTER_FAQ,
+        'commercial' => self::COMMERCIAL_FAQ,
+    ];
+
+    /**
      * @var array<string, array<string, string>>
      */
     private const PROMOTER_FAQ = [
@@ -31,14 +39,31 @@ class HelpCenterSeeder extends Seeder
         ],
     ];
 
+    /**
+     * @var array<string, array<string, string>>
+     */
+    private const COMMERCIAL_FAQ = [
+        'Gains' => [
+            'Quand ma commission est-elle versée ?' => 'Elle est confirmée dès la validation du dossier par le Back office, puis versée en fin de mois par Mobile Money.',
+        ],
+        'Dossiers' => [
+            'Pourquoi un dossier est-il à corriger ?' => 'Le Back office a repéré un document illisible, expiré ou manquant. Ouvrez le dossier pour voir la correction demandée.',
+        ],
+        'Compte' => [
+            'Comment changer ma zone d’activité ?' => 'Depuis Profil › Zone d’activité, envoyez une demande. Le changement s’applique après validation de votre responsable.',
+        ],
+    ];
+
     public function run(): void
     {
-        foreach (self::PROMOTER_FAQ as $section => $articles) {
-            foreach ($articles as $question => $answer) {
-                FaqArticle::query()->firstOrCreate(
-                    ['audience' => 'promoter', 'title' => $question],
-                    ['section' => $section, 'content' => $answer, 'is_published' => true, 'published_at' => now()],
-                );
+        foreach (self::FAQ as $audience => $sections) {
+            foreach ($sections as $section => $articles) {
+                foreach ($articles as $question => $answer) {
+                    FaqArticle::query()->firstOrCreate(
+                        ['audience' => $audience, 'title' => $question],
+                        ['section' => $section, 'content' => $answer, 'is_published' => true, 'published_at' => now()],
+                    );
+                }
             }
         }
     }

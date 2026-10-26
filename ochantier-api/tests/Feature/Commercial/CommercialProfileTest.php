@@ -6,6 +6,7 @@ use App\Models\Notification;
 use App\Models\Prospect;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AdminAccessSeeder;
+use Database\Seeders\HelpCenterSeeder;
 use Database\Seeders\PlatformRulesSeeder;
 
 class CommercialProfileTest extends CommercialTestCase
@@ -76,15 +77,29 @@ class CommercialProfileTest extends CommercialTestCase
         $this->getJson('/api/v1/commercial/profile')->assertJsonPath('data.notifications_label', '3 sur 5 activées');
     }
 
+    public function test_the_help_center_lists_the_commercial_questions(): void
+    {
+        $this->seed(HelpCenterSeeder::class);
+
+        $this->getJson('/api/v1/help')
+            ->assertOk()
+            ->assertJsonPath('data.faq.*.question', [
+                'Comment changer ma zone d’activité ?',
+                'Pourquoi un dossier est-il à corriger ?',
+                'Quand ma commission est-elle versée ?',
+            ])
+            ->assertJsonPath('data.faq.2.section', 'Gains');
+    }
+
     public function test_follow_ups_objective_and_ranking_reach_the_notification_center(): void
     {
         $this->seed([AdminAccessSeeder::class, PlatformRulesSeeder::class]);
         $id = $this->createProspect(['first_name' => 'Fatou', 'last_name' => 'Diallo']);
         $touched = CarbonImmutable::today()->subDays(8);
         Prospect::query()->whereKey($id)->update(['updated_at' => $touched]);
-        $this->artisan('ochantier:simulate-commercial-objective', ['commercial' => $this->commercial->commercialProfile->employee_number, 'target' => 5])->assertSuccessful();
-
         $monday = CarbonImmutable::today()->next(CarbonImmutable::MONDAY)->setTime(8, 0);
+        $this->artisan('ochantier:simulate-commercial-objective', ['commercial' => $this->commercial->commercialProfile->employee_number, 'target' => 5, '--month' => $monday->format('Y-m')])->assertSuccessful();
+
         $this->travelTo($monday);
         $this->artisan('ochantier:commercial-reminders')->expectsOutput('1 relance(s) conseillée(s), 1 rappel(s) d’objectif, 1 classement(s).')->assertSuccessful();
         $this->artisan('ochantier:commercial-reminders')->expectsOutput('0 relance(s) conseillée(s), 0 rappel(s) d’objectif, 0 classement(s).')->assertSuccessful();
