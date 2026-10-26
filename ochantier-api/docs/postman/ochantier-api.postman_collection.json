@@ -3100,7 +3100,7 @@
                     "help"
                   ]
                 },
-                "description": "« Centre d’aide », dans `data` : questions fréquentes de l’application (`faq` : `section`, `question`, `answer`) et contacts du support (`support` : `phone`, `whatsapp`, `email`, `hours`).\n\nCommun aux applications Promoteur et Commercial (chacune reçoit ses questions). À mettre en cache (`Cache-Control: private, max-age=3600`).",
+                "description": "« Centre d’aide », dans `data` : questions fréquentes de l’application (`faq` : `section`, `question`, `answer`) et contacts du support (`support` : `phone`, `whatsapp`, `email`, `hours`).\n\nCommun aux applications Promoteur et Commercial (chacune reçoit ses questions ; voir « Commercial › Profil et préférences › Centre d’aide »). À mettre en cache (`Cache-Control: private, max-age=3600`).",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -19701,9 +19701,100 @@
                   "body": "{\n  \"message\": \"Alerte inconnue : dossiers, corrections, paiements, relances.\",\n  \"errors\": {\n    \"alerts\": [\n      \"Alerte inconnue : dossiers, corrections, paiements, relances.\"\n    ]\n  }\n}"
                 }
               ]
+            },
+            {
+              "id": "52d65611-bd72-5ae9-928b-d0227523a638",
+              "name": "Centre d’aide",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Questions du commercial', () => pm.expect(pm.response.json().data.faq.map(f => f.section)).to.include('Gains'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/help",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "help"
+                  ]
+                },
+                "description": "« Aide » du profil : questions fréquentes de l’application Commercial (`faq` : `section`, `question`, `answer`) et contacts du support (`support` : `phone`, `whatsapp`, `email`, `hours`) pour « Appeler le support », « Écrire sur WhatsApp » et « Envoyer un e-mail ».\n\nMême route que le centre d’aide du promoteur : chaque application reçoit ses questions. À mettre en cache (`Cache-Control: private, max-age=3600`).",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "8cbf1a31-539e-5f05-93b1-5df7142db0c7",
+                  "name": "200 · Centre d’aide (commercial)",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/help",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "help"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "119"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"faq\": [\n      {\n        \"id\": \"01a1771d-7b82-72d6-bdcc-404c0cf869c3\",\n        \"section\": \"Compte\",\n        \"question\": \"Comment changer ma zone d’activité ?\",\n        \"answer\": \"Depuis Profil › Zone d’activité, envoyez une demande. Le changement s’applique après validation de votre responsable.\",\n        \"context_key\": null\n      },\n      {\n        \"id\": \"01a1771d-7b80-738e-bd88-d3ed2d084927\",\n        \"section\": \"Dossiers\",\n        \"question\": \"Pourquoi un dossier est-il à corriger ?\",\n        \"answer\": \"Le Back office a repéré un document illisible, expiré ou manquant. Ouvrez le dossier pour voir la correction demandée.\",\n        \"context_key\": null\n      },\n      {\n        \"id\": \"01a1771d-7b7f-738c-8d5b-c11bb7f39227\",\n        \"section\": \"Gains\",\n        \"question\": \"Quand ma commission est-elle versée ?\",\n        \"answer\": \"Elle est confirmée dès la validation du dossier par le Back office, puis versée en fin de mois par Mobile Money.\",\n        \"context_key\": null\n      }\n    ],\n    \"support\": {\n      \"phone\": \"+225 27 22 00 00 00\",\n      \"whatsapp\": \"+225 07 00 00 00 00\",\n      \"email\": \"support@ochantier.ci\",\n      \"hours\": \"Du lundi au samedi, de 8 h à 18 h\"\n    }\n  }\n}"
+                }
+              ]
             }
           ],
-          "description": "« Mon profil » du commercial : informations, zone d’activité attribuée par le Back office, activité et préférences de notification."
+          "description": "« Mon profil » du commercial : informations, zone d’activité attribuée par le Back office, activité préférences de notification et centre d’aide."
         },
         {
           "id": "6c6dbdb9-a092-5ac4-9cfa-1bb1b65cf1cb",
