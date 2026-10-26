@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "440084b3-1b5c-5760-8de1-a8bc263e2066",
     "name": "O’CHANTIER API v1",
-    "description": "API REST des applications mobiles **Promoteur** et **Commercial** d’O’CHANTIER (l’application Ouvrier arrive en V2). Cette version couvre l’**authentification**, les **référentiels**, le **centre d’aide**, pour l’application Promoteur le **profil et la vérification du compte**, les **chantiers**, leurs **besoins et leur publication**, les **réservations** (propositions d’équipe), les **paiements** Mobile Money, le **suivi de chantier** (équipe, pointage, chronologie, remplacements), les **évaluations et le bilan** (factures, rapport de fin de chantier), l’**abonnement** et le **paiement flexible**, l’**équipe** (utilisateurs, rôles, activité), l’**accueil**, les **notifications** et le **parrainage**, et pour l’application Commercial les **prospects et dossiers ouvriers**. Les autres modules (ouvriers soumis et gains du commercial) seront ajoutés au fur et à mesure.\n\n## Démarrage rapide\n\n1. Lancer l’API : `docker compose up -d`, `php artisan migrate:fresh --seed`, `php artisan serve`.\n2. Importer cette collection et l’environnement **O’CHANTIER · Local**.\n3. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : chaque connexion enregistre les jetons dans les variables de la collection, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/ochantier-api.postman_collection.json -e docs/postman/ochantier-local.postman_environment.json --working-dir docs/postman`\n   (`--working-dir` permet de trouver les images d’exemple de `docs/postman/fixtures` envoyées comme pièces).\n\nLa collection est rejouable : elle tire au hasard les nouveaux numéros et remet le mot de passe du commercial de démonstration. Entre deux exécutions, attendre **45 secondes**, le délai avant de pouvoir redemander un code au même destinataire.\n\nLes exemples de réponse de chaque requête ont été capturés sur l’API locale avec les données de démonstration.\n\n## Conventions\n\n- **Base** : `{{base_url}}` = `http://localhost:8000/api/v1`.\n- **En-têtes** : `Accept: application/json` sur toutes les requêtes ; `Content-Type: application/json` pour les corps.\n- **Téléphone** : toujours envoyé en deux champs, `dial_code` (indicatif du pays sans `+`, ex. `225`) et `phone_number` (numéro national, ex. `0700000002` ; 10 chiffres pour la Côte d’Ivoire, espaces, points et tirets acceptés). Seuls les indicatifs des pays ouverts sont acceptés (aujourd’hui `225`). Les réponses renvoient `dial_code`, `phone_number` et `phone` formaté pour l’affichage (`+225 07 00 00 00 02`). En base, le numéro est enregistré dans ces deux colonnes ; la colonne `phone` (E.164, `+2250700000002`) en est déduite.\n- **Statuts et types** : objets `{ \"value\": \"actif\", \"label\": \"Actif\" }`. L’application se fie à `value` et affiche `label`.\n- **Dates** : ISO 8601 en UTC (`2026-10-18T13:06:23+00:00`).\n- **Messages** : en français, prêts à être affichés.\n- **Réponses de succès** : toujours `{ \"message\": …, \"data\": …, \"meta\": … }`. `message` est le texte à afficher, `null` quand il n’y a rien à afficher ; `data` porte le contenu (`null` pour une action sans contenu, comme une suppression) ; `meta`, facultatif, les informations annexes (pagination avec `links`, `event_id`, `document_id`, `lock_version`…). L’API ne renvoie pas de **204**.\n- **Envoi de fichiers** : `multipart/form-data` directement vers l’API. Les fichiers sont ensuite consultables par un lien `url` signé, valable 30 minutes, sans jeton.\n- **Hors ligne** : `client_uuid` (généré par l’application) rend une création rejouable sans doublon ; `lock_version` (renvoyé dans chaque réponse) refuse une modification faite entre-temps sur un autre appareil (**409**).\n\n## Authentification\n\n| Application | Inscription | Connexion |\n|---|---|---|\n| Promoteur | Libre, sans mot de passe : code d’activation par SMS ou e-mail | Code à 6 chiffres par SMS ou e-mail |\n| Commercial | Compte créé par le Back Office, avec un mot de passe provisoire | Mot de passe, puis code à 6 chiffres par SMS |\n\n**Jetons**\n- `access_token` : JWT signé (HS256), valable **15 minutes**, envoyé dans `Authorization: Bearer <jeton>`.\n- `refresh_token` : chaîne opaque de 64 caractères, valable **30 jours**, **à usage unique**. `POST /auth/refresh` renvoie une nouvelle paire ; l’ancien jeton devient invalide.\n- Chaque connexion ouvre une **session** par appareil (`session_id`), visible dans « Appareils connectés » et révocable.\n\nSur un **401** : rafraîchir les jetons une fois, puis renvoyer à l’écran de connexion si le rafraîchissement échoue aussi.\n\n**Codes à usage unique (OTP)** : 6 chiffres par défaut (`OTP_LENGTH`, de 4 à 10 ; la longueur en vigueur est renvoyée dans `code_length` à chaque envoi de code), valables 5 minutes, 5 essais par code, nouveau code possible après 45 secondes. Hors production, le code fixe `OTP_TEST_CODE` (`123456` en local) est accepté. Les SMS et e-mails sont écrits dans `storage/logs/laravel.log`.\n\n**Mot de passe provisoire** (commercial) : tant que `user.must_change_password` vaut `true`, seules `GET /me`, `POST /auth/logout` et `PUT /auth/password` répondent ; les autres routes renvoient **403** avec `\"code\": \"password_change_required\"`.\n\n## Réponses d’erreur\n\n| Code | Cas | Corps |\n|---|---|---|\n| 401 | Jeton absent, expiré ou session fermée | `{ \"message\": \"Session expirée : reconnectez-vous.\" }` |\n| 403 | Compte suspendu ou désactivé, route d’une autre application, mot de passe provisoire à changer | `{ \"message\": \"…\" }` (+ `code` pour `password_change_required`) |\n| 404 | Ressource introuvable ou n’appartenant pas au compte | `{ \"message\": \"Élément introuvable.\" }` |\n| 409 | Modifié entre-temps sur un autre appareil (`lock_version`) | `{ \"message\": \"…\" }` |\n| 422 | Champs invalides, code faux ou expiré | `{ \"message\": \"…\", \"errors\": { \"champ\": [\"…\"] } }` |\n| 423 | Commercial verrouillé après 5 mauvais mots de passe (15 min) | `{ \"message\": \"…\", \"locked_until\": \"…\" }` |\n| 429 | Nouveau code demandé trop tôt, ou trop de requêtes | `{ \"message\": \"…\", \"retry_after\": 45 }` + en-tête `Retry-After` |\n\n## Espace promoteur : profil et vérification\n\nRéservé aux promoteurs (**403** pour un commercial).\n\n1. **Profil** (« Modifier le profil ») : identité, adresse et, pour une entreprise, raison sociale, RCCM, NCC et siège social géolocalisé.\n2. **Pièces justificatives** : pièce d’identité (CNI, passeport ou permis) et certificat de résidence ; pour une entreprise, en plus l’extrait RCCM et l’attestation NCC (statuts facultatifs).\n3. **Vérification** : dès que tous les éléments sont fournis (`completion.complete`), le profil passe en `soumis` et une demande de vérification est créée pour le Back office. `verification.state` donne l’état à afficher : « À compléter », « En vérification », « Vérifié », « À corriger ». Modifier un élément vérifié renvoie le profil en vérification.\n\n## Espace promoteur : chantiers et réservations\n\n1. **Chantier** (« Nouveau chantier ») : brouillon enregistré dès le titre, complété en plusieurs fois (localisation GPS, dates, photo, documents, responsable).\n2. **Besoins** : offre **journalière** (effectif et tarif proposé par métier, ouvriers choisis dans le catalogue) ou **contractuelle** (forfait, mode de paiement du solde).\n3. **Publication** : l’offre et ses besoins sont transmis au **Back office**, qui les contrôle puis lance le **matching**.\n4. **Proposition d’équipe** : le promoteur l’accepte (les ouvriers sont bloqués le temps de payer l’acompte) ou la refuse avec un motif (la recherche reprend). Une proposition partielle laisse la recherche continuer pour les ouvriers manquants.\n\n5. **Paiement** : l’acompte (X = 30 % du total, commission O’CHANTIER Y = 8 % comprise) confirme l’équipe ; une mission est créée par métier avec une échéance par semaine. Les frais de l’opérateur Mobile Money s’ajoutent ; un reçu PDF est émis. Hors production, le paiement est simulé (un numéro finissant par `0000` échoue).\n\nEn local, sans Back office, `php artisan ochantier:simulate-matching` joue le contrôle et le matching des offres publiées. Lors de l’exécution de la collection, « Accepter la proposition », « Refuser la proposition » et les paiements sont sautés s’il n’y a pas de proposition : lancez la commande après « Nouvelle réservation », puis exécutez le dossier « Réservations ».\n\n## Espace promoteur : abonnement, équipe et notifications\n\n1. **Abonnement** : formule Solo gratuite (propriétaire seul) ; formules Équipe, Pro et Entreprise payées chaque mois par Mobile Money. Elles ouvrent les collaborateurs, le paiement flexible (2 ou 3 versements), le rapport de fin de chantier et l’activité des utilisateurs.\n2. **Équipe** : le compte est celui du propriétaire ; chaque collaborateur y agit selon son rôle (voir le dossier « Équipe et activité »).\n3. **Notifications** : centre in-app, push et SMS selon les préférences ; rappels quotidiens.\n\nEn local : `php artisan ochantier:simulate-site-end <chantier>` simule la clôture d’un chantier (évaluations, rapport), `php artisan ochantier:renew-subscriptions` et `php artisan ochantier:promoter-reminders` jouent les tâches planifiées.\n\n## Espace commercial : prospects et dossiers\n\nRéservé aux commerciaux dont le contrat est actif (**403** sinon) ; chaque commercial ne voit que ses propres prospects.\n\n1. **Prospect** (« Nouveau prospect ») : le contact du futur ouvrier (nom, téléphone, commune, métier pressenti), avec son accord d’être contacté.\n2. **Dossier** : dès qu’une information du dossier (naissance, coût journalier, contact d’urgence…) ou une pièce est saisie, un ouvrier **brouillon** lié au prospect est créé (référence `OUV-000123`). Il se complète en plusieurs fois.\n3. **Avancement** : 12 éléments comme dans la maquette (`completion`), badge « Prêt à soumettre » (`stage` = `pret`) quand tous les éléments obligatoires sont présents.\n4. **Soumission** au Back office : l’ouvrier passe en `soumis`, le prospect en `converti` ; le dossier n’est plus modifiable depuis l’application.\n\nUn prospect peut aussi être **archivé** avec un motif : son dossier brouillon est retiré et son numéro libéré.\n\n## Limites de débit\n\n| Requêtes | Limite |\n|---|---|\n| Envoi de code (inscription, connexion promoteur, mot de passe oublié, changement de numéro) | 3 par minute par destinataire, 10 par heure par adresse IP |\n| Mot de passe du commercial | 10 par minute par numéro, 20 par minute par IP |\n| Vérification d’un code | 10 par minute |\n| Rafraîchissement | 30 par minute |\n| Autres requêtes authentifiées | 120 par minute par compte |\n\n## Comptes de démonstration (`php artisan db:seed`, hors production)\n\n| Application | Identifiant | Mot de passe |\n|---|---|---|\n| Promoteur particulier | `0700000001` | — |\n| Promoteur entreprise | `0700000002` ou `promoteur@demo.ochantier.ci` | — |\n| Commercial | `0500000001` | `motdepasse1` |\n| Commercial à activer (mot de passe provisoire) | `0500000002` | `provisoire1` |\n",
+    "description": "API REST des applications mobiles **Promoteur** et **Commercial** d’O’CHANTIER (l’application Ouvrier arrive en V2). Cette version couvre l’**authentification**, les **référentiels**, le **centre d’aide**, pour l’application Promoteur le **profil et la vérification du compte**, les **chantiers**, leurs **besoins et leur publication**, les **réservations** (propositions d’équipe), les **paiements** Mobile Money, le **suivi de chantier** (équipe, pointage, chronologie, remplacements), les **évaluations et le bilan** (factures, rapport de fin de chantier), l’**abonnement** et le **paiement flexible**, l’**équipe** (utilisateurs, rôles, activité), l’**accueil**, les **notifications** et le **parrainage**, et pour l’application Commercial les **prospects et dossiers ouvriers**, les **ouvriers transmis** et leurs corrections, les **gains**, l’**accueil**, les **objectifs et le classement**, le **profil** et les **notifications**.\n\n## Démarrage rapide\n\n1. Lancer l’API : `docker compose up -d`, `php artisan migrate:fresh --seed`, `php artisan serve`.\n2. Importer cette collection et l’environnement **O’CHANTIER · Local**.\n3. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : chaque connexion enregistre les jetons dans les variables de la collection, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/ochantier-api.postman_collection.json -e docs/postman/ochantier-local.postman_environment.json --working-dir docs/postman`\n   (`--working-dir` permet de trouver les images d’exemple de `docs/postman/fixtures` envoyées comme pièces).\n\nLa collection est rejouable : elle tire au hasard les nouveaux numéros et remet le mot de passe du commercial de démonstration. Entre deux exécutions, attendre **45 secondes**, le délai avant de pouvoir redemander un code au même destinataire.\n\nLes exemples de réponse de chaque requête ont été capturés sur l’API locale avec les données de démonstration.\n\n## Conventions\n\n- **Base** : `{{base_url}}` = `http://localhost:8000/api/v1`.\n- **En-têtes** : `Accept: application/json` sur toutes les requêtes ; `Content-Type: application/json` pour les corps.\n- **Téléphone** : toujours envoyé en deux champs, `dial_code` (indicatif du pays sans `+`, ex. `225`) et `phone_number` (numéro national, ex. `0700000002` ; 10 chiffres pour la Côte d’Ivoire, espaces, points et tirets acceptés). Seuls les indicatifs des pays ouverts sont acceptés (aujourd’hui `225`). Les réponses renvoient `dial_code`, `phone_number` et `phone` formaté pour l’affichage (`+225 07 00 00 00 02`). En base, le numéro est enregistré dans ces deux colonnes ; la colonne `phone` (E.164, `+2250700000002`) en est déduite.\n- **Statuts et types** : objets `{ \"value\": \"actif\", \"label\": \"Actif\" }`. L’application se fie à `value` et affiche `label`.\n- **Dates** : ISO 8601 en UTC (`2026-10-18T13:06:23+00:00`).\n- **Messages** : en français, prêts à être affichés.\n- **Réponses de succès** : toujours `{ \"message\": …, \"data\": …, \"meta\": … }`. `message` est le texte à afficher, `null` quand il n’y a rien à afficher ; `data` porte le contenu (`null` pour une action sans contenu, comme une suppression) ; `meta`, facultatif, les informations annexes (pagination avec `links`, `event_id`, `document_id`, `lock_version`…). L’API ne renvoie pas de **204**.\n- **Envoi de fichiers** : `multipart/form-data` directement vers l’API. Les fichiers sont ensuite consultables par un lien `url` signé, valable 30 minutes, sans jeton.\n- **Hors ligne** : `client_uuid` (généré par l’application) rend une création rejouable sans doublon ; `lock_version` (renvoyé dans chaque réponse) refuse une modification faite entre-temps sur un autre appareil (**409**).\n\n## Authentification\n\n| Application | Inscription | Connexion |\n|---|---|---|\n| Promoteur | Libre, sans mot de passe : code d’activation par SMS ou e-mail | Code à 6 chiffres par SMS ou e-mail |\n| Commercial | Compte créé par le Back Office, avec un mot de passe provisoire | Mot de passe, puis code à 6 chiffres par SMS |\n\n**Jetons**\n- `access_token` : JWT signé (HS256), valable **15 minutes**, envoyé dans `Authorization: Bearer <jeton>`.\n- `refresh_token` : chaîne opaque de 64 caractères, valable **30 jours**, **à usage unique**. `POST /auth/refresh` renvoie une nouvelle paire ; l’ancien jeton devient invalide.\n- Chaque connexion ouvre une **session** par appareil (`session_id`), visible dans « Appareils connectés » et révocable.\n\nSur un **401** : rafraîchir les jetons une fois, puis renvoyer à l’écran de connexion si le rafraîchissement échoue aussi.\n\n**Codes à usage unique (OTP)** : 6 chiffres par défaut (`OTP_LENGTH`, de 4 à 10 ; la longueur en vigueur est renvoyée dans `code_length` à chaque envoi de code), valables 5 minutes, 5 essais par code, nouveau code possible après 45 secondes. Hors production, le code fixe `OTP_TEST_CODE` (`123456` en local) est accepté. Les SMS et e-mails sont écrits dans `storage/logs/laravel.log`.\n\n**Mot de passe provisoire** (commercial) : tant que `user.must_change_password` vaut `true`, seules `GET /me`, `POST /auth/logout` et `PUT /auth/password` répondent ; les autres routes renvoient **403** avec `\"code\": \"password_change_required\"`.\n\n## Réponses d’erreur\n\n| Code | Cas | Corps |\n|---|---|---|\n| 401 | Jeton absent, expiré ou session fermée | `{ \"message\": \"Session expirée : reconnectez-vous.\" }` |\n| 403 | Compte suspendu ou désactivé, route d’une autre application, mot de passe provisoire à changer | `{ \"message\": \"…\" }` (+ `code` pour `password_change_required`) |\n| 404 | Ressource introuvable ou n’appartenant pas au compte | `{ \"message\": \"Élément introuvable.\" }` |\n| 409 | Modifié entre-temps sur un autre appareil (`lock_version`) | `{ \"message\": \"…\" }` |\n| 422 | Champs invalides, code faux ou expiré | `{ \"message\": \"…\", \"errors\": { \"champ\": [\"…\"] } }` |\n| 423 | Commercial verrouillé après 5 mauvais mots de passe (15 min) | `{ \"message\": \"…\", \"locked_until\": \"…\" }` |\n| 429 | Nouveau code demandé trop tôt, ou trop de requêtes | `{ \"message\": \"…\", \"retry_after\": 45 }` + en-tête `Retry-After` |\n\n## Espace promoteur : profil et vérification\n\nRéservé aux promoteurs (**403** pour un commercial).\n\n1. **Profil** (« Modifier le profil ») : identité, adresse et, pour une entreprise, raison sociale, RCCM, NCC et siège social géolocalisé.\n2. **Pièces justificatives** : pièce d’identité (CNI, passeport ou permis) et certificat de résidence ; pour une entreprise, en plus l’extrait RCCM et l’attestation NCC (statuts facultatifs).\n3. **Vérification** : dès que tous les éléments sont fournis (`completion.complete`), le profil passe en `soumis` et une demande de vérification est créée pour le Back office. `verification.state` donne l’état à afficher : « À compléter », « En vérification », « Vérifié », « À corriger ». Modifier un élément vérifié renvoie le profil en vérification.\n\n## Espace promoteur : chantiers et réservations\n\n1. **Chantier** (« Nouveau chantier ») : brouillon enregistré dès le titre, complété en plusieurs fois (localisation GPS, dates, photo, documents, responsable).\n2. **Besoins** : offre **journalière** (effectif et tarif proposé par métier, ouvriers choisis dans le catalogue) ou **contractuelle** (forfait, mode de paiement du solde).\n3. **Publication** : l’offre et ses besoins sont transmis au **Back office**, qui les contrôle puis lance le **matching**.\n4. **Proposition d’équipe** : le promoteur l’accepte (les ouvriers sont bloqués le temps de payer l’acompte) ou la refuse avec un motif (la recherche reprend). Une proposition partielle laisse la recherche continuer pour les ouvriers manquants.\n\n5. **Paiement** : l’acompte (X = 30 % du total, commission O’CHANTIER Y = 8 % comprise) confirme l’équipe ; une mission est créée par métier avec une échéance par semaine. Les frais de l’opérateur Mobile Money s’ajoutent ; un reçu PDF est émis. Hors production, le paiement est simulé (un numéro finissant par `0000` échoue).\n\nEn local, sans Back office, `php artisan ochantier:simulate-matching` joue le contrôle et le matching des offres publiées. Lors de l’exécution de la collection, « Accepter la proposition », « Refuser la proposition » et les paiements sont sautés s’il n’y a pas de proposition : lancez la commande après « Nouvelle réservation », puis exécutez le dossier « Réservations ».\n\n## Espace promoteur : abonnement, équipe et notifications\n\n1. **Abonnement** : formule Solo gratuite (propriétaire seul) ; formules Équipe, Pro et Entreprise payées chaque mois par Mobile Money. Elles ouvrent les collaborateurs, le paiement flexible (2 ou 3 versements), le rapport de fin de chantier et l’activité des utilisateurs.\n2. **Équipe** : le compte est celui du propriétaire ; chaque collaborateur y agit selon son rôle (voir le dossier « Équipe et activité »).\n3. **Notifications** : centre in-app, push et SMS selon les préférences ; rappels quotidiens.\n\nEn local : `php artisan ochantier:simulate-site-end <chantier>` simule la clôture d’un chantier (évaluations, rapport), `php artisan ochantier:renew-subscriptions` et `php artisan ochantier:promoter-reminders` jouent les tâches planifiées.\n\n## Espace commercial : prospects et dossiers\n\nRéservé aux commerciaux dont le contrat est actif (**403** sinon) ; chaque commercial ne voit que ses propres prospects.\n\n1. **Prospect** (« Nouveau prospect ») : le contact du futur ouvrier (nom, téléphone, commune, métier pressenti), avec son accord d’être contacté.\n2. **Dossier** : dès qu’une information du dossier (naissance, coût journalier, contact d’urgence…) ou une pièce est saisie, un ouvrier **brouillon** lié au prospect est créé (référence `OUV-000123`). Il se complète en plusieurs fois.\n3. **Avancement** : 12 éléments comme dans la maquette (`completion`), badge « Prêt à soumettre » (`stage` = `pret`) quand tous les éléments obligatoires sont présents.\n4. **Soumission** au Back office : l’ouvrier passe en `soumis`, le prospect en `converti` ; le dossier n’est plus modifiable depuis l’application.\n5. **Décision** du Back office : dossier validé (commission confirmée), à corriger (le dossier redevient modifiable, puis il est renvoyé) ou refusé (commission annulée).\n6. **Gains** : commission par ouvrier validé, versée par le Back office ; objectif mensuel et classement des commerciaux.\n\nUn prospect peut aussi être **archivé** avec un motif : son dossier brouillon est retiré et son numéro libéré.\n\nEn local : `php artisan ochantier:simulate-worker-review`, `ochantier:simulate-commercial-payout` et `ochantier:simulate-commercial-objective` simulent le Back office (refusées en production) ; `php artisan ochantier:commercial-reminders` joue les rappels quotidiens.\n\n## Limites de débit\n\n| Requêtes | Limite |\n|---|---|\n| Envoi de code (inscription, connexion promoteur, mot de passe oublié, changement de numéro) | 3 par minute par destinataire, 10 par heure par adresse IP |\n| Mot de passe du commercial | 10 par minute par numéro, 20 par minute par IP |\n| Vérification d’un code | 10 par minute |\n| Rafraîchissement | 30 par minute |\n| Autres requêtes authentifiées | 120 par minute par compte |\n\n## Comptes de démonstration (`php artisan db:seed`, hors production)\n\n| Application | Identifiant | Mot de passe |\n|---|---|---|\n| Promoteur particulier | `0700000001` | — |\n| Promoteur entreprise | `0700000002` ou `promoteur@demo.ochantier.ci` | — |\n| Commercial | `0500000001` | `motdepasse1` |\n| Commercial à activer (mot de passe provisoire) | `0500000002` | `provisoire1` |\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -964,6 +964,7 @@
                   "const cocody = body.data.cities.flatMap(c => c.communes).find(c => c.name === 'Cocody');",
                   "const macon = body.data.trades.find(t => t.code === 'macon');",
                   "pm.collectionVariables.set('commune_id', cocody.id);",
+                  "pm.collectionVariables.set('zone_commune_id', body.data.cities.flatMap(c => c.communes).find(c => c.name === 'Yopougon').id);",
                   "pm.collectionVariables.set('neighborhood_id', cocody.neighborhoods.find(n => n.name === 'Angré').id);",
                   "pm.collectionVariables.set('trade_id', macon.id);",
                   "pm.collectionVariables.set('specialty_id', macon.specialties[0].id);",
@@ -17163,7 +17164,7 @@
                     "{{prospect_id}}"
                   ]
                 },
-                "description": "Fiche « Détails du prospect » : sections Identité et contact, Activité, Contact d’urgence, pièces et éléments manquants. **404** pour le prospect d’un autre commercial.\n**Réponse** (`data`) : contact (`full_name`, `initials`, `dial_code`, `phone_number`, `phone` formaté, `commune`, `neighborhood`, `trade`, `experience_years`), `status` (suivi), `stage` (badge de la maquette : statut, ou `pret` « Prêt à soumettre »), `completion` (`percent`, `filled`, `total` sur 12 éléments, `ready`), `hint` (conseil d’action), `worker` (dossier brouillon puis ouvrier soumis : `reference`, `status`), `lock_version`.\n\nLa fiche détaillée ajoute `identity`, `activity`, `emergency_contact`, `documents` (pièces attendues avec leur état `fourni` / `manquant` / `non_fourni`), `checklist`, `missing` (éléments bloquant la soumission) et `can_submit`.\n",
+                "description": "Fiche « Détails du prospect » : sections Identité et contact, Activité, Contact d’urgence, pièces et éléments manquants. **404** pour le prospect d’un autre commercial.\n**Réponse** (`data`) : contact (`full_name`, `initials`, `dial_code`, `phone_number`, `phone` formaté, `commune`, `neighborhood`, `trade`, `experience_years`), `status` (suivi), `stage` (badge de la maquette : statut, ou `pret` « Prêt à soumettre »), `completion` (`percent`, `filled`, `total` sur 12 éléments, `ready`), `hint` (conseil d’action), `worker` (dossier brouillon puis ouvrier soumis : `reference`, `status`), `lock_version`.\n\nLa fiche détaillée ajoute `identity`, `activity`, `emergency_contact`, `documents` (pièces attendues avec leur état `fourni` / `manquant` / `non_fourni`), `checklist`, `missing` (éléments bloquant la soumission) et `can_submit`.\n\n\nUne fois le dossier transmis, `submission` donne la décision du Back office et ses corrections (voir « Ouvriers transmis »).",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -17707,7 +17708,7 @@
                     "abandon"
                   ]
                 },
-                "description": "« Archiver » : le prospect passe en `abandonne` et son dossier brouillon est retiré ; le numéro peut de nouveau être saisi.\n\n| Champ | Description |\n|---|---|\n| `reason_code` | Motif de la catégorie `abandon_prospect` des référentiels (`injoignable`, `pas_interesse`, `hors_zone`, `doublon`, `autre`). |\n| `comment` | Précision facultative, 500 caractères max. |\n\nLe script de pré-requête crée le prospect à archiver.",
+                "description": "« Archiver » : le prospect passe en `abandonne` et son dossier brouillon est retiré ; le numéro peut de nouveau être saisi.\n\n| Champ | Description |\n|---|---|\n| `reason_code` | Motif de la catégorie `abandon_prospect` des référentiels (`injoignable`, `pas_interesse`, `hors_zone`, `doublon`, `autre`). |\n| `comment` | Précision facultative, 500 caractères max. |\n\nLe script de pré-requête crée le prospect à archiver.\n\nUn prospect dont le dossier a été transmis ne peut plus être archivé (**422**).",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"reason_code\": \"pas_interesse\",\n  \"comment\": \"Préfère rester sur son chantier actuel.\"\n}",
@@ -17853,6 +17854,2207 @@
             }
           ],
           "description": "Espace commercial : prospects et dossiers ouvriers, du contact à la soumission au Back office. Contrat commercial actif exigé (403 sinon)."
+        },
+        {
+          "id": "ccd91ae9-84a9-5abb-895b-2b4f32cca226",
+          "name": "Ouvriers transmis",
+          "item": [
+            {
+              "id": "78f794aa-bb7d-50f8-aa85-1bd0fdd95921",
+              "name": "Mes ouvriers",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "const row = pm.response.json().data.find(w => w.can_correct);",
+                      "pm.collectionVariables.set('correction_prospect_id', row ? row.prospect_id : '');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/workers",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "workers"
+                  ]
+                },
+                "description": "Liste « Ouvriers », les plus récents d’abord : nom, métier, commune, statut (`attente`, `corriger`, `valide`, `refuse`), motif (`issue`) d’une correction ou d’un refus, date (« Transmis le… », « Validé le… »), bouton (`cta`) et `can_correct`.\n\nParamètres : `filter` = `tous` (défaut), `attente`, `corriger`, `valide` ; `search` sur le nom, le téléphone ou la référence. `meta` : total et compteur de chaque onglet. **422** « Filtre inconnu. ».",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "4ff33b42-53e6-50cd-82e3-48a82291e5c9",
+                  "name": "200 · Tous",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/workers",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "workers"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "93"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"worker_id\": \"01a17701-a6ac-71b8-a966-b0f399b9a8a4\",\n      \"prospect_id\": null,\n      \"reference\": \"OUV-D00004\",\n      \"name\": \"Yao Koffi\",\n      \"initials\": \"YK\",\n      \"trade\": {\n        \"id\": \"01a17701-9bd8-72e3-b3bd-53765c249ba2\",\n        \"code\": \"macon\",\n        \"label\": \"Maçon\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9ba8-73d1-9104-815e4460e348\",\n        \"name\": \"Marcory\"\n      },\n      \"status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      },\n      \"issue\": null,\n      \"date_label\": \"Validé le 26 oct. 2026\",\n      \"cta\": \"Voir le profil\",\n      \"can_correct\": false\n    },\n    {\n      \"worker_id\": \"01a17701-a6bb-7043-81fe-e3ffb08c8ab7\",\n      \"prospect_id\": null,\n      \"reference\": \"OUV-D00009\",\n      \"name\": \"Serge Aka\",\n      \"initials\": \"SA\",\n      \"trade\": {\n        \"id\": \"01a17701-9bfa-717a-a317-f34fcaead7fb\",\n        \"code\": \"peintre\",\n        \"label\": \"Peintre\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9bbb-73a8-b3b2-4155f09110be\",\n        \"name\": \"Yopougon\"\n      },\n      \"status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      },\n      \"issue\": null,\n      \"date_label\": \"Validé le 26 oct. 2026\",\n      \"cta\": \"Voir le profil\",\n      \"can_correct\": false\n    },\n    {\n      \"worker_id\": \"01a17701-a6bf-715c-9123-26973aecd5a4\",\n      \"prospect_id\": null,\n      \"reference\": \"OUV-D00010\",\n      \"name\": \"N’Guessan Paul\",\n      \"initials\": \"NP\",\n      \"trade\": {\n        \"id\": \"01a17701-9c0b-71fb-a28c-4591e1fa12e7\",\n        \"code\": \"carreleur\",\n        \"label\": \"Carreleur\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9bb7-72e8-b384-acd93baf8f3f\",\n        \"name\": \"Treichville\"\n      },\n      \"status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      },\n      \"issue\": null,\n      \"date_label\": \"Validé le 26 oct. 2026\",\n      \"cta\": \"Voir le profil\",\n      \"can_correct\": false\n    },\n    {\n      \"worker_id\": \"01a17701-a6c2-70e6-878c-8ab7ea637812\",\n      \"prospect_id\": null,\n      \"reference\": \"OUV-D00011\",\n      \"name\": \"Kablan Éric\",\n      \"initials\": \"KÉ\",\n      \"trade\": {\n        \"id\": \"01a17701-9c24-7111-86c6-b276c453e031\",\n        \"code\": \"ferrailleur\",\n        \"label\": \"Ferrailleur\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9b8c-7175-ac59-7413457a4a19\",\n        \"name\": \"Adjamé\"\n      },\n      \"status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      },\n      \"issue\": null,\n      \"date_label\": \"Validé le 26 oct. 2026\",\n      \"cta\": \"Voir le profil\",\n      \"can_correct\": false\n    },\n    {\n      \"worker_id\": \"01a17701-a6c5-72ad-bf21-f39748bcd3ba\",\n      \"prospect_id\": null,\n      \"reference\": \"OUV-D00012\",\n      \"name\": \"Ouattara Lamine\",\n      \"initials\": \"OL\",\n      \"trade\": {\n        \"id\": \"01a17701-9c24-7111-86c6-b276c453e031\",\n        \"code\": \"ferrailleur\",\n        \"label\": \"Ferrailleur\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9bb2-7302-81df-7128c5719979\",\n        \"name\": \"Port-Bouët\"\n      },\n      \"status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      },\n      \"issue\": null,\n      \"date_label\": \"Validé le 26 oct. 2026\",\n      \"cta\": \"Voir le profil\",\n      \"can_correct\": false\n    },\n    {\n      \"worker_id\": \"01a17701-a69e-7129-817a-9a34b822d133\",\n      \"prospect_id\": null,\n      \"reference\": \"OUV-D00001\",\n      \"name\": \"Kouamé Koffi\",\n      \"initials\": \"KK\",\n      \"trade\": {\n        \"id\": \"01a17701-9bd8-72e3-b3bd-53765c249ba2\",\n        \"code\": \"macon\",\n        \"label\": \"Maçon\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9b9c-7365-82d2-bdfe1efc5397\",\n        \"name\": \"Cocody\"\n      },\n      \"status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      },\n      \"issue\": null,\n      \"date_label\": \"Validé le 26 oct. 2026\",\n      \"cta\": \"Voir le profil\",\n      \"can_correct\": false\n    },\n    {\n      \"worker_id\": \"01a17701-a6a6-7185-a9d8-14c22cf7e6b0\",\n      \"prospect_id\": null,\n      \"reference\": \"OUV-D00002\",\n      \"name\": \"Bamba Seydou\",\n      \"initials\": \"BS\",\n      \"trade\": {\n        \"id\": \"01a17701-9bd8-72e3-b3bd-53765c249ba2\",\n        \"code\": \"macon\",\n        \"label\": \"Maçon\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9bbb-73a8-b3b2-4155f09110be\",\n        \"name\": \"Yopougon\"\n      },\n      \"status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      },\n      \"issue\": null,\n      \"date_label\": \"Validé le 26 oct. 2026\",\n      \"cta\": \"Voir le profil\",\n      \"can_correct\": false\n    },\n    {\n      \"worker_id\": \"01a17701-a6a9-716f-a04f-8509cfc94575\",\n      \"prospect_id\": null,\n      \"reference\": \"OUV-D00003\",\n      \"name\": \"Touré Ali\",\n      \"initials\": \"TA\",\n      \"trade\": {\n        \"id\": \"01a17701-9bd8-72e3-b3bd-53765c249ba2\",\n        \"code\": \"macon\",\n        \"label\": \"Maçon\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9b81-724d-9ca7-51d0d7b22de2\",\n        \"name\": \"Abobo\"\n      },\n      \"status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      },\n      \"issue\": null,\n      \"date_label\": \"Validé le 26 oct. 2026\",\n      \"cta\": \"Voir le profil\",\n      \"can_correct\": false\n    },\n    {\n      \"worker_id\": \"01a17701-a6af-7234-8f02-f9c8add8cacd\",\n      \"prospect_id\": null,\n      \"reference\": \"OUV-D00005\",\n      \"name\": \"Awa Traoré\",\n      \"initials\": \"AT\",\n      \"trade\": {\n        \"id\": \"01a17701-9be6-70a3-9c24-2ae601409dfc\",\n        \"code\": \"electricien\",\n        \"label\": \"Électricien\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9b9c-7365-82d2-bdfe1efc5397\",\n        \"name\": \"Cocody\"\n      },\n      \"status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      },\n      \"issue\": null,\n      \"date_label\": \"Validé le 26 oct. 2026\",\n      \"cta\": \"Voir le profil\",\n      \"can_correct\": false\n    },\n    {\n      \"worker_id\": \"01a17701-a6b2-7367-b965-8dace0e203de\",\n      \"prospect_id\": null,\n      \"reference\": \"OUV-D00006\",\n      \"name\": \"Ibrahim Diallo\",\n      \"initials\": \"ID\",\n      \"trade\": {\n        \"id\": \"01a17701-9be6-70a3-9c24-2ae601409dfc\",\n        \"code\": \"electricien\",\n        \"label\": \"Électricien\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9bad-7099-85b5-6e0b138cf5a0\",\n        \"name\": \"Plateau\"\n      },\n      \"status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      },\n      \"issue\": null,\n      \"date_label\": \"Validé le 26 oct. 2026\",\n      \"cta\": \"Voir le profil\",\n      \"can_correct\": false\n    },\n    {\n      \"worker_id\": \"01a17701-a6b5-73d3-a87f-7a89b2ac114f\",\n      \"prospect_id\": null,\n      \"reference\": \"OUV-D00007\",\n      \"name\": \"Yao Konan\",\n      \"initials\": \"YK\",\n      \"trade\": {\n        \"id\": \"01a17701-9bf0-714c-bd6f-9662024a0076\",\n        \"code\": \"plombier\",\n        \"label\": \"Plombier\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9b9c-7365-82d2-bdfe1efc5397\",\n        \"name\": \"Cocody\"\n      },\n      \"status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      },\n      \"issue\": null,\n      \"date_label\": \"Validé le 26 oct. 2026\",\n      \"cta\": \"Voir le profil\",\n      \"can_correct\": false\n    },\n    {\n      \"worker_id\": \"01a17701-a6b8-719d-aeb8-c1935ab4e678\",\n      \"prospect_id\": null,\n      \"reference\": \"OUV-D00008\",\n      \"name\": \"Koné Moussa\",\n      \"initials\": \"KM\",\n      \"trade\": {\n        \"id\": \"01a17701-9bf0-714c-bd6f-9662024a0076\",\n        \"code\": \"plombier\",\n        \"label\": \"Plombier\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9ba4-724c-9cda-c57ade2e9e07\",\n        \"name\": \"Koumassi\"\n      },\n      \"status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      },\n      \"issue\": null,\n      \"date_label\": \"Validé le 26 oct. 2026\",\n      \"cta\": \"Voir le profil\",\n      \"can_correct\": false\n    },\n    {\n      \"worker_id\": \"01a17702-421b-71f7-a345-5833c2d87bda\",\n      \"prospect_id\": \"01a17702-4177-72fe-9671-2192fbf6a7d0\",\n      \"reference\": \"OUV-000004\",\n      \"name\": \"Yao Serge\",\n      \"initials\": \"YS\",\n      \"trade\": {\n        \"id\": \"01a17701-9be6-70a3-9c24-2ae601409dfc\",\n        \"code\": \"electricien\",\n        \"label\": \"Électricien\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9b9c-7365-82d2-bdfe1efc5397\",\n        \"name\": \"Cocody\"\n      },\n      \"status\": {\n        \"value\": \"attente\",\n        \"label\": \"En attente\"\n      },\n      \"issue\": null,\n      \"date_label\": \"Transmis le 26 oct. 2026\",\n      \"cta\": \"Voir le dossier\",\n      \"can_correct\": false\n    },\n    {\n      \"worker_id\": \"01a17702-3f07-71ce-ba1d-d6b57e6704ab\",\n      \"prospect_id\": \"01a17702-3e33-71ce-9a9c-e36cbf47398d\",\n      \"reference\": \"OUV-000003\",\n      \"name\": \"Marc Kouassi\",\n      \"initials\": \"MK\",\n      \"trade\": {\n        \"id\": \"01a17701-9bfa-717a-a317-f34fcaead7fb\",\n        \"code\": \"peintre\",\n        \"label\": \"Peintre\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9b81-724d-9ca7-51d0d7b22de2\",\n        \"name\": \"Abobo\"\n      },\n      \"status\": {\n        \"value\": \"refuse\",\n        \"label\": \"Refusé\"\n      },\n      \"issue\": \"Identité non vérifiable\",\n      \"date_label\": \"Refusé le 26 oct. 2026\",\n      \"cta\": \"Voir le dossier\",\n      \"can_correct\": false\n    },\n    {\n      \"worker_id\": \"01a17702-3b8c-700b-a84a-0bd16218aa98\",\n      \"prospect_id\": \"01a17702-3af4-709b-945c-5f1ca9bbb290\",\n      \"reference\": \"OUV-000002\",\n      \"name\": \"Issa Traoré\",\n      \"initials\": \"IT\",\n      \"trade\": {\n        \"id\": \"01a17701-9bd8-72e3-b3bd-53765c249ba2\",\n        \"code\": \"macon\",\n        \"label\": \"Maçon\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9b9c-7365-82d2-bdfe1efc5397\",\n        \"name\": \"Cocody\"\n      },\n      \"status\": {\n        \"value\": \"corriger\",\n        \"label\": \"À corriger\"\n      },\n      \"issue\": \"Photo de la pièce d’identité illisible\",\n      \"date_label\": \"À corriger depuis le 26 oct. 2026\",\n      \"cta\": \"Corriger\",\n      \"can_correct\": true\n    },\n    {\n      \"worker_id\": \"01a17702-3866-7095-84da-2c8193087040\",\n      \"prospect_id\": \"01a17702-37cf-71e5-b569-c20373c5c02b\",\n      \"reference\": \"OUV-000001\",\n      \"name\": \"Aïcha Koné\",\n      \"initials\": \"AK\",\n      \"trade\": {\n        \"id\": \"01a17701-9c0b-71fb-a28c-4591e1fa12e7\",\n        \"code\": \"carreleur\",\n        \"label\": \"Carreleur\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9bbb-73a8-b3b2-4155f09110be\",\n        \"name\": \"Yopougon\"\n      },\n      \"status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      },\n      \"issue\": null,\n      \"date_label\": \"Validé le 26 oct. 2026\",\n      \"cta\": \"Voir le profil\",\n      \"can_correct\": false\n    }\n  ],\n  \"meta\": {\n    \"total\": 16,\n    \"tabs\": [\n      {\n        \"key\": \"tous\",\n        \"label\": \"Tous\",\n        \"count\": 16\n      },\n      {\n        \"key\": \"attente\",\n        \"label\": \"En attente\",\n        \"count\": 1\n      },\n      {\n        \"key\": \"corriger\",\n        \"label\": \"À corriger\",\n        \"count\": 1\n      },\n      {\n        \"key\": \"valide\",\n        \"label\": \"Validés\",\n        \"count\": 13\n      }\n    ]\n  }\n}"
+                },
+                {
+                  "id": "774ad82b-71a2-5844-9230-395b755d21b3",
+                  "name": "200 · À corriger",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/workers?filter=corriger",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "workers"
+                      ],
+                      "query": [
+                        {
+                          "key": "filter",
+                          "value": "corriger"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "92"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"worker_id\": \"01a17702-3b8c-700b-a84a-0bd16218aa98\",\n      \"prospect_id\": \"01a17702-3af4-709b-945c-5f1ca9bbb290\",\n      \"reference\": \"OUV-000002\",\n      \"name\": \"Issa Traoré\",\n      \"initials\": \"IT\",\n      \"trade\": {\n        \"id\": \"01a17701-9bd8-72e3-b3bd-53765c249ba2\",\n        \"code\": \"macon\",\n        \"label\": \"Maçon\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9b9c-7365-82d2-bdfe1efc5397\",\n        \"name\": \"Cocody\"\n      },\n      \"status\": {\n        \"value\": \"corriger\",\n        \"label\": \"À corriger\"\n      },\n      \"issue\": \"Photo de la pièce d’identité illisible\",\n      \"date_label\": \"À corriger depuis le 26 oct. 2026\",\n      \"cta\": \"Corriger\",\n      \"can_correct\": true\n    }\n  ],\n  \"meta\": {\n    \"total\": 16,\n    \"tabs\": [\n      {\n        \"key\": \"tous\",\n        \"label\": \"Tous\",\n        \"count\": 16\n      },\n      {\n        \"key\": \"attente\",\n        \"label\": \"En attente\",\n        \"count\": 1\n      },\n      {\n        \"key\": \"corriger\",\n        \"label\": \"À corriger\",\n        \"count\": 1\n      },\n      {\n        \"key\": \"valide\",\n        \"label\": \"Validés\",\n        \"count\": 13\n      }\n    ]\n  }\n}"
+                },
+                {
+                  "id": "446f657c-da5a-50f4-92ea-8ef4f2ef471b",
+                  "name": "200 · Recherche",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/workers?search=kon%C3%A9",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "workers"
+                      ],
+                      "query": [
+                        {
+                          "key": "search",
+                          "value": "kon%C3%A9"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "91"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"worker_id\": \"01a17701-a6b8-719d-aeb8-c1935ab4e678\",\n      \"prospect_id\": null,\n      \"reference\": \"OUV-D00008\",\n      \"name\": \"Koné Moussa\",\n      \"initials\": \"KM\",\n      \"trade\": {\n        \"id\": \"01a17701-9bf0-714c-bd6f-9662024a0076\",\n        \"code\": \"plombier\",\n        \"label\": \"Plombier\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9ba4-724c-9cda-c57ade2e9e07\",\n        \"name\": \"Koumassi\"\n      },\n      \"status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      },\n      \"issue\": null,\n      \"date_label\": \"Validé le 26 oct. 2026\",\n      \"cta\": \"Voir le profil\",\n      \"can_correct\": false\n    },\n    {\n      \"worker_id\": \"01a17702-3866-7095-84da-2c8193087040\",\n      \"prospect_id\": \"01a17702-37cf-71e5-b569-c20373c5c02b\",\n      \"reference\": \"OUV-000001\",\n      \"name\": \"Aïcha Koné\",\n      \"initials\": \"AK\",\n      \"trade\": {\n        \"id\": \"01a17701-9c0b-71fb-a28c-4591e1fa12e7\",\n        \"code\": \"carreleur\",\n        \"label\": \"Carreleur\"\n      },\n      \"commune\": {\n        \"id\": \"01a17701-9bbb-73a8-b3b2-4155f09110be\",\n        \"name\": \"Yopougon\"\n      },\n      \"status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      },\n      \"issue\": null,\n      \"date_label\": \"Validé le 26 oct. 2026\",\n      \"cta\": \"Voir le profil\",\n      \"can_correct\": false\n    }\n  ],\n  \"meta\": {\n    \"total\": 2,\n    \"tabs\": [\n      {\n        \"key\": \"tous\",\n        \"label\": \"Tous\",\n        \"count\": 2\n      },\n      {\n        \"key\": \"attente\",\n        \"label\": \"En attente\",\n        \"count\": 0\n      },\n      {\n        \"key\": \"corriger\",\n        \"label\": \"À corriger\",\n        \"count\": 0\n      },\n      {\n        \"key\": \"valide\",\n        \"label\": \"Validés\",\n        \"count\": 2\n      }\n    ]\n  }\n}"
+                },
+                {
+                  "id": "06ed66e7-f576-5639-88b3-cb6080719ce2",
+                  "name": "422 · Filtre inconnu",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/workers?filter=inconnu",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "workers"
+                      ],
+                      "query": [
+                        {
+                          "key": "filter",
+                          "value": "inconnu"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "90"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Filtre inconnu.\",\n  \"errors\": {\n    \"filter\": [\n      \"Filtre inconnu.\"\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "8576ae76-481b-594c-a9fa-ef0ff8493229",
+              "name": "Dossier à corriger",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.collectionVariables.get('correction_prospect_id')) { pm.execution.skipRequest(); }"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Correction demandée', () => pm.expect(pm.response.json().data.submission.can_correct).to.be.true);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/prospects/{{correction_prospect_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "prospects",
+                    "{{correction_prospect_id}}"
+                  ]
+                },
+                "description": "« Corriger » : le détail du prospect (format de « Détails du prospect ») avec `hint` « Correction demandée par le Back office » et `submission` : statut, motif de la décision, corrections demandées (`reason`, pièce visée `document_type` ou champ `target_field`) et `can_correct`.\n\nLe dossier se corrige comme un brouillon (« Compléter le dossier », « Ajouter la pièce d’identité »…). Un dossier transmis en attente ou validé reste verrouillé (**422** « Dossier transmis : la modification se fait via le Back office. »). Sautée sans dossier à corriger.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "13d37510-deea-5516-b31f-38ac3ffc2444",
+                  "name": "200 · Correction demandée",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/prospects/01a17702-3af4-709b-945c-5f1ca9bbb290",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "prospects",
+                        "01a17702-3af4-709b-945c-5f1ca9bbb290"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "89"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"id\": \"01a17702-3af4-709b-945c-5f1ca9bbb290\",\n    \"first_name\": \"Issa\",\n    \"last_name\": \"Traoré\",\n    \"full_name\": \"Issa Traoré\",\n    \"initials\": \"IT\",\n    \"dial_code\": \"225\",\n    \"phone_number\": \"0755333655\",\n    \"phone\": \"+225 07 55 33 36 55\",\n    \"commune\": {\n      \"id\": \"01a17701-9b9c-7365-82d2-bdfe1efc5397\",\n      \"name\": \"Cocody\"\n    },\n    \"neighborhood\": null,\n    \"trade\": {\n      \"id\": \"01a17701-9bd8-72e3-b3bd-53765c249ba2\",\n      \"code\": \"macon\",\n      \"label\": \"Maçon\"\n    },\n    \"experience_years\": 6,\n    \"status\": {\n      \"value\": \"converti\",\n      \"label\": \"Converti\"\n    },\n    \"stage\": {\n      \"value\": \"converti\",\n      \"label\": \"Converti\"\n    },\n    \"completion\": {\n      \"percent\": 75,\n      \"filled\": 9,\n      \"total\": 12,\n      \"ready\": true\n    },\n    \"hint\": \"Correction demandée par le Back office\",\n    \"worker\": {\n      \"id\": \"01a17702-3b8c-700b-a84a-0bd16218aa98\",\n      \"reference\": \"OUV-000002\",\n      \"status\": {\n        \"value\": \"a_corriger\",\n        \"label\": \"À corriger\"\n      }\n    },\n    \"client_uuid\": null,\n    \"lock_version\": 5,\n    \"created_at\": \"2026-10-26T06:59:57+00:00\",\n    \"updated_at\": \"2026-10-26T06:59:58+00:00\",\n    \"identity\": {\n      \"gender\": {\n        \"value\": \"M\",\n        \"label\": \"Homme\"\n      },\n      \"birth_date\": \"1991-04-12\",\n      \"birth_place\": \"Bouaké\"\n    },\n    \"activity\": {\n      \"daily_rate\": 15000,\n      \"level\": {\n        \"value\": \"confirme\",\n        \"label\": \"Confirmé\"\n      },\n      \"specialties\": [],\n      \"skills\": [],\n      \"secondary_trade\": null,\n      \"experiences\": []\n    },\n    \"emergency_contact\": {\n      \"name\": \"Awa Koffi\",\n      \"dial_code\": \"225\",\n      \"phone_number\": \"0598765432\",\n      \"phone\": \"+225 05 98 76 54 32\"\n    },\n    \"documents\": [\n      {\n        \"key\": \"identity\",\n        \"label\": \"Pièce d’identité\",\n        \"required\": true,\n        \"accepted_types\": [\n          {\n            \"code\": \"worker_cni\",\n            \"label\": \"Carte nationale d’identité\",\n            \"has_back_side\": true\n          },\n          {\n            \"code\": \"worker_passport\",\n            \"label\": \"Passeport\",\n            \"has_back_side\": false\n          },\n          {\n            \"code\": \"worker_consular_card\",\n            \"label\": \"Carte consulaire\",\n            \"has_back_side\": true\n          },\n          {\n            \"code\": \"worker_driving_license\",\n            \"label\": \"Permis de conduire\",\n            \"has_back_side\": true\n          },\n          {\n            \"code\": \"worker_residence_card\",\n            \"label\": \"Carte de résident\",\n            \"has_back_side\": true\n          }\n        ],\n        \"state\": {\n          \"value\": \"fourni\",\n          \"label\": \"Fourni\"\n        },\n        \"document\": {\n          \"id\": \"01a17702-3c54-7210-82af-f3de5aaf64a3\",\n          \"type\": {\n            \"code\": \"worker_cni\",\n            \"label\": \"Carte nationale d’identité\"\n          },\n          \"number_last4\": \"5678\",\n          \"expires_at\": null,\n          \"version\": 1,\n          \"status\": {\n            \"value\": \"en_attente\",\n            \"label\": \"En attente\"\n          },\n          \"files\": [\n            {\n              \"id\": \"01a17702-3c5d-723e-82cb-4ef7125d70c9\",\n              \"side\": \"recto\",\n              \"name\": \"cni-recto.png\",\n              \"mime_type\": \"image/png\",\n              \"size_bytes\": 1087,\n              \"url\": \"http://localhost:8000/api/v1/media/01a17702-3c5d-723e-82cb-4ef7125d70c9?expires=1792999801&signature=c8a1025fbd814083415404b6402120bb6fa6da0938fdbf7c2b9023bd782d72c0\"\n            },\n            {\n              \"id\": \"01a17702-3c60-734c-a465-287c9a0b4020\",\n              \"side\": \"verso\",\n              \"name\": \"cni-verso.png\",\n              \"mime_type\": \"image/png\",\n              \"size_bytes\": 1116,\n              \"url\": \"http://localhost:8000/api/v1/media/01a17702-3c60-734c-a465-287c9a0b4020?expires=1792999801&signature=a4c41c69b77ec41a1493d40d42cc14931ea39079a1df8ef91394d690477e95d9\"\n            }\n          ],\n          \"created_at\": \"2026-10-26T06:59:57+00:00\"\n        }\n      },\n      {\n        \"key\": \"worker_photo\",\n        \"label\": \"Photo d’identité\",\n        \"required\": true,\n        \"accepted_types\": [\n          {\n            \"code\": \"worker_photo\",\n            \"label\": \"Photo d’identité\",\n            \"has_back_side\": false\n          }\n        ],\n        \"state\": {\n          \"value\": \"fourni\",\n          \"label\": \"Fourni\"\n        },\n        \"document\": {\n          \"id\": \"01a17702-3cf8-73cf-865a-054d3c0da440\",\n          \"type\": {\n            \"code\": \"worker_photo\",\n            \"label\": \"Photo d’identité\"\n          },\n          \"number_last4\": null,\n          \"expires_at\": null,\n          \"version\": 1,\n          \"status\": {\n            \"value\": \"en_attente\",\n            \"label\": \"En attente\"\n          },\n          \"files\": [\n            {\n              \"id\": \"01a17702-3d03-735b-9d29-f8882d59dec7\",\n              \"side\": \"page\",\n              \"name\": \"photo-identite.png\",\n              \"mime_type\": \"image/png\",\n              \"size_bytes\": 1133,\n              \"url\": \"http://localhost:8000/api/v1/media/01a17702-3d03-735b-9d29-f8882d59dec7?expires=1792999801&signature=a210cc713a10597d22f58be802173d51f09c06d25a7c5877ba62d43332516edf\"\n            }\n          ],\n          \"created_at\": \"2026-10-26T06:59:57+00:00\"\n        }\n      },\n      {\n        \"key\": \"worker_diploma\",\n        \"label\": \"Certificat ou diplôme\",\n        \"required\": false,\n        \"accepted_types\": [\n          {\n            \"code\": \"worker_diploma\",\n            \"label\": \"Certificat ou diplôme\",\n            \"has_back_side\": false\n          }\n        ],\n        \"state\": {\n          \"value\": \"non_fourni\",\n          \"label\": \"Non fourni\"\n        },\n        \"document\": null\n      },\n      {\n        \"key\": \"worker_work_certificate\",\n        \"label\": \"Attestation professionnelle\",\n        \"required\": false,\n        \"accepted_types\": [\n          {\n            \"code\": \"worker_work_certificate\",\n            \"label\": \"Attestation professionnelle\",\n            \"has_back_side\": false\n          }\n        ],\n        \"state\": {\n          \"value\": \"non_fourni\",\n          \"label\": \"Non fourni\"\n        },\n        \"document\": null\n      },\n      {\n        \"key\": \"worker_proof_of_address\",\n        \"label\": \"Justificatif de domicile\",\n        \"required\": false,\n        \"accepted_types\": [\n          {\n            \"code\": \"worker_proof_of_address\",\n            \"label\": \"Justificatif de domicile\",\n            \"has_back_side\": false\n          }\n        ],\n        \"state\": {\n          \"value\": \"non_fourni\",\n          \"label\": \"Non fourni\"\n        },\n        \"document\": null\n      },\n      {\n        \"key\": \"worker_cv\",\n        \"label\": \"CV\",\n        \"required\": false,\n        \"accepted_types\": [\n          {\n            \"code\": \"worker_cv\",\n            \"label\": \"CV\",\n            \"has_back_side\": false\n          }\n        ],\n        \"state\": {\n          \"value\": \"non_fourni\",\n          \"label\": \"Non fourni\"\n        },\n        \"document\": null\n      }\n    ],\n    \"checklist\": [\n      {\n        \"key\": \"name\",\n        \"label\": \"Nom et prénom\",\n        \"done\": true,\n        \"required\": true\n      },\n      {\n        \"key\": \"phone\",\n        \"label\": \"Téléphone\",\n        \"done\": true,\n        \"required\": true\n      },\n      {\n        \"key\": \"commune\",\n        \"label\": \"Commune\",\n        \"done\": true,\n        \"required\": true\n      },\n      {\n        \"key\": \"trade\",\n        \"label\": \"Métier principal\",\n        \"done\": true,\n        \"required\": true\n      },\n      {\n        \"key\": \"experience\",\n        \"label\": \"Années d’expérience\",\n        \"done\": true,\n        \"required\": true\n      },\n      {\n        \"key\": \"daily_rate\",\n        \"label\": \"Coût journalier\",\n        \"done\": true,\n        \"required\": true\n      },\n      {\n        \"key\": \"emergency_contact\",\n        \"label\": \"Contact d’urgence\",\n        \"done\": true,\n        \"required\": true\n      },\n      {\n        \"key\": \"identity\",\n        \"label\": \"Pièce d’identité\",\n        \"done\": true,\n        \"required\": true\n      },\n      {\n        \"key\": \"photo\",\n        \"label\": \"Photo d’identité\",\n        \"done\": true,\n        \"required\": true\n      },\n      {\n        \"key\": \"worker_diploma\",\n        \"label\": \"Certificat ou diplôme\",\n        \"done\": false,\n        \"required\": false\n      },\n      {\n        \"key\": \"worker_work_certificate\",\n        \"label\": \"Attestation professionnelle\",\n        \"done\": false,\n        \"required\": false\n      },\n      {\n        \"key\": \"worker_proof_of_address\",\n        \"label\": \"Justificatif de domicile\",\n        \"done\": false,\n        \"required\": false\n      }\n    ],\n    \"missing\": [],\n    \"can_submit\": true,\n    \"submission\": {\n      \"worker_id\": \"01a17702-3b8c-700b-a84a-0bd16218aa98\",\n      \"reference\": \"OUV-000002\",\n      \"status\": {\n        \"value\": \"corriger\",\n        \"label\": \"À corriger\"\n      },\n      \"submitted_at\": \"2026-10-26T06:59:57+00:00\",\n      \"submission_number\": 1,\n      \"decision_reason\": \"Photo de la pièce d’identité illisible\",\n      \"corrections\": [\n        {\n          \"id\": \"01a17702-4871-7368-bce9-c84c3bfaf27f\",\n          \"reason\": \"Photo de la pièce d’identité illisible\",\n          \"target_field\": \"documents\",\n          \"document_type\": {\n            \"code\": \"worker_cni\",\n            \"label\": \"Carte nationale d’identité\"\n          },\n          \"priority\": {\n            \"value\": \"normale\",\n            \"label\": \"Normale\"\n          }\n        }\n      ],\n      \"can_correct\": true\n    }\n  }\n}"
+                },
+                {
+                  "id": "4d545c91-08a4-526b-a46b-aeed284daf72",
+                  "name": "422 · Dossier en attente verrouillé",
+                  "originalRequest": {
+                    "method": "PATCH",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/prospects/01a17702-4177-72fe-9671-2192fbf6a7d0",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "prospects",
+                        "01a17702-4177-72fe-9671-2192fbf6a7d0"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"daily_rate\": 18000\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "88"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Dossier transmis : la modification se fait via le Back office.\",\n  \"errors\": {\n    \"prospect\": [\n      \"Dossier transmis : la modification se fait via le Back office.\"\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "86f3fa4f-faeb-53dc-bb2a-c7b0491456cb",
+              "name": "Renvoyer le dossier corrigé",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.collectionVariables.get('correction_prospect_id')) { pm.execution.skipRequest(); }"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/prospects/{{correction_prospect_id}}/submit",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "prospects",
+                    "{{correction_prospect_id}}",
+                    "submit"
+                  ]
+                },
+                "description": "Renvoie le dossier corrigé au Back office : nouvelle soumission (`submission_number` + 1), corrections closes, statut `soumis`. **Réponse 200** : `message` « Dossier corrigé renvoyé au Back office ». La commission estimée est conservée. Sautée sans dossier à corriger.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "a4a69415-0984-5c58-b5d2-41ce2d2e943a",
+                  "name": "200 · Dossier renvoyé",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/prospects/01a17702-3af4-709b-945c-5f1ca9bbb290/submit",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "prospects",
+                        "01a17702-3af4-709b-945c-5f1ca9bbb290",
+                        "submit"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "86"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Dossier corrigé renvoyé au Back office\",\n  \"data\": {\n    \"id\": \"01a17702-3b8c-700b-a84a-0bd16218aa98\",\n    \"reference\": \"OUV-000002\",\n    \"status\": {\n      \"value\": \"soumis\",\n      \"label\": \"Soumis\"\n    },\n    \"submitted_at\": \"2026-10-26T07:00:02+00:00\"\n  }\n}"
+                }
+              ]
+            }
+          ],
+          "description": "Écran « Ouvriers » : les dossiers transmis au Back office et leur décision. Un dossier « À corriger » redevient modifiable par les routes du dossier « Prospects » (`PATCH`, pièces), puis il est renvoyé par « Soumettre au Back office ».\n\nEn local, sans Back office : `php artisan ochantier:simulate-worker-review <OUV-…> valider|corriger|refuser [--motif=…] [--piece=identity]` joue sa décision. Lors de l’exécution de la collection, aucun dossier n’est à corriger : « Dossier à corriger » et « Renvoyer le dossier corrigé » sont sautées. Les exemples ont été capturés après ces décisions."
+        },
+        {
+          "id": "77178da8-8c76-5c0a-80b0-38eb9f9c3a98",
+          "name": "Accueil, gains et activité",
+          "item": [
+            {
+              "id": "5452e2fd-9201-5159-947d-201b39256c72",
+              "name": "Accueil",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/home",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "home"
+                  ]
+                },
+                "description": "Écran « Accueil » : salutation, badge des notifications non lues, dossiers à corriger, activité de la semaine (`week` : prospects, ouvriers soumis, validés, à corriger), objectif du mois (`null` sans objectif), gains de la semaine (acquis, en attente, versés) et 3 prospects à suivre (`to_follow`, format de « Liste des prospects »).",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "a7935fe9-e596-5e30-9ac5-5b0853202d2c",
+                  "name": "200 · Accueil",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/home",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "home"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "79"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"greeting\": {\n      \"title\": \"Bonjour, Adama\",\n      \"subtitle\": \"Voici vos priorités du jour\"\n    },\n    \"unread_notifications\": 5,\n    \"corrections\": {\n      \"count\": 0,\n      \"label\": \"Aucun dossier à corriger\"\n    },\n    \"week\": [\n      {\n        \"key\": \"prospects\",\n        \"label\": \"Prospects\",\n        \"count\": 5\n      },\n      {\n        \"key\": \"soumis\",\n        \"label\": \"Ouvriers soumis\",\n        \"count\": 4\n      },\n      {\n        \"key\": \"valides\",\n        \"label\": \"Validés\",\n        \"count\": 13\n      },\n      {\n        \"key\": \"a_corriger\",\n        \"label\": \"À corriger\",\n        \"count\": 0\n      }\n    ],\n    \"objective\": {\n      \"indicator\": {\n        \"value\": \"ouvriers_valides\",\n        \"label\": \"Ouvriers validés\"\n      },\n      \"period\": {\n        \"start\": \"2026-10-01\",\n        \"end\": \"2026-10-31\"\n      },\n      \"period_label\": \"Oct. 2026\",\n      \"target\": 10,\n      \"achieved\": 13,\n      \"label\": \"13 / 10\",\n      \"percent\": 100,\n      \"remaining\": 0,\n      \"message\": \"Objectif atteint, bravo !\",\n      \"comment\": null\n    },\n    \"earnings\": {\n      \"acquired\": 25000,\n      \"acquired_label\": \"25 000 F\",\n      \"pending\": 50000,\n      \"pending_label\": \"50 000 F\",\n      \"paid\": 25000,\n      \"paid_label\": \"25 000 F\"\n    },\n    \"to_follow\": [\n      {\n        \"id\": \"01a17702-4494-73a4-a803-340d8da344d6\",\n        \"first_name\": \"Fatou\",\n        \"last_name\": \"Diallo\",\n        \"full_name\": \"Fatou Diallo\",\n        \"initials\": \"FD\",\n        \"dial_code\": \"225\",\n        \"phone_number\": \"0707732980\",\n        \"phone\": \"+225 07 07 73 29 80\",\n        \"commune\": {\n          \"id\": \"01a17701-9b9c-7365-82d2-bdfe1efc5397\",\n          \"name\": \"Cocody\"\n        },\n        \"neighborhood\": null,\n        \"trade\": {\n          \"id\": \"01a17701-9bd8-72e3-b3bd-53765c249ba2\",\n          \"code\": \"macon\",\n          \"label\": \"Maçon\"\n        },\n        \"experience_years\": null,\n        \"status\": {\n          \"value\": \"nouveau\",\n          \"label\": \"Nouveau\"\n        },\n        \"stage\": {\n          \"value\": \"nouveau\",\n          \"label\": \"Nouveau\"\n        },\n        \"completion\": {\n          \"percent\": 35,\n          \"filled\": 4,\n          \"total\": 12,\n          \"ready\": false\n        },\n        \"hint\": \"Nouveau contact · dossier à commencer\",\n        \"worker\": null,\n        \"client_uuid\": null,\n        \"lock_version\": 1,\n        \"created_at\": \"2026-10-26T06:59:59+00:00\",\n        \"updated_at\": \"2026-10-26T06:59:59+00:00\"\n      }\n    ]\n  }\n}"
+                },
+                {
+                  "id": "f68f8e3b-523f-55a6-b0ac-92df70793b8a",
+                  "name": "200 · Sans objectif ni dossier",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/home",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "home"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "118"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"greeting\": {\n      \"title\": \"Bonjour, Adama\",\n      \"subtitle\": \"Voici vos priorités du jour\"\n    },\n    \"unread_notifications\": 0,\n    \"corrections\": {\n      \"count\": 0,\n      \"label\": \"Aucun dossier à corriger\"\n    },\n    \"week\": [\n      {\n        \"key\": \"prospects\",\n        \"label\": \"Prospects\",\n        \"count\": 0\n      },\n      {\n        \"key\": \"soumis\",\n        \"label\": \"Ouvriers soumis\",\n        \"count\": 0\n      },\n      {\n        \"key\": \"valides\",\n        \"label\": \"Validés\",\n        \"count\": 12\n      },\n      {\n        \"key\": \"a_corriger\",\n        \"label\": \"À corriger\",\n        \"count\": 0\n      }\n    ],\n    \"objective\": null,\n    \"earnings\": {\n      \"acquired\": 0,\n      \"acquired_label\": \"0 F\",\n      \"pending\": 0,\n      \"pending_label\": \"0 F\",\n      \"paid\": 0,\n      \"paid_label\": \"0 F\"\n    },\n    \"to_follow\": []\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "a74c63c7-f0a3-5fcd-988a-3887a9425906",
+              "name": "Mes gains",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/earnings",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "earnings"
+                  ]
+                },
+                "description": "« Mes gains » d’un mois : commissions confirmées, dont versées (`paid_percent`), estimées en attente, et historique par onglet (`toutes`, `confirmees`, `en_attente`) avec statut `confirmee`, `en_attente` ou `versee`.\n\nParamètres : `month` (`AAAA-MM`, mois en cours par défaut ; **422** « Mois invalide (AAAA-MM). ») et `tab`. `meta.months` : mois proposés par le sélecteur.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "e9d47811-8a5e-5ba0-8e7c-2619b2cd9822",
+                  "name": "200 · Commissions confirmées et estimées",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/earnings",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "earnings"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "85"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"month\": \"2026-10\",\n    \"month_label\": \"Octobre 2026\",\n    \"confirmed\": 25000,\n    \"confirmed_label\": \"25 000 FCFA\",\n    \"paid\": 0,\n    \"paid_label\": \"0 FCFA\",\n    \"paid_percent\": 0,\n    \"pending\": 50000,\n    \"pending_label\": \"50 000 FCFA\",\n    \"tabs\": [\n      {\n        \"key\": \"toutes\",\n        \"label\": \"Toutes\",\n        \"count\": 3\n      },\n      {\n        \"key\": \"confirmees\",\n        \"label\": \"Confirmées\",\n        \"count\": 1\n      },\n      {\n        \"key\": \"en_attente\",\n        \"label\": \"En attente\",\n        \"count\": 2\n      }\n    ],\n    \"history\": [\n      {\n        \"id\": \"01a17702-3a94-73a3-a62b-f018420104aa\",\n        \"worker_id\": \"01a17702-3866-7095-84da-2c8193087040\",\n        \"prospect_id\": \"01a17702-37cf-71e5-b569-c20373c5c02b\",\n        \"name\": \"Aïcha Koné\",\n        \"initials\": \"AK\",\n        \"subtitle\": \"Dossier validé · 26 oct.\",\n        \"amount\": 25000,\n        \"amount_label\": \"+25 000 FCFA\",\n        \"status\": {\n          \"value\": \"confirmee\",\n          \"label\": \"Confirmée\"\n        },\n        \"event_at\": \"2026-10-26T07:00:00+00:00\"\n      },\n      {\n        \"id\": \"01a17702-442c-7048-8c41-6882a21069cf\",\n        \"worker_id\": \"01a17702-421b-71f7-a345-5833c2d87bda\",\n        \"prospect_id\": \"01a17702-4177-72fe-9671-2192fbf6a7d0\",\n        \"name\": \"Yao Serge\",\n        \"initials\": \"YS\",\n        \"subtitle\": \"Dossier en traitement · 26 oct.\",\n        \"amount\": 25000,\n        \"amount_label\": \"25 000 FCFA\",\n        \"status\": {\n          \"value\": \"en_attente\",\n          \"label\": \"En attente\"\n        },\n        \"event_at\": \"2026-10-26T06:59:59+00:00\"\n      },\n      {\n        \"id\": \"01a17702-3dc5-70e1-8163-d148c3ff62b1\",\n        \"worker_id\": \"01a17702-3b8c-700b-a84a-0bd16218aa98\",\n        \"prospect_id\": \"01a17702-3af4-709b-945c-5f1ca9bbb290\",\n        \"name\": \"Issa Traoré\",\n        \"initials\": \"IT\",\n        \"subtitle\": \"Dossier en traitement · 26 oct.\",\n        \"amount\": 25000,\n        \"amount_label\": \"25 000 FCFA\",\n        \"status\": {\n          \"value\": \"en_attente\",\n          \"label\": \"En attente\"\n        },\n        \"event_at\": \"2026-10-26T06:59:58+00:00\"\n      }\n    ],\n    \"note\": \"Les montants estimés peuvent évoluer après validation du Back office.\"\n  },\n  \"meta\": {\n    \"months\": [\n      {\n        \"value\": \"2026-10\",\n        \"label\": \"Octobre 2026\"\n      }\n    ]\n  }\n}"
+                },
+                {
+                  "id": "448575cf-561a-55de-a44d-f13a4300482f",
+                  "name": "200 · Onglet En attente",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/earnings?tab=en_attente",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "earnings"
+                      ],
+                      "query": [
+                        {
+                          "key": "tab",
+                          "value": "en_attente"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "84"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"month\": \"2026-10\",\n    \"month_label\": \"Octobre 2026\",\n    \"confirmed\": 25000,\n    \"confirmed_label\": \"25 000 FCFA\",\n    \"paid\": 0,\n    \"paid_label\": \"0 FCFA\",\n    \"paid_percent\": 0,\n    \"pending\": 50000,\n    \"pending_label\": \"50 000 FCFA\",\n    \"tabs\": [\n      {\n        \"key\": \"toutes\",\n        \"label\": \"Toutes\",\n        \"count\": 3\n      },\n      {\n        \"key\": \"confirmees\",\n        \"label\": \"Confirmées\",\n        \"count\": 1\n      },\n      {\n        \"key\": \"en_attente\",\n        \"label\": \"En attente\",\n        \"count\": 2\n      }\n    ],\n    \"history\": [\n      {\n        \"id\": \"01a17702-442c-7048-8c41-6882a21069cf\",\n        \"worker_id\": \"01a17702-421b-71f7-a345-5833c2d87bda\",\n        \"prospect_id\": \"01a17702-4177-72fe-9671-2192fbf6a7d0\",\n        \"name\": \"Yao Serge\",\n        \"initials\": \"YS\",\n        \"subtitle\": \"Dossier en traitement · 26 oct.\",\n        \"amount\": 25000,\n        \"amount_label\": \"25 000 FCFA\",\n        \"status\": {\n          \"value\": \"en_attente\",\n          \"label\": \"En attente\"\n        },\n        \"event_at\": \"2026-10-26T06:59:59+00:00\"\n      },\n      {\n        \"id\": \"01a17702-3dc5-70e1-8163-d148c3ff62b1\",\n        \"worker_id\": \"01a17702-3b8c-700b-a84a-0bd16218aa98\",\n        \"prospect_id\": \"01a17702-3af4-709b-945c-5f1ca9bbb290\",\n        \"name\": \"Issa Traoré\",\n        \"initials\": \"IT\",\n        \"subtitle\": \"Dossier en traitement · 26 oct.\",\n        \"amount\": 25000,\n        \"amount_label\": \"25 000 FCFA\",\n        \"status\": {\n          \"value\": \"en_attente\",\n          \"label\": \"En attente\"\n        },\n        \"event_at\": \"2026-10-26T06:59:58+00:00\"\n      }\n    ],\n    \"note\": \"Les montants estimés peuvent évoluer après validation du Back office.\"\n  },\n  \"meta\": {\n    \"months\": [\n      {\n        \"value\": \"2026-10\",\n        \"label\": \"Octobre 2026\"\n      }\n    ]\n  }\n}"
+                },
+                {
+                  "id": "65f7e649-807b-5904-9bdf-0f869ded1dad",
+                  "name": "200 · Après versement",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/earnings",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "earnings"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "82"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"month\": \"2026-10\",\n    \"month_label\": \"Octobre 2026\",\n    \"confirmed\": 25000,\n    \"confirmed_label\": \"25 000 FCFA\",\n    \"paid\": 25000,\n    \"paid_label\": \"25 000 FCFA\",\n    \"paid_percent\": 100,\n    \"pending\": 50000,\n    \"pending_label\": \"50 000 FCFA\",\n    \"tabs\": [\n      {\n        \"key\": \"toutes\",\n        \"label\": \"Toutes\",\n        \"count\": 3\n      },\n      {\n        \"key\": \"confirmees\",\n        \"label\": \"Confirmées\",\n        \"count\": 1\n      },\n      {\n        \"key\": \"en_attente\",\n        \"label\": \"En attente\",\n        \"count\": 2\n      }\n    ],\n    \"history\": [\n      {\n        \"id\": \"01a17702-3a94-73a3-a62b-f018420104aa\",\n        \"worker_id\": \"01a17702-3866-7095-84da-2c8193087040\",\n        \"prospect_id\": \"01a17702-37cf-71e5-b569-c20373c5c02b\",\n        \"name\": \"Aïcha Koné\",\n        \"initials\": \"AK\",\n        \"subtitle\": \"Commission versée · 26 oct.\",\n        \"amount\": 25000,\n        \"amount_label\": \"+25 000 FCFA\",\n        \"status\": {\n          \"value\": \"versee\",\n          \"label\": \"Versée\"\n        },\n        \"event_at\": \"2026-10-26T07:00:00+00:00\"\n      },\n      {\n        \"id\": \"01a17702-442c-7048-8c41-6882a21069cf\",\n        \"worker_id\": \"01a17702-421b-71f7-a345-5833c2d87bda\",\n        \"prospect_id\": \"01a17702-4177-72fe-9671-2192fbf6a7d0\",\n        \"name\": \"Yao Serge\",\n        \"initials\": \"YS\",\n        \"subtitle\": \"Dossier en traitement · 26 oct.\",\n        \"amount\": 25000,\n        \"amount_label\": \"25 000 FCFA\",\n        \"status\": {\n          \"value\": \"en_attente\",\n          \"label\": \"En attente\"\n        },\n        \"event_at\": \"2026-10-26T06:59:59+00:00\"\n      },\n      {\n        \"id\": \"01a17702-3dc5-70e1-8163-d148c3ff62b1\",\n        \"worker_id\": \"01a17702-3b8c-700b-a84a-0bd16218aa98\",\n        \"prospect_id\": \"01a17702-3af4-709b-945c-5f1ca9bbb290\",\n        \"name\": \"Issa Traoré\",\n        \"initials\": \"IT\",\n        \"subtitle\": \"Dossier en traitement · 26 oct.\",\n        \"amount\": 25000,\n        \"amount_label\": \"25 000 FCFA\",\n        \"status\": {\n          \"value\": \"en_attente\",\n          \"label\": \"En attente\"\n        },\n        \"event_at\": \"2026-10-26T06:59:58+00:00\"\n      }\n    ],\n    \"note\": \"Les montants estimés peuvent évoluer après validation du Back office.\"\n  },\n  \"meta\": {\n    \"months\": [\n      {\n        \"value\": \"2026-10\",\n        \"label\": \"Octobre 2026\"\n      }\n    ]\n  }\n}"
+                },
+                {
+                  "id": "f4d65c1c-4c2f-5b9e-950c-ab32ba9571fe",
+                  "name": "422 · Mois invalide",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/earnings?month=2026-13",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "earnings"
+                      ],
+                      "query": [
+                        {
+                          "key": "month",
+                          "value": "2026-13"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "83"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Mois invalide (AAAA-MM).\",\n  \"errors\": {\n    \"month\": [\n      \"Mois invalide (AAAA-MM).\"\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "7ffeb56a-6dc8-5f4a-8138-0b4330e879c2",
+              "name": "Mes objectifs",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/objectives",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "objectives"
+                  ]
+                },
+                "description": "Objectif du mois fixé par le Back office (`current`, `null` sans objectif) : cible, ouvriers validés, pourcentage et message (« Plus que 2 ouvriers validés… », « Objectif atteint, bravo ! »), puis l’historique des mois précédents.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "c7e0d821-6c39-5ca2-a2ae-55a8effe076c",
+                  "name": "200 · Objectif atteint",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/objectives",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "objectives"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "81"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"current\": {\n      \"indicator\": {\n        \"value\": \"ouvriers_valides\",\n        \"label\": \"Ouvriers validés\"\n      },\n      \"period\": {\n        \"start\": \"2026-10-01\",\n        \"end\": \"2026-10-31\"\n      },\n      \"period_label\": \"Oct. 2026\",\n      \"target\": 10,\n      \"achieved\": 13,\n      \"label\": \"13 / 10\",\n      \"percent\": 100,\n      \"remaining\": 0,\n      \"message\": \"Objectif atteint, bravo !\",\n      \"comment\": null\n    },\n    \"history\": [\n      {\n        \"indicator\": {\n          \"value\": \"ouvriers_valides\",\n          \"label\": \"Ouvriers validés\"\n        },\n        \"period\": {\n          \"start\": \"2026-10-01\",\n          \"end\": \"2026-10-31\"\n        },\n        \"period_label\": \"Oct. 2026\",\n        \"target\": 10,\n        \"achieved\": 13,\n        \"label\": \"13 / 10\",\n        \"percent\": 100,\n        \"remaining\": 0,\n        \"message\": \"Objectif atteint, bravo !\",\n        \"comment\": null\n      }\n    ],\n    \"note\": \"Objectif mensuel fixé par O’CHANTIER.\"\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "5e002f56-5607-586a-816a-8080eb28d4e5",
+              "name": "Mon classement",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/ranking",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "ranking"
+                  ]
+                },
+                "description": "Classement du mois, calculé en direct sur les ouvriers validés : rang (« 1ᵉʳ sur 2 commerciaux »), ouvriers validés, 5 premiers commerciaux (`leaders`, `is_me` pour soi) et classements publiés par le Back office pour les mois clos (`published`).",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "27103e56-deeb-50d2-9b4f-b84512f8df48",
+                  "name": "200 · Classement du mois",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/ranking",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "ranking"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "80"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"period_label\": \"Octobre 2026\",\n    \"rank\": 1,\n    \"rank_label\": \"1ᵉʳ\",\n    \"total\": 2,\n    \"label\": \"1ᵉʳ sur 2 commerciaux\",\n    \"validated\": 13,\n    \"leaders\": [\n      {\n        \"rank\": 1,\n        \"name\": \"Adama Coulibaly\",\n        \"validated\": 13,\n        \"is_me\": true\n      },\n      {\n        \"rank\": 2,\n        \"name\": \"Aïcha Touré\",\n        \"validated\": 0,\n        \"is_me\": false\n      }\n    ],\n    \"published\": [],\n    \"note\": \"Classé sur les ouvriers validés du mois ; à égalité, par ordre alphabétique.\"\n  }\n}"
+                }
+              ]
+            }
+          ],
+          "description": "Accueil, « Mes gains », « Mes objectifs » et « Mon classement ».\n\n**Commission** : règle de la plateforme (par défaut 25 000 FCFA par ouvrier validé). Elle est estimée à la soumission (« En attente »), confirmée à la validation, versée au paiement du Back office et annulée si le dossier est refusé.\n\nEn local : `php artisan ochantier:simulate-commercial-payout [--month=AAAA-MM] [--commercial=COM-…]` verse les commissions confirmées, `php artisan ochantier:simulate-commercial-objective <COM-…> <cible> [--month=]` fixe un objectif mensuel."
+        },
+        {
+          "id": "bd3922a8-346d-526b-a7f8-ec483e2158e6",
+          "name": "Profil et préférences",
+          "item": [
+            {
+              "id": "c63607b0-44ac-5981-8fb2-2f53f5f1d52c",
+              "name": "Mon profil",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/profile",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "profile"
+                  ]
+                },
+                "description": "Nom, initiales, rôle, matricule, statut du compte, téléphone, e-mail, communes attribuées (`zones`, la principale d’abord), demande de changement en attente (`zone_request`, `null` sinon), résumé de l’objectif et du classement (`activity`) et libellé des préférences (`notifications_label`).",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "a1d543b7-9bc5-538a-ae76-02835a2eb445",
+                  "name": "200 · Mon profil",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/profile",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "profile"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "78"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"name\": \"Adama Coulibaly\",\n    \"first_name\": \"Adama\",\n    \"last_name\": \"Coulibaly\",\n    \"initials\": \"AC\",\n    \"role\": \"Commercial terrain\",\n    \"employee_number\": \"COM-00001\",\n    \"status\": {\n      \"value\": \"actif\",\n      \"label\": \"Compte actif\"\n    },\n    \"dial_code\": \"225\",\n    \"phone_number\": \"0500000001\",\n    \"phone\": \"+225 05 00 00 00 01\",\n    \"email\": \"commercial@demo.ochantier.ci\",\n    \"zones\": [\n      {\n        \"commune\": {\n          \"id\": \"01a17701-9b9c-7365-82d2-bdfe1efc5397\",\n          \"name\": \"Cocody\"\n        },\n        \"is_primary\": true\n      }\n    ],\n    \"zone_request\": null,\n    \"activity\": {\n      \"objective_label\": \"13 / 10 ouvriers validés ce mois\",\n      \"ranking_label\": \"1ᵉʳ sur 2 commerciaux\"\n    },\n    \"notifications_label\": \"Gérer mes préférences de notification\"\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "7165a97c-3fcb-5144-977b-8b352778e21d",
+              "name": "Modifier mes informations",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/profile",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "profile"
+                  ]
+                },
+                "description": "« Modifier mes informations » : `first_name`, `last_name`, `email` (facultatif). Le numéro, identifiant de connexion, se change par « Changer de numéro ». Une nouvelle adresse e-mail est à revérifier. **Réponse 200** : le profil à jour.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"first_name\": \"Adama\",\n  \"last_name\": \"Coulibaly\",\n  \"email\": \"commercial@demo.ochantier.ci\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "id": "4fccac38-4bc1-5b7d-9be8-9da041b79520",
+                  "name": "200 · Informations mises à jour",
+                  "originalRequest": {
+                    "method": "PATCH",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/profile",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "profile"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"first_name\": \"Adama\",\n  \"last_name\": \"Coulibaly\",\n  \"email\": \"commercial@demo.ochantier.ci\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "77"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Informations mises à jour\",\n  \"data\": {\n    \"name\": \"Adama Coulibaly\",\n    \"first_name\": \"Adama\",\n    \"last_name\": \"Coulibaly\",\n    \"initials\": \"AC\",\n    \"role\": \"Commercial terrain\",\n    \"employee_number\": \"COM-00001\",\n    \"status\": {\n      \"value\": \"actif\",\n      \"label\": \"Compte actif\"\n    },\n    \"dial_code\": \"225\",\n    \"phone_number\": \"0500000001\",\n    \"phone\": \"+225 05 00 00 00 01\",\n    \"email\": \"commercial@demo.ochantier.ci\",\n    \"zones\": [\n      {\n        \"commune\": {\n          \"id\": \"01a17701-9b9c-7365-82d2-bdfe1efc5397\",\n          \"name\": \"Cocody\"\n        },\n        \"is_primary\": true\n      }\n    ],\n    \"zone_request\": null,\n    \"activity\": {\n      \"objective_label\": \"13 / 10 ouvriers validés ce mois\",\n      \"ranking_label\": \"1ᵉʳ sur 2 commerciaux\"\n    },\n    \"notifications_label\": \"Gérer mes préférences de notification\"\n  }\n}"
+                },
+                {
+                  "id": "79a0e45d-0730-55af-a794-f3c01c3d38f3",
+                  "name": "422 · Champs invalides",
+                  "originalRequest": {
+                    "method": "PATCH",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/profile",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "profile"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"first_name\": \"\",\n  \"email\": \"pas-un-email\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "76"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Indiquez votre prénom. (et 1 autre erreur)\",\n  \"errors\": {\n    \"first_name\": [\n      \"Indiquez votre prénom.\"\n    ],\n    \"email\": [\n      \"Adresse e-mail invalide.\"\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "25f84e42-48fe-58ab-934c-b74a63fd8774",
+              "name": "Demander un changement de zone",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// Une seule demande en attente : la requête est sautée si elle existe déjà.",
+                      "pm.sendRequest({",
+                      "    url: pm.variables.replaceIn('{{base_url}}/commercial/profile'),",
+                      "    header: { 'Accept': 'application/json', 'Authorization': 'Bearer ' + pm.collectionVariables.get('commercial_access_token') },",
+                      "}, (err, res) => {",
+                      "    const data = res && res.code === 200 ? res.json().data : null;",
+                      "    if (!data || !(!data.zone_request)) { pm.execution.skipRequest(); return; }",
+                      "});"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/zone-requests",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "zone-requests"
+                  ]
+                },
+                "description": "« Demander un changement » de zone d’activité : `commune_ids`, les communes souhaitées. La demande part au responsable du Back office ; la zone ne change qu’après sa validation. **Réponse 201** : le profil avec `zone_request`.\n\n**422** : aucune commune, communes identiques à la zone actuelle (« Modifiez au moins une commune. ») ou demande déjà en attente. Sautée lors de l’exécution de la collection si une demande est déjà en attente.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"commune_ids\": [\n    \"{{commune_id}}\",\n    \"{{zone_commune_id}}\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "id": "b2bc79bd-46f8-58e4-884b-ad5a504a03c3",
+                  "name": "201 · Demande envoyée",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/zone-requests",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "zone-requests"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"commune_ids\": [\n    \"01a17701-9b9c-7365-82d2-bdfe1efc5397\",\n    \"01a17701-9b98-7127-9429-5e5d7466b683\"\n  ]\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "74"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Demande envoyée à votre responsable\",\n  \"data\": {\n    \"name\": \"Adama Coulibaly\",\n    \"first_name\": \"Adama\",\n    \"last_name\": \"Coulibaly\",\n    \"initials\": \"AC\",\n    \"role\": \"Commercial terrain\",\n    \"employee_number\": \"COM-00001\",\n    \"status\": {\n      \"value\": \"actif\",\n      \"label\": \"Compte actif\"\n    },\n    \"dial_code\": \"225\",\n    \"phone_number\": \"0500000001\",\n    \"phone\": \"+225 05 00 00 00 01\",\n    \"email\": \"commercial@demo.ochantier.ci\",\n    \"zones\": [\n      {\n        \"commune\": {\n          \"id\": \"01a17701-9b9c-7365-82d2-bdfe1efc5397\",\n          \"name\": \"Cocody\"\n        },\n        \"is_primary\": true\n      }\n    ],\n    \"zone_request\": {\n      \"id\": \"01a17702-5656-72ca-962b-96b6d7227656\",\n      \"communes\": [\n        {\n          \"id\": \"01a17701-9b98-7127-9429-5e5d7466b683\",\n          \"name\": \"Bingerville\"\n        },\n        {\n          \"id\": \"01a17701-9b9c-7365-82d2-bdfe1efc5397\",\n          \"name\": \"Cocody\"\n        }\n      ],\n      \"status\": {\n        \"value\": \"en_attente\",\n        \"label\": \"En attente de validation\"\n      },\n      \"label\": \"Changement demandé : Bingerville · Cocody. En attente de validation.\",\n      \"created_at\": \"2026-10-26T07:00:04+00:00\"\n    },\n    \"activity\": {\n      \"objective_label\": \"13 / 10 ouvriers validés ce mois\",\n      \"ranking_label\": \"1ᵉʳ sur 2 commerciaux\"\n    },\n    \"notifications_label\": \"Gérer mes préférences de notification\"\n  }\n}"
+                },
+                {
+                  "id": "e84946df-d222-5b42-91da-9a962dd4afbd",
+                  "name": "422 · Zone inchangée",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/zone-requests",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "zone-requests"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"commune_ids\": [\n    \"01a17701-9b9c-7365-82d2-bdfe1efc5397\"\n  ]\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "75"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Modifiez au moins une commune.\",\n  \"errors\": {\n    \"commune_ids\": [\n      \"Modifiez au moins une commune.\"\n    ]\n  }\n}"
+                },
+                {
+                  "id": "0206afd6-4c0e-5dc5-9853-25790915839b",
+                  "name": "422 · Demande déjà en attente",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/zone-requests",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "zone-requests"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"commune_ids\": [\n    \"01a17701-9b81-724d-9ca7-51d0d7b22de2\"\n  ]\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "73"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Une demande de changement est déjà en attente de validation.\",\n  \"errors\": {\n    \"commune_ids\": [\n      \"Une demande de changement est déjà en attente de validation.\"\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "2b4d97ab-a692-50b0-999e-314c188a0f91",
+              "name": "Préférences de notification",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/notification-preferences",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "notification-preferences"
+                  ]
+                },
+                "description": "Canaux (push, SMS, e-mail) et alertes du commercial : `dossiers` (validés ou refusés), `corrections`, `paiements`, `relances` (prospects sans nouvelles, objectif et classement). Même format que les préférences du promoteur.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "19253360-f6ed-529b-97b6-2dc6216becf3",
+                  "name": "200 · Préférences",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/notification-preferences",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "notification-preferences"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "72"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"channels\": [\n      {\n        \"key\": \"push\",\n        \"label\": \"Notifications push\",\n        \"hint\": \"Sur ce téléphone\",\n        \"available\": true,\n        \"enabled\": true\n      },\n      {\n        \"key\": \"sms\",\n        \"label\": \"SMS\",\n        \"hint\": \"+225 05 00 00 00 01\",\n        \"available\": true,\n        \"enabled\": true\n      },\n      {\n        \"key\": \"email\",\n        \"label\": \"E-mail\",\n        \"hint\": \"commercial@demo.ochantier.ci\",\n        \"available\": true,\n        \"enabled\": false\n      }\n    ],\n    \"alerts\": [\n      {\n        \"key\": \"dossiers\",\n        \"label\": \"Dossiers validés\",\n        \"hint\": \"Validation de vos ouvriers par le Back office\",\n        \"enabled\": true\n      },\n      {\n        \"key\": \"corrections\",\n        \"label\": \"Corrections demandées\",\n        \"hint\": \"Pièce ou information à reprendre\",\n        \"enabled\": true\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"hint\": \"Versement de vos commissions\",\n        \"enabled\": true\n      },\n      {\n        \"key\": \"relances\",\n        \"label\": \"Relances conseillées\",\n        \"hint\": \"Prospects sans nouvelles depuis 7 jours\",\n        \"enabled\": true\n      }\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "8d40295e-df2b-55e1-a5ed-61e5cdf116ce",
+              "name": "Modifier les préférences",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/notification-preferences",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "notification-preferences"
+                  ]
+                },
+                "description": "Mise à jour partielle : `channels` (`push`, `sms`, `email`) et `alerts` (`dossiers`, `corrections`, `paiements`, `relances`), booléens. **422** pour une alerte inconnue.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"alerts\": {\n    \"relances\": false\n  },\n  \"channels\": {\n    \"sms\": true\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "id": "27212941-36b8-5bb0-af95-ab767aaf7915",
+                  "name": "200 · Préférences enregistrées",
+                  "originalRequest": {
+                    "method": "PUT",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/notification-preferences",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "notification-preferences"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"alerts\": {\n    \"relances\": false\n  },\n  \"channels\": {\n    \"sms\": true\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "71"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Préférences enregistrées\",\n  \"data\": {\n    \"channels\": [\n      {\n        \"key\": \"push\",\n        \"label\": \"Notifications push\",\n        \"hint\": \"Sur ce téléphone\",\n        \"available\": true,\n        \"enabled\": true\n      },\n      {\n        \"key\": \"sms\",\n        \"label\": \"SMS\",\n        \"hint\": \"+225 05 00 00 00 01\",\n        \"available\": true,\n        \"enabled\": true\n      },\n      {\n        \"key\": \"email\",\n        \"label\": \"E-mail\",\n        \"hint\": \"commercial@demo.ochantier.ci\",\n        \"available\": true,\n        \"enabled\": false\n      }\n    ],\n    \"alerts\": [\n      {\n        \"key\": \"dossiers\",\n        \"label\": \"Dossiers validés\",\n        \"hint\": \"Validation de vos ouvriers par le Back office\",\n        \"enabled\": true\n      },\n      {\n        \"key\": \"corrections\",\n        \"label\": \"Corrections demandées\",\n        \"hint\": \"Pièce ou information à reprendre\",\n        \"enabled\": true\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"hint\": \"Versement de vos commissions\",\n        \"enabled\": true\n      },\n      {\n        \"key\": \"relances\",\n        \"label\": \"Relances conseillées\",\n        \"hint\": \"Prospects sans nouvelles depuis 7 jours\",\n        \"enabled\": false\n      }\n    ]\n  }\n}"
+                },
+                {
+                  "id": "0ce03f89-621a-5ef2-96cb-d47843b82d93",
+                  "name": "422 · Alerte inconnue",
+                  "originalRequest": {
+                    "method": "PUT",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/notification-preferences",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "notification-preferences"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"alerts\": {\n    \"offres\": false\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "70"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Alerte inconnue : dossiers, corrections, paiements, relances.\",\n  \"errors\": {\n    \"alerts\": [\n      \"Alerte inconnue : dossiers, corrections, paiements, relances.\"\n    ]\n  }\n}"
+                }
+              ]
+            }
+          ],
+          "description": "« Mon profil » du commercial : informations, zone d’activité attribuée par le Back office, activité et préférences de notification."
+        },
+        {
+          "id": "6c6dbdb9-a092-5ac4-9cfa-1bb1b65cf1cb",
+          "name": "Notifications",
+          "item": [
+            {
+              "id": "d8a27df4-6a1a-5132-8ba4-ec0d190a4d8e",
+              "name": "Notifications",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "const group = pm.response.json().data[0];",
+                      "pm.collectionVariables.set('commercial_notification_id', group ? group.items[0].id : '');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/notifications",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "notifications"
+                  ]
+                },
+                "description": "Groupes `AUJOURD’HUI`, `CETTE SEMAINE`, `PLUS ANCIENNES` ; chaque notification : titre, texte, `time`, `unread`, bouton (`cta`) et écran à ouvrir (`target` : `worker`, `prospect`, `earnings`…).\n\nFiltre `filter` : `toutes`, `non_lues`, `dossiers`, `paiements`. `meta` : non lues et onglets avec leurs non lues.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "41dfa50f-63bf-5a5c-b400-311f0d9515b5",
+                  "name": "200 · Toutes",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/notifications",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "notifications"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "68"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a17702-535c-70a9-9c6d-aebe93de1eb3\",\n          \"event\": \"ranking.updated\",\n          \"tab\": \"infos\",\n          \"title\": \"Classement mis à jour\",\n          \"body\": \"Vous êtes 1ᵉʳ sur 2 commerciaux ce mois-ci.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:03+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"ranking\"\n          },\n          \"cta\": null\n        },\n        {\n          \"id\": \"01a17702-50f4-72ea-87d1-4b79ffc7f9e2\",\n          \"event\": \"payout.paid\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement reçu\",\n          \"body\": \"25 000 FCFA versés sur votre compte Mobile Money.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:02+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"earnings\",\n            \"month\": \"2026-10\"\n          },\n          \"cta\": \"Voir mes gains\"\n        },\n        {\n          \"id\": \"01a17702-4a26-708b-a109-36d81bb1c486\",\n          \"event\": \"worker.refused\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Dossier refusé\",\n          \"body\": \"Marc Kouassi — Identité non vérifiable.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:01+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3f07-71ce-ba1d-d6b57e6704ab\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-3e33-71ce-9a9c-e36cbf47398d\"\n          },\n          \"cta\": \"Voir le dossier\"\n        },\n        {\n          \"id\": \"01a17702-487c-7270-8f92-8caca8f0b1d9\",\n          \"event\": \"worker.correction\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Correction demandée\",\n          \"body\": \"Issa Traoré — Photo de la pièce d’identité illisible.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:00+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3b8c-700b-a84a-0bd16218aa98\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-3af4-709b-945c-5f1ca9bbb290\"\n          },\n          \"cta\": \"Corriger le dossier\"\n        },\n        {\n          \"id\": \"01a17702-468e-72b1-ae43-7bf3b3076632\",\n          \"event\": \"worker.validated\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Dossier validé\",\n          \"body\": \"Aïcha Koné a été validé(e). Commission de 25 000 FCFA confirmée.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:00+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3866-7095-84da-2c8193087040\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-37cf-71e5-b569-c20373c5c02b\"\n          },\n          \"cta\": \"Voir le dossier\"\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 5,\n    \"summary\": \"5 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"toutes\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"non_lues\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"dossiers\",\n        \"label\": \"Dossiers\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 1\n      }\n    ]\n  }\n}"
+                },
+                {
+                  "id": "c852f118-9f72-5b91-b6d3-550e024df299",
+                  "name": "200 · Onglet Paiements",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/notifications?filter=paiements",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "notifications"
+                      ],
+                      "query": [
+                        {
+                          "key": "filter",
+                          "value": "paiements"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "67"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a17702-50f4-72ea-87d1-4b79ffc7f9e2\",\n          \"event\": \"payout.paid\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement reçu\",\n          \"body\": \"25 000 FCFA versés sur votre compte Mobile Money.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:02+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"earnings\",\n            \"month\": \"2026-10\"\n          },\n          \"cta\": \"Voir mes gains\"\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 5,\n    \"summary\": \"5 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"toutes\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"non_lues\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"dossiers\",\n        \"label\": \"Dossiers\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 1\n      }\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "d0900253-0927-5b17-b23b-ca0883bda3a2",
+              "name": "Marquer une notification lue",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.collectionVariables.get('commercial_notification_id')) { pm.execution.skipRequest(); }"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/notifications/{{commercial_notification_id}}/read",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "notifications",
+                    "{{commercial_notification_id}}",
+                    "read"
+                  ]
+                },
+                "description": "À l’ouverture d’une notification. **Réponse 200** : non lues restantes (`data.unread`). Sautée sans notification.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "42155a0b-65c2-5c29-aa03-b00de2d7f67d",
+                  "name": "200 · Notification lue",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/notifications/01a17702-535c-70a9-9c6d-aebe93de1eb3/read",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "notifications",
+                        "01a17702-535c-70a9-9c6d-aebe93de1eb3",
+                        "read"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "66"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"unread\": 4\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "f4e9379a-3e43-5fee-a7c4-b35c7a710ed2",
+              "name": "Tout marquer lu",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/notifications/read-all",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "notifications",
+                    "read-all"
+                  ]
+                },
+                "description": "« Tout marquer lu ». **Réponse 200** : `data.unread` à 0 ; `message` « Toutes les notifications sont lues » s’il y en avait.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "45eb7732-61ea-5881-9599-44bbee153452",
+                  "name": "200 · Tout est lu",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/notifications/read-all",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "notifications",
+                        "read-all"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "X-RateLimit-Limit",
+                      "value": "120"
+                    },
+                    {
+                      "key": "X-RateLimit-Remaining",
+                      "value": "65"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Toutes les notifications sont lues\",\n  \"data\": {\n    \"unread\": 0\n  }\n}"
+                }
+              ]
+            }
+          ],
+          "description": "Centre de notifications du commercial : correction demandée (aussi par SMS), dossier validé avec la commission, dossier refusé, paiement reçu (aussi par SMS), relance conseillée, objectif et classement.\n\nChaque jour à 8 h, `php artisan ochantier:commercial-reminders` conseille de relancer les prospects sans nouvelles depuis 7 jours et, le lundi, rappelle l’objectif et le classement."
         },
         {
           "id": "a4e02112-ea14-57f6-8e46-b58d0fa1c588",
@@ -18566,6 +20768,24 @@
       "value": "",
       "type": "string",
       "description": "Numéro du proche invité, tiré au hasard."
+    },
+    {
+      "key": "zone_commune_id",
+      "value": "",
+      "type": "string",
+      "description": "Commune demandée en plus de Cocody (renseignée par « Référentiels des formulaires »)."
+    },
+    {
+      "key": "correction_prospect_id",
+      "value": "",
+      "type": "string",
+      "description": "Prospect dont le dossier est à corriger (renseigné par « Mes ouvriers »)."
+    },
+    {
+      "key": "commercial_notification_id",
+      "value": "",
+      "type": "string",
+      "description": "Notification du commercial à marquer lue."
     }
   ]
 }
