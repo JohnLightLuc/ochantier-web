@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureActiveCommercial;
+use App\Http\Middleware\EnsureAdminPermission;
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\EnsurePromoterAbility;
 use App\Http\Middleware\EnsureResponseMessage;
@@ -14,6 +15,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Exceptions\InvalidSignatureException;
+use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -22,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        then: fn () => Route::middleware('api')->prefix('api/v1/admin')->name('v1.admin.')->group(base_path('routes/admin.php')),
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
@@ -30,7 +33,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'commercial' => EnsureActiveCommercial::class,
             'promoter.can' => EnsurePromoterAbility::class,
             'promoter.activity' => RecordPromoterActivity::class,
+            'admin.can' => EnsureAdminPermission::class,
         ]);
+        // Le serveur du Back Office relaie l’adresse IP de l’administrateur (X-Forwarded-For) : liste blanche, journal.
+        $middleware->trustProxies(at: array_filter(explode(',', (string) env('TRUSTED_PROXIES'))));
         $middleware->throttleApi();
         $middleware->api(append: [EnsureResponseMessage::class]);
     })

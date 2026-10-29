@@ -89,7 +89,7 @@ abstract class AuthController extends Controller
     /**
      * Adresse masquée pour les messages : « k•••@exemple.com ».
      */
-    private static function maskEmail(string $email): string
+    public static function maskEmail(string $email): string
     {
         [$name, $domain] = array_pad(explode('@', $email, 2), 2, '');
 

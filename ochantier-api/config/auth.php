@@ -47,6 +47,10 @@ return [
         'api' => [
             'driver' => 'jwt',
         ],
+
+        'admin' => [
+            'driver' => 'jwt-admin',
+        ],
     ],
 
     /*
@@ -62,6 +66,34 @@ return [
     'lockout' => [
         'max_attempts' => (int) env('AUTH_MAX_ATTEMPTS', 5),
         'lockout_minutes' => (int) env('AUTH_LOCKOUT_MINUTES', 15),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Comptes du Back Office
+    |--------------------------------------------------------------------------
+    |
+    | Connexion par e-mail et mot de passe, puis code à usage unique envoyé par
+    | e-mail. Une session expire après `idle_minutes` sans activité et au plus
+    | tard `session_hours` après la connexion ; au-delà de `max_sessions`
+    | sessions ouvertes, les plus anciennes sont fermées.
+    |
+    | Restriction par adresse IP (`ip_restriction`) : off (désactivée), alert
+    | (connexion hors liste blanche inscrite au journal d’audit) ou block
+    | (connexion et requêtes refusées hors liste blanche, si elle n’est pas vide).
+    |
+    */
+
+    'admin' => [
+        'mfa_required' => (bool) env('ADMIN_MFA_REQUIRED', true),
+        'password_min_length' => (int) env('ADMIN_PASSWORD_MIN_LENGTH', 12),
+        'idle_minutes' => (int) env('ADMIN_SESSION_IDLE_MINUTES', 30),
+        'session_hours' => (int) env('ADMIN_SESSION_HOURS', 12),
+        'max_sessions' => (int) env('ADMIN_MAX_SESSIONS', 2),
+        'ip_restriction' => env('ADMIN_IP_RESTRICTION', 'alert'),
+        // Lien de réinitialisation du mot de passe : page du Back Office, valable `reset_minutes`.
+        'reset_url' => env('ADMIN_PASSWORD_RESET_URL', 'http://localhost:8000/reinitialiser-mot-de-passe'),
+        'reset_minutes' => (int) env('ADMIN_PASSWORD_RESET_MINUTES', 30),
     ],
 
     /*

@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models;
+use App\Support\Auth\AdminAuthenticator;
 use App\Support\Auth\JwtAuthenticator;
 use App\Support\Payments\PaymentGateway;
 use App\Support\Payments\SimulatedPaymentGateway;
@@ -59,6 +60,7 @@ class AppServiceProvider extends ServiceProvider
         Relation::enforceMorphMap(self::morphMap());
 
         Auth::viaRequest('jwt', fn (Request $request) => $this->app->make(JwtAuthenticator::class)($request));
+        Auth::viaRequest('jwt-admin', fn (Request $request) => $this->app->make(AdminAuthenticator::class)($request));
 
         // Un commercial n’accède qu’à ses propres prospects : ceux des autres sont introuvables (404).
         Route::bind('prospect', fn (string $id) => Str::isUuid($id)
@@ -111,6 +113,12 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('otp', fn (Request $request) => [
             Limit::perMinute(3)->by('otp:'.(self::requestedPhone($request) ?? mb_strtolower((string) $request->input('email')))),
             Limit::perHour(10)->by('otp-ip:'.$request->ip()),
+        ]);
+
+        // Back Office : connexion, renvoi du code et mot de passe oublié, par adresse e-mail et par adresse IP.
+        RateLimiter::for('admin-login', fn (Request $request) => [
+            Limit::perMinute(10)->by('admin-login:'.mb_strtolower(trim((string) $request->input('email')))),
+            Limit::perMinute(20)->by('admin-login-ip:'.$request->ip()),
         ]);
 
         // Au-dessus du seuil de verrouillage du compte (config auth.lockout) pour que le verrouillage s’applique d’abord.

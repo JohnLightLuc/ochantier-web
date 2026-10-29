@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Enums\MessageChannel;
 use App\Enums\OtpPurpose;
+use App\Models\Admin;
 use App\Models\OtpCode;
 use App\Models\User;
 use App\Support\Sms\SmsGateway;
@@ -13,6 +14,9 @@ use Illuminate\Support\Facades\Mail;
 /**
  * Codes à usage unique (OTP_LENGTH chiffres, 6 par défaut) envoyés par SMS ou e-mail : activation, connexion,
  * réinitialisation du mot de passe, changement de numéro.
+ *
+ * Les codes sont rattachés à un type de compte (user ou admin) : une même adresse peut appartenir à un utilisateur
+ * des applications et à un administrateur sans que leurs codes se confondent.
  */
 class OneTimePassword
 {
@@ -21,9 +25,10 @@ class OneTimePassword
     /**
      * Secondes à attendre avant de pouvoir redemander un code pour cette destination.
      */
-    public function secondsBeforeResend(OtpPurpose $purpose, string $destination): int
+    public function secondsBeforeResend(OtpPurpose $purpose, string $destination, string $ownerType = 'user'): int
     {
         $last = OtpCode::query()
+            ->where('authenticatable_type', $ownerType)
             ->where('purpose', $purpose)
             ->where('destination', $destination)
             ->latest()
@@ -39,9 +44,12 @@ class OneTimePassword
     /**
      * Invalide les codes précédents et envoie un nouveau code.
      */
-    public function send(OtpPurpose $purpose, MessageChannel $channel, string $destination, ?User $user = null): void
+    public function send(OtpPurpose $purpose, MessageChannel $channel, string $destination, User|Admin|null $owner = null): void
     {
+        $ownerType = $owner?->getMorphClass() ?? 'user';
+
         OtpCode::query()
+            ->where('authenticatable_type', $ownerType)
             ->where('purpose', $purpose)
             ->where('destination', $destination)
             ->whereNull('consumed_at')
@@ -51,8 +59,8 @@ class OneTimePassword
         $code = $this->testCode() ?? str_pad((string) random_int(0, 10 ** self::length() - 1), self::length(), '0', STR_PAD_LEFT);
 
         OtpCode::create([
-            'authenticatable_type' => 'user',
-            'authenticatable_id' => $user?->getKey(),
+            'authenticatable_type' => $ownerType,
+            'authenticatable_id' => $owner?->getKey(),
             'channel' => $channel,
             'destination' => $destination,
             'purpose' => $purpose,
@@ -76,9 +84,10 @@ class OneTimePassword
      * Vérifie le code et le consomme s’il est correct. Chaque essai incorrect est compté :
      * au-delà du nombre d’essais autorisés, le code n’est plus utilisable.
      */
-    public function verify(OtpPurpose $purpose, string $destination, string $code): bool
+    public function verify(OtpPurpose $purpose, string $destination, string $code, string $ownerType = 'user'): bool
     {
         $otp = OtpCode::query()
+            ->where('authenticatable_type', $ownerType)
             ->where('purpose', $purpose)
             ->where('destination', $destination)
             ->whereNull('consumed_at')
