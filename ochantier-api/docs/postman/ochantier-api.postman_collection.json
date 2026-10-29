@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "440084b3-1b5c-5760-8de1-a8bc263e2066",
     "name": "O’CHANTIER API v1",
-    "description": "API REST des applications mobiles **Promoteur** et **Commercial** d’O’CHANTIER (l’application Ouvrier arrive en V2). Cette version couvre l’**authentification**, les **référentiels**, le **centre d’aide**, pour l’application Promoteur le **profil et la vérification du compte**, les **chantiers**, leurs **besoins et leur publication**, les **réservations** (propositions d’équipe), les **paiements** Mobile Money, le **suivi de chantier** (équipe, pointage, chronologie, remplacements), les **évaluations et le bilan** (factures, rapport de fin de chantier), l’**abonnement** et le **paiement flexible**, l’**équipe** (utilisateurs, rôles, activité), l’**accueil**, les **notifications** et le **parrainage**, et pour l’application Commercial les **prospects et dossiers ouvriers**, les **ouvriers transmis** et leurs corrections, les **gains**, l’**accueil**, les **objectifs et le classement**, le **profil** et les **notifications**.\n\n## Démarrage rapide\n\n1. Lancer l’API : `docker compose up -d`, `php artisan migrate:fresh --seed`, `php artisan serve`.\n2. Importer cette collection et l’environnement **O’CHANTIER · Local**.\n3. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : chaque connexion enregistre les jetons dans les variables de la collection, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/ochantier-api.postman_collection.json -e docs/postman/ochantier-local.postman_environment.json --working-dir docs/postman`\n   (`--working-dir` permet de trouver les images d’exemple de `docs/postman/fixtures` envoyées comme pièces).\n\nLa collection est rejouable : elle tire au hasard les nouveaux numéros et remet le mot de passe du commercial de démonstration. Entre deux exécutions, attendre **45 secondes**, le délai avant de pouvoir redemander un code au même destinataire.\n\nLes exemples de réponse de chaque requête ont été capturés sur l’API locale avec les données de démonstration.\n\n## Conventions\n\n- **Base** : `{{base_url}}` = `http://localhost:8000/api/v1`.\n- **En-têtes** : `Accept: application/json` sur toutes les requêtes ; `Content-Type: application/json` pour les corps.\n- **Téléphone** : toujours envoyé en deux champs, `dial_code` (indicatif du pays sans `+`, ex. `225`) et `phone_number` (numéro national, ex. `0700000002` ; 10 chiffres pour la Côte d’Ivoire, espaces, points et tirets acceptés). Seuls les indicatifs des pays ouverts sont acceptés (aujourd’hui `225`). Les réponses renvoient `dial_code`, `phone_number` et `phone` formaté pour l’affichage (`+225 07 00 00 00 02`). En base, le numéro est enregistré dans ces deux colonnes ; la colonne `phone` (E.164, `+2250700000002`) en est déduite.\n- **Statuts et types** : objets `{ \"value\": \"actif\", \"label\": \"Actif\" }`. L’application se fie à `value` et affiche `label`.\n- **Dates** : ISO 8601 en UTC (`2026-10-18T13:06:23+00:00`).\n- **Messages** : en français, prêts à être affichés.\n- **Réponses de succès** : toujours `{ \"message\": …, \"data\": …, \"meta\": … }`. `message` est le texte à afficher, `null` quand il n’y a rien à afficher ; `data` porte le contenu (`null` pour une action sans contenu, comme une suppression) ; `meta`, facultatif, les informations annexes (pagination avec `links`, `event_id`, `document_id`, `lock_version`…). L’API ne renvoie pas de **204**.\n- **Envoi de fichiers** : `multipart/form-data` directement vers l’API. Les fichiers sont ensuite consultables par un lien `url` signé, valable 30 minutes, sans jeton.\n- **Hors ligne** : `client_uuid` (généré par l’application) rend une création rejouable sans doublon ; `lock_version` (renvoyé dans chaque réponse) refuse une modification faite entre-temps sur un autre appareil (**409**).\n\n## Authentification\n\n| Application | Inscription | Connexion |\n|---|---|---|\n| Promoteur | Libre, sans mot de passe : code d’activation par SMS ou e-mail | Code à 6 chiffres par SMS ou e-mail |\n| Commercial | Compte créé par le Back Office, avec un mot de passe provisoire | Mot de passe, puis code à 6 chiffres par SMS |\n\n**Jetons**\n- `access_token` : JWT signé (HS256), valable **15 minutes**, envoyé dans `Authorization: Bearer <jeton>`.\n- `refresh_token` : chaîne opaque de 64 caractères, valable **30 jours**, **à usage unique**. `POST /auth/refresh` renvoie une nouvelle paire ; l’ancien jeton devient invalide.\n- Chaque connexion ouvre une **session** par appareil (`session_id`), visible dans « Appareils connectés » et révocable.\n\nSur un **401** : rafraîchir les jetons une fois, puis renvoyer à l’écran de connexion si le rafraîchissement échoue aussi.\n\n**Codes à usage unique (OTP)** : 6 chiffres par défaut (`OTP_LENGTH`, de 4 à 10 ; la longueur en vigueur est renvoyée dans `code_length` à chaque envoi de code), valables 5 minutes, 5 essais par code, nouveau code possible après 45 secondes. Hors production, le code fixe `OTP_TEST_CODE` (`123456` en local) est accepté. Les SMS et e-mails sont écrits dans `storage/logs/laravel.log`.\n\n**Mot de passe provisoire** (commercial) : tant que `user.must_change_password` vaut `true`, seules `GET /me`, `POST /auth/logout` et `PUT /auth/password` répondent ; les autres routes renvoient **403** avec `\"code\": \"password_change_required\"`.\n\n## Réponses d’erreur\n\n| Code | Cas | Corps |\n|---|---|---|\n| 401 | Jeton absent, expiré ou session fermée | `{ \"message\": \"Session expirée : reconnectez-vous.\" }` |\n| 403 | Compte suspendu ou désactivé, route d’une autre application, mot de passe provisoire à changer | `{ \"message\": \"…\" }` (+ `code` pour `password_change_required`) |\n| 404 | Ressource introuvable ou n’appartenant pas au compte | `{ \"message\": \"Élément introuvable.\" }` |\n| 409 | Modifié entre-temps sur un autre appareil (`lock_version`) | `{ \"message\": \"…\" }` |\n| 422 | Champs invalides, code faux ou expiré | `{ \"message\": \"…\", \"errors\": { \"champ\": [\"…\"] } }` |\n| 423 | Commercial verrouillé après 5 mauvais mots de passe (15 min) | `{ \"message\": \"…\", \"locked_until\": \"…\" }` |\n| 429 | Nouveau code demandé trop tôt, ou trop de requêtes | `{ \"message\": \"…\", \"retry_after\": 45 }` + en-tête `Retry-After` |\n\n## Espace promoteur : profil et vérification\n\nRéservé aux promoteurs (**403** pour un commercial).\n\n1. **Profil** (« Modifier le profil ») : identité, adresse et, pour une entreprise, raison sociale, RCCM, NCC et siège social géolocalisé.\n2. **Pièces justificatives** : pièce d’identité (CNI, passeport ou permis) et certificat de résidence ; pour une entreprise, en plus l’extrait RCCM et l’attestation NCC (statuts facultatifs).\n3. **Vérification** : dès que tous les éléments sont fournis (`completion.complete`), le profil passe en `soumis` et une demande de vérification est créée pour le Back office. `verification.state` donne l’état à afficher : « À compléter », « En vérification », « Vérifié », « À corriger ». Modifier un élément vérifié renvoie le profil en vérification.\n\n## Espace promoteur : chantiers et réservations\n\n1. **Chantier** (« Nouveau chantier ») : brouillon enregistré dès le titre, complété en plusieurs fois (localisation GPS, dates, photo, documents, responsable).\n2. **Besoins** : offre **journalière** (effectif et tarif proposé par métier, ouvriers choisis dans le catalogue) ou **contractuelle** (forfait, mode de paiement du solde).\n3. **Publication** : l’offre et ses besoins sont transmis au **Back office**, qui les contrôle puis lance le **matching**.\n4. **Proposition d’équipe** : le promoteur l’accepte (les ouvriers sont bloqués le temps de payer l’acompte) ou la refuse avec un motif (la recherche reprend). Une proposition partielle laisse la recherche continuer pour les ouvriers manquants.\n\n5. **Paiement** : l’acompte (X = 30 % du total, commission O’CHANTIER Y = 8 % comprise) confirme l’équipe ; une mission est créée par métier avec une échéance par semaine. Les frais de l’opérateur Mobile Money s’ajoutent ; un reçu PDF est émis. Hors production, le paiement est simulé (un numéro finissant par `0000` échoue).\n\nEn local, sans Back office, `php artisan ochantier:simulate-matching` joue le contrôle et le matching des offres publiées. Lors de l’exécution de la collection, « Accepter la proposition », « Refuser la proposition » et les paiements sont sautés s’il n’y a pas de proposition : lancez la commande après « Nouvelle réservation », puis exécutez le dossier « Réservations ».\n\n## Espace promoteur : abonnement, équipe et notifications\n\n1. **Abonnement** : formule Solo gratuite (propriétaire seul) ; formules Équipe, Pro et Entreprise payées chaque mois par Mobile Money. Elles ouvrent les collaborateurs, le paiement flexible (2 ou 3 versements), le rapport de fin de chantier et l’activité des utilisateurs.\n2. **Équipe** : le compte est celui du propriétaire ; chaque collaborateur y agit selon son rôle (voir le dossier « Équipe et activité »).\n3. **Notifications** : centre in-app, push et SMS selon les préférences ; rappels quotidiens.\n\nEn local : `php artisan ochantier:simulate-site-end <chantier>` simule la clôture d’un chantier (évaluations, rapport), `php artisan ochantier:renew-subscriptions` et `php artisan ochantier:promoter-reminders` jouent les tâches planifiées.\n\n## Espace commercial : prospects et dossiers\n\nRéservé aux commerciaux dont le contrat est actif (**403** sinon) ; chaque commercial ne voit que ses propres prospects.\n\n1. **Prospect** (« Nouveau prospect ») : le contact du futur ouvrier (nom, téléphone, commune, métier pressenti), avec son accord d’être contacté.\n2. **Dossier** : dès qu’une information du dossier (naissance, coût journalier, contact d’urgence…) ou une pièce est saisie, un ouvrier **brouillon** lié au prospect est créé (référence `OUV-000123`). Il se complète en plusieurs fois.\n3. **Avancement** : 12 éléments comme dans la maquette (`completion`), badge « Prêt à soumettre » (`stage` = `pret`) quand tous les éléments obligatoires sont présents.\n4. **Soumission** au Back office : l’ouvrier passe en `soumis`, le prospect en `converti` ; le dossier n’est plus modifiable depuis l’application.\n5. **Décision** du Back office : dossier validé (commission confirmée), à corriger (le dossier redevient modifiable, puis il est renvoyé) ou refusé (commission annulée).\n6. **Gains** : commission par ouvrier validé, versée par le Back office ; objectif mensuel et classement des commerciaux.\n\nUn prospect peut aussi être **archivé** avec un motif : son dossier brouillon est retiré et son numéro libéré.\n\nEn local : `php artisan ochantier:simulate-worker-review`, `ochantier:simulate-commercial-payout` et `ochantier:simulate-commercial-objective` simulent le Back office (refusées en production) ; `php artisan ochantier:commercial-reminders` joue les rappels quotidiens.\n\n## Limites de débit\n\n| Requêtes | Limite |\n|---|---|\n| Envoi de code (inscription, connexion promoteur, mot de passe oublié, changement de numéro) | 3 par minute par destinataire, 10 par heure par adresse IP |\n| Mot de passe du commercial | 10 par minute par numéro, 20 par minute par IP |\n| Vérification d’un code | 10 par minute |\n| Rafraîchissement | 30 par minute |\n| Autres requêtes authentifiées | 120 par minute par compte |\n\n## Comptes de démonstration (`php artisan db:seed`, hors production)\n\n| Application | Identifiant | Mot de passe |\n|---|---|---|\n| Promoteur particulier | `0700000001` | — |\n| Promoteur entreprise | `0700000002` ou `promoteur@demo.ochantier.ci` | — |\n| Commercial | `0500000001` | `motdepasse1` |\n| Commercial à activer (mot de passe provisoire) | `0500000002` | `provisoire1` |\n",
+    "description": "API REST des applications mobiles **Promoteur** et **Commercial** d’O’CHANTIER (l’application Ouvrier arrive en V2). Cette version couvre l’**authentification**, les **référentiels**, le **centre d’aide**, pour l’application Promoteur le **profil et la vérification du compte**, les **chantiers**, leurs **besoins et leur publication**, les **réservations** (propositions d’équipe), les **paiements** Mobile Money, le **suivi de chantier** (équipe, pointage, chronologie, remplacements), les **évaluations et le bilan** (factures, rapport de fin de chantier), l’**abonnement** et le **paiement flexible**, l’**équipe** (utilisateurs, rôles, activité), l’**accueil**, les **notifications** et le **parrainage**, et pour l’application Commercial les **prospects et dossiers ouvriers**, les **ouvriers transmis** et leurs corrections, les **gains**, l’**accueil**, les **objectifs et le classement**, le **profil** et les **notifications**.\n\n## Démarrage rapide\n\n1. Lancer l’API : `docker compose up -d`, `php artisan migrate:fresh --seed`, `php artisan serve`.\n2. Importer cette collection et l’environnement **O’CHANTIER · Local**.\n3. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : chaque connexion enregistre les jetons dans les variables de la collection, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/ochantier-api.postman_collection.json -e docs/postman/ochantier-local.postman_environment.json --working-dir docs/postman`\n   (`--working-dir` permet de trouver les images d’exemple de `docs/postman/fixtures` envoyées comme pièces).\n\nLa collection est rejouable : elle tire au hasard les nouveaux numéros et remet le mot de passe du commercial de démonstration. Entre deux exécutions, attendre **45 secondes**, le délai avant de pouvoir redemander un code au même destinataire.\n\nLes exemples de réponse de chaque requête ont été capturés sur l’API locale avec les données de démonstration.\n\n## Conventions\n\n- **Base** : `{{base_url}}` = `http://localhost:8000/api/v1`.\n- **En-têtes** : `Accept: application/json` sur toutes les requêtes ; `Content-Type: application/json` pour les corps.\n- **Téléphone** : toujours envoyé en deux champs, `dial_code` (indicatif du pays sans `+`, ex. `225`) et `phone_number` (numéro national, ex. `0700000002` ; 10 chiffres pour la Côte d’Ivoire, espaces, points et tirets acceptés). Seuls les indicatifs des pays ouverts sont acceptés (aujourd’hui `225`). Les réponses renvoient `dial_code`, `phone_number` et `phone` formaté pour l’affichage (`+225 07 00 00 00 02`). En base, le numéro est enregistré dans ces deux colonnes ; la colonne `phone` (E.164, `+2250700000002`) en est déduite.\n- **Statuts et types** : objets `{ \"value\": \"actif\", \"label\": \"Actif\" }`. L’application se fie à `value` et affiche `label`.\n- **Dates** : ISO 8601 en UTC (`2026-10-18T13:06:23+00:00`).\n- **Messages** : en français, prêts à être affichés.\n- **Réponses de succès** : toujours `{ \"message\": …, \"data\": …, \"meta\": … }`. `message` est le texte à afficher, `null` quand il n’y a rien à afficher ; `data` porte le contenu (`null` pour une action sans contenu, comme une suppression) ; `meta`, facultatif, les informations annexes (pagination avec `links`, `event_id`, `document_id`, `lock_version`…). L’API ne renvoie pas de **204**.\n- **Envoi de fichiers** : `multipart/form-data` directement vers l’API. Les fichiers sont ensuite consultables par un lien `url` signé, valable 30 minutes, sans jeton.\n- **Hors ligne** : `client_uuid` (généré par l’application) rend une création rejouable sans doublon ; `lock_version` (renvoyé dans chaque réponse) refuse une modification faite entre-temps sur un autre appareil (**409**).\n\n## Authentification\n\n| Application | Inscription | Connexion |\n|---|---|---|\n| Promoteur | Libre, sans mot de passe : code d’activation par SMS ou e-mail | Code à 6 chiffres par SMS ou e-mail |\n| Commercial | Compte créé par le Back Office, avec un mot de passe provisoire | Mot de passe, puis code à 6 chiffres par SMS |\n\n**Jetons**\n- `access_token` : JWT signé (HS256), valable **15 minutes**, envoyé dans `Authorization: Bearer <jeton>`.\n- `refresh_token` : chaîne opaque de 64 caractères, valable **30 jours**, **à usage unique**. `POST /auth/refresh` renvoie une nouvelle paire ; l’ancien jeton devient invalide.\n- Chaque connexion ouvre une **session** par appareil (`session_id`), visible dans « Appareils connectés » et révocable.\n\nSur un **401** : rafraîchir les jetons une fois, puis renvoyer à l’écran de connexion si le rafraîchissement échoue aussi.\n\n**Codes à usage unique (OTP)** : 6 chiffres par défaut (`OTP_LENGTH`, de 4 à 10 ; la longueur en vigueur est renvoyée dans `code_length` à chaque envoi de code), valables 5 minutes, 5 essais par code, nouveau code possible après 45 secondes. Hors production, le code fixe `OTP_TEST_CODE` (`123456` en local) est accepté. Les SMS et e-mails sont écrits dans `storage/logs/laravel.log`.\n\n**Mot de passe provisoire** (commercial) : tant que `user.must_change_password` vaut `true`, seules `GET /me`, `POST /auth/logout` et `PUT /auth/password` répondent ; les autres routes renvoient **403** avec `\"code\": \"password_change_required\"`.\n\n## Réponses d’erreur\n\n| Code | Cas | Corps |\n|---|---|---|\n| 401 | Jeton absent, expiré ou session fermée | `{ \"message\": \"Session expirée : reconnectez-vous.\" }` |\n| 403 | Compte suspendu ou désactivé, route d’une autre application, mot de passe provisoire à changer | `{ \"message\": \"…\" }` (+ `code` pour `password_change_required`) |\n| 404 | Ressource introuvable ou n’appartenant pas au compte | `{ \"message\": \"Élément introuvable.\" }` |\n| 409 | Modifié entre-temps sur un autre appareil (`lock_version`) | `{ \"message\": \"…\" }` |\n| 422 | Champs invalides, code faux ou expiré | `{ \"message\": \"…\", \"errors\": { \"champ\": [\"…\"] } }` |\n| 423 | Commercial verrouillé après 5 mauvais mots de passe (15 min) | `{ \"message\": \"…\", \"locked_until\": \"…\" }` |\n| 429 | Nouveau code demandé trop tôt, ou trop de requêtes | `{ \"message\": \"…\", \"retry_after\": 45 }` + en-tête `Retry-After` |\n\n## Espace promoteur : profil et vérification\n\nRéservé aux promoteurs (**403** pour un commercial).\n\n1. **Profil** (« Modifier le profil ») : identité, adresse et, pour une entreprise, raison sociale, RCCM, NCC et siège social géolocalisé.\n2. **Pièces justificatives** : pièce d’identité (CNI, passeport ou permis) et certificat de résidence ; pour une entreprise, en plus l’extrait RCCM et l’attestation NCC (statuts facultatifs).\n3. **Vérification** : dès que tous les éléments sont fournis (`completion.complete`), le profil passe en `soumis` et une demande de vérification est créée pour le Back office. `verification.state` donne l’état à afficher : « À compléter », « En vérification », « Vérifié », « À corriger ». Modifier un élément vérifié renvoie le profil en vérification.\n\n## Espace promoteur : chantiers et réservations\n\n1. **Chantier** (« Nouveau chantier ») : brouillon enregistré dès le titre, complété en plusieurs fois (localisation GPS, dates, photo, documents, responsable).\n2. **Besoins** : offre **journalière** (effectif et tarif proposé par métier, ouvriers choisis dans le catalogue) ou **contractuelle** (forfait, mode de paiement du solde).\n3. **Publication** : l’offre et ses besoins sont transmis au **Back office**, qui les contrôle puis lance le **matching**.\n4. **Proposition d’équipe** : le promoteur l’accepte (les ouvriers sont bloqués le temps de payer l’acompte) ou la refuse avec un motif (la recherche reprend). Une proposition partielle laisse la recherche continuer pour les ouvriers manquants.\n\n5. **Paiement** : l’acompte (X = 30 % du total, commission O’CHANTIER Y = 8 % comprise) confirme l’équipe ; une mission est créée par métier avec une échéance par semaine. Les frais de l’opérateur Mobile Money s’ajoutent ; un reçu PDF est émis. Hors production, le paiement est simulé (un numéro finissant par `0000` échoue).\n\nEn local, sans Back office, `php artisan ochantier:simulate-matching` joue le contrôle et le matching des offres publiées. Lors de l’exécution de la collection, « Accepter la proposition », « Refuser la proposition » et les paiements sont sautés s’il n’y a pas de proposition : lancez la commande après « Nouvelle réservation », puis exécutez le dossier « Réservations ».\n\n## Espace promoteur : abonnement, équipe et notifications\n\n1. **Abonnement** : formule Solo gratuite (propriétaire seul) ; formules Équipe, Pro et Entreprise payées chaque mois par Mobile Money. Elles ouvrent les collaborateurs, le paiement flexible (2 ou 3 versements), le rapport de fin de chantier et l’activité des utilisateurs.\n2. **Équipe** : le compte est celui du propriétaire ; chaque collaborateur y agit selon son rôle (voir le dossier « Équipe et activité »).\n3. **Notifications** : centre in-app, push et SMS selon les préférences ; rappels quotidiens.\n\nEn local : `php artisan ochantier:simulate-site-end <chantier>` simule la clôture d’un chantier (évaluations, rapport), `php artisan ochantier:renew-subscriptions` et `php artisan ochantier:promoter-reminders` jouent les tâches planifiées.\n\n## Espace commercial : prospects et dossiers\n\nRéservé aux commerciaux dont le contrat est actif (**403** sinon) ; chaque commercial ne voit que ses propres prospects.\n\n1. **Prospect** (« Nouveau prospect ») : le contact du futur ouvrier (nom, téléphone, commune, métier pressenti), avec son accord d’être contacté.\n2. **Dossier** : dès qu’une information du dossier (naissance, coût journalier, contact d’urgence…) ou une pièce est saisie, un ouvrier **brouillon** lié au prospect est créé (référence `OUV-000123`). Il se complète en plusieurs fois.\n3. **Avancement** : 12 éléments comme dans la maquette (`completion`), badge « Prêt à soumettre » (`stage` = `pret`) quand tous les éléments obligatoires sont présents.\n4. **Soumission** au Back office : l’ouvrier passe en `soumis`, le prospect en `converti` ; le dossier n’est plus modifiable depuis l’application.\n5. **Décision** du Back office : dossier validé (commission confirmée), à corriger (le dossier redevient modifiable, puis il est renvoyé) ou refusé (commission annulée).\n6. **Gains** : commission par ouvrier validé, versée par le Back office ; objectif mensuel et classement des commerciaux.\n\nUn prospect peut aussi être **archivé** avec un motif : son dossier brouillon est retiré et son numéro libéré.\n\nEn local : `php artisan ochantier:simulate-worker-review`, `ochantier:simulate-commercial-payout` et `ochantier:simulate-commercial-objective` simulent le Back office (refusées en production) ; `php artisan ochantier:commercial-reminders` joue les rappels quotidiens.\n\n## Back Office\n\nLe Back Office se connecte par **e-mail et mot de passe**, puis **code à 6 chiffres envoyé par e-mail** (dossier « Back Office »). Ses jetons (`typ: admin`) sont refusés par les routes mobiles, et inversement.\n\n| Règle | Valeur (config `auth.admin`) |\n|---|---|\n| Verrouillage | 5 mots de passe erronés → 15 min |\n| Mot de passe | 12 caractères min., majuscule, minuscule, chiffre, symbole |\n| Inactivité | Session fermée après 30 min |\n| Durée maximale d’une session | 12 h, même avec rafraîchissement |\n| Sessions simultanées | 2 ; la plus ancienne est fermée |\n| Lien « Mot de passe oublié » | 30 min |\n| Restriction IP (`ADMIN_IP_RESTRICTION`) | `off`, `alert` (par défaut, connexion signalée au journal d’audit) ou `block` ; sans effet tant que la liste blanche est vide |\n\nLe serveur du Back Office relaie l’adresse IP de l’administrateur dans `X-Forwarded-For` ; renseignez son adresse dans `TRUSTED_PROXIES`.\n\n## Limites de débit\n\n| Requêtes | Limite |\n|---|---|\n| Envoi de code (inscription, connexion promoteur, mot de passe oublié, changement de numéro) | 3 par minute par destinataire, 10 par heure par adresse IP |\n| Mot de passe du commercial | 10 par minute par numéro, 20 par minute par IP |\n| Vérification d’un code | 10 par minute |\n| Connexion, renvoi du code et mot de passe oublié du Back Office | 10 par minute par e-mail, 20 par minute par IP |\n| Rafraîchissement | 30 par minute |\n| Autres requêtes authentifiées | 120 par minute par compte |\n\n## Comptes de démonstration (`php artisan db:seed`, hors production)\n\n| Application | Identifiant | Mot de passe |\n|---|---|---|\n| Promoteur particulier | `0700000001` | — |\n| Promoteur entreprise | `0700000002` ou `promoteur@demo.ochantier.ci` | — |\n| Commercial | `0500000001` | `motdepasse1` |\n| Commercial à activer (mot de passe provisoire) | `0500000002` | `provisoire1` |\n| Back Office · Opérations | `a.kone@ochantier.ci` | `motdepasse1` |\n| Back Office · Finance, Support, Direction | `m.diabate@`, `s.tanoh@`, `n.yao@ochantier.ci` | `motdepasse1` |\n| Back Office · compte suspendu | `y.gbagbo@ochantier.ci` | `motdepasse1` |\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -20429,6 +20429,1333 @@
         }
       ],
       "description": "Application Commercial : compte créé par le Back Office, connexion par **mot de passe puis code SMS**."
+    },
+    {
+      "id": "7fc975ef-3bb9-5505-9cfb-47dd2d9f241e",
+      "name": "Back Office",
+      "description": "API du Back Office O’CHANTIER ADMIN (préfixe `/admin`), appelée par le serveur du Back Office qui conserve les jetons en session. Les jetons admin (`admin_access_token`) sont distincts de ceux des applications mobiles.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{admin_access_token}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "id": "70086c7b-438a-5ab7-a6d4-a6fe84419116",
+          "name": "Connexion",
+          "item": [
+            {
+              "id": "2f6da80d-4539-56e4-95bd-4a961023e309",
+              "name": "Se connecter (e-mail et mot de passe)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/admin/auth/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "auth",
+                    "login"
+                  ]
+                },
+                "description": "Première étape de la connexion au Back Office : vérifie le mot de passe puis envoie un **code à 6 chiffres par e-mail** (« Vérification en deux étapes »).\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `email` | oui | E-mail professionnel (casse et espaces ignorés). |\n| `password` | oui | Mot de passe, 128 caractères max. |\n\n**Refus** :\n- **422** `password` : « E-mail ou mot de passe incorrect. » (même réponse pour une adresse inconnue).\n- **423** `code: account_locked` : 5 mots de passe erronés verrouillent le compte 15 min (`locked_until`).\n- **403** `code: account_unavailable` : compte suspendu, désactivé, invité non activé ou accès temporaire expiré (message à afficher). Le motif n’est donné qu’après un mot de passe correct.\n- **403** `code: ip_not_allowed` : adresse IP hors liste blanche, en mode blocage.\n- **429** : nouveau code demandé moins de 45 s après le précédent (`retry_after`).\n\nSi aucun code n’est exigé (politique facultative et compte sans double authentification), la réponse est directement celle de « Vérifier le code » (200).",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": [
+                {
+                  "id": "4802497a-431d-54ae-a1c1-02aeb53f0a2e",
+                  "name": "202 · Code envoyé",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/admin/auth/login",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "auth",
+                        "login"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"email\": \"a.kone@ochantier.ci\",\n  \"password\": \"motdepasse1\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Accepted",
+                  "code": 202,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Code de vérification envoyé par e-mail.\",\n  \"data\": {\n    \"mfa_required\": true,\n    \"channel\": \"email\",\n    \"destination\": \"a•••@ochantier.ci\",\n    \"expires_in\": 300,\n    \"resend_in\": 45,\n    \"code_length\": 6\n  }\n}"
+                },
+                {
+                  "id": "6610bcd1-db48-55e0-9377-a9a8da4e177a",
+                  "name": "422 · Identifiants incorrects",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/admin/auth/login",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "auth",
+                        "login"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"email\": \"a.kone@ochantier.ci\",\n  \"password\": \"mauvais\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"E-mail ou mot de passe incorrect.\",\n  \"errors\": {\n    \"password\": [\n      \"E-mail ou mot de passe incorrect.\"\n    ]\n  }\n}"
+                },
+                {
+                  "id": "fa9c0968-d88e-55d5-ba55-bd8aeb411f07",
+                  "name": "423 · Compte verrouillé",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/admin/auth/login",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "auth",
+                        "login"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"email\": \"a.kone@ochantier.ci\",\n  \"password\": \"mauvais\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Locked",
+                  "code": 423,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Trop de tentatives. Réessayez à 09:12.\",\n  \"code\": \"account_locked\",\n  \"locked_until\": \"2026-10-29T09:12:00+00:00\"\n}"
+                },
+                {
+                  "id": "d017e022-7896-5709-9857-f53dbb48494f",
+                  "name": "403 · Compte suspendu",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/admin/auth/login",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "auth",
+                        "login"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"email\": \"y.gbagbo@ochantier.ci\",\n  \"password\": \"motdepasse1\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Forbidden",
+                  "code": 403,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Votre compte est suspendu. Contactez un super administrateur.\",\n  \"code\": \"account_unavailable\"\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 202', () => pm.response.to.have.status(202));",
+                      "pm.test('Code envoyé', () => pm.expect(pm.response.json().data.mfa_required).to.eql(true));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "3afd1241-b60b-5318-a830-2d71a2b85258",
+              "name": "Vérifier le code",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/admin/auth/login/verify",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "auth",
+                    "login",
+                    "verify"
+                  ]
+                },
+                "description": "Vérifie le code reçu par e-mail et ouvre la session (« Vérifier et continuer »). Un code est valable 5 min, utilisable une fois, 5 essais au plus. Un code de connexion des applications mobiles envoyé à la même adresse n’est pas accepté.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `email` | oui | E-mail saisi à l’étape précédente. |\n| `code` | oui | 6 chiffres. |\n| `device_name` | non | Navigateur affiché dans les sessions ouvertes, 120 caractères max (par défaut « Navigateur »). |\n| `device_id` | non | Identifiant stable du navigateur, 100 caractères max. |\n\n**Réponse** (`data`) : `token_type`, `access_token` (JWT de type admin, 15 min), `expires_in`, `refresh_token` (usage unique), `refresh_expires_at` (fin de la session, 12 h après la connexion), `session_id` et `admin` (identité, rôles, `permissions` : codes `module.action` pour afficher les modules et les actions).\n\nSi `admin.must_change_password` vaut `true`, seuls `GET /admin/me`, `POST /admin/auth/logout` et `PUT /admin/auth/password` sont accessibles ; les autres routes renvoient **403** `code: password_change_required`.\n\nLes jetons admin sont refusés par les routes des applications mobiles, et inversement. Le script de test les enregistre dans `admin_access_token` et `admin_refresh_token`.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"code\": \"{{otp_code}}\",\n  \"device_name\": \"Chrome · macOS\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": [
+                {
+                  "id": "32c75aa3-6cd5-53c2-8879-91f9d04571be",
+                  "name": "200 · Connecté",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/admin/auth/login/verify",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "auth",
+                        "login",
+                        "verify"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"email\": \"a.kone@ochantier.ci\",\n  \"code\": \"123456\",\n  \"device_name\": \"Chrome · macOS\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"token_type\": \"Bearer\",\n    \"access_token\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0eXAiOiJhZG1pbiIsImFwcCI6ImJhY2tvZmZpY2UifQ.signature\",\n    \"expires_in\": 900,\n    \"refresh_token\": \"Q2xhdWRlUmVmcmVzaFRva2VuRXhhbXBsZTAxMjM0NTY3ODlhYmNkZWZnaGlqa2xtbm8\",\n    \"refresh_expires_at\": \"2026-10-29T20:57:12+00:00\",\n    \"session_id\": \"0b6e4d2a-5c1f-4e8b-9a7d-2f3e4a5b6c7d\",\n    \"admin\": {\n      \"id\": \"9f3c2a1e-7b4d-4c8e-a1f2-3d4e5f6a7b8c\",\n      \"first_name\": \"Abdoulaye\",\n      \"last_name\": \"Koné\",\n      \"full_name\": \"Abdoulaye Koné\",\n      \"email\": \"a.kone@ochantier.ci\",\n      \"phone\": null,\n      \"department\": \"operations\",\n      \"status\": {\n        \"value\": \"actif\",\n        \"label\": \"Actif\"\n      },\n      \"mfa_enabled\": true,\n      \"must_change_password\": false,\n      \"last_login_at\": \"2026-10-29T08:57:12+00:00\",\n      \"access_expires_at\": null,\n      \"roles\": [\n        {\n          \"code\": \"operations\",\n          \"label\": \"Opérations\"\n        }\n      ],\n      \"permissions\": [\n        \"attendance.export\",\n        \"attendance.read\",\n        \"attendance.update\",\n        \"attendance.validate\",\n        \"dashboard.read\",\n        \"workers.read\",\n        \"workers.validate\",\n        \"…\"\n      ]\n    }\n  }\n}"
+                },
+                {
+                  "id": "ad46a9fa-e57e-517d-89a3-379583ff6bc4",
+                  "name": "422 · Code incorrect",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/admin/auth/login/verify",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "auth",
+                        "login",
+                        "verify"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"email\": \"a.kone@ochantier.ci\",\n  \"code\": \"000000\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Code incorrect ou expiré.\",\n  \"errors\": {\n    \"code\": [\n      \"Code incorrect ou expiré.\"\n    ]\n  }\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Session ouverte', () => pm.expect(body.data.access_token).to.be.a('string'));",
+                      "if (pm.collectionVariables.get('admin_session_id') !== body.data.session_id) pm.collectionVariables.set('admin_previous_session_id', pm.collectionVariables.get('admin_session_id') || '');",
+                      "pm.collectionVariables.set('admin_access_token', body.data.access_token);",
+                      "pm.collectionVariables.set('admin_refresh_token', body.data.refresh_token);",
+                      "pm.collectionVariables.set('admin_session_id', body.data.session_id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "df5c7e89-da3c-570d-a310-01acc8f0b359",
+              "name": "Renvoyer le code",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/admin/auth/login/resend",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "auth",
+                    "login",
+                    "resend"
+                  ]
+                },
+                "description": "« Renvoyer le code » : possible seulement dans les 15 min qui suivent un mot de passe vérifié, et 45 s après le dernier envoi (**429** sinon). Le code précédent n’est plus valable.\n\nSans connexion récente : **422** `email` « Reconnectez-vous avec votre mot de passe pour recevoir un nouveau code. »",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{admin_email}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": [
+                {
+                  "id": "c5ec9f8b-5761-587e-a8c0-395434c1f6b7",
+                  "name": "202 · Code renvoyé",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/admin/auth/login/resend",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "auth",
+                        "login",
+                        "resend"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"email\": \"a.kone@ochantier.ci\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Accepted",
+                  "code": 202,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Un nouveau code vous a été envoyé.\",\n  \"data\": {\n    \"mfa_required\": true,\n    \"channel\": \"email\",\n    \"destination\": \"a•••@ochantier.ci\",\n    \"expires_in\": 300,\n    \"resend_in\": 45,\n    \"code_length\": 6\n  }\n}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "ae25e3cc-e1bb-56fe-86e9-ac863848bce3",
+          "name": "Mot de passe oublié",
+          "item": [
+            {
+              "id": "3eecf1b7-f34e-558c-9aaa-fd315c933192",
+              "name": "Mot de passe oublié",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/admin/auth/password/forgot",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "auth",
+                    "password",
+                    "forgot"
+                  ]
+                },
+                "description": "Envoie par e-mail un **lien de réinitialisation valable 30 min** si un compte actif correspond ; la réponse est la même sinon. Le lien ouvre la page du Back Office (`ADMIN_PASSWORD_RESET_URL`) avec `token` et `email` en paramètres. Une nouvelle demande invalide le lien précédent.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{admin_email}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": [
+                {
+                  "id": "89376617-e03d-597d-a321-9c0fa6c0b030",
+                  "name": "202 · Demande enregistrée",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/admin/auth/password/forgot",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "auth",
+                        "password",
+                        "forgot"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"email\": \"a.kone@ochantier.ci\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Accepted",
+                  "code": 202,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Si un compte est associé à cette adresse, un lien de réinitialisation vient de lui être envoyé.\",\n  \"data\": {\n    \"expires_in\": 1800\n  }\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 202', () => pm.response.to.have.status(202));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "97a55759-c9e0-55a9-b9e3-ead257f58192",
+              "name": "Réinitialiser le mot de passe",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/admin/auth/password/reset",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "auth",
+                    "password",
+                    "reset"
+                  ]
+                },
+                "description": "Nouveau mot de passe choisi depuis le lien. Toutes les sessions du compte sont fermées et le verrouillage est levé.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `email` | oui | Paramètre `email` du lien. |\n| `token` | oui | Paramètre `token` du lien (64 caractères). |\n| `password` | oui | 12 caractères minimum, avec majuscule, minuscule, chiffre et symbole. |\n| `password_confirmation` | oui | Même valeur. |\n\nLien expiré ou déjà utilisé : **422** `token`.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"token\": \"{{admin_reset_token}}\",\n  \"password\": \"{{admin_new_password}}\",\n  \"password_confirmation\": \"{{admin_new_password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": [
+                {
+                  "id": "0a41a272-8021-54b3-9599-4087411d34d4",
+                  "name": "200 · Mot de passe mis à jour",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/admin/auth/password/reset",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "auth",
+                        "password",
+                        "reset"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"email\": \"a.kone@ochantier.ci\",\n  \"token\": \"…\",\n  \"password\": \"Nouveau#Secret26\",\n  \"password_confirmation\": \"Nouveau#Secret26\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Mot de passe mis à jour. Connectez-vous avec votre nouveau mot de passe.\",\n  \"data\": null\n}"
+                },
+                {
+                  "id": "8c9f6c4d-a41d-5200-bfda-ad0ba9082d78",
+                  "name": "422 · Lien expiré",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/admin/auth/password/reset",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "auth",
+                        "password",
+                        "reset"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"email\": \"a.kone@ochantier.ci\",\n  \"token\": \"…\",\n  \"password\": \"Nouveau#Secret26\",\n  \"password_confirmation\": \"Nouveau#Secret26\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Ce lien a expiré ou a déjà été utilisé. Faites une nouvelle demande.\",\n  \"errors\": {\n    \"token\": [\n      \"Ce lien a expiré ou a déjà été utilisé. Faites une nouvelle demande.\"\n    ]\n  }\n}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "06d495bc-bd88-52d1-a783-406e5519948e",
+          "name": "Compte et sessions",
+          "item": [
+            {
+              "id": "86a38e4d-c627-536e-84ae-7c47b1b89a82",
+              "name": "Administrateur connecté",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/admin/me",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "me"
+                  ]
+                },
+                "description": "Identité, état du compte, rôles et `permissions` (codes `module.action`, ex. `workers.validate`). Les routes métier du Back Office exigent l’une de ces permissions : **403** `code: permission_denied` sinon."
+              },
+              "response": [
+                {
+                  "id": "5f085ad5-a839-5a38-bb99-d43090ee2d8c",
+                  "name": "200 · Compte",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/admin/me",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "me"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"id\": \"9f3c2a1e-7b4d-4c8e-a1f2-3d4e5f6a7b8c\",\n    \"first_name\": \"Abdoulaye\",\n    \"last_name\": \"Koné\",\n    \"full_name\": \"Abdoulaye Koné\",\n    \"email\": \"a.kone@ochantier.ci\",\n    \"phone\": null,\n    \"department\": \"operations\",\n    \"status\": {\n      \"value\": \"actif\",\n      \"label\": \"Actif\"\n    },\n    \"mfa_enabled\": true,\n    \"must_change_password\": false,\n    \"last_login_at\": \"2026-10-29T08:57:12+00:00\",\n    \"access_expires_at\": null,\n    \"roles\": [\n      {\n        \"code\": \"operations\",\n        \"label\": \"Opérations\"\n      }\n    ],\n    \"permissions\": [\n      \"attendance.export\",\n      \"attendance.read\",\n      \"attendance.update\",\n      \"attendance.validate\",\n      \"dashboard.read\",\n      \"workers.read\",\n      \"workers.validate\",\n      \"…\"\n    ]\n  }\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "cfffbcff-00b3-5416-aad7-26cfde31a908",
+              "name": "Rafraîchir les jetons",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/admin/auth/refresh",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "auth",
+                    "refresh"
+                  ]
+                },
+                "description": "Échange le jeton de rafraîchissement contre une nouvelle paire ; l’ancienne paire n’est plus acceptée. **401** si la session est fermée : déconnexion, **30 min sans activité**, **12 h** après la connexion (le rafraîchissement ne prolonge pas cette échéance), compte suspendu ou mot de passe changé.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh_token\": \"{{admin_refresh_token}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": [
+                {
+                  "id": "b159c643-55c0-596e-bbc2-c6d174ee58f8",
+                  "name": "200 · Jetons renouvelés",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/admin/auth/refresh",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "auth",
+                        "refresh"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"refresh_token\": \"…\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"token_type\": \"Bearer\",\n    \"access_token\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0eXAiOiJhZG1pbiIsImFwcCI6ImJhY2tvZmZpY2UifQ.signature\",\n    \"expires_in\": 900,\n    \"refresh_token\": \"Q2xhdWRlUmVmcmVzaFRva2VuRXhhbXBsZTAxMjM0NTY3ODlhYmNkZWZnaGlqa2xtbm8\",\n    \"refresh_expires_at\": \"2026-10-29T20:57:12+00:00\",\n    \"session_id\": \"0b6e4d2a-5c1f-4e8b-9a7d-2f3e4a5b6c7d\",\n    \"admin\": {\n      \"id\": \"9f3c2a1e-7b4d-4c8e-a1f2-3d4e5f6a7b8c\",\n      \"first_name\": \"Abdoulaye\",\n      \"last_name\": \"Koné\",\n      \"full_name\": \"Abdoulaye Koné\",\n      \"email\": \"a.kone@ochantier.ci\",\n      \"phone\": null,\n      \"department\": \"operations\",\n      \"status\": {\n        \"value\": \"actif\",\n        \"label\": \"Actif\"\n      },\n      \"mfa_enabled\": true,\n      \"must_change_password\": false,\n      \"last_login_at\": \"2026-10-29T08:57:12+00:00\",\n      \"access_expires_at\": null,\n      \"roles\": [\n        {\n          \"code\": \"operations\",\n          \"label\": \"Opérations\"\n        }\n      ],\n      \"permissions\": [\n        \"attendance.export\",\n        \"attendance.read\",\n        \"attendance.update\",\n        \"attendance.validate\",\n        \"dashboard.read\",\n        \"workers.read\",\n        \"workers.validate\",\n        \"…\"\n      ]\n    }\n  }\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Session ouverte', () => pm.expect(body.data.access_token).to.be.a('string'));",
+                      "if (pm.collectionVariables.get('admin_session_id') !== body.data.session_id) pm.collectionVariables.set('admin_previous_session_id', pm.collectionVariables.get('admin_session_id') || '');",
+                      "pm.collectionVariables.set('admin_access_token', body.data.access_token);",
+                      "pm.collectionVariables.set('admin_refresh_token', body.data.refresh_token);",
+                      "pm.collectionVariables.set('admin_session_id', body.data.session_id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "51086367-312f-5afc-bba5-7b7be4d10213",
+              "name": "Sessions ouvertes",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/admin/auth/sessions",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "auth",
+                    "sessions"
+                  ]
+                },
+                "description": "Sessions actives du compte, de la plus récemment active à la plus ancienne ; `current` désigne celle de la requête. Au plus **2 sessions simultanées** : à la connexion suivante, la plus ancienne est fermée."
+              },
+              "response": [
+                {
+                  "id": "5d40ad05-acb7-57f7-a20f-7ecce4922e27",
+                  "name": "200 · Sessions",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/admin/auth/sessions",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "auth",
+                        "sessions"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"data\": [\n    {\n      \"id\": \"0b6e4d2a-5c1f-4e8b-9a7d-2f3e4a5b6c7d\",\n      \"device_name\": \"Chrome · macOS\",\n      \"platform\": \"web\",\n      \"app_version\": null,\n      \"current\": true,\n      \"last_activity_at\": \"2026-10-29T09:20:03+00:00\",\n      \"created_at\": \"2026-10-29T08:57:12+00:00\"\n    },\n    {\n      \"id\": \"5d1a7c3e-2b4f-4a6d-8e9c-1f2a3b4c5d6e\",\n      \"device_name\": \"Firefox · Windows\",\n      \"platform\": \"web\",\n      \"app_version\": null,\n      \"current\": false,\n      \"last_activity_at\": \"2026-10-28T17:42:51+00:00\",\n      \"created_at\": \"2026-10-28T14:05:30+00:00\"\n    }\n  ]\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "5fa8596d-d81a-59f9-a62a-61f99161ea10",
+              "name": "Fermer une session",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/admin/auth/sessions/{{admin_previous_session_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "auth",
+                    "sessions",
+                    "{{admin_previous_session_id}}"
+                  ]
+                },
+                "description": "Ferme une autre session du compte (inscrit au journal d’audit). **404** pour une session d’un autre compte. Dans la collection, `admin_previous_session_id` est la session ouverte avant la dernière connexion : lancez « Vérifier le code » deux fois."
+              },
+              "response": [
+                {
+                  "id": "6e450374-5128-593e-9091-41ae54e48e7e",
+                  "name": "200 · Session fermée",
+                  "originalRequest": {
+                    "method": "DELETE",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/admin/auth/sessions/{{admin_previous_session_id}}",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "auth",
+                        "sessions",
+                        "{{admin_previous_session_id}}"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Session fermée\",\n  \"data\": null\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "d4e762d9-24a6-5784-bf2b-a8257ca91737",
+              "name": "Changer le mot de passe",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/admin/auth/password",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "auth",
+                    "password"
+                  ]
+                },
+                "description": "Changement du mot de passe, dont le **mot de passe provisoire** (`must_change_password`). Les autres sessions du compte sont fermées.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `current_password` | oui | Mot de passe actuel. |\n| `password` | oui | 12 caractères minimum, avec majuscule, minuscule, chiffre et symbole ; différent de l’actuel. |\n| `password_confirmation` | oui | Même valeur. |\n\n⚠️ Change réellement le mot de passe du compte de démonstration : rejouez ensuite la collection après `php artisan migrate:fresh --seed`.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"current_password\": \"{{admin_password}}\",\n  \"password\": \"{{admin_new_password}}\",\n  \"password_confirmation\": \"{{admin_new_password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "id": "8eafd5df-ff62-50fa-9282-0fe24c7ab726",
+                  "name": "200 · Mot de passe mis à jour",
+                  "originalRequest": {
+                    "method": "PUT",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/admin/auth/password",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "auth",
+                        "password"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"current_password\": \"motdepasse1\",\n  \"password\": \"Nouveau#Secret26\",\n  \"password_confirmation\": \"Nouveau#Secret26\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Mot de passe mis à jour\",\n  \"data\": {\n    \"id\": \"9f3c2a1e-7b4d-4c8e-a1f2-3d4e5f6a7b8c\",\n    \"first_name\": \"Abdoulaye\",\n    \"last_name\": \"Koné\",\n    \"full_name\": \"Abdoulaye Koné\",\n    \"email\": \"a.kone@ochantier.ci\",\n    \"phone\": null,\n    \"department\": \"operations\",\n    \"status\": {\n      \"value\": \"actif\",\n      \"label\": \"Actif\"\n    },\n    \"mfa_enabled\": true,\n    \"must_change_password\": false,\n    \"last_login_at\": \"2026-10-29T08:57:12+00:00\",\n    \"access_expires_at\": null,\n    \"roles\": [\n      {\n        \"code\": \"operations\",\n        \"label\": \"Opérations\"\n      }\n    ],\n    \"permissions\": [\n      \"attendance.export\",\n      \"attendance.read\",\n      \"attendance.update\",\n      \"attendance.validate\",\n      \"dashboard.read\",\n      \"workers.read\",\n      \"workers.validate\",\n      \"…\"\n    ]\n  }\n}"
+                },
+                {
+                  "id": "c02e4773-d8cd-53ee-873b-ed58ed977741",
+                  "name": "422 · Mot de passe trop faible",
+                  "originalRequest": {
+                    "method": "PUT",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/admin/auth/password",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "auth",
+                        "password"
+                      ]
+                    },
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"current_password\": \"motdepasse1\",\n  \"password\": \"Motdepasse12\",\n  \"password_confirmation\": \"Motdepasse12\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Le mot de passe doit contenir au moins un symbole.\",\n  \"errors\": {\n    \"password\": [\n      \"Le mot de passe doit contenir au moins un symbole.\"\n    ]\n  }\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('admin_password', pm.collectionVariables.get('admin_new_password'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "4dd8443f-9f66-5971-a031-fc18973d5271",
+              "name": "Se déconnecter",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/admin/auth/logout",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "auth",
+                    "logout"
+                  ]
+                },
+                "description": "Ferme la session courante (inscrit au journal d’audit)."
+              },
+              "response": [
+                {
+                  "id": "ec74371e-d4ab-56bb-87c1-96404375078d",
+                  "name": "200 · Déconnecté",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/admin/auth/logout",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "admin",
+                        "auth",
+                        "logout"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Vous êtes déconnecté.\",\n  \"data\": null\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
@@ -20877,6 +22204,54 @@
       "value": "",
       "type": "string",
       "description": "Notification du commercial à marquer lue."
+    },
+    {
+      "key": "admin_email",
+      "value": "a.kone@ochantier.ci",
+      "type": "string",
+      "description": "Administrateur de démonstration (rôle Opérations)."
+    },
+    {
+      "key": "admin_password",
+      "value": "motdepasse1",
+      "type": "string",
+      "description": "Mot de passe des administrateurs de démonstration."
+    },
+    {
+      "key": "admin_new_password",
+      "value": "Nouveau#Secret26",
+      "type": "string",
+      "description": "Nouveau mot de passe d’exemple (12 caractères, majuscule, minuscule, chiffre, symbole)."
+    },
+    {
+      "key": "admin_reset_token",
+      "value": "",
+      "type": "string",
+      "description": "Paramètre `token` du lien reçu par e-mail (Mot de passe oublié)."
+    },
+    {
+      "key": "admin_access_token",
+      "value": "",
+      "type": "string",
+      "description": "Renseigné automatiquement à la connexion au Back Office ou au rafraîchissement."
+    },
+    {
+      "key": "admin_refresh_token",
+      "value": "",
+      "type": "string",
+      "description": "Renseigné automatiquement à la connexion au Back Office ou au rafraîchissement."
+    },
+    {
+      "key": "admin_session_id",
+      "value": "",
+      "type": "string",
+      "description": "Session du Back Office renseignée à la connexion."
+    },
+    {
+      "key": "admin_previous_session_id",
+      "value": "",
+      "type": "string",
+      "description": "Session du Back Office ouverte avant la dernière connexion (Fermer une session)."
     }
   ]
 }
