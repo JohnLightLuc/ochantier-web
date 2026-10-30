@@ -1,13 +1,15 @@
 import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 
 type Props =
-    | { step: 'login' }
-    | { step: 'otp'; maskedEmail: string }
+    | { step: 'login'; email: string | null; status: string | null }
+    | { step: 'otp'; maskedEmail: string; resendIn: number; status: string | null }
     | { step: 'forgot' }
-    | { step: 'sent'; sentTo: string };
+    | { step: 'sent'; sentTo: string }
+    | { step: 'reset'; token: string; email: string }
+    | { step: 'change' };
 
 const HERO = 'https://images.unsplash.com/photo-1694521787193-9293daeddbaa?fm=jpg&q=70&w=1600&auto=format&fit=crop';
 
@@ -17,9 +19,11 @@ const FEATURES = [
     { icon: 'groups', label: 'Accès\ncontrôlé' },
 ];
 
-const TITLES = { login: 'Connexion', otp: 'Vérification en deux étapes', forgot: 'Mot de passe oublié', sent: 'Lien envoyé' };
+const TITLES = { login: 'Connexion', otp: 'Vérification en deux étapes', forgot: 'Mot de passe oublié', sent: 'Lien envoyé', reset: 'Nouveau mot de passe', change: 'Nouveau mot de passe' };
 
-/** Authentification : connexion, vérification OTP, mot de passe oublié. */
+const PASSWORD_HINT = 'Au moins 12 caractères, avec une majuscule, une minuscule, un chiffre et un symbole.';
+
+/** Authentification : connexion, vérification OTP, mot de passe oublié, réinitialisation et mot de passe provisoire. */
 export default function Login(props: Props) {
     return (
         <>
@@ -33,10 +37,12 @@ export default function Login(props: Props) {
                     </div>
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'center', padding: 'var(--space-6) 0' }}>
                         <div data-component="AuthCard" style={{ width: '100%', maxWidth: 'var(--auth-card-w)', background: 'var(--c-surface)', border: '1px solid var(--c-line)', borderRadius: 'var(--radius-3xl)', boxShadow: 'var(--shadow-lg)', padding: 'var(--space-12) var(--space-12) var(--space-10)' }}>
-                            {props.step === 'login' && <LoginForm />}
-                            {props.step === 'otp' && <OtpForm maskedEmail={props.maskedEmail} />}
+                            {props.step === 'login' && <LoginForm email={props.email} status={props.status} />}
+                            {props.step === 'otp' && <OtpForm maskedEmail={props.maskedEmail} resendIn={props.resendIn} status={props.status} />}
                             {props.step === 'forgot' && <ForgotForm />}
                             {props.step === 'sent' && <SentNotice email={props.sentTo} />}
+                            {props.step === 'reset' && <ResetForm token={props.token} email={props.email} />}
+                            {props.step === 'change' && <ChangeForm />}
                             <p style={{ margin: 'var(--space-6) 0 0', textAlign: 'center', fontSize: 'var(--fs-base)', color: 'var(--c-muted)' }}>
                                 Besoin d’aide ? <a href="mailto:support@ochantier.ci" style={{ fontWeight: 'var(--fw-semibold)' }}>Contacter le support</a>
                             </p>
@@ -124,6 +130,16 @@ function ErrorAlert({ message }: { message?: string }) {
     );
 }
 
+function StatusAlert({ message }: { message?: string | null }) {
+    if (!message) return null;
+    return (
+        <div role="status" style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', padding: 'var(--space-3) var(--space-4)', marginBottom: 'var(--space-4)', borderRadius: 'var(--radius-lg)', background: 'var(--c-success-bg)', color: 'var(--c-success-fg)', fontSize: 'var(--fs-md)', fontWeight: 'var(--fw-medium)' }}>
+            <Icon name="check_circle" />
+            {message}
+        </div>
+    );
+}
+
 const labelStyle: CSSProperties = { display: 'block', fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-base)', marginBottom: 'var(--space-2)' };
 const inputStyle: CSSProperties = { flex: 1, border: 0, outline: 0, background: 'transparent', fontSize: 'var(--fs-lg)', minWidth: 0 };
 
@@ -131,8 +147,8 @@ function fieldStyle(invalid: boolean, paddingRight = 'var(--space-4)'): CSSPrope
     return { display: 'flex', alignItems: 'center', gap: 'var(--space-2_5)', height: 'var(--control-lg)', padding: `0 ${paddingRight} 0 var(--space-4)`, border: `1.5px solid ${invalid ? 'var(--c-danger)' : 'var(--c-line-strong)'}`, borderRadius: 'var(--radius-lg)', background: 'var(--c-surface)' };
 }
 
-function LoginForm() {
-    const form = useForm({ email: '', password: '', remember: true });
+function LoginForm({ email, status }: { email: string | null; status: string | null }) {
+    const form = useForm({ email: email ?? '', password: '', remember: email !== null });
     const [showPassword, setShowPassword] = useState(false);
 
     const submit = (e: FormEvent) => {
@@ -143,6 +159,7 @@ function LoginForm() {
     return (
         <form onSubmit={submit} noValidate>
             <CardHeader title="Heureux de vous revoir">Connectez-vous à votre espace administrateur</CardHeader>
+            {!form.hasErrors && <StatusAlert message={status} />}
             <ErrorAlert message={form.errors.email ?? form.errors.password} />
 
             <label htmlFor="email" style={labelStyle}>
@@ -150,7 +167,7 @@ function LoginForm() {
             </label>
             <div style={fieldStyle(!!form.errors.email)}>
                 <Icon name="mail" color="var(--c-muted)" outlined />
-                <input id="email" value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} type="email" autoComplete="username" placeholder="nom@entreprise.com" autoFocus style={inputStyle} />
+                <input id="email" value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} type="email" autoComplete="username" placeholder="nom@entreprise.com" autoFocus={!email} style={inputStyle} />
             </div>
 
             <label htmlFor="password" style={{ ...labelStyle, margin: 'var(--space-5) 0 var(--space-2)' }}>
@@ -158,7 +175,7 @@ function LoginForm() {
             </label>
             <div style={fieldStyle(!!form.errors.password, 'var(--space-2)')}>
                 <Icon name="lock" color="var(--c-muted)" outlined />
-                <input id="password" value={form.data.password} onChange={(e) => form.setData('password', e.target.value)} type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="••••••••••" style={inputStyle} />
+                <input id="password" value={form.data.password} onChange={(e) => form.setData('password', e.target.value)} type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="••••••••••" autoFocus={!!email} style={inputStyle} />
                 <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
@@ -204,8 +221,23 @@ function LoginForm() {
     );
 }
 
-function OtpForm({ maskedEmail }: { maskedEmail: string }) {
+function OtpForm({ maskedEmail, resendIn, status }: { maskedEmail: string; resendIn: number; status: string | null }) {
     const form = useForm({ code: '' });
+    const resend = useForm({});
+    const [wait, setWait] = useState(resendIn);
+
+    useEffect(() => setWait(resendIn), [resendIn]);
+    useEffect(() => {
+        if (wait <= 0) return;
+        const timer = setTimeout(() => setWait(wait - 1), 1000);
+        return () => clearTimeout(timer);
+    }, [wait]);
+
+    const resendCode = () => {
+        form.reset('code');
+        form.clearErrors();
+        resend.post('/connexion/verification/renvoi', { onError: (errors) => form.setError('code', errors.code ?? '') });
+    };
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
@@ -221,6 +253,7 @@ function OtpForm({ maskedEmail }: { maskedEmail: string }) {
             <CardHeader icon="shield_lock" title="Vérification en deux étapes">
                 Saisissez le code à 6 chiffres envoyé à <b style={{ color: 'var(--c-ink)' }}>{maskedEmail}</b>.
             </CardHeader>
+            {!form.hasErrors && <StatusAlert message={status} />}
             <ErrorAlert message={form.errors.code} />
 
             <label style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 'var(--space-2_5)', marginBottom: 'var(--space-6)', cursor: 'text' }}>
@@ -254,7 +287,14 @@ function OtpForm({ maskedEmail }: { maskedEmail: string }) {
                     ← Changer de compte
                 </Link>
                 <span style={{ color: 'var(--c-muted)' }}>
-                    Pas reçu ? <span style={{ fontWeight: 'var(--fw-semibold)', color: 'var(--c-primary-600)' }}>Renvoyer le code</span>
+                    Pas reçu ?{' '}
+                    {wait > 0 ? (
+                        <span>Renvoyer dans {wait} s</span>
+                    ) : (
+                        <button type="button" onClick={resendCode} disabled={resend.processing} style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer', font: 'inherit', fontWeight: 'var(--fw-semibold)', color: 'var(--c-primary-600)' }}>
+                            Renvoyer le code
+                        </button>
+                    )}
                 </span>
             </div>
         </form>
@@ -302,5 +342,95 @@ function SentNotice({ email }: { email: string }) {
             </CardHeader>
             <Button label="Retour à la connexion" icon="arrow_back" variant="secondary" size="lg" full onClick={() => router.visit('/connexion')} />
         </div>
+    );
+}
+
+function PasswordField({ id, label, value, onChange, invalid, autoComplete, autoFocus }: { id: string; label: string; value: string; onChange: (value: string) => void; invalid: boolean; autoComplete: string; autoFocus?: boolean }) {
+    const [visible, setVisible] = useState(false);
+
+    return (
+        <>
+            <label htmlFor={id} style={{ ...labelStyle, marginTop: 'var(--space-5)' }}>
+                {label}
+            </label>
+            <div style={fieldStyle(invalid, 'var(--space-2)')}>
+                <Icon name="lock" color="var(--c-muted)" outlined />
+                <input id={id} value={value} onChange={(e) => onChange(e.target.value)} type={visible ? 'text' : 'password'} autoComplete={autoComplete} autoFocus={autoFocus} style={inputStyle} />
+                <button
+                    type="button"
+                    onClick={() => setVisible(!visible)}
+                    aria-label={visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    className="och-hover-menu"
+                    style={{ width: 'var(--control-sm)', height: 'var(--control-sm)', border: 0, background: 'transparent', borderRadius: 'var(--radius-md)', display: 'grid', placeItems: 'center', cursor: 'pointer' }}
+                >
+                    <Icon name={visible ? 'visibility_off' : 'visibility'} color="var(--c-ink-2)" outlined />
+                </button>
+            </div>
+        </>
+    );
+}
+
+function PasswordHint() {
+    return <p style={{ margin: 'var(--space-2) 0 var(--space-6)', fontSize: 'var(--fs-sm)', color: 'var(--c-muted)' }}>{PASSWORD_HINT}</p>;
+}
+
+function ResetForm({ token, email }: { token: string; email: string }) {
+    const form = useForm({ token, email, password: '', password_confirmation: '' });
+
+    const submit = (e: FormEvent) => {
+        e.preventDefault();
+        form.post('/reinitialiser-mot-de-passe', { onFinish: () => form.reset('password', 'password_confirmation') });
+    };
+
+    return (
+        <form onSubmit={submit} noValidate>
+            <CardHeader icon="lock_reset" title="Nouveau mot de passe">
+                Choisissez un nouveau mot de passe pour <b style={{ color: 'var(--c-ink)' }}>{email}</b>. Vos sessions ouvertes seront fermées.
+            </CardHeader>
+            <ErrorAlert message={form.errors.token ?? form.errors.email ?? form.errors.password ?? form.errors.password_confirmation} />
+
+            <PasswordField id="password" label="Nouveau mot de passe" value={form.data.password} onChange={(v) => form.setData('password', v)} invalid={!!form.errors.password} autoComplete="new-password" autoFocus />
+            <PasswordField id="password_confirmation" label="Confirmez le mot de passe" value={form.data.password_confirmation} onChange={(v) => form.setData('password_confirmation', v)} invalid={!!form.errors.password} autoComplete="new-password" />
+            <PasswordHint />
+
+            <Button type="submit" label="Enregistrer le mot de passe" iconRight="arrow_forward" variant="primary" size="lg" full disabled={form.processing} />
+            {form.errors.token && (
+                <div style={{ textAlign: 'center', marginTop: 'var(--space-6)' }}>
+                    <Link href="/mot-de-passe-oublie" style={{ fontWeight: 'var(--fw-semibold)' }}>
+                        Demander un nouveau lien
+                    </Link>
+                </div>
+            )}
+        </form>
+    );
+}
+
+function ChangeForm() {
+    const form = useForm({ current_password: '', password: '', password_confirmation: '' });
+
+    const submit = (e: FormEvent) => {
+        e.preventDefault();
+        form.put('/mot-de-passe', { onFinish: () => form.reset() });
+    };
+
+    return (
+        <form onSubmit={submit} noValidate>
+            <CardHeader icon="lock_reset" title="Nouveau mot de passe">
+                Votre mot de passe est provisoire. Choisissez-en un nouveau pour accéder à votre espace.
+            </CardHeader>
+            <ErrorAlert message={form.errors.current_password ?? form.errors.password ?? form.errors.password_confirmation} />
+
+            <PasswordField id="current_password" label="Mot de passe actuel" value={form.data.current_password} onChange={(v) => form.setData('current_password', v)} invalid={!!form.errors.current_password} autoComplete="current-password" autoFocus />
+            <PasswordField id="password" label="Nouveau mot de passe" value={form.data.password} onChange={(v) => form.setData('password', v)} invalid={!!form.errors.password} autoComplete="new-password" />
+            <PasswordField id="password_confirmation" label="Confirmez le mot de passe" value={form.data.password_confirmation} onChange={(v) => form.setData('password_confirmation', v)} invalid={!!form.errors.password} autoComplete="new-password" />
+            <PasswordHint />
+
+            <Button type="submit" label="Enregistrer et continuer" iconRight="arrow_forward" variant="primary" size="lg" full disabled={form.processing} />
+            <div style={{ textAlign: 'center', marginTop: 'var(--space-6)' }}>
+                <Link href="/deconnexion" method="post" as="button" style={{ border: 0, background: 'transparent', cursor: 'pointer', font: 'inherit', fontWeight: 'var(--fw-semibold)', color: 'var(--c-primary-600)' }}>
+                    Se déconnecter
+                </Link>
+            </div>
+        </form>
     );
 }

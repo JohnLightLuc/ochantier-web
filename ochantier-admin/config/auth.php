@@ -38,9 +38,9 @@ return [
     */
 
     'guards' => [
+        // Administrateurs authentifiés par l’API O’CHANTIER (jetons conservés en session, voir App\Support\Api).
         'web' => [
-            'driver' => 'session',
-            'provider' => 'users',
+            'driver' => 'ochantier-api',
         ],
     ],
 

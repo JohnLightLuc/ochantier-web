@@ -2,46 +2,43 @@
 
 namespace App\Http\Controllers\Auth;
 
-use App\Http\Controllers\Controller;
-use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Vérification en deux étapes.
- *
- * Démonstration : aucun code n’est encore envoyé, tout code à 6 chiffres est accepté.
+ * Vérification en deux étapes : code à 6 chiffres envoyé par e-mail par l’API.
  */
-class OtpController extends Controller
+class OtpController extends ApiAuthController
 {
     /**
      * Saisie du code à 6 chiffres.
      */
     public function create(Request $request): Response|RedirectResponse
     {
-        $user = $this->pendingUser($request);
+        $pending = $request->session()->get('login.pending');
 
-        if (! $user) {
+        if (! $pending) {
             return to_route('login');
         }
 
         return Inertia::render('Auth/Login', [
             'step' => 'otp',
-            'maskedEmail' => preg_replace('/^(.).*(@.*)$/u', '$1•••$2', $user->email),
+            'maskedEmail' => $pending['destination'],
+            'resendIn' => max(0, $pending['resend_at'] - now()->getTimestamp()),
+            'status' => $request->session()->get('status'),
         ]);
     }
 
     /**
-     * Valide le code et ouvre la session.
+     * Valide le code auprès de l’API et ouvre la session.
      */
     public function store(Request $request): RedirectResponse
     {
-        $user = $this->pendingUser($request);
+        $email = $request->session()->get('login.pending.email');
 
-        if (! $user) {
+        if (! $email) {
             return to_route('login');
         }
 
@@ -52,20 +49,31 @@ class OtpController extends Controller
             'code.digits' => 'Le code doit contenir 6 chiffres.',
         ]);
 
-        $remember = (bool) $request->session()->pull('login.pending.remember', false);
-        $request->session()->forget('login.pending');
+        $response = $this->failAs('code', fn () => $this->api->guest('POST', 'auth/login/verify', [
+            'email' => $email,
+            'code' => $request->input('code'),
+            ...$this->device($request),
+        ]));
 
-        $user->update(['last_login_at' => now()]);
-        Auth::login($user, $remember);
-        $request->session()->regenerate();
-
-        return redirect()->intended(route('dashboard'));
+        return $this->signIn($request, $response->json('data'));
     }
 
-    private function pendingUser(Request $request): ?User
+    /**
+     * Renvoie un nouveau code (« Renvoyer le code »).
+     */
+    public function resend(Request $request): RedirectResponse
     {
-        $id = $request->session()->get('login.pending.id');
+        $email = $request->session()->get('login.pending.email');
 
-        return $id ? User::find($id) : null;
+        if (! $email) {
+            return to_route('login');
+        }
+
+        $response = $this->failAs('code', fn () => $this->api->guest('POST', 'auth/login/resend', ['email' => $email]));
+
+        $request->session()->put('login.pending.destination', $response->json('data.destination'));
+        $request->session()->put('login.pending.resend_at', now()->addSeconds((int) $response->json('data.resend_in'))->getTimestamp());
+
+        return to_route('login.otp')->with('status', $response->json('message'));
     }
 }

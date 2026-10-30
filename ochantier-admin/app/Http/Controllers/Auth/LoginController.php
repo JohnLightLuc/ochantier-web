@@ -2,28 +2,31 @@
 
 namespace App\Http\Controllers\Auth;
 
-use App\Http\Controllers\Controller;
+use App\Support\Api\ApiException;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Cookie;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class LoginController extends Controller
+class LoginController extends ApiAuthController
 {
     /**
      * Écran de connexion.
      */
-    public function create(): Response
+    public function create(Request $request): Response
     {
         return Inertia::render('Auth/Login', [
             'step' => 'login',
+            'email' => $request->cookie(self::EMAIL_COOKIE),
+            'status' => $request->session()->get('status'),
         ]);
     }
 
     /**
-     * Vérifie les identifiants puis passe à l’étape de vérification en deux étapes.
+     * Vérifie les identifiants auprès de l’API, qui envoie le code de la vérification en deux étapes.
      */
     public function store(Request $request): RedirectResponse
     {
@@ -37,33 +40,40 @@ class LoginController extends Controller
             'password.required' => 'Saisissez votre mot de passe.',
         ]);
 
-        $user = Auth::getProvider()->retrieveByCredentials(['email' => $credentials['email']]);
+        $response = $this->failAs('email', fn () => $this->api->guest('POST', 'auth/login', [
+            'email' => $credentials['email'],
+            'password' => $credentials['password'],
+            ...$this->device($request),
+        ]));
 
-        if (! $user || ! Auth::getProvider()->validateCredentials($user, ['password' => $credentials['password']])) {
-            throw ValidationException::withMessages([
-                'email' => 'Adresse e-mail ou mot de passe incorrect.',
+        Cookie::queue(($credentials['remember'] ?? false)
+            ? Cookie::make(self::EMAIL_COOKIE, mb_strtolower($credentials['email']), 60 * 24 * 90)
+            : Cookie::forget(self::EMAIL_COOKIE));
+
+        if ($response->json('data.mfa_required')) {
+            $request->session()->put('login.pending', [
+                'email' => $credentials['email'],
+                'destination' => $response->json('data.destination'),
+                'resend_at' => now()->addSeconds((int) $response->json('data.resend_in'))->getTimestamp(),
             ]);
+
+            return to_route('login.otp');
         }
 
-        if (! $user->isActive()) {
-            throw ValidationException::withMessages([
-                'email' => $user->status === 'Suspendu' ? 'Ce compte est suspendu. Contactez un administrateur.' : 'Activez d’abord votre compte avec le lien reçu par e-mail.',
-            ]);
-        }
-
-        $request->session()->put('login.pending', [
-            'id' => $user->getAuthIdentifier(),
-            'remember' => (bool) ($credentials['remember'] ?? false),
-        ]);
-
-        return to_route('login.otp');
+        return $this->signIn($request, $response->json('data'));
     }
 
     /**
-     * Ferme la session.
+     * Ferme la session dans l’API puis dans le Back Office.
      */
     public function destroy(Request $request): RedirectResponse
     {
+        try {
+            $this->api->post('auth/logout');
+        } catch (ApiException|AuthenticationException) {
+            // Session déjà fermée côté API, ou API indisponible : la session du Back Office est fermée quand même.
+        }
+
         Auth::logout();
 
         $request->session()->invalidate();

@@ -118,15 +118,6 @@ class SettingsTest extends TestCase
         $this->assertDatabaseHas('setting_changes', ['action' => 'Rôle de A. Koné modifié de Responsable opérations à Support']);
     }
 
-    public function test_suspended_and_invited_accounts_cannot_log_in(): void
-    {
-        $this->app['auth']->guard()->logout();
-        $this->flushSession();
-        $this->post('/connexion', ['email' => 'y.gbagbo@ochantier.ci', 'password' => 'password'])->assertSessionHasErrors(['email' => 'Ce compte est suspendu. Contactez un administrateur.']);
-        $this->post('/connexion', ['email' => 'f.traore@ochantier.ci', 'password' => 'password'])->assertSessionHasErrors('email');
-        $this->post('/connexion', ['email' => 'a.kone@ochantier.ci', 'password' => 'password'])->assertSessionHasNoErrors();
-    }
-
     public function test_integrations_can_be_tested_and_suspended(): void
     {
         $signature = Integration::query()->where('name', 'Signature électronique')->first();

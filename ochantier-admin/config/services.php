@@ -18,6 +18,14 @@ return [
         'key' => env('POSTMARK_API_KEY'),
     ],
 
+    /*
+    | API O’CHANTIER du Back Office (ochantier-api, préfixe api/v1/admin) : comptes, sessions et données des modules.
+    */
+    'ochantier_api' => [
+        'url' => env('OCHANTIER_API_URL', 'http://localhost:8001/api/v1/admin'),
+        'timeout' => env('OCHANTIER_API_TIMEOUT', 10),
+    ],
+
     'resend' => [
         'key' => env('RESEND_API_KEY'),
     ],

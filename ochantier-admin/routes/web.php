@@ -10,7 +10,9 @@ use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AttendanceEntityController;
 use App\Http\Controllers\AttendanceSectionController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\OtpController;
+use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\ClaimActionController;
 use App\Http\Controllers\ClaimController;
@@ -69,13 +71,23 @@ Route::middleware('guest')->group(function () {
 
     Route::get('/connexion/verification', [OtpController::class, 'create'])->name('login.otp');
     Route::post('/connexion/verification', [OtpController::class, 'store'])->middleware('throttle:6,1')->name('login.otp.store');
+    Route::post('/connexion/verification/renvoi', [OtpController::class, 'resend'])->middleware('throttle:6,1')->name('login.otp.resend');
 
     Route::get('/mot-de-passe-oublie', [PasswordResetLinkController::class, 'create'])->name('password.request');
     Route::post('/mot-de-passe-oublie', [PasswordResetLinkController::class, 'store'])->middleware('throttle:6,1')->name('password.email');
+
+    // Lien reçu par e-mail (adresse fixée côté API : ADMIN_PASSWORD_RESET_URL).
+    Route::get('/reinitialiser-mot-de-passe', [NewPasswordController::class, 'create'])->name('password.reset');
+    Route::post('/reinitialiser-mot-de-passe', [NewPasswordController::class, 'store'])->middleware('throttle:6,1')->name('password.store');
 });
 
 Route::middleware('auth')->group(function () {
     Route::post('/deconnexion', [LoginController::class, 'destroy'])->name('logout');
+    Route::get('/mot-de-passe/nouveau', [PasswordController::class, 'create'])->name('password.change');
+    Route::put('/mot-de-passe', [PasswordController::class, 'update'])->middleware('throttle:6,1')->name('password.update');
+});
+
+Route::middleware(['auth', 'password.changed'])->group(function () {
 
     Route::get('/', DashboardController::class)->name('dashboard');
 

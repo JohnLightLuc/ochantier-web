@@ -142,6 +142,22 @@ class AdminAuthTest extends AuthTestCase
         $this->assertCount(2, $this->sentMails());
     }
 
+    public function test_signing_in_again_right_after_reuses_the_code_already_sent(): void
+    {
+        Admin::factory()->create(['email' => 'a.kone@ochantier.ci']);
+
+        $this->postJson('/api/v1/admin/auth/login', ['email' => 'a.kone@ochantier.ci', 'password' => self::PASSWORD])->assertAccepted();
+
+        $this->travel(10)->seconds();
+        $this->postJson('/api/v1/admin/auth/login', ['email' => 'a.kone@ochantier.ci', 'password' => self::PASSWORD])
+            ->assertAccepted()
+            ->assertJsonPath('message', 'Un code vous a déjà été envoyé par e-mail.')
+            ->assertJsonPath('data.resend_in', 35);
+
+        $this->assertCount(1, $this->sentMails());
+        $this->postJson('/api/v1/admin/auth/login/verify', ['email' => 'a.kone@ochantier.ci', 'code' => '123456'])->assertOk();
+    }
+
     public function test_admin_and_mobile_tokens_are_not_interchangeable(): void
     {
         $admin = $this->signIn(Admin::factory()->create());

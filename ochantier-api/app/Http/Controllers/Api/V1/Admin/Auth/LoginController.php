@@ -71,6 +71,13 @@ class LoginController extends AdminAuthController
             return $this->complete($request, $admin);
         }
 
+        // Code envoyé il y a moins de 45 s : il reste valable, l’administrateur est renvoyé vers sa saisie.
+        $wait = $this->otp->secondsBeforeResend(OtpPurpose::Login, $admin->email, 'admin');
+
+        if ($wait > 0) {
+            return $this->codeSent($admin->email, 'Un code vous a déjà été envoyé par e-mail.', $wait);
+        }
+
         $this->sendCode($admin);
 
         return $this->codeSent($admin->email, 'Code de vérification envoyé par e-mail.');

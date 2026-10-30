@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\Api\AdminUser;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -44,7 +45,7 @@ class HandleInertiaRequests extends Middleware
                     'name' => $user->name,
                     'email' => $user->email,
                     'initials' => $this->initials($user->name),
-                    'role' => 'Super administrateur',
+                    'role' => $user instanceof AdminUser ? $user->role : 'Super administrateur',
                 ] : null,
             ],
             'navigation' => fn () => $user ? $this->navigation() : [],

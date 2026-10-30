@@ -38,16 +38,16 @@ abstract class AdminAuthController extends Controller
     }
 
     /**
-     * Réponse après l’envoi du code de connexion à l’adresse du compte.
+     * Réponse après l’envoi du code de connexion à l’adresse du compte (`$resendIn` : attente restante avant un renvoi).
      */
-    protected function codeSent(string $email, string $message): JsonResponse
+    protected function codeSent(string $email, string $message, ?int $resendIn = null): JsonResponse
     {
         return ApiResponse::success([
             'mfa_required' => true,
             'channel' => 'email',
             'destination' => AuthController::maskEmail($email),
             'expires_in' => $this->otp->lifetime() * 60,
-            'resend_in' => $this->otp->resendAfter(),
+            'resend_in' => $resendIn ?? $this->otp->resendAfter(),
             'code_length' => OneTimePassword::length(),
         ], $message, 202);
     }
