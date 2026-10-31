@@ -1,0 +1,30 @@
+---
+deployment:
+  tasks:
+    # Le code tourne depuis le dépôt cloné par cPanel ; le sous-domaine sert
+    # un dossier relais (DOCROOT) dont l'index.php charge Laravel depuis APPDIR.
+    - export APPDIR=/home/ochanti1/repositories/ochantier-admin-web/ochantier-admin
+    - export DOCROOT=/home/ochanti1/dashboard.ochantier.ci
+    - export PHP=/opt/cpanel/ea-php82/root/usr/bin/php
+    - export COMPOSER=/opt/cpanel/composer/bin/composer
+    - cd $APPDIR
+
+    # Le fichier "hot" ferait pointer Vite vers un serveur de dev local.
+    - /bin/rm -f public/hot
+
+    # Dépendances PHP (vendor/ n'est pas versionné).
+    - $PHP $COMPOSER install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+    # Base de données (sessions, cache, files d'attente).
+    - $PHP artisan migrate --force --no-interaction
+
+    # Caches de production.
+    - $PHP artisan optimize:clear
+    - $PHP artisan optimize
+
+    # Fichiers statiques publiés dans le dossier servi par le sous-domaine
+    # (l'index.php relais de DOCROOT n'est pas touché).
+    - /bin/rm -rf $DOCROOT/build
+    - /bin/cp -R public/build $DOCROOT/build
+    - /bin/cp -f public/favicon.ico public/robots.txt $DOCROOT/
+    - /bin/ln -sfn $APPDIR/storage/app/public $DOCROOT/storage
