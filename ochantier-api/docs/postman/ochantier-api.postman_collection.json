@@ -1341,6 +1341,60 @@
                 }
               ],
               "body": "{\n  \"message\": \"Ce numéro est déjà utilisé par un autre compte.\",\n  \"errors\": {\n    \"phone_number\": [\n      \"Ce numéro est déjà utilisé par un autre compte.\"\n    ]\n  }\n}"
+            },
+            {
+              "id": "3d42f6b9-0744-542e-9a9a-c2ac9364dc4c",
+              "name": "429 · Nouveau code demandé trop tôt",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{registered_access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/me/phone",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "me",
+                    "phone"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"dial_code\": \"{{dial_code}}\",\n  \"phone_number\": \"{{new_phone}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Too Many Requests",
+              "code": 429,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Retry-After",
+                  "value": "45"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"Patientez 45 s avant de demander un nouveau code.\",\n  \"retry_after\": 45\n}"
             }
           ]
         },
@@ -1381,7 +1435,7 @@
                 "verify"
               ]
             },
-            "description": "Enregistre le nouveau numéro une fois le code confirmé. Réponse : le compte à jour, comme `GET /me`.",
+            "description": "Enregistre le nouveau numéro une fois le code confirmé. Réponse : le compte à jour, comme `GET /me`.\n\n**Erreurs** : **422** si le code est incorrect ou expiré (`errors.code`), ou si le numéro est déjà pris entre-temps.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"dial_code\": \"{{dial_code}}\",\n  \"phone_number\": \"{{new_phone}}\",\n  \"code\": \"{{otp_code}}\"\n}",
@@ -1461,6 +1515,57 @@
                 }
               ],
               "body": "{\n  \"message\": null,\n  \"data\": {\n    \"id\": \"01a15198-b0a4-734d-9ee2-ffe641f28f85\",\n    \"type\": {\n      \"value\": \"promoter\",\n      \"label\": \"Promoteur\"\n    },\n    \"status\": {\n      \"value\": \"actif\",\n      \"label\": \"Actif\"\n    },\n    \"first_name\": null,\n    \"last_name\": null,\n    \"dial_code\": \"225\",\n    \"phone_number\": \"0711111111\",\n    \"phone\": \"+225 07 11 11 11 11\",\n    \"phone_verified\": true,\n    \"email\": null,\n    \"email_verified\": false,\n    \"locale\": \"fr\",\n    \"must_change_password\": false,\n    \"last_login_at\": \"2026-10-19T00:38:44+00:00\",\n    \"promoter\": {\n      \"id\": \"01a15198-b0b6-7101-a3fb-d0fa74b6fe7f\",\n      \"profile_kind\": {\n        \"value\": \"entreprise\",\n        \"label\": \"Entreprise\"\n      },\n      \"verification_status\": {\n        \"value\": \"brouillon\",\n        \"label\": \"Brouillon\"\n      },\n      \"organization\": {\n        \"id\": \"01a15198-b0ba-716e-854b-96c72c1a9fcc\",\n        \"legal_name\": \"Immobilière Lagune\",\n        \"trade_name\": null\n      }\n    },\n    \"commercial\": null\n  }\n}"
+            },
+            {
+              "id": "12e5eef1-bbc5-5da9-9ab3-5f6117c5219e",
+              "name": "422 · Code incorrect ou expiré",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{registered_access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/me/phone/verify",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "me",
+                    "phone",
+                    "verify"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"dial_code\": \"{{dial_code}}\",\n  \"phone_number\": \"{{new_phone}}\",\n  \"code\": \"000000\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unprocessable Content",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"Code incorrect ou expiré.\",\n  \"errors\": {\n    \"code\": [\n      \"Code incorrect ou expiré.\"\n    ]\n  }\n}"
             }
           ]
         }
@@ -7282,7 +7387,7 @@
                     "tracking"
                   ]
                 },
-                "description": "Écran de suivi d’un chantier confirmé : indicateurs (`kpis` : durée en jours, taux de présence sur les journées validées, étapes validées, `validated_days`, `calendar_progress` en %), pointage du jour (`attendance` : ouverture, compteurs, montant, validation), résumé de la chronologie (`chronology`) et `team_count`.\n\nAvant le paiement de l’acompte, le pointage est fermé et la chronologie verrouillée.",
+                "description": "Écran de suivi d’un chantier confirmé : indicateurs (`kpis` : durée en jours, taux de présence sur les journées validées, étapes validées, `validated_days`, `calendar_progress` en %), pointage du jour (`attendance` : ouverture, compteurs, montant, validation), résumé de la chronologie (`chronology`) et `team_count`.\n\nAvant le paiement de l’acompte, le pointage est fermé et la chronologie verrouillée.\n\n**Erreurs** : **404** si le chantier n’existe pas ou n’est pas accessible au compte.",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -7341,6 +7446,84 @@
                     }
                   ],
                   "body": "{\n  \"message\": null,\n  \"data\": {\n    \"site\": {\n      \"id\": \"01a15346-c69f-7005-bba1-e109baf2ed8c\",\n      \"reference\": \"CH-2026-0001\",\n      \"title\": \"Résidence Les Palmiers\",\n      \"status\": {\n        \"value\": \"en_cours\",\n        \"label\": \"En cours\"\n      }\n    },\n    \"kpis\": {\n      \"duration_days\": 10,\n      \"presence_rate\": 33,\n      \"steps_done\": 1,\n      \"steps_total\": 2,\n      \"validated_days\": 1,\n      \"calendar_progress\": 10\n    },\n    \"attendance\": {\n      \"date\": \"2026-10-25\",\n      \"label\": \"Aujourd’hui · dim. 25 oct. 2026\",\n      \"is_open\": true,\n      \"opens_on\": \"2026-10-24\",\n      \"closed_message\": null,\n      \"stats\": {\n        \"present\": 0,\n        \"total\": 3,\n        \"absent\": 0,\n        \"pending\": 3\n      },\n      \"amount\": 0,\n      \"validated\": false,\n      \"can_validate\": false,\n      \"validation_hint\": \"3 pointages à compléter (arrivée ou départ)\"\n    },\n    \"chronology\": {\n      \"editable\": true,\n      \"lock_message\": null,\n      \"done\": 1,\n      \"total\": 2,\n      \"progress_percent\": 50,\n      \"count_label\": \"1/2 étapes validées\"\n    },\n    \"team_count\": 3\n  }\n}"
+                },
+                {
+                  "id": "416cd137-0dd9-58c7-9475-8bed994d9f17",
+                  "name": "200 · Acompte pas encore payé",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/{{site_id}}/tracking",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "{{site_id}}",
+                        "tracking"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"site\": {\n      \"id\": \"01a15346-c69f-7005-bba1-e109baf2ed8c\",\n      \"reference\": \"CH-2026-0001\",\n      \"title\": \"Résidence Les Palmiers\",\n      \"status\": {\n        \"value\": \"paiement\",\n        \"label\": \"Paiement\"\n      }\n    },\n    \"kpis\": {\n      \"duration_days\": null,\n      \"presence_rate\": null,\n      \"steps_done\": 0,\n      \"steps_total\": 0,\n      \"validated_days\": 0,\n      \"calendar_progress\": 0\n    },\n    \"attendance\": {\n      \"date\": \"2026-10-31\",\n      \"label\": \"Aujourd’hui · sam. 31 oct. 2026\",\n      \"is_open\": false,\n      \"opens_on\": null,\n      \"closed_message\": \"Le pointage ouvrira après le paiement de l’acompte.\",\n      \"stats\": {\n        \"present\": 0,\n        \"total\": 0,\n        \"absent\": 0,\n        \"pending\": 0\n      },\n      \"amount\": 0,\n      \"validated\": false,\n      \"can_validate\": false,\n      \"validation_hint\": \"Montant de la journée : 0 FCFA\"\n    },\n    \"chronology\": {\n      \"editable\": false,\n      \"lock_message\": \"Disponible après validation de la réservation (paiement de l’acompte)\",\n      \"done\": 0,\n      \"total\": 0,\n      \"progress_percent\": 0,\n      \"count_label\": \"Aucune étape\"\n    },\n    \"team_count\": 0\n  }\n}"
+                },
+                {
+                  "id": "d5294674-c28d-566a-864b-dd5f1d909a82",
+                  "name": "404 · Chantier d’un autre promoteur ou inexistant",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/0b9a2c1e-0000-4000-8000-000000000000/tracking",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "0b9a2c1e-0000-4000-8000-000000000000",
+                        "tracking"
+                      ]
+                    }
+                  },
+                  "status": "Not Found",
+                  "code": 404,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Élément introuvable.\"\n}"
                 }
               ]
             },
@@ -7522,9 +7705,17 @@
                     "sites",
                     "{{site_id}}",
                     "attendance"
+                  ],
+                  "query": [
+                    {
+                      "key": "date",
+                      "value": "{{attendance_date}}",
+                      "disabled": true,
+                      "description": "Facultatif. Journée à afficher (AAAA-MM-JJ). Sans ce paramètre : aujourd’hui."
+                    }
                   ]
                 },
-                "description": "« Pointage des ouvriers » d’une journée (`date=AAAA-MM-JJ`, aujourd’hui par défaut) : une ligne par ouvrier attendu, avec son état (`non_pointe`, `arrive`, `termine`, `absent`), l’arrivée et le départ (heure, distance au chantier, `out_of_zone`, liens signés de la photo et de la signature), le temps travaillé, les anomalies et les `actions` possibles (`arrivee`, `absent`, `depart`).\n\n`stats` : présents, total, absents, `pending` (pointages à compléter : arrivée ou départ). `amount` : montant de la journée (tarif promoteur des ouvriers partis). `can_validate` devient vrai quand chaque ouvrier a son départ ou son absence.\n\nLe pointage ouvre au démarrage prévu du chantier (`is_open`, `opens_on`, `closed_message`). Les brouillons de pointage restent dans l’application.",
+                "description": "« Pointage des ouvriers » d’une journée. Paramètre de requête facultatif `date=AAAA-MM-JJ` (cochez-le dans l’onglet Params) ; sans lui, la feuille du jour est renvoyée : une ligne par ouvrier attendu, avec son état (`non_pointe`, `arrive`, `termine`, `absent`), l’arrivée et le départ (heure, distance au chantier, `out_of_zone`, liens signés de la photo et de la signature), le temps travaillé, les anomalies et les `actions` possibles (`arrivee`, `absent`, `depart`).\n\n`stats` : présents, total, absents, `pending` (pointages à compléter : arrivée ou départ). `amount` : montant de la journée (tarif promoteur des ouvriers partis). `can_validate` devient vrai quand chaque ouvrier a son départ ou son absence.\n\nLe pointage ouvre au démarrage prévu du chantier (`is_open`, `opens_on`, `closed_message`). Les brouillons de pointage restent dans l’application.\n\n**Erreurs** : **422** si `date` n’est pas au format AAAA-MM-JJ ; **404** si le chantier n’existe pas ou n’est pas accessible au compte.",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -7630,6 +7821,90 @@
                     }
                   ],
                   "body": "{\n  \"message\": null,\n  \"data\": {\n    \"date\": \"2026-10-19\",\n    \"label\": \"Aujourd’hui · lun. 19 oct. 2026\",\n    \"is_open\": false,\n    \"opens_on\": \"2026-10-24\",\n    \"closed_message\": \"Le pointage ouvrira le 24 oct. 2026, au démarrage du chantier.\",\n    \"stats\": {\n      \"present\": 0,\n      \"total\": 0,\n      \"absent\": 0,\n      \"pending\": 0\n    },\n    \"amount\": 0,\n    \"validated\": false,\n    \"validated_at\": null,\n    \"can_validate\": false,\n    \"validation_hint\": \"Montant de la journée : 0 FCFA\",\n    \"rows\": []\n  }\n}"
+                },
+                {
+                  "id": "9a890b57-3bde-55ef-9d3a-7650daac309b",
+                  "name": "422 · Date invalide",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/{{site_id}}/attendance?date=24-10-2026",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "{{site_id}}",
+                        "attendance"
+                      ],
+                      "query": [
+                        {
+                          "key": "date",
+                          "value": "24-10-2026"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Unprocessable Content",
+                  "code": 422,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Date invalide (AAAA-MM-JJ).\",\n  \"errors\": {\n    \"date\": [\n      \"Date invalide (AAAA-MM-JJ).\"\n    ]\n  }\n}"
+                },
+                {
+                  "id": "50f91bc9-8af0-563f-ad01-0199309b6a09",
+                  "name": "404 · Chantier d’un autre promoteur ou inexistant",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/sites/0b9a2c1e-0000-4000-8000-000000000000/attendance",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "sites",
+                        "0b9a2c1e-0000-4000-8000-000000000000",
+                        "attendance"
+                      ]
+                    }
+                  },
+                  "status": "Not Found",
+                  "code": 404,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Élément introuvable.\"\n}"
                 }
               ]
             },
@@ -14386,7 +14661,7 @@
                 "devices"
               ]
             },
-            "description": "Enregistre le jeton de notification push de l’appareil (FCM / APNs), ou le rattache au compte connecté s’il existait déjà.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `push_token` | oui | Jeton push, 4096 caractères max. |\n| `platform` | oui | `android`, `ios` ou `web`. |\n| `device_id` | non | Identifiant de l’appareil, le même que celui envoyé à la connexion. |\n\nRéponse **200**, `data` à `null`.\n",
+            "description": "Enregistre le jeton de notification push de l’appareil (FCM / APNs), ou le rattache au compte connecté s’il existait déjà.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `push_token` | oui | Jeton push, 4096 caractères max. |\n| `platform` | oui | `android`, `ios` ou `web`. |\n| `device_id` | non | Identifiant de l’appareil, le même que celui envoyé à la connexion (100 caractères max). |\n\nRéponse **200**, `data` à `null`.\n\n**Erreurs** : **422** si un champ est absent ou invalide.\n",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"push_token\": \"{{push_token}}\",\n  \"platform\": \"{{platform}}\",\n  \"device_id\": \"{{device_id}}\"\n}",
@@ -14454,6 +14729,55 @@
                 }
               ],
               "body": "{\n  \"message\": null,\n  \"data\": null\n}"
+            },
+            {
+              "id": "98a15acf-8557-59e7-af37-9b3d0f3c8487",
+              "name": "422 · Champs invalides",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/devices",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "devices"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"platform\": \"windows\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unprocessable Content",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"Ce champ est obligatoire. (et 1 autre erreur)\",\n  \"errors\": {\n    \"push_token\": [\n      \"Ce champ est obligatoire.\"\n    ],\n    \"platform\": [\n      \"Valeur non autorisée.\"\n    ]\n  }\n}"
             }
           ]
         },
@@ -14754,6 +15078,44 @@
                 }
               ],
               "body": "{\n  \"message\": \"Appareil déconnecté\",\n  \"data\": null\n}"
+            },
+            {
+              "id": "5ff4c870-9d0d-5a1e-bc76-3abd15e9271e",
+              "name": "404 · Session d’un autre compte ou déjà fermée",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/sessions/0b9a2c1e-0000-4000-8000-000000000000",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "sessions",
+                    "0b9a2c1e-0000-4000-8000-000000000000"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"Élément introuvable.\"\n}"
             }
           ]
         },
