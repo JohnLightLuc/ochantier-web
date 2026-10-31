@@ -73,7 +73,7 @@ class SalesAgentInsights
         return collect(array_slice(SalesPerformance::months(), 0, 6))->reverse()->values()->map(fn (string $m): array => [
             'month' => $m,
             'label' => SalesPerformance::monthLabel($m),
-            'short' => Carbon::createFromFormat('Y-m', $m)->startOfMonth()->translatedFormat('M'),
+            'short' => Carbon::createFromFormat('!Y-m', $m)->startOfMonth()->translatedFormat('M'),
             'summary' => $this->summary($m),
         ])->all();
     }

@@ -2,16 +2,21 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Dérogation accordée à un profil bloqué (hors interdiction absolue).
  */
-#[Fillable(['need_offer_id', 'candidate', 'justification', 'author', 'granted_on'])]
 class MatchingDerogation extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['need_offer_id', 'candidate', 'justification', 'author', 'granted_on'];
+
     /**
      * Get the attributes that should be cast.
      *

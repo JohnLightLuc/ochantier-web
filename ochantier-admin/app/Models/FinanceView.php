@@ -2,15 +2,20 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Vue enregistrée : filtres, base temporelle et période d’analyse.
  */
-#[Fillable(['name', 'filters', 'basis', 'period', 'author', 'shared'])]
 class FinanceView extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['name', 'filters', 'basis', 'period', 'author', 'shared'];
+
     /**
      * Get the attributes that should be cast.
      *

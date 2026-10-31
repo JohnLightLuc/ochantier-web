@@ -2,16 +2,21 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Journal d’audit des paramètres : modification, auteur, date, section, ancienne et nouvelle valeur.
  * Le journal n’est jamais modifié et ne contient aucun secret.
  */
-#[Fillable(['occurred_at', 'author', 'section', 'action', 'old_value', 'new_value'])]
 class SettingChange extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['occurred_at', 'author', 'section', 'action', 'old_value', 'new_value'];
+
     /**
      * Get the attributes that should be cast.
      *

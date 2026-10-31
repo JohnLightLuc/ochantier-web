@@ -10,7 +10,6 @@ use App\Enums\SitePriority;
 use App\Enums\SiteStatus;
 use Carbon\CarbonImmutable;
 use Database\Factories\SiteFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,17 +22,23 @@ use Illuminate\Support\Str;
  *
  * Le promoteur peut ne pas avoir de compte (`promoter_id` nul) : son nom est conservé dans `promoter_name`.
  */
-#[Fillable([
-    'slug', 'reference', 'name', 'promoter_id', 'promoter_name', 'commune', 'city', 'address', 'latitude', 'longitude',
-    'type', 'category', 'manager', 'manager_phone', 'starts_on', 'ends_on', 'planned_days', 'progress',
-    'required_workers', 'assigned_workers', 'present_workers', 'status', 'priority', 'description',
-    'working_hours', 'working_days', 'instructions', 'access_conditions', 'safety_equipment',
-    'budget', 'engaged_amount', 'paid_amount', 'photos', 'correction_request', 'submitted_on',
-])]
 class Site extends Model
 {
     /** @use HasFactory<SiteFactory> */
     use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'slug', 'reference', 'name', 'promoter_id', 'promoter_name', 'commune', 'city', 'address', 'latitude', 'longitude',
+        'type', 'category', 'manager', 'manager_phone', 'starts_on', 'ends_on', 'planned_days', 'progress',
+        'required_workers', 'assigned_workers', 'present_workers', 'status', 'priority', 'description',
+        'working_hours', 'working_days', 'instructions', 'access_conditions', 'safety_equipment',
+        'budget', 'engaged_amount', 'paid_amount', 'photos', 'correction_request', 'submitted_on',
+    ];
 
     /**
      * Coordonnées approximatives des communes (latitude, longitude).

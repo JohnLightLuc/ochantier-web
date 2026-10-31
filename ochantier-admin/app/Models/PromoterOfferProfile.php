@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\PromoterOfferProfileStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -12,9 +11,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * `worker_id` est nul pour les profils de démonstration qui n’existent pas dans le module Ouvriers.
  */
-#[Fillable(['worker_id', 'name', 'trade', 'commune', 'experience', 'rating', 'daily_cost', 'availability', 'status', 'source', 'contacted_on', 'channel', 'reason', 'assignment_reference', 'replaced_by', 'replaces'])]
 class PromoterOfferProfile extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['worker_id', 'name', 'trade', 'commune', 'experience', 'rating', 'daily_cost', 'availability', 'status', 'source', 'contacted_on', 'channel', 'reason', 'assignment_reference', 'replaced_by', 'replaces'];
+
     /**
      * Get the attributes that should be cast.
      *

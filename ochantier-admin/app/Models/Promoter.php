@@ -9,7 +9,6 @@ use App\Enums\DocumentType;
 use App\Enums\PromoterPaymentStatus;
 use App\Enums\PromoterStatus;
 use Database\Factories\PromoterFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -22,16 +21,22 @@ use Illuminate\Support\Str;
  * `demo_relations` contient les chantiers, offres, paiements, avis et litiges de démonstration
  * repris de la maquette ; ces données migreront vers leurs propres tables avec les modules concernés.
  */
-#[Fillable([
-    'slug', 'name', 'legal_form', 'rccm', 'ncc', 'sector', 'head_office',
-    'representative', 'representative_role', 'phone', 'email',
-    'account_type', 'location', 'status', 'payment_status', 'note',
-    'suspension_reason', 'suspended_at', 'registered_at', 'last_active_at', 'demo_relations',
-])]
 class Promoter extends Model
 {
     /** @use HasFactory<PromoterFactory> */
     use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'slug', 'name', 'legal_form', 'rccm', 'ncc', 'sector', 'head_office',
+        'representative', 'representative_role', 'phone', 'email',
+        'account_type', 'location', 'status', 'payment_status', 'note',
+        'suspension_reason', 'suspended_at', 'registered_at', 'last_active_at', 'demo_relations',
+    ];
 
     /**
      * Get the attributes that should be cast.

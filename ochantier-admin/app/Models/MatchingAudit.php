@@ -2,15 +2,20 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Événement du journal d’audit du Matching.
  */
-#[Fillable(['occurred_at', 'author', 'action', 'subject', 'detail'])]
 class MatchingAudit extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['occurred_at', 'author', 'action', 'subject', 'detail'];
+
     /**
      * Get the attributes that should be cast.
      *

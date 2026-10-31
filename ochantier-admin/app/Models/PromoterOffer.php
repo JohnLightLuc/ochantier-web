@@ -7,7 +7,6 @@ use App\Enums\NeedUrgency;
 use App\Enums\PromoterOfferProfileStatus;
 use App\Support\AssignmentInsights;
 use Database\Factories\PromoterOfferFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,11 +18,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Chaque profil est contacté puis validé (ou remplacé) ; une fois tous validés, le promoteur est notifié
  * automatiquement pour régler l’acompte, et le paiement de l’acompte comble l’offre.
  */
-#[Fillable(['slug', 'reference', 'site_id', 'trade', 'specialty', 'urgency', 'sent_on', 'starts_on', 'ends_on', 'daily_cost', 'message', 'cancelled', 'notified_on', 'payment_reference'])]
 class PromoterOffer extends Model
 {
     /** @use HasFactory<PromoterOfferFactory> */
     use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['slug', 'reference', 'site_id', 'trade', 'specialty', 'urgency', 'sent_on', 'starts_on', 'ends_on', 'daily_cost', 'message', 'cancelled', 'notified_on', 'payment_reference'];
 
     public const TO_PROCESS = 'À traiter';
 

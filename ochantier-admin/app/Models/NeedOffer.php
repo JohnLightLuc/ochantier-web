@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Enums\NeedAssignmentStatus;
 use App\Enums\NeedManualStatus;
 use App\Enums\NeedUrgency;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -13,9 +12,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Offre publiée automatiquement pour une ligne de besoin (un métier).
  */
-#[Fillable(['need_line_id', 'reference', 'title', 'urgency', 'visibility', 'published_on', 'deadline', 'starts_on', 'ends_on', 'applications_open', 'manual_status', 'extensions', 'refreshes', 'auto_renew', 'description', 'benefits', 'last_cycle', 'last_matched_on', 'last_matched_by'])]
 class NeedOffer extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['need_line_id', 'reference', 'title', 'urgency', 'visibility', 'published_on', 'deadline', 'starts_on', 'ends_on', 'applications_open', 'manual_status', 'extensions', 'refreshes', 'auto_renew', 'description', 'benefits', 'last_cycle', 'last_matched_on', 'last_matched_by'];
+
     public const PUBLISHED = 'Publiée';
 
     public const PARTIAL = 'Partiellement couverte';

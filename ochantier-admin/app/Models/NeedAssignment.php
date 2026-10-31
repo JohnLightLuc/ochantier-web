@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\NeedAssignmentStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -12,9 +11,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * `worker_id` est nul pour les profils de démonstration qui n’existent pas dans le module Ouvriers.
  */
-#[Fillable(['need_id', 'need_offer_id', 'worker_id', 'reference', 'worker_name', 'trade', 'commune', 'phone', 'daily_cost', 'status', 'source', 'selected_on', 'score', 'warnings', 'match_reference', 'contacted_on', 'channel', 'reason', 'replaced_by', 'replaces'])]
 class NeedAssignment extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['need_id', 'need_offer_id', 'worker_id', 'reference', 'worker_name', 'trade', 'commune', 'phone', 'daily_cost', 'status', 'source', 'selected_on', 'score', 'warnings', 'match_reference', 'contacted_on', 'channel', 'reason', 'replaced_by', 'replaces'];
+
     /**
      * Get the attributes that should be cast.
      *

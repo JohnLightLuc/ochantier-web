@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -10,9 +9,15 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 /**
  * Ligne d’un besoin : un métier, une spécialité, un effectif et un niveau d’expérience.
  */
-#[Fillable(['position', 'trade_group', 'trade', 'specialty', 'quantity', 'experience', 'daily_cost', 'pay_type', 'skills', 'certifications', 'own_equipment', 'tools', 'constraints', 'comment'])]
 class NeedLine extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['position', 'trade_group', 'trade', 'specialty', 'quantity', 'experience', 'daily_cost', 'pay_type', 'skills', 'certifications', 'own_equipment', 'tools', 'constraints', 'comment'];
+
     /**
      * Get the attributes that should be cast.
      *

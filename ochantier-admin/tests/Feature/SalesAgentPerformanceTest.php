@@ -36,7 +36,7 @@ class SalesAgentPerformanceTest extends TestCase
         $performance = new SalesPerformance;
         $row = $performance->row($this->agent, '2026-08');
         $weights = config('admin.sales_score_weights');
-        $expected = round(collect($weights)->sum(fn (array $w, string $k): float => $row['normalized'][$k] * $w[1] / 100), 1);
+        $expected = round(collect($weights)->map(fn (array $w, string $k): float => $row['normalized'][$k] * $w[1] / 100)->sum(), 1);
         $this->assertSame($expected, $row['score']);
 
         $this->post("{$this->base}/score/2026-08/correction", ['delta' => '+3', 'reason' => 'Profils validés en retard.'])->assertSessionHasErrors('authorization');

@@ -4,16 +4,21 @@ namespace App\Models;
 
 use App\Enums\SiteIncidentSeverity;
 use App\Enums\SiteIncidentStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Incident signalé sur un chantier (accident, retard d’approvisionnement, arrêt administratif…).
  */
-#[Fillable(['reference', 'occurred_on', 'type', 'severity', 'description', 'reported_by', 'status', 'resolution'])]
 class SiteIncident extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['reference', 'occurred_on', 'type', 'severity', 'description', 'reported_by', 'status', 'resolution'];
+
     /**
      * Types d’incident proposés au signalement.
      *

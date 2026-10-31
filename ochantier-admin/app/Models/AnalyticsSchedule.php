@@ -2,16 +2,21 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Programmation d’un rapport : génération automatique (hebdomadaire, mensuelle, trimestrielle) envoyée aux
  * destinataires, active ou suspendue.
  */
-#[Fillable(['kind', 'frequency', 'next_run', 'recipients', 'format', 'status'])]
 class AnalyticsSchedule extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['kind', 'frequency', 'next_run', 'recipients', 'format', 'status'];
+
     public const FREQUENCIES = ['Hebdomadaire', 'Mensuel', 'Trimestriel'];
 
     /**

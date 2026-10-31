@@ -2,15 +2,20 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * État du classement mensuel des commerciaux : clôture et publication dans l’Application Commercial.
  */
-#[Fillable(['month', 'closed_at', 'published'])]
 class SalesRanking extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['month', 'closed_at', 'published'];
+
     /**
      * Get the attributes that should be cast.
      *

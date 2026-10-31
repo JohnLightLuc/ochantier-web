@@ -2,16 +2,21 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Facture d’abonnement (échéance mensuelle ou prorata d’un changement de formule).
  */
-#[Fillable(['reference', 'date', 'amount', 'label', 'status'])]
 class SubscriptionInvoice extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['reference', 'date', 'amount', 'label', 'status'];
+
     /**
      * Get the attributes that should be cast.
      *

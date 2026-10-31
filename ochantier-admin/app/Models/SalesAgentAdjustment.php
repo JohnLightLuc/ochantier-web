@@ -2,16 +2,21 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Bonus (montant positif) ou retenue (montant négatif) sur les gains d’un commercial.
  */
-#[Fillable(['granted_on', 'type', 'amount', 'reason', 'status'])]
 class SalesAgentAdjustment extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['granted_on', 'type', 'amount', 'reason', 'status'];
+
     /**
      * Get the attributes that should be cast.
      *

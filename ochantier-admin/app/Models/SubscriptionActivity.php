@@ -2,16 +2,21 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Événement du journal d’un abonnement.
  */
-#[Fillable(['date', 'text'])]
 class SubscriptionActivity extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['date', 'text'];
+
     /**
      * Get the attributes that should be cast.
      *

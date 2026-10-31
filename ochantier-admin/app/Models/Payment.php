@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Carbon\CarbonImmutable;
 use Database\Factories\PaymentFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,17 +16,23 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *
  * Statuts suivis séparément : calcul, paiement promoteur, reversement ouvrier et rapprochement.
  */
-#[Fillable([
-    'reference', 'date', 'type', 'worker_id', 'site_id', 'assignment_reference', 'period_start', 'period_end', 'days', 'open_days',
-    'daily_rate', 'fixed_amount', 'source', 'method', 'provider', 'account', 'worker_method', 'worker_account', 'calc_status',
-    'pay_status', 'payout_status', 'reconciliation', 'reconciliation_note', 'validated_by', 'validated_at', 'initiated_at', 'paid_at',
-    'payout_at', 'external_reference', 'payout_reference', 'provider_message', 'payout_message', 'batch_reference', 'attempts',
-    'received_amount', 'rule_version', 'responsible', 'attendance_refs', 'documents', 'reported_anomalies',
-])]
 class Payment extends Model
 {
     /** @use HasFactory<PaymentFactory> */
     use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'date', 'type', 'worker_id', 'site_id', 'assignment_reference', 'period_start', 'period_end', 'days', 'open_days',
+        'daily_rate', 'fixed_amount', 'source', 'method', 'provider', 'account', 'worker_method', 'worker_account', 'calc_status',
+        'pay_status', 'payout_status', 'reconciliation', 'reconciliation_note', 'validated_by', 'validated_at', 'initiated_at', 'paid_at',
+        'payout_at', 'external_reference', 'payout_reference', 'provider_message', 'payout_message', 'batch_reference', 'attempts',
+        'received_amount', 'rule_version', 'responsible', 'attendance_refs', 'documents', 'reported_anomalies',
+    ];
 
     public const DEPOSIT = 'Acompte';
 

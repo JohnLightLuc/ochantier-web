@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Carbon\CarbonImmutable;
 use Database\Factories\AttendanceFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,15 +18,21 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * `arrival` et `departure` : statut, heure serveur, auteur, validation, localisation, preuves et note.
  * `closure` : statut de clôture (vide, clôturée automatiquement ou manuellement, rouverte), auteur, date et justification.
  */
-#[Fillable([
-    'reference', 'date', 'worker_id', 'site_id', 'assignment_reference', 'planned_start', 'planned_end', 'night',
-    'arrival', 'departure', 'pauses', 'absence', 'lateness', 'early_leave', 'overtime', 'closure', 'transmission',
-    'reminders', 'notes', 'last_update',
-])]
 class Attendance extends Model
 {
     /** @use HasFactory<AttendanceFactory> */
     use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'date', 'worker_id', 'site_id', 'assignment_reference', 'planned_start', 'planned_end', 'night',
+        'arrival', 'departure', 'pauses', 'absence', 'lateness', 'early_leave', 'overtime', 'closure', 'transmission',
+        'reminders', 'notes', 'last_update',
+    ];
 
     public const NOT_TRANSMITTED = 'Non transmise';
 

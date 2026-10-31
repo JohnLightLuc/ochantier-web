@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Enums\DocumentStatus;
 use App\Enums\DocumentType;
 use Database\Factories\PromoterDocumentFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,11 +12,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Pièce du dossier KYC d’un promoteur.
  */
-#[Fillable(['type', 'reference', 'added_at', 'expires_at', 'status', 'rejection_reason', 'file_path'])]
 class PromoterDocument extends Model
 {
     /** @use HasFactory<PromoterDocumentFactory> */
     use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['type', 'reference', 'added_at', 'expires_at', 'status', 'rejection_reason', 'file_path'];
 
     /**
      * Get the attributes that should be cast.

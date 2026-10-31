@@ -46,7 +46,7 @@ class SalesPerformance
 
     public static function previousMonth(string $month): string
     {
-        return Carbon::createFromFormat('Y-m', $month)->startOfMonth()->subMonth()->format('Y-m');
+        return Carbon::createFromFormat('!Y-m', $month)->startOfMonth()->subMonth()->format('Y-m');
     }
 
     /**
@@ -56,14 +56,14 @@ class SalesPerformance
      */
     public static function months(): array
     {
-        $current = Carbon::createFromFormat('Y-m', self::currentMonth())->startOfMonth();
+        $current = Carbon::createFromFormat('!Y-m', self::currentMonth())->startOfMonth();
 
         return collect(range(0, $current->month - 1))->map(fn (int $i): string => $current->copy()->subMonths($i)->format('Y-m'))->all();
     }
 
     public static function monthLabel(string $month): string
     {
-        return ucfirst(Carbon::createFromFormat('Y-m', $month)->startOfMonth()->translatedFormat('F Y'));
+        return ucfirst(Carbon::createFromFormat('!Y-m', $month)->startOfMonth()->translatedFormat('F Y'));
     }
 
     public static function performanceLabel(?float $score): string
@@ -183,7 +183,7 @@ class SalesPerformance
                 'activity' => $m['activity'],
                 'delays' => $m['delays'],
             ];
-            $score = round(collect($weights)->sum(fn (array $w, string $key): float => $normalized[$key] * $w[1] / 100), 1);
+            $score = round(collect($weights)->map(fn (array $w, string $key): float => $normalized[$key] * $w[1] / 100)->sum(), 1);
 
             return [...$row, 'normalized' => $normalized, 'score' => $score];
         });
@@ -306,7 +306,7 @@ class SalesPerformance
                 'deduction' => 0,
                 'net' => $this->gain($agent, $month, $row),
                 'status' => $status,
-                'paidAt' => in_array($status, ['Payé', 'Corrigé'], true) ? Carbon::createFromFormat('Y-m', $month)->startOfMonth()->addMonth()->day(5)->format('Y-m-d') : null,
+                'paidAt' => in_array($status, ['Payé', 'Corrigé'], true) ? Carbon::createFromFormat('!Y-m', $month)->startOfMonth()->addMonth()->day(5)->format('Y-m-d') : null,
                 'method' => $pay['method'],
             ];
         }

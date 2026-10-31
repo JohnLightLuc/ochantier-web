@@ -2,15 +2,20 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Notification envoyée par le module Matching.
  */
-#[Fillable(['type', 'recipient', 'channel', 'sent_at', 'content', 'action', 'status'])]
 class MatchingNotification extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['type', 'recipient', 'channel', 'sent_at', 'content', 'action', 'status'];
+
     /**
      * Get the attributes that should be cast.
      *

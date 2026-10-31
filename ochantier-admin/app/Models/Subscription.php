@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Carbon\CarbonImmutable;
 use Database\Factories\SubscriptionFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,11 +14,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * une formule équipe permet d’inviter des collaborateurs. Une montée de formule est immédiate (prorata facturé),
  * une descente est programmée à la prochaine échéance.
  */
-#[Fillable(['promoter_id', 'plan_key', 'previous_plan_key', 'status', 'since', 'next_due', 'payment_method', 'pending_plan_key', 'pending_at'])]
 class Subscription extends Model
 {
     /** @use HasFactory<SubscriptionFactory> */
     use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['promoter_id', 'plan_key', 'previous_plan_key', 'status', 'since', 'next_due', 'payment_method', 'pending_plan_key', 'pending_at'];
 
     public const STATUSES = ['Actif' => 'success', 'Essai' => 'info', 'Impayé' => 'danger', 'Suspendu' => 'orange', 'Résilié' => 'neutral'];
 

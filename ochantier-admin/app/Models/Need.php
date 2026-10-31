@@ -8,7 +8,6 @@ use App\Enums\NeedManualStatus;
 use App\Enums\NeedUrgency;
 use Carbon\CarbonImmutable;
 use Database\Factories\NeedFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,16 +20,22 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Le statut est calculé à partir de la couverture, sauf quand l’administration l’a posé (suspension, annulation, clôture, archivage).
  * `details` conserve la saisie complète du formulaire pour la modification.
  */
-#[Fillable([
-    'slug', 'reference', 'site_id', 'urgency', 'type', 'source', 'admin', 'district', 'contact', 'contact_phone',
-    'starts_on', 'ends_on', 'working_hours', 'working_days', 'justification', 'coverage_deadline', 'follow_up',
-    'conditions', 'requirements', 'anomalies', 'manual_status', 'reason', 'promoter_validated', 'deposit_paid',
-    'details', 'created_on', 'updated_on', 'parent_reference', 'notified_on', 'payment_reference',
-])]
 class Need extends Model
 {
     /** @use HasFactory<NeedFactory> */
     use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'slug', 'reference', 'site_id', 'urgency', 'type', 'source', 'admin', 'district', 'contact', 'contact_phone',
+        'starts_on', 'ends_on', 'working_hours', 'working_days', 'justification', 'coverage_deadline', 'follow_up',
+        'conditions', 'requirements', 'anomalies', 'manual_status', 'reason', 'promoter_validated', 'deposit_paid',
+        'details', 'created_on', 'updated_on', 'parent_reference', 'notified_on', 'payment_reference',
+    ];
 
     public const SEARCHING = 'En recherche d’ouvriers';
 

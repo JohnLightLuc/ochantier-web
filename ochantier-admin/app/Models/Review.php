@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Database\Factories\ReviewFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,16 +15,22 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *
  * Note globale = Σ (note × pondération) ÷ Σ pondérations des critères notés (pondérations de Paramètres).
  */
-#[Fillable([
-    'reference', 'kind', 'author', 'author_type', 'promoter_id', 'promoter_name', 'site_id', 'worker_id', 'target', 'target_type', 'team',
-    'operation_reference', 'assignment_reference', 'trade', 'prestation', 'period_from', 'period_to', 'date', 'weights_version', 'criteria',
-    'comment', 'positives', 'negatives', 'recommends', 'proofs', 'publish_consent', 'sincere', 'verification', 'status', 'visibility', 'reply',
-    'detections', 'reports', 'is_test', 'duplicate_of', 'fraud', 'eligibility', 'device', 'moderation', 'modification_request', 'dispute_reference',
-])]
 class Review extends Model
 {
     /** @use HasFactory<ReviewFactory> */
     use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'kind', 'author', 'author_type', 'promoter_id', 'promoter_name', 'site_id', 'worker_id', 'target', 'target_type', 'team',
+        'operation_reference', 'assignment_reference', 'trade', 'prestation', 'period_from', 'period_to', 'date', 'weights_version', 'criteria',
+        'comment', 'positives', 'negatives', 'recommends', 'proofs', 'publish_consent', 'sincere', 'verification', 'status', 'visibility', 'reply',
+        'detections', 'reports', 'is_test', 'duplicate_of', 'fraud', 'eligibility', 'device', 'moderation', 'modification_request', 'dispute_reference',
+    ];
 
     public const STATUSES = ['Brouillon', 'Soumis', 'En cours de vérification', 'Vérifié', 'En attente de modération', 'Publié', 'Masqué temporairement', 'Signalé', 'Contesté', 'En réexamen', 'Rejeté', 'Annulé', 'Archivé', 'Restauré'];
 

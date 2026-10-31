@@ -7,7 +7,6 @@ use App\Enums\WorkerActivityCategory;
 use App\Enums\WorkerAvailability;
 use App\Enums\WorkerStatus;
 use Database\Factories\WorkerFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -21,19 +20,25 @@ use Illuminate\Support\Str;
  * `demo_relations` contient les affectations, pointages, paiements, avis, remplacements et
  * statistiques de démonstration ; ils migreront vers les modules Affectations, Pointages, Paiements et Avis.
  */
-#[Fillable([
-    'slug', 'code', 'photo_path', 'first_name', 'last_name', 'gender', 'birth_date', 'nationality',
-    'phone', 'phone_secondary', 'email', 'address', 'commune', 'city', 'country', 'emergency_contact', 'emergency_phone',
-    'trade', 'secondary_trades', 'specialties', 'skills', 'certifications', 'qualification', 'experience_years',
-    'experience_description', 'daily_rate', 'mobility', 'zones', 'works_solo', 'works_in_team', 'accepts_contracts',
-    'id_type', 'id_number', 'id_issued_at', 'id_expires_at', 'recruiter', 'sales_zone', 'acquisition_channel', 'sales_note',
-    'status', 'availability', 'previous_availability', 'suspension_reason', 'rejection', 'identity_mismatch',
-    'possible_duplicate', 'rating', 'reviews_count', 'registered_at', 'demo_relations',
-])]
 class Worker extends Model
 {
     /** @use HasFactory<WorkerFactory> */
     use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'slug', 'code', 'photo_path', 'first_name', 'last_name', 'gender', 'birth_date', 'nationality',
+        'phone', 'phone_secondary', 'email', 'address', 'commune', 'city', 'country', 'emergency_contact', 'emergency_phone',
+        'trade', 'secondary_trades', 'specialties', 'skills', 'certifications', 'qualification', 'experience_years',
+        'experience_description', 'daily_rate', 'mobility', 'zones', 'works_solo', 'works_in_team', 'accepts_contracts',
+        'id_type', 'id_number', 'id_issued_at', 'id_expires_at', 'recruiter', 'sales_zone', 'acquisition_channel', 'sales_note',
+        'status', 'availability', 'previous_availability', 'suspension_reason', 'rejection', 'identity_mismatch',
+        'possible_duplicate', 'rating', 'reviews_count', 'registered_at', 'demo_relations',
+    ];
 
     /**
      * Statuts d’affectation encore actifs (ni terminée, ni annulée, ni refusée, ni remplacée).

@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Database\Factories\WorkerExperienceFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,11 +10,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Expérience professionnelle déclarée par un ouvrier.
  */
-#[Fillable(['company', 'mission', 'trade', 'site', 'location', 'started_at', 'ended_at', 'description', 'reference'])]
 class WorkerExperience extends Model
 {
     /** @use HasFactory<WorkerExperienceFactory> */
     use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['company', 'mission', 'trade', 'site', 'location', 'started_at', 'ended_at', 'description', 'reference'];
 
     /**
      * Get the attributes that should be cast.

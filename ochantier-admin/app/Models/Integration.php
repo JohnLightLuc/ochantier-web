@@ -2,18 +2,28 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Service connecté (paiement, SMS, e-mail, push, cartographie, stockage…). Le secret est chiffré et jamais
  * affiché en clair : seuls ses quatre derniers caractères sont montrés.
  */
-#[Fillable(['name', 'type', 'status', 'environment', 'endpoint', 'client_id', 'secret', 'expires_on', 'latency', 'error_rate', 'tested_at', 'test_ok', 'last_result'])]
-#[Hidden(['secret'])]
 class Integration extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['name', 'type', 'status', 'environment', 'endpoint', 'client_id', 'secret', 'expires_on', 'latency', 'error_rate', 'tested_at', 'test_ok', 'last_result'];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = ['secret'];
+
     /**
      * Get the attributes that should be cast.
      *

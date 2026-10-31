@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Carbon\CarbonImmutable;
 use Database\Factories\DisputeFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,17 +16,23 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Avis & litiges ne modifie aucun solde : les mesures financières, les remplacements et les corrections de pointage
  * sont des demandes transmises à Paiements, Affectations et Pointages, qui les exécutent.
  */
-#[Fillable([
-    'reference', 'subject', 'category', 'subcategory', 'description', 'facts_at', 'opened_at', 'source', 'source_reference', 'claimant', 'respondent',
-    'site_id', 'promoter_id', 'worker_id', 'operation_reference', 'assignment_reference', 'prestation', 'trade', 'amount', 'wish', 'urgent', 'priority',
-    'severity', 'priority_reason', 'owner', 'status', 'qualified_at', 'responded_at', 'first_response_hours', 'phase_started_at', 'suspension', 'decided_at',
-    'resolved_at', 'closed_at', 'reopen_count', 'admissibility', 'inadmissibility', 'parties', 'declarations', 'proofs', 'mediation', 'decision',
-    'appeal_decision', 'financial_requests', 'replacements', 'attendance_requests', 'appeals', 'notes',
-])]
 class Dispute extends Model
 {
     /** @use HasFactory<DisputeFactory> */
     use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'reference', 'subject', 'category', 'subcategory', 'description', 'facts_at', 'opened_at', 'source', 'source_reference', 'claimant', 'respondent',
+        'site_id', 'promoter_id', 'worker_id', 'operation_reference', 'assignment_reference', 'prestation', 'trade', 'amount', 'wish', 'urgent', 'priority',
+        'severity', 'priority_reason', 'owner', 'status', 'qualified_at', 'responded_at', 'first_response_hours', 'phase_started_at', 'suspension', 'decided_at',
+        'resolved_at', 'closed_at', 'reopen_count', 'admissibility', 'inadmissibility', 'parties', 'declarations', 'proofs', 'mediation', 'decision',
+        'appeal_decision', 'financial_requests', 'replacements', 'attendance_requests', 'appeals', 'notes',
+    ];
 
     public const STATUSES = ['Brouillon', 'Soumis', 'Reçu', 'À qualifier', 'Recevabilité en cours', 'Non recevable', 'Ouvert', 'Affecté', 'Analyse en cours', 'Informations demandées', 'Réponse de la partie adverse attendue', 'Médiation proposée', 'Médiation en cours', 'Accord trouvé', 'Décision en préparation', 'Décision rendue', 'En attente d’exécution', 'Résolu', 'Clôturé', 'Recours ouvert', 'Réexamen', 'Annulé', 'Archivé'];
 

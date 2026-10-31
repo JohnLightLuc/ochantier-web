@@ -5,7 +5,7 @@ Back-office de production d’O’CHANTIER. Les écrans sont migrés depuis la m
 
 ## Stack
 
-- Laravel 13 (PHP 8.3), Inertia v3 (`inertiajs/inertia-laravel`, `@inertiajs/react`)
+- Laravel 12 (PHP 8.2), Inertia v3 (`inertiajs/inertia-laravel`, `@inertiajs/react`)
 - React 19 + TypeScript, Vite
 - Styles : design tokens `resources/css/tokens.css` (copie de la maquette, source de vérité) — pas de Tailwind
 - Locale `fr`, fuseau `Africa/Abidjan`

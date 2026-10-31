@@ -2,16 +2,21 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Bonus, indemnité ou retenue d’une opération : les retenues ne s’appliquent qu’après approbation humaine.
  */
-#[Fillable(['kind', 'type', 'amount', 'motif', 'base', 'proof', 'author', 'approver', 'date', 'status'])]
 class PaymentItem extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['kind', 'type', 'amount', 'motif', 'base', 'proof', 'author', 'approver', 'date', 'status'];
+
     /**
      * Get the attributes that should be cast.
      *

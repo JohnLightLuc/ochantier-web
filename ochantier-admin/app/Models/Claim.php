@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,9 +10,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Réclamation : demande initiale d’un promoteur ou d’un ouvrier, traitée simplement ou transformée en litige après
  * qualification.
  */
-#[Fillable(['reference', 'claimant', 'other_party', 'site_id', 'assignment_reference', 'operation_reference', 'category', 'subject', 'description', 'date', 'priority', 'owner', 'due_date', 'status', 'dispute_id', 'resolution', 'review_reference'])]
 class Claim extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['reference', 'claimant', 'other_party', 'site_id', 'assignment_reference', 'operation_reference', 'category', 'subject', 'description', 'date', 'priority', 'owner', 'due_date', 'status', 'dispute_id', 'resolution', 'review_reference'];
+
     public const STATUSES = ['Brouillon', 'Soumise', 'Reçue', 'À qualifier', 'Information demandée', 'Traitement simple', 'Résolue', 'Rejetée', 'Transformée en litige', 'Clôturée'];
 
     public const CLOSED = ['Résolue', 'Clôturée', 'Rejetée', 'Transformée en litige'];

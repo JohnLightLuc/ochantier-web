@@ -2,16 +2,21 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Journal d’Avis & litiges : événements d’un avis, d’une réclamation ou d’un litige (référence du dossier) et
  * actions globales (exports). L’ensemble constitue le journal d’audit du module.
  */
-#[Fillable(['subject_reference', 'occurred_at', 'author', 'category', 'action', 'old_value', 'new_value', 'comment', 'origin'])]
 class QualityActivity extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['subject_reference', 'occurred_at', 'author', 'category', 'action', 'old_value', 'new_value', 'comment', 'origin'];
+
     /**
      * Get the attributes that should be cast.
      *

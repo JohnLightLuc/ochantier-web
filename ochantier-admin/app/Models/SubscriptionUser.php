@@ -2,16 +2,21 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Utilisateur du compte d’un promoteur : le propriétaire ou un collaborateur invité par SMS ou e-mail.
  */
-#[Fillable(['name', 'role', 'via', 'contact', 'status', 'owner'])]
 class SubscriptionUser extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['name', 'role', 'via', 'contact', 'status', 'owner'];
+
     /**
      * Get the attributes that should be cast.
      *

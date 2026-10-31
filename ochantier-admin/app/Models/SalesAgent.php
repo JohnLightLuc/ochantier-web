@@ -7,7 +7,6 @@ use App\Enums\SalesAgentActivityCategory;
 use App\Enums\SalesAgentAvailability;
 use App\Enums\SalesAgentStatus;
 use Database\Factories\SalesAgentFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -18,18 +17,24 @@ use Illuminate\Support\Str;
 /**
  * Commercial terrain : recrute des ouvriers et se connecte à l’Application Commercial.
  */
-#[Fillable([
-    'slug', 'code', 'photo_path', 'first_name', 'last_name', 'gender', 'birth_date', 'nationality', 'phone', 'phone_secondary',
-    'email', 'address', 'commune', 'city', 'emergency_contact', 'emergency_phone', 'type', 'job_title', 'agency', 'zone',
-    'secondary_zones', 'communes', 'priority_trades', 'specialties', 'supervisor', 'started_at', 'contract', 'weekly_target',
-    'monthly_target', 'internal_note', 'id_type', 'id_number', 'id_issued_at', 'id_expires_at', 'status', 'invitation_status',
-    'availability', 'previous_availability', 'suspension_reason', 'last_activity_on', 'recruited_total', 'ranking_until', 'pay', 'access',
-    'score_adjustments', 'payout_statuses',
-])]
 class SalesAgent extends Model
 {
     /** @use HasFactory<SalesAgentFactory> */
     use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'slug', 'code', 'photo_path', 'first_name', 'last_name', 'gender', 'birth_date', 'nationality', 'phone', 'phone_secondary',
+        'email', 'address', 'commune', 'city', 'emergency_contact', 'emergency_phone', 'type', 'job_title', 'agency', 'zone',
+        'secondary_zones', 'communes', 'priority_trades', 'specialties', 'supervisor', 'started_at', 'contract', 'weekly_target',
+        'monthly_target', 'internal_note', 'id_type', 'id_number', 'id_issued_at', 'id_expires_at', 'status', 'invitation_status',
+        'availability', 'previous_availability', 'suspension_reason', 'last_activity_on', 'recruited_total', 'ranking_until', 'pay', 'access',
+        'score_adjustments', 'payout_statuses',
+    ];
 
     /**
      * Get the attributes that should be cast.

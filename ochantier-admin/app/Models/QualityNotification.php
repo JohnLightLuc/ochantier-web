@@ -2,15 +2,20 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Notification envoyée par Avis & litiges (avis, droit de réponse, réclamation, litige, médiation, décision, SLA).
  */
-#[Fillable(['sent_at', 'recipient', 'channel', 'content', 'expected_action', 'reference', 'status'])]
 class QualityNotification extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['sent_at', 'recipient', 'channel', 'content', 'expected_action', 'reference', 'status'];
+
     /**
      * Get the attributes that should be cast.
      *

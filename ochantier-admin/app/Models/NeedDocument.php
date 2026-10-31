@@ -3,16 +3,21 @@
 namespace App\Models;
 
 use App\Enums\NeedDocumentStatus;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Document ou média joint à un besoin (cahier des charges, plan, consignes…).
  */
-#[Fillable(['type', 'file_name', 'file_path', 'added_on', 'author', 'status'])]
 class NeedDocument extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['type', 'file_name', 'file_path', 'added_on', 'author', 'status'];
+
     /**
      * @var array<int, string>
      */

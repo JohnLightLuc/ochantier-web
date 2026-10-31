@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\ActivityAuthorKind;
 use Database\Factories\PromoterActivityFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,11 +11,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Événement du journal d’activité d’un promoteur.
  */
-#[Fillable(['occurred_at', 'author', 'author_kind', 'action', 'target', 'icon', 'tone', 'link'])]
 class PromoterActivity extends Model
 {
     /** @use HasFactory<PromoterActivityFactory> */
     use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = ['occurred_at', 'author', 'author_kind', 'action', 'target', 'icon', 'tone', 'link'];
 
     /**
      * Get the attributes that should be cast.
