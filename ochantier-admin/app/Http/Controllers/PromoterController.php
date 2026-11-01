@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Promoter;
 use App\Support\Api\AdminApi;
 use App\Support\PromoterPresenter;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -83,6 +86,25 @@ class PromoterController extends Controller
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => $response->header('Content-Disposition') ?: 'attachment; filename="promoteurs.csv"',
         ]);
+    }
+
+    /**
+     * Anciennes adresses de fiche : slug local (`/promoteurs/sicogi/paiements/…`) ou onglet pas encore disponible
+     * (`/promoteurs/{uuid}/chantiers`). Une fiche de l’API rouvre sa vue générale ; un ancien slug lance la recherche
+     * du promoteur dans la liste, au lieu d’une page introuvable.
+     */
+    public function legacy(string $promoter): RedirectResponse
+    {
+        if (Str::isUuid($promoter)) {
+            Inertia::flash('toast', 'Cet onglet n’est pas encore disponible : voici la vue générale du promoteur.');
+
+            return to_route('promoters.show', $promoter);
+        }
+
+        $name = Promoter::query()->where('slug', $promoter)->value('name') ?? Str::of($promoter)->replace('-', ' ')->title()->value();
+        Inertia::flash('toast', 'Ce lien renvoie vers une ancienne fiche : voici la recherche correspondante.');
+
+        return to_route('promoters.index', ['q' => $name]);
     }
 
     /**

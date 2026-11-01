@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Promoter;
 use App\Support\Api\ApiTokens;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
@@ -165,8 +166,7 @@ class PromotersTest extends TestCase
         $this->get('/promoteurs/'.self::ID.'/kyc/'.self::DOCUMENT)
             ->assertInertia(fn (Assert $page) => $page->where('tab', 'kyc')->where('drawer.document.files.0.url', 'https://api.test/media/f1'));
 
-        $this->get('/promoteurs/'.self::ID.'/chantiers')->assertNotFound();
-        $this->get('/promoteurs/pas-un-uuid')->assertNotFound();
+        $this->get('/promoteurs/'.self::ID.'/kyc/inconnu/autre')->assertRedirect('/promoteurs/'.self::ID);
     }
 
     public function test_decisions_are_sent_to_the_api_and_its_message_is_shown(): void
@@ -222,5 +222,18 @@ class PromotersTest extends TestCase
         $this->from('/promoteurs')->post('/promoteurs/validation-groupee', ['ids' => [self::ID, '01a16ab6-0000-7000-8000-000000000002']])
             ->assertSessionHas('inertia.flash_data.toast', '1 compte validé.')
             ->assertSessionHas('inertia.flash_data.toastError', 'Awa Bamba : Le dossier est incomplet.');
+    }
+
+    public function test_old_links_lead_to_the_search_or_the_overview_instead_of_a_missing_page(): void
+    {
+        Promoter::factory()->create(['slug' => 'batir-afrique', 'name' => 'Bâtir Afrique']);
+
+        $this->get('/promoteurs/batir-afrique/paiements/PAY-260918-1702')
+            ->assertRedirect('/promoteurs?q='.rawurlencode('Bâtir Afrique'))
+            ->assertSessionHas('inertia.flash_data.toast');
+        $this->get('/promoteurs/horizon-btp')->assertRedirect('/promoteurs?q=Horizon%20Btp');
+        $this->get('/promoteurs/'.self::ID.'/chantiers')->assertRedirect('/promoteurs/'.self::ID);
+
+        Http::assertNothingSent();
     }
 }

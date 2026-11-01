@@ -110,6 +110,8 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
                 ->where(['tab' => 'kyc', 'item' => '[A-Za-z0-9_-]+'])
                 ->name('show');
         });
+
+        Route::get('/{promoter}/{rest?}', [PromoterController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
     Route::prefix('ouvriers')->name('workers.')->group(function () {
