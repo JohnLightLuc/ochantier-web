@@ -23,8 +23,10 @@ deployment:
     - $PHP artisan optimize
 
     # Fichiers statiques publiés dans le dossier servi par le sous-domaine
-    # (l'index.php relais de DOCROOT n'est pas touché).
+    # (l'index.php relais de DOCROOT n'est pas touché). build est un lien vers
+    # le dépôt : il suit chaque mise à jour sans recopie. Le rm retire l'ancien
+    # dossier copié ou l'ancien lien (sans / final, la cible n'est pas touchée).
     - /bin/rm -rf $DOCROOT/build
-    - /bin/cp -R public/build $DOCROOT/build
+    - /bin/ln -sfn $APPDIR/public/build $DOCROOT/build
     - /bin/cp -f public/favicon.ico public/robots.txt $DOCROOT/
     - /bin/ln -sfn $APPDIR/storage/app/public $DOCROOT/storage
