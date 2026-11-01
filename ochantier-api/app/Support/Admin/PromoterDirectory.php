@@ -5,7 +5,9 @@ namespace App\Support\Admin;
 use App\Enums\DisputeStatus;
 use App\Enums\DocumentVerificationStatus;
 use App\Enums\PromoterVerificationStatus;
+use App\Enums\SiteStatus;
 use App\Enums\UserStatus;
+use App\Models\Commune;
 use App\Models\PromoterProfile;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -54,6 +56,7 @@ class PromoterDirectory
             ->join('users', 'users.id', '=', 'promoter_profiles.user_id')
             ->selectSub(fn (QueryBuilder $query) => $this->expiredDocuments($query->selectRaw('count(*)')), 'expired_documents_count')
             ->selectSub(fn (QueryBuilder $query) => $this->openDisputes($query->selectRaw('count(*)')), 'open_disputes_count')
+            ->selectSub(fn (QueryBuilder $query) => $query->selectRaw('count(*)')->from('sites')->whereColumn('sites.promoter_profile_id', 'promoter_profiles.id')->whereNull('sites.deleted_at')->where('sites.status', '!=', SiteStatus::Brouillon->value), 'sites_count')
             ->with(['user.ownedOrganizations', 'commune'])
             ->orderBy($column, $direction)
             ->orderBy('promoter_profiles.id');
@@ -79,6 +82,21 @@ class PromoterDirectory
         }
 
         return ['total' => $this->filtered([])->count(), 'statuses' => $statuses, 'todo' => $todo];
+    }
+
+    /**
+     * Communes où des promoteurs sont domiciliés (filtre « Localisation »).
+     *
+     * @return list<array{id: string, name: string}>
+     */
+    public function communes(): array
+    {
+        return Commune::query()
+            ->whereIn('id', PromoterProfile::query()->whereNotNull('commune_id')->select('commune_id'))
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (Commune $commune) => ['id' => $commune->id, 'name' => $commune->name])
+            ->all();
     }
 
     /**

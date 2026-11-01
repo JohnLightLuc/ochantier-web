@@ -24,7 +24,7 @@ class PromoterController extends Controller
     public function __construct(private PromoterDirectory $directory) {}
 
     /**
-     * Liste paginée. meta : pagination, compteurs par statut et listes « à traiter ».
+     * Liste paginée. meta : pagination, compteurs par statut et listes « à traiter », communes du filtre « Localisation ».
      */
     public function index(PromoterIndexRequest $request): JsonResponse
     {
@@ -37,6 +37,7 @@ class PromoterController extends Controller
             'per_page' => $promoters->perPage(),
             'total' => $promoters->total(),
             'counts' => $this->directory->counts(),
+            'communes' => $this->directory->communes(),
         ]);
     }
 

@@ -123,7 +123,9 @@ class PromoterAdminTest extends PromoterTestCase
             ->assertJsonPath('meta.counts.todo.pieces_expirees', 1)
             ->assertJsonPath('meta.counts.todo.signales', 1)
             ->assertJsonPath('data.0.expired_documents_count', 1)
-            ->assertJsonPath('data.0.open_disputes_count', 1);
+            ->assertJsonPath('data.0.open_disputes_count', 1)
+            ->assertJsonPath('data.0.sites_count', 0)
+            ->assertJsonPath('meta.communes.0.name', 'Cocody');
 
         $this->getJson('/api/v1/admin/promoters?todo=signales')->assertJsonPath('meta.total', 1);
     }

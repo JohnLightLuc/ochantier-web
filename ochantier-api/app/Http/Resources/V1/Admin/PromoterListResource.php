@@ -35,6 +35,7 @@ class PromoterListResource extends Resource
             'status' => self::displayStatus($this->resource),
             'verification_status' => $this->status($this->verification_status),
             'account_status' => $this->status($user->status),
+            'sites_count' => (int) ($this->sites_count ?? 0),
             'expired_documents_count' => (int) ($this->expired_documents_count ?? 0),
             'open_disputes_count' => (int) ($this->open_disputes_count ?? 0),
             'registered_at' => $this->created_at?->toIso8601String(),
