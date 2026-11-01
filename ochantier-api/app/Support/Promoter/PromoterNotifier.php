@@ -53,6 +53,12 @@ class PromoterNotifier
         'attendance.pending' => ['tab' => 'chantiers', 'alert' => 'pointages', 'ability' => 'attendance.manage', 'priority' => Priority::Haute, 'sms' => false],
         'referral.registered' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'account.manage', 'priority' => Priority::Basse, 'sms' => false],
         'team.joined' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'team.manage', 'priority' => Priority::Basse, 'sms' => false],
+        'account.approved' => ['tab' => 'compte', 'alert' => null, 'ability' => 'account.manage', 'priority' => Priority::Normale, 'sms' => false],
+        'account.corrections' => ['tab' => 'compte', 'alert' => null, 'ability' => 'account.manage', 'priority' => Priority::Haute, 'sms' => true],
+        'account.rejected' => ['tab' => 'compte', 'alert' => null, 'ability' => 'account.manage', 'priority' => Priority::Haute, 'sms' => true],
+        'account.suspended' => ['tab' => 'compte', 'alert' => null, 'ability' => 'account.manage', 'priority' => Priority::Haute, 'sms' => true],
+        'account.reactivated' => ['tab' => 'compte', 'alert' => null, 'ability' => 'account.manage', 'priority' => Priority::Normale, 'sms' => true],
+        'admin.message' => ['tab' => 'compte', 'alert' => null, 'ability' => 'account.manage', 'priority' => Priority::Normale, 'sms' => false],
     ];
 
     /**
@@ -143,6 +149,15 @@ class PromoterNotifier
             $this->notify($profile, 'team.joined', trim($user->first_name.' '.$user->last_name).' a rejoint votre équipe',
                 'Rôle : '.PromoterAccess::ROLE_LABELS[$member->role->value].'.', null, ['type' => 'team', 'id' => $member->id], $member, 'team.joined:'.$member->id.':'.$member->joined_at?->timestamp);
         }
+    }
+
+    /**
+     * Décision du Back Office sur le compte (vérification, suspension) ou message de l’équipe O’CHANTIER : envoyé au
+     * propriétaire et aux administrateurs du compte, avec un lien vers le profil.
+     */
+    public function accountEvent(PromoterProfile $profile, string $event, string $title, string $body): void
+    {
+        $this->notify($profile, $event, $title, $body, null, ['type' => 'profile', 'id' => null], $profile);
     }
 
     /**
