@@ -10,17 +10,17 @@ import StateBlock from '@/components/ui/StateBlock';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { useAdminUi } from '@/contexts/AdminUiContext';
 import type { PromoterFilters, PromoterIndexProps, PromoterRow } from '@/types/promoters';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
 const COLUMNS: [string, string | null][] = [
     ['Promoteur', 'promoteur'],
-    ['Entreprise', 'entreprise'],
-    ['Contact', 'contact'],
-    ['Localisation', 'localisation'],
+    ['Entreprise', null],
+    ['Contact', null],
+    ['Localisation', null],
     ['Chantiers', null],
-    ['Paiements', 'paiements'],
-    ['KYC', null],
+    ['Inscription', 'inscription'],
+    ['Signalements', null],
     ['Statut', 'statut'],
 ];
 
@@ -28,18 +28,20 @@ const FILTERS: [keyof PromoterIndexProps['filterOptions'], string][] = [
     ['statut', 'Statut'],
     ['localisation', 'Localisation'],
     ['type', 'Type de compte'],
-    ['kyc', 'État KYC'],
     ['inscription', 'Inscription'],
 ];
 
-const QUICK_LABELS: Record<string, string> = { incomplets: 'Dossiers incomplets', expirees: 'Pièces expirées', signales: 'Comptes signalés', tous: 'Tous les dossiers à traiter' };
+const QUICK_LABELS: Record<string, string> = { a_verifier: 'Dossiers à vérifier', incomplets: 'Dossiers incomplets', pieces_expirees: 'Pièces expirées', signales: 'Comptes signalés' };
+
+/** Dossiers en attente d’une décision du Back Office. */
+const REVIEWABLE = ['soumis', 'en_controle'];
 
 /** Liste des promoteurs : KPI, recherche, filtres, tri, sélection, pagination et dossiers à traiter. */
 export default function PromotersIndex({ promoters, filters, filterOptions, kpis, todo }: PromoterIndexProps) {
     const ui = useAdminUi();
     const actions = usePromoterActions();
-    const [selected, setSelected] = useState<number[]>([]);
-    const [menuFor, setMenuFor] = useState<number | null>(null);
+    const [selected, setSelected] = useState<string[]>([]);
+    const [menuFor, setMenuFor] = useState<string | null>(null);
     const rows = promoters.data;
 
     // La sélection ne survit pas à un changement de page ou de filtre.
@@ -57,28 +59,27 @@ export default function PromotersIndex({ promoters, filters, filterOptions, kpis
     };
 
     const allSelected = rows.length > 0 && rows.every((r) => selected.includes(r.id));
-    const toggle = (id: number) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+    const toggle = (id: string) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
-    const exportUrl = (ids?: number[]) => `/promoteurs/export${ids?.length ? `?ids=${ids.join(',')}` : ''}`;
+    const exportUrl = (ids?: string[]) => `/promoteurs/export${ids?.length ? `?ids=${ids.join(',')}` : ''}`;
 
     const bulkValidate = () => {
-        const pending = rows.filter((r) => selected.includes(r.id) && r.status.value === 'pending');
-        if (!pending.length) return ui.toast('Aucun compte « À valider » dans la sélection.', { tone: 'error' });
+        const pending = rows.filter((r) => selected.includes(r.id) && REVIEWABLE.includes(r.status.value));
+        if (!pending.length) return ui.toast('Aucun dossier à vérifier dans la sélection.', { tone: 'error' });
         ui.confirm({
             icon: 'done_all',
             tone: 'success',
             title: `Valider ${pending.length} compte${pending.length > 1 ? 's' : ''} ?`,
-            body: `${pending.map((r) => r.name).join(', ')}. Les comptes déjà actifs ou suspendus sont ignorés.`,
+            body: `${pending.map((r) => r.representative).join(', ')}. Seuls les dossiers complets dont toutes les pièces obligatoires sont vérifiées seront validés ; les autres sont signalés.`,
             ok: 'Valider',
             onConfirm: () => router.post('/promoteurs/validation-groupee', { ids: pending.map((r) => r.id) }, { preserveScroll: true }),
         });
     };
 
     const rowMenu = (p: PromoterRow) => [
-        { icon: 'construction', label: 'Consulter les chantiers', onClick: () => router.visit(`/promoteurs/${p.slug}/chantiers`) },
-        { icon: 'payments', label: 'Consulter les paiements', onClick: () => router.visit(`/promoteurs/${p.slug}/paiements`) },
-        { icon: 'send', label: 'Envoyer une notification', onClick: () => actions.notify(p) },
-        p.status.value === 'suspended'
+        { icon: 'folder_shared', label: 'Contrôler le dossier', onClick: () => router.visit(`/promoteurs/${p.slug}/kyc`) },
+        { icon: 'send', label: 'Envoyer un message', onClick: () => actions.notify(p) },
+        p.status.value === 'suspendu'
             ? { icon: 'settings_backup_restore', label: 'Réactiver', onClick: () => actions.reactivate(p) }
             : { icon: 'block', label: 'Suspendre', danger: true, onClick: () => actions.suspend(p) },
     ];
@@ -92,13 +93,12 @@ export default function PromotersIndex({ promoters, filters, filterOptions, kpis
 
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 'var(--space-2_5)', marginTop: -6 }}>
                 <Button label="Exporter" icon="download" variant="secondary" onClick={() => (window.location.href = exportUrl())} />
-                <Button label="Ajouter un promoteur" icon="add" variant="primary" onClick={() => router.visit('/promoteurs/nouveau')} />
             </div>
 
             <div data-component="StatGrid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 'var(--space-4)' }}>
                 <StatCard label="Total promoteurs" value={String(kpis.total)} icon="apartment" tone="g" />
-                <StatCard label="Comptes actifs" value={String(kpis.active)} icon="groups" tone="g" />
-                <StatCard label="À valider" value={String(kpis.pending)} icon="warning" tone="a" highlight={kpis.pending > 0} />
+                <StatCard label="Comptes validés" value={String(kpis.active)} icon="verified" tone="g" />
+                <StatCard label="À vérifier" value={String(kpis.pending)} icon="warning" tone="a" highlight={kpis.pending > 0} />
                 <StatCard label="Suspendus" value={String(kpis.suspended)} icon="person_off" tone="r" />
             </div>
 
@@ -148,7 +148,7 @@ export default function PromotersIndex({ promoters, filters, filterOptions, kpis
                                         <PersonCell name={p.representative} />
                                     </td>
                                     <td style={tdStyle}>
-                                        <TextCell>{p.name}</TextCell>
+                                        <StackCell main={p.name} sub={p.kind} />
                                     </td>
                                     <td style={tdStyle}>
                                         <StackCell main={p.phone} sub={p.email} />
@@ -156,25 +156,24 @@ export default function PromotersIndex({ promoters, filters, filterOptions, kpis
                                     <td style={tdStyle}>
                                         <LocationCell value={p.location} />
                                     </td>
-                                    <td style={tdStyle}>
-                                        <Link href={`/promoteurs/${p.slug}/chantiers`} onClick={(e) => e.stopPropagation()} style={{ whiteSpace: 'nowrap' }}>
-                                            {p.sitesCount} {plural(p.sitesCount, 'chantier', 'chantiers')}
-                                        </Link>
+                                    <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                                        {p.sitesCount} {plural(p.sitesCount, 'chantier', 'chantiers')}
+                                    </td>
+                                    <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                                        <TextCell>{p.registeredAt ?? '—'}</TextCell>
                                     </td>
                                     <td style={tdStyle}>
-                                        <StatusBadge label={p.payment.label} tone={p.payment.tone} />
-                                    </td>
-                                    <td style={tdStyle}>
-                                        <StatusBadge label={p.kyc.label} tone={p.kyc.tone} icon={p.kyc.icon} />
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)' }}>
+                                            {p.expiredDocuments > 0 && <StatusBadge label={`${p.expiredDocuments} ${plural(p.expiredDocuments, 'pièce expirée', 'pièces expirées')}`} tone="r" icon="event_busy" />}
+                                            {p.openDisputes > 0 && <StatusBadge label={`${p.openDisputes} ${plural(p.openDisputes, 'litige', 'litiges')}`} tone="r" icon="gavel" />}
+                                            {!p.expiredDocuments && !p.openDisputes && <span style={{ color: 'var(--c-muted)' }}>—</span>}
+                                        </div>
                                     </td>
                                     <td style={tdStyle}>
                                         <StatusBadge label={p.status.label} tone={p.status.tone} />
                                     </td>
                                     <RowActions
-                                        actions={[
-                                            { icon: 'visibility', label: 'Voir le profil', onClick: open },
-                                            { icon: 'edit', label: 'Modifier', onClick: () => router.visit(`/promoteurs/${p.slug}/modifier`) },
-                                        ]}
+                                        actions={[{ icon: 'visibility', label: 'Voir le profil', onClick: open }]}
                                         menu={rowMenu(p)}
                                         menuOpen={menuFor === p.id}
                                         onToggleMenu={() => setMenuFor(menuFor === p.id ? null : p.id)}
@@ -193,7 +192,7 @@ export default function PromotersIndex({ promoters, filters, filterOptions, kpis
                         </div>
                     ) : (
                         <div style={{ paddingTop: 'var(--space-4)' }}>
-                            <StateBlock kind="nodata" icon="apartment" title="Aucun promoteur enregistré" text="Les promoteurs créés ou inscrits apparaîtront ici." actionLabel="Ajouter un promoteur" onAction={() => router.visit('/promoteurs/nouveau')} />
+                            <StateBlock kind="nodata" icon="apartment" title="Aucun promoteur inscrit" text="Les promoteurs inscrits depuis l’application apparaîtront ici." />
                         </div>
                     ))}
 
@@ -205,13 +204,14 @@ export default function PromotersIndex({ promoters, filters, filterOptions, kpis
                 icon="schedule"
                 active={filters.rapide ?? null}
                 activeLabel={filters.rapide ? QUICK_LABELS[filters.rapide] : undefined}
-                ctaLabel={filters.rapide === 'tous' ? 'Afficher tous les promoteurs' : `Voir les dossiers (${todo.total})`}
-                onCta={() => applyQuick(filters.rapide === 'tous' ? null : 'tous')}
+                ctaLabel={filters.rapide === 'a_verifier' ? 'Afficher tous les promoteurs' : `Voir les dossiers à vérifier (${todo.a_verifier})`}
+                onCta={() => applyQuick(filters.rapide === 'a_verifier' ? null : 'a_verifier')}
                 onSelect={applyQuick}
                 items={[
-                    { key: 'incomplets', count: todo.incomplete, label: `${plural(todo.incomplete, 'dossier incomplet', 'dossiers incomplets')} (pièce KYC obligatoire manquante)`, icon: 'description', tone: 'a' },
-                    { key: 'expirees', count: todo.expiredDocuments, label: `${plural(todo.expiredDocuments, 'pièce expirée', 'pièces expirées')} · ${todo.expiredPromoters} ${plural(todo.expiredPromoters, 'promoteur', 'promoteurs')}`, icon: 'event_busy', tone: 'r' },
-                    { key: 'signales', count: todo.reported, label: `${plural(todo.reported, 'compte signalé', 'comptes signalés')} (litige ouvert)`, icon: 'flag', tone: 'r' },
+                    { key: 'a_verifier', count: todo.a_verifier, label: `${plural(todo.a_verifier, 'dossier à vérifier', 'dossiers à vérifier')} (soumis ou en contrôle)`, icon: 'fact_check', tone: 'a' },
+                    { key: 'incomplets', count: todo.incomplets, label: `${plural(todo.incomplets, 'dossier incomplet', 'dossiers incomplets')} (brouillon ou à corriger)`, icon: 'description', tone: 'a' },
+                    { key: 'pieces_expirees', count: todo.pieces_expirees, label: `${plural(todo.pieces_expirees, 'promoteur', 'promoteurs')} avec une pièce expirée`, icon: 'event_busy', tone: 'r' },
+                    { key: 'signales', count: todo.signales, label: `${plural(todo.signales, 'compte signalé', 'comptes signalés')} (litige ouvert)`, icon: 'flag', tone: 'r' },
                 ]}
             />
 

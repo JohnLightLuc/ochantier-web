@@ -3,92 +3,93 @@ import type { AnyTone, Badge } from '@/types';
 
 export type StatusBadge = Badge & { value?: string };
 
+/** Ligne de la liste. `slug` est l’identifiant du profil promoteur dans l’API, utilisé dans les URL. */
 export type PromoterRow = {
-    id: number;
+    id: string;
     slug: string;
     representative: string;
     name: string;
     phone: string;
     email: string;
     location: string;
+    kind: string;
     sitesCount: number;
-    payment: Badge;
-    kyc: Badge;
-    status: StatusBadge;
+    expiredDocuments: number;
+    openDisputes: number;
+    registeredAt: string | null;
+    status: StatusBadge & { value: string };
 };
 
-export type PromoterFilters = Partial<Record<'q' | 'statut' | 'localisation' | 'type' | 'kyc' | 'inscription' | 'rapide' | 'tri' | 'sens' | 'page', string>>;
+export type PromoterFilters = Partial<Record<'q' | 'statut' | 'localisation' | 'type' | 'inscription' | 'rapide' | 'tri' | 'sens' | 'page', string>>;
+
+export type PromoterTodo = Record<'a_verifier' | 'incomplets' | 'pieces_expirees' | 'signales', number>;
 
 export type PromoterIndexProps = {
     promoters: { data: PromoterRow[]; currentPage: number; lastPage: number; total: number; from: number; to: number };
     filters: PromoterFilters;
-    filterOptions: Record<'statut' | 'localisation' | 'type' | 'kyc' | 'inscription', Option[]>;
+    filterOptions: Record<'statut' | 'localisation' | 'type' | 'inscription', Option[]>;
     kpis: { total: number; active: number; pending: number; suspended: number };
-    todo: { incomplete: number; expiredDocuments: number; expiredPromoters: number; reported: number; total: number };
+    todo: PromoterTodo;
+};
+
+export type PromoterReview = {
+    number: number;
+    status: string;
+    submittedAt: string | null;
+    assignedTo: string | null;
+    decidedBy: string | null;
+    decidedAt: string | null;
+    reason: string | null;
+    corrections: { label: string | null; reason: string; resolved: boolean }[];
 };
 
 export type Promoter = {
-    id: number;
+    id: string;
     slug: string;
+    isCompany: boolean;
     name: string;
     representative: string;
     representativeRole: string | null;
-    legalForm: string;
-    rccm: string;
+    legalForm: string | null;
+    rccm: string | null;
     ncc: string | null;
-    sector: string | null;
-    headOffice: string;
+    headOffice: string | null;
     phone: string;
     email: string;
     accountType: string;
     location: string;
-    registeredAt: string;
+    registeredAt: string | null;
     lastActiveAt: string | null;
-    status: StatusBadge;
+    validatedAt: string | null;
+    validatedBy: string | null;
+    status: StatusBadge & { value: string };
     kyc: Badge;
+    completion: { percent: number; missing: string[] };
     suspension: { date: string; reason: string | null } | null;
+    review: { canDecide: boolean; canApprove: boolean; approvalRefusal: string | null; current: PromoterReview | null; history: PromoterReview[] };
+    subscription: { plan: string; status: string; periodEnd: string | null } | null;
+    stats: { sites: number; active_sites: number; users: number };
+    flags: { expired_documents_count: number; open_disputes_count: number };
 };
 
+export type PromoterDocumentFile = { name: string; side: string; mime: string; url: string };
+
+/** Pièce du dossier : pièce attendue (fournie ou non) ou document complémentaire. */
 export type PromoterDocument = {
-    id: number;
+    id: string;
     type: string;
     label: string;
+    kind: string | null;
     required: boolean;
     reference: string;
     addedAt: string;
     expiresAt: string;
-    status: Badge & { value: string };
+    status: Badge & { value: string; icon?: string | null };
     rejectionReason: string | null;
     hasFile: boolean;
+    files: PromoterDocumentFile[];
     canValidate: boolean;
     canReject: boolean;
-};
-
-export type PromoterActivity = {
-    id: number;
-    day: string;
-    time: string;
-    author: string;
-    kind: Badge & { value: 'admin' | 'promoter' | 'system' };
-    action: string;
-    target: string | null;
-    icon: string;
-    tone: string;
-    link: string | null;
-};
-
-export type DemoSite = { id: string; name: string; location: string; type: string; period: string; workers: number; progress: number; status: string; statusTone: AnyTone };
-export type DemoOffer = { id: string; name: string; site: string; trade: string; type: string; typeTone: AnyTone; applications: number; budget: string; due: string; status: string; statusTone: AnyTone };
-export type DemoPayment = { ref: string; site: string; type: string; method: string; amount: number; commission: number; date: string; status: string; statusTone: AnyTone; beneficiary: string };
-export type DemoReview = { id: string; author: string; detail: string; site: string; rating: string; comment: string; date: string; status: string; statusTone: AnyTone };
-export type DemoDispute = { ref: string; party: string; site: string; reason: string; priority: string; priorityTone: AnyTone; date: string; owner: string; status: string; statusTone: AnyTone };
-
-export type PromoterRelations = {
-    sites: DemoSite[];
-    offers: DemoOffer[];
-    payments: DemoPayment[];
-    reviews: DemoReview[];
-    disputes: DemoDispute[];
 };
 
 export type PromoterAlert = {
@@ -97,26 +98,21 @@ export type PromoterAlert = {
     title: string;
     text: string;
     cta: string;
-    href?: string;
-    addDocument?: string;
+    href: string;
 };
 
 export type PromoterKpi = { label: string; value: string; unit?: string; icon: string; tone: AnyTone; hint: string; highlight?: boolean };
 
-export type PromoterDrawer =
-    | { kind: 'document'; document: PromoterDocument }
-    | { kind: 'offer'; offer: DemoOffer; candidates: { name: string; detail: string; score: string }[] };
+export type PromoterDrawer = { kind: 'document'; document: PromoterDocument };
 
-export type PromoterTab = '' | 'kyc' | 'chantiers' | 'offres' | 'paiements' | 'avis' | 'litiges' | 'activite';
+export type PromoterTab = '' | 'kyc';
 
 export type PromoterShowProps = {
     promoter: Promoter;
     tab: PromoterTab;
     kpis: PromoterKpi[];
-    tabCounts: Record<'kyc' | 'chantiers' | 'offres' | 'paiements' | 'avis', number>;
+    tabCounts: { kyc: number };
     documents: PromoterDocument[];
-    activities: PromoterActivity[];
-    relations: PromoterRelations;
     alerts: PromoterAlert[];
     drawer: PromoterDrawer | null;
 };

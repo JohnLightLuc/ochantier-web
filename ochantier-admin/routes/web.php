@@ -31,11 +31,9 @@ use App\Http\Controllers\NeedDocumentController;
 use App\Http\Controllers\NeedStatusController;
 use App\Http\Controllers\PaymentActionController;
 use App\Http\Controllers\PaymentController;
-use App\Http\Controllers\PromoterAccountController;
 use App\Http\Controllers\PromoterController;
-use App\Http\Controllers\PromoterDemoController;
-use App\Http\Controllers\PromoterDocumentController;
 use App\Http\Controllers\PromoterOfferController;
+use App\Http\Controllers\PromoterReviewController;
 use App\Http\Controllers\QualityController;
 use App\Http\Controllers\ReviewActionController;
 use App\Http\Controllers\ReviewController;
@@ -91,39 +89,25 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
 
     Route::get('/', DashboardController::class)->name('dashboard');
 
+    // Promoteurs : données de l’API (api/v1/admin/promoters). Création, modification et onglets liés
+    // (chantiers, offres, paiements, avis, activité) arrivent avec les étapes suivantes.
     Route::prefix('promoteurs')->name('promoters.')->group(function () {
         Route::get('/', [PromoterController::class, 'index'])->name('index');
         Route::get('/export', [PromoterController::class, 'export'])->name('export');
-        Route::post('/validation-groupee', [PromoterAccountController::class, 'validateMany'])->name('validate-many');
-        Route::get('/nouveau', [PromoterController::class, 'create'])->name('create');
-        Route::post('/', [PromoterController::class, 'store'])->name('store');
+        Route::post('/validation-groupee', [PromoterReviewController::class, 'approveMany'])->name('validate-many');
 
-        Route::prefix('{promoter}')->scopeBindings()->group(function () {
-            Route::get('/modifier', [PromoterController::class, 'edit'])->name('edit');
-            Route::get('/modifier/entreprise', [PromoterController::class, 'edit'])->name('edit-company');
-            Route::put('/', [PromoterController::class, 'update'])->name('update');
-            Route::get('/fiche', [PromoterController::class, 'sheet'])->name('sheet');
-
-            Route::post('/validation', [PromoterAccountController::class, 'validateAccount'])->name('validate');
-            Route::post('/suspension', [PromoterAccountController::class, 'suspend'])->name('suspend');
-            Route::delete('/suspension', [PromoterAccountController::class, 'reactivate'])->name('reactivate');
-            Route::post('/notifications', [PromoterAccountController::class, 'notify'])->name('notify');
-
-            Route::post('/documents', [PromoterDocumentController::class, 'store'])->name('documents.store');
-            Route::post('/documents/{document}/validation', [PromoterDocumentController::class, 'approve'])->name('documents.approve');
-            Route::post('/documents/{document}/rejet', [PromoterDocumentController::class, 'reject'])->name('documents.reject');
-            Route::get('/documents/{document}/telechargement', [PromoterDocumentController::class, 'download'])->name('documents.download');
-
-            Route::get('/chantiers/{site}', [PromoterDemoController::class, 'site'])->name('sites.show');
-            Route::get('/paiements/{ref}', [PromoterDemoController::class, 'payment'])->name('payments.show');
-            Route::post('/paiements/{ref}/autorisation', [PromoterDemoController::class, 'authorizePayment'])->name('payments.authorize');
-            Route::post('/paiements/{ref}/relance', [PromoterDemoController::class, 'retryPayment'])->name('payments.retry');
-            Route::get('/paiements/{ref}/recu', [PromoterDemoController::class, 'receipt'])->name('payments.receipt');
-            Route::post('/offres/{offer}/validation', [PromoterDemoController::class, 'approveOffer'])->name('offers.approve');
-            Route::patch('/avis/{review}', [PromoterDemoController::class, 'moderateReview'])->name('reviews.moderate');
+        Route::prefix('{promoter}')->whereUuid('promoter')->group(function () {
+            Route::post('/validation', [PromoterReviewController::class, 'approve'])->name('validate');
+            Route::post('/corrections', [PromoterReviewController::class, 'requestCorrections'])->name('corrections');
+            Route::post('/refus', [PromoterReviewController::class, 'reject'])->name('reject');
+            Route::post('/suspension', [PromoterReviewController::class, 'suspend'])->name('suspend');
+            Route::delete('/suspension', [PromoterReviewController::class, 'reactivate'])->name('reactivate');
+            Route::post('/notifications', [PromoterReviewController::class, 'message'])->name('notify');
+            Route::post('/documents/{document}/validation', [PromoterReviewController::class, 'approveDocument'])->whereUuid('document')->name('documents.approve');
+            Route::post('/documents/{document}/rejet', [PromoterReviewController::class, 'rejectDocument'])->whereUuid('document')->name('documents.reject');
 
             Route::get('/{tab?}/{item?}', [PromoterController::class, 'show'])
-                ->where(['tab' => 'kyc|chantiers|offres|paiements|avis|litiges|activite', 'item' => '[A-Za-z0-9-]+'])
+                ->where(['tab' => 'kyc', 'item' => '[A-Za-z0-9_-]+'])
                 ->name('show');
         });
     });

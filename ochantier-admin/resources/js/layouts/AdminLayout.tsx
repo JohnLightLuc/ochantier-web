@@ -39,6 +39,7 @@ function AdminShell({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         if (flash.toast) ui.toast(flash.toast);
+        if (flash.toastError) ui.toast(flash.toastError, { tone: 'error' });
     }, [flash, ui]);
 
     const toggleSidebar = () => {

@@ -10,11 +10,20 @@ class ModuleNavigationTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * Modules dont les pages lisent l’API (testés avec des réponses simulées, voir PromotersTest).
+     */
+    private const API_MODULES = ['/promoteurs'];
+
     public function test_every_sidebar_module_has_a_page(): void
     {
         $user = User::factory()->create();
 
         foreach (config('admin.modules') as $module) {
+            if (in_array($module['path'], self::API_MODULES, true)) {
+                continue;
+            }
+
             $this->actingAs($user)->get($module['path'])->assertOk();
         }
     }
