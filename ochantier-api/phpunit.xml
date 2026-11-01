@@ -24,8 +24,14 @@
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
         <env name="DB_CONNECTION" value="pgsql"/>
-        <env name="DB_DATABASE" value="ochantier_test"/>
-        <env name="DB_URL" value=""/>
+        <!-- Base Docker locale (compose.yaml), forcée pour ne jamais viser la base distante du .env -->
+        <env name="DB_URL" value="" force="true"/>
+        <env name="DB_HOST" value="127.0.0.1" force="true"/>
+        <env name="DB_PORT" value="5432" force="true"/>
+        <env name="DB_DATABASE" value="ochantier_test" force="true"/>
+        <env name="DB_USERNAME" value="ochantier" force="true"/>
+        <env name="DB_PASSWORD" value="secret" force="true"/>
+        <env name="DB_SSLMODE" value="prefer" force="true"/>
         <env name="JWT_SECRET" value="phpunit-jwt-secret-with-at-least-32-bytes"/>
         <env name="OTP_TEST_CODE" value="123456"/>
         <env name="MAIL_MAILER" value="array"/>
