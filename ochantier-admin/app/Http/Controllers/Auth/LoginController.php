@@ -55,6 +55,7 @@ class LoginController extends ApiAuthController
                 'email' => $credentials['email'],
                 'destination' => $response->json('data.destination'),
                 'resend_at' => now()->addSeconds((int) $response->json('data.resend_in'))->getTimestamp(),
+                'code_length' => (int) ($response->json('data.code_length') ?: 6),
             ]);
 
             return to_route('login.otp');

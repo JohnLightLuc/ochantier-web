@@ -125,6 +125,24 @@ class AuthenticationTest extends TestCase
         $this->post('/connexion/verification/renvoi')->assertRedirect('/connexion');
     }
 
+    public function test_the_code_length_follows_the_api(): void
+    {
+        $codeSent = $this->codeSent();
+        $codeSent['data']['code_length'] = 4;
+        Http::fake([
+            self::API.'/auth/login' => Http::response($codeSent, 202),
+            self::API.'/auth/login/verify' => Http::response($this->tokens()),
+        ]);
+
+        $this->post('/connexion', ['email' => 'a.kone@ochantier.ci', 'password' => 'motdepasse1']);
+
+        $this->get('/connexion/verification')->assertInertia(fn (Assert $page) => $page->where('step', 'otp')->where('codeLength', 4));
+        $this->post('/connexion/verification', ['code' => '123456'])->assertSessionHasErrors(['code' => 'Le code doit contenir 4 chiffres.']);
+        $this->post('/connexion/verification', ['code' => '1234'])->assertRedirect('/');
+
+        $this->assertAuthenticated();
+    }
+
     public function test_the_code_is_verified_by_the_api_and_opens_the_session(): void
     {
         Http::fake([

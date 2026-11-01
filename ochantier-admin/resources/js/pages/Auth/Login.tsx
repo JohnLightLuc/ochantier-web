@@ -5,7 +5,7 @@ import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode
 
 type Props =
     | { step: 'login'; email: string | null; status: string | null }
-    | { step: 'otp'; maskedEmail: string; resendIn: number; status: string | null }
+    | { step: 'otp'; maskedEmail: string; resendIn: number; codeLength: number; status: string | null }
     | { step: 'forgot' }
     | { step: 'sent'; sentTo: string }
     | { step: 'reset'; token: string; email: string }
@@ -38,7 +38,7 @@ export default function Login(props: Props) {
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'center', padding: 'var(--space-6) 0' }}>
                         <div data-component="AuthCard" style={{ width: '100%', maxWidth: 'var(--auth-card-w)', background: 'var(--c-surface)', border: '1px solid var(--c-line)', borderRadius: 'var(--radius-3xl)', boxShadow: 'var(--shadow-lg)', padding: 'var(--space-12) var(--space-12) var(--space-10)' }}>
                             {props.step === 'login' && <LoginForm email={props.email} status={props.status} />}
-                            {props.step === 'otp' && <OtpForm maskedEmail={props.maskedEmail} resendIn={props.resendIn} status={props.status} />}
+                            {props.step === 'otp' && <OtpForm maskedEmail={props.maskedEmail} resendIn={props.resendIn} codeLength={props.codeLength} status={props.status} />}
                             {props.step === 'forgot' && <ForgotForm />}
                             {props.step === 'sent' && <SentNotice email={props.sentTo} />}
                             {props.step === 'reset' && <ResetForm token={props.token} email={props.email} />}
@@ -221,7 +221,7 @@ function LoginForm({ email, status }: { email: string | null; status: string | n
     );
 }
 
-function OtpForm({ maskedEmail, resendIn, status }: { maskedEmail: string; resendIn: number; status: string | null }) {
+function OtpForm({ maskedEmail, resendIn, codeLength, status }: { maskedEmail: string; resendIn: number; codeLength: number; status: string | null }) {
     const form = useForm({ code: '' });
     const resend = useForm({});
     const [wait, setWait] = useState(resendIn);
@@ -241,8 +241,8 @@ function OtpForm({ maskedEmail, resendIn, status }: { maskedEmail: string; resen
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
-        if (form.data.code.length < 6) {
-            form.setError('code', 'Le code doit contenir 6 chiffres.');
+        if (form.data.code.length < codeLength) {
+            form.setError('code', `Le code doit contenir ${codeLength} chiffres.`);
             return;
         }
         form.post('/connexion/verification');
@@ -251,13 +251,13 @@ function OtpForm({ maskedEmail, resendIn, status }: { maskedEmail: string; resen
     return (
         <form onSubmit={submit} noValidate>
             <CardHeader icon="shield_lock" title="Vérification en deux étapes">
-                Saisissez le code à 6 chiffres envoyé à <b style={{ color: 'var(--c-ink)' }}>{maskedEmail}</b>.
+                Saisissez le code à {codeLength} chiffres envoyé à <b style={{ color: 'var(--c-ink)' }}>{maskedEmail}</b>.
             </CardHeader>
             {!form.hasErrors && <StatusAlert message={status} />}
             <ErrorAlert message={form.errors.code} />
 
-            <label style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 'var(--space-2_5)', marginBottom: 'var(--space-6)', cursor: 'text' }}>
-                {Array.from({ length: 6 }, (_, i) => {
+            <label style={{ position: 'relative', display: 'grid', gridTemplateColumns: `repeat(${codeLength},1fr)`, gap: 'var(--space-2_5)', marginBottom: 'var(--space-6)', cursor: 'text' }}>
+                {Array.from({ length: codeLength }, (_, i) => {
                     const digit = form.data.code[i] ?? '';
                     const border = i === form.data.code.length ? 'var(--c-primary)' : digit ? 'var(--c-primary-400)' : 'var(--c-line-strong)';
                     return (
@@ -269,7 +269,7 @@ function OtpForm({ maskedEmail, resendIn, status }: { maskedEmail: string; resen
                 <input
                     value={form.data.code}
                     onChange={(e) => {
-                        form.setData('code', e.target.value.replace(/\D/g, '').slice(0, 6));
+                        form.setData('code', e.target.value.replace(/\D/g, '').slice(0, codeLength));
                         form.clearErrors('code');
                     }}
                     inputMode="numeric"

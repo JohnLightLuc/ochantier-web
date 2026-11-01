@@ -8,12 +8,12 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Vérification en deux étapes : code à 6 chiffres envoyé par e-mail par l’API.
+ * Vérification en deux étapes : code envoyé par e-mail par l’API, de la longueur qu’elle annonce (`code_length`).
  */
 class OtpController extends ApiAuthController
 {
     /**
-     * Saisie du code à 6 chiffres.
+     * Saisie du code.
      */
     public function create(Request $request): Response|RedirectResponse
     {
@@ -27,6 +27,7 @@ class OtpController extends ApiAuthController
             'step' => 'otp',
             'maskedEmail' => $pending['destination'],
             'resendIn' => max(0, $pending['resend_at'] - now()->getTimestamp()),
+            'codeLength' => $pending['code_length'] ?? 6,
             'status' => $request->session()->get('status'),
         ]);
     }
@@ -42,11 +43,14 @@ class OtpController extends ApiAuthController
             return to_route('login');
         }
 
+        $length = (int) $request->session()->get('login.pending.code_length', 6);
+        $message = "Le code doit contenir {$length} chiffres.";
+
         $request->validate([
-            'code' => ['required', 'digits:6'],
+            'code' => ['required', "digits:{$length}"],
         ], [
-            'code.required' => 'Le code doit contenir 6 chiffres.',
-            'code.digits' => 'Le code doit contenir 6 chiffres.',
+            'code.required' => $message,
+            'code.digits' => $message,
         ]);
 
         $response = $this->failAs('code', fn () => $this->api->guest('POST', 'auth/login/verify', [
@@ -73,6 +77,10 @@ class OtpController extends ApiAuthController
 
         $request->session()->put('login.pending.destination', $response->json('data.destination'));
         $request->session()->put('login.pending.resend_at', now()->addSeconds((int) $response->json('data.resend_in'))->getTimestamp());
+
+        if ($length = (int) $response->json('data.code_length')) {
+            $request->session()->put('login.pending.code_length', $length);
+        }
 
         return to_route('login.otp')->with('status', $response->json('message'));
     }
