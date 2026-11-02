@@ -32,6 +32,7 @@ use App\Http\Controllers\NeedStatusController;
 use App\Http\Controllers\PaymentActionController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PromoterController;
+use App\Http\Controllers\PromoterFormController;
 use App\Http\Controllers\PromoterOfferController;
 use App\Http\Controllers\PromoterReviewController;
 use App\Http\Controllers\QualityController;
@@ -94,9 +95,14 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
     Route::prefix('promoteurs')->name('promoters.')->group(function () {
         Route::get('/', [PromoterController::class, 'index'])->name('index');
         Route::get('/export', [PromoterController::class, 'export'])->name('export');
+        Route::get('/nouveau', [PromoterFormController::class, 'create'])->name('create');
+        Route::post('/', [PromoterFormController::class, 'store'])->name('store');
         Route::post('/validation-groupee', [PromoterReviewController::class, 'approveMany'])->name('validate-many');
 
         Route::prefix('{promoter}')->whereUuid('promoter')->group(function () {
+            Route::get('/modifier', [PromoterFormController::class, 'edit'])->name('edit');
+            Route::patch('/', [PromoterFormController::class, 'update'])->name('update');
+            Route::post('/documents', [PromoterFormController::class, 'storeDocument'])->name('documents.store');
             Route::post('/validation', [PromoterReviewController::class, 'approve'])->name('validate');
             Route::post('/corrections', [PromoterReviewController::class, 'requestCorrections'])->name('corrections');
             Route::post('/refus', [PromoterReviewController::class, 'reject'])->name('reject');

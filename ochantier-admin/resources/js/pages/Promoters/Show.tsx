@@ -1,4 +1,4 @@
-import { ReasonDialog } from '@/components/promoters/dialogs';
+import { ReasonDialog, UploadDocumentDialog } from '@/components/promoters/dialogs';
 import { DocumentDrawer } from '@/components/promoters/Drawers';
 import KycTab from '@/components/promoters/KycTab';
 import OverviewTab from '@/components/promoters/OverviewTab';
@@ -18,10 +18,16 @@ const TABS: [PromoterTab, string][] = [
 const REJECTION_CATEGORIES = ['Document illisible', 'Document expiré', 'Informations incohérentes', 'Mauvais document', 'Autre'];
 
 /** Fiche détaillée d’un promoteur : en-tête, indicateurs, vue générale et contrôle du dossier. */
-export default function PromoterShow({ promoter, tab, kpis, tabCounts, documents, alerts, drawer }: PromoterShowProps) {
+export default function PromoterShow({ promoter, tab, kpis, tabCounts, documents, alerts, drawer, can, documentTypes }: PromoterShowProps) {
     const ui = useAdminUi();
     const actions = usePromoterActions();
     const [rejecting, setRejecting] = useState<ReactNode>(null);
+    const [uploading, setUploading] = useState(false);
+
+    const openUpload = () => {
+        setUploading(true);
+        if (!documentTypes) router.reload({ only: ['documentTypes'] });
+    };
     const base = `/promoteurs/${promoter.slug}`;
 
     const validateDocument = (d: PromoterDocument) =>
@@ -55,7 +61,7 @@ export default function PromoterShow({ promoter, tab, kpis, tabCounts, documents
         <>
             <Head title={`${promoter.name}${tab ? ` · ${tabLabel}` : ''}`} />
             <div data-component="PromoteurModule" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
-                <PromoterHeader promoter={promoter} documents={documents} actions={actions} />
+                <PromoterHeader promoter={promoter} documents={documents} actions={actions} canEdit={can.update} />
 
                 <div data-component="StatGrid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 'var(--space-4)' }}>
                     {kpis.map((k) => (
@@ -88,7 +94,7 @@ export default function PromoterShow({ promoter, tab, kpis, tabCounts, documents
                     </div>
 
                     {tab === '' && <OverviewTab promoter={promoter} documents={documents} alerts={alerts} />}
-                    {tab === 'kyc' && <KycTab promoter={promoter} documents={documents} onValidate={validateDocument} onReject={rejectDocument} />}
+                    {tab === 'kyc' && <KycTab promoter={promoter} documents={documents} onValidate={validateDocument} onReject={rejectDocument} onUpload={can.addDocument ? openUpload : undefined} />}
                 </section>
             </div>
 
@@ -105,6 +111,7 @@ export default function PromoterShow({ promoter, tab, kpis, tabCounts, documents
 
             {actions.dialog}
             {rejecting}
+            {uploading && <UploadDocumentDialog promoterName={promoter.name} types={documentTypes} url={`${base}/documents`} onClose={() => setUploading(false)} />}
         </>
     );
 }

@@ -30,6 +30,7 @@ export type PromoterIndexProps = {
     filterOptions: Record<'statut' | 'localisation' | 'type' | 'inscription', Option[]>;
     kpis: { total: number; active: number; pending: number; suspended: number };
     todo: PromoterTodo;
+    can: { create: boolean };
 };
 
 export type PromoterReview = {
@@ -115,4 +116,6 @@ export type PromoterShowProps = {
     documents: PromoterDocument[];
     alerts: PromoterAlert[];
     drawer: PromoterDrawer | null;
+    can: { update: boolean; addDocument: boolean };
+    documentTypes?: { value: string; label: string; hasBackSide: boolean; isIdentity: boolean; accept: string }[];
 };

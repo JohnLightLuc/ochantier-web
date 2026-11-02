@@ -1,5 +1,6 @@
 import Avatar from '@/components/ui/Avatar';
 import Button from '@/components/ui/Button';
+import { router } from '@inertiajs/react';
 import Icon from '@/components/ui/Icon';
 import Menu from '@/components/ui/Menu';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -12,10 +13,11 @@ type Props = {
     promoter: Promoter;
     documents: PromoterDocument[];
     actions: ReturnType<typeof usePromoterActions>;
+    canEdit?: boolean;
 };
 
 /** En-tête de la fiche : identité, statuts, méta et décisions sur le compte. */
-export default function PromoterHeader({ promoter: p, documents, actions }: Props) {
+export default function PromoterHeader({ promoter: p, documents, actions, canEdit = false }: Props) {
     const ui = useAdminUi();
     const [moreOpen, setMoreOpen] = useState(false);
     const suspended = p.status.value === 'suspendu';
@@ -67,6 +69,7 @@ export default function PromoterHeader({ promoter: p, documents, actions }: Prop
                     </div>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', alignItems: 'center', position: 'relative' }}>
+                    {canEdit && <Button label="Modifier" icon="edit" variant="secondary" onClick={() => router.visit(`/promoteurs/${p.slug}/modifier`)} />}
                     <Button label="Envoyer un message" icon="send" variant="secondary" onClick={() => actions.notify(p)} />
                     {review.canDecide && !suspended && (
                         <>

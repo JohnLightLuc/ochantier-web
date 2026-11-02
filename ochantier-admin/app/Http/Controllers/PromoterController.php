@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Promoter;
 use App\Support\Api\AdminApi;
+use App\Support\Api\AdminUser;
 use App\Support\PromoterPresenter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -70,6 +71,7 @@ class PromoterController extends Controller
                 'suspended' => $meta['counts']['statuses']['suspendu'],
             ],
             'todo' => $meta['counts']['todo'],
+            'can' => ['create' => $this->allowed($request, 'promoters.create')],
         ]);
     }
 
@@ -110,7 +112,7 @@ class PromoterController extends Controller
     /**
      * Fiche : vue générale ou onglet KYC ; `item` ouvre l’aperçu d’une pièce.
      */
-    public function show(string $promoter, ?string $tab = null, ?string $item = null): Response
+    public function show(Request $request, string $promoter, ?string $tab = null, ?string $item = null): Response
     {
         $tab ??= '';
         abort_unless(array_key_exists($tab, self::TABS), 404);
@@ -133,6 +135,8 @@ class PromoterController extends Controller
             'alerts' => $tab === '' ? $this->alerts($view, $documents, $base) : [],
             'drawer' => $document ? ['kind' => 'document', 'document' => $document] : null,
             'header' => $this->header('Détail du promoteur', '', $crumbs),
+            'can' => ['update' => $this->allowed($request, 'promoters.update'), 'addDocument' => $this->allowed($request, 'documents.validate')],
+            'documentTypes' => Inertia::optional(fn () => $this->documentTypes($data)),
         ]);
     }
 
@@ -149,6 +153,36 @@ class PromoterController extends Controller
         }
 
         return $query;
+    }
+
+    private function allowed(Request $request, string $permission): bool
+    {
+        $user = $request->user();
+
+        return $user instanceof AdminUser && $user->hasPermission($permission);
+    }
+
+    /**
+     * Types de pièces que l’administrateur peut ajouter (celles de l’entreprise pour un compte entreprise seulement).
+     *
+     * @param  array<string, mixed>  $promoter
+     * @return list<array<string, mixed>>
+     */
+    private function documentTypes(array $promoter): array
+    {
+        $company = ($promoter['kind']['value'] ?? null) === 'entreprise';
+
+        return collect(app(PromoterFormController::class)->formOptions()['document_types'])
+            ->filter(fn (array $type) => $company || $type['audience'] !== 'organization')
+            ->map(fn (array $type) => [
+                'value' => $type['code'],
+                'label' => $type['label'],
+                'hasBackSide' => $type['has_back_side'],
+                'isIdentity' => $type['is_identity'],
+                'accept' => implode(',', $type['allowed_mime'] ?? []),
+            ])
+            ->values()
+            ->all();
     }
 
     /**

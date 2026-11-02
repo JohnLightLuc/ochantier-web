@@ -6,6 +6,7 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
@@ -54,6 +55,17 @@ class AdminApi
     public function delete(string $uri, array $data = []): Response
     {
         return $this->authenticated('DELETE', $uri, $data);
+    }
+
+    /**
+     * Envoi de fichiers (multipart) : champs simples dans $data, fichiers dans $files.
+     *
+     * @param  array<string, scalar|null>  $data
+     * @param  array<string, UploadedFile>  $files
+     */
+    public function upload(string $uri, array $data, array $files): Response
+    {
+        return $this->authenticated('POST', $uri, $data, $files);
     }
 
     /**
@@ -113,8 +125,9 @@ class AdminApi
 
     /**
      * @param  array<string, mixed>  $data
+     * @param  array<string, UploadedFile>  $files
      */
-    private function authenticated(string $method, string $uri, array $data): Response
+    private function authenticated(string $method, string $uri, array $data, array $files = []): Response
     {
         if (! $this->tokens->has()) {
             throw new AuthenticationException;
@@ -124,14 +137,14 @@ class AdminApi
             $this->expire();
         }
 
-        $response = $this->send($method, $uri, $data, $this->tokens->accessToken());
+        $response = $this->send($method, $uri, $data, $this->tokens->accessToken(), $files);
 
         if ($response->status() === 401) {
             if (! $this->refresh()) {
                 $this->expire();
             }
 
-            $response = $this->send($method, $uri, $data, $this->tokens->accessToken());
+            $response = $this->send($method, $uri, $data, $this->tokens->accessToken(), $files);
 
             if ($response->status() === 401) {
                 $this->expire();
@@ -143,10 +156,21 @@ class AdminApi
 
     /**
      * @param  array<string, mixed>  $data
+     * @param  array<string, UploadedFile>  $files
      */
-    private function send(string $method, string $uri, array $data, ?string $token = null): Response
+    private function send(string $method, string $uri, array $data, ?string $token = null, array $files = []): Response
     {
         try {
+            if ($files !== []) {
+                $http = $this->http($token);
+
+                foreach ($files as $name => $file) {
+                    $http->attach($name, (string) file_get_contents($file->getRealPath()), $file->getClientOriginalName(), ['Content-Type' => $file->getMimeType()]);
+                }
+
+                return $http->post(ltrim($uri, '/'), array_filter($data, fn ($value) => $value !== null && $value !== ''));
+            }
+
             return $this->http($token)->send($method, ltrim($uri, '/'), $method === 'GET' ? ['query' => $data] : ['json' => $data]);
         } catch (ConnectionException) {
             throw ApiException::unavailable();

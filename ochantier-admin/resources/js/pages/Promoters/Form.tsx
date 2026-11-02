@@ -1,41 +1,52 @@
 import Button from '@/components/ui/Button';
-import Field, { PhoneInput, SelectInput, TextArea, TextInput, type Option } from '@/components/ui/Field';
+import Field, { PhoneInput, SelectInput, TextInput, type Option } from '@/components/ui/Field';
 import Icon from '@/components/ui/Icon';
 import { useAdminUi } from '@/contexts/AdminUiContext';
 import { Head, router, useForm } from '@inertiajs/react';
 import { useEffect, type FormEvent, type ReactNode } from 'react';
 
 type Values = {
-    name: string;
-    legal_form: string;
-    rccm: string;
-    ncc: string;
-    sector: string;
-    head_office: string;
-    representative: string;
-    representative_role: string;
+    profile_kind: string;
+    first_name: string;
+    last_name: string;
     phone: string;
     email: string;
-    account_type: string;
-    location: string;
-    note: string;
+    job_title: string;
+    address: string;
+    commune_id: string;
+    neighborhood_id: string;
+    company_legal_name: string;
+    company_trade_name: string;
+    company_legal_form: string;
+    company_rccm: string;
+    company_ncc: string;
+    hq_address: string;
+    hq_commune_id: string;
+    hq_neighborhood_id: string;
+    send_invitation: boolean;
 };
+
+type TextKey = Exclude<keyof Values, 'send_invitation'>;
 
 type Props = {
-    mode: 'create' | 'edit' | 'company';
-    promoter: { slug: string; name: string } | null;
+    mode: 'create' | 'edit';
+    promoter: { id: string; name: string } | null;
     values: Values;
-    options: Record<'legal_form' | 'sector' | 'account_type' | 'location', Option[]>;
+    canChangeKind: boolean;
+    options: Record<'profile_kind' | 'commune' | 'legal_form', Option[]>;
+    neighborhoods: Record<string, Option[]>;
 };
 
-/** Création ou modification d’un promoteur ; en mode « company », seules l’entreprise et le représentant. */
-export default function PromoterForm({ mode, promoter, values, options }: Props) {
+/** Création ou modification d’un promoteur (particulier, technicien ou entreprise). */
+export default function PromoterForm({ mode, promoter, values, canChangeKind, options, neighborhoods }: Props) {
     const ui = useAdminUi();
-    const form = useForm<Values & { mode?: string }>({ ...values, ...(mode === 'company' ? { mode: 'company' } : {}) });
+    const form = useForm<Values>(values);
     const { data, errors } = form;
     const errorCount = Object.keys(errors).length;
     const isNew = mode === 'create';
-    const backUrl = promoter ? `/promoteurs/${promoter.slug}${mode === 'company' ? '/kyc' : ''}` : '/promoteurs';
+    const isCompany = data.profile_kind === 'entreprise';
+    const backUrl = promoter ? `/promoteurs/${promoter.id}` : '/promoteurs';
+    const displayName = (isCompany ? data.company_legal_name : `${data.first_name} ${data.last_name}`).trim() || 'ce promoteur';
 
     // Avertit avant de quitter la page avec des modifications non enregistrées.
     useEffect(() => {
@@ -48,27 +59,31 @@ export default function PromoterForm({ mode, promoter, values, options }: Props)
     const submit = (e: FormEvent) => {
         e.preventDefault();
 
-        // Champs obligatoires vérifiés avant la confirmation ; le serveur valide ensuite les formats.
-        const required: (keyof Values)[] = ['name', 'legal_form', 'rccm', 'head_office', 'representative', 'phone', 'email', ...(mode === 'company' ? [] : (['account_type', 'location'] as const))];
-        const missing = required.filter((key) => !String(data[key] ?? '').trim());
-        if (missing.length) {
+        // Champs obligatoires vérifiés avant la confirmation ; l’API valide ensuite les formats et l’unicité.
+        const missing: Partial<Record<keyof Values, string>> = {};
+        (['first_name', 'last_name', ...(isCompany ? (['company_legal_name'] as const) : [])] as TextKey[]).forEach((key) => {
+            if (!data[key].trim()) missing[key] = 'Ce champ est obligatoire.';
+        });
+        if (!data.phone.trim() && !data.email.trim()) missing.phone = missing.email = 'Saisissez un numéro de téléphone ou une adresse e-mail.';
+        if (Object.keys(missing).length) {
             form.clearErrors();
-            form.setError(Object.fromEntries(missing.map((key) => [key, 'Ce champ est obligatoire.'])) as Partial<Record<keyof Values, string>>);
+            form.setError(missing);
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
 
+        const channel = data.phone.trim() ? `par SMS au ${data.phone}` : `par e-mail à ${data.email}`;
         ui.confirm({
             icon: isNew ? 'person_add' : 'save',
             title: isNew ? 'Créer ce promoteur ?' : 'Confirmer la modification',
             body: isNew
-                ? `Le compte « ${data.name || 'sans nom'} » sera créé avec le statut « À valider ». Un e-mail d’activation sera envoyé à ${data.email || 'l’adresse indiquée'}.`
-                : `Les informations de « ${data.name} » seront mises à jour. L’action est enregistrée dans l’historique.`,
+                ? `Le compte de « ${displayName} » sera créé en attente d’activation. ${data.send_invitation ? `Une invitation à l’activer dans l’application sera envoyée ${channel}.` : 'Aucune invitation ne sera envoyée.'}`
+                : `Les informations de « ${displayName} » seront mises à jour. Un dossier validé le reste ; la modification est enregistrée dans le journal d’audit.${values.phone !== data.phone || values.email !== data.email ? ' Le changement de téléphone ou d’e-mail déconnecte le promoteur de ses appareils.' : ''}`,
             ok: isNew ? 'Créer le promoteur' : 'Enregistrer',
             onConfirm: () => {
-                const options = { onError: () => window.scrollTo({ top: 0, behavior: 'smooth' }) };
-                if (isNew) form.post('/promoteurs', options);
-                else form.put(`/promoteurs/${promoter!.slug}`, options);
+                const opts = { onError: () => window.scrollTo({ top: 0, behavior: 'smooth' }) };
+                if (isNew) form.post('/promoteurs', opts);
+                else form.patch(`/promoteurs/${promoter!.id}`, opts);
             },
         });
     };
@@ -78,15 +93,22 @@ export default function PromoterForm({ mode, promoter, values, options }: Props)
         ui.confirm({ tone: 'danger', icon: 'warning', title: 'Quitter sans enregistrer ?', body: 'Les modifications saisies dans ce formulaire seront perdues.', ok: 'Quitter sans enregistrer', cancel: 'Continuer la saisie', onConfirm: () => router.visit(backUrl) });
     };
 
-    const set = (key: keyof Values) => (value: string) => form.setData((current) => ({ ...current, [key]: value }));
-    const text = (key: keyof Values, label: string, opts: { required?: boolean; placeholder?: string; type?: string; span?: 'full' } = {}) => (
-        <Field label={label} required={opts.required} error={errors[key]} span={opts.span}>
+    const set = (key: TextKey) => (value: string) =>
+        form.setData((current) => ({
+            ...current,
+            [key]: value,
+            // Changer de commune vide le quartier, qui dépend d’elle.
+            ...(key === 'commune_id' ? { neighborhood_id: '' } : {}),
+            ...(key === 'hq_commune_id' ? { hq_neighborhood_id: '' } : {}),
+        }));
+    const text = (key: TextKey, label: string, opts: { required?: boolean; placeholder?: string; type?: string; span?: 'full'; hint?: string } = {}) => (
+        <Field label={label} required={opts.required} error={errors[key]} span={opts.span} hint={opts.hint}>
             <TextInput type={opts.type ?? 'text'} value={data[key]} onChange={(e) => set(key)(e.target.value)} placeholder={opts.placeholder} invalid={!!errors[key]} />
         </Field>
     );
-    const select = (key: keyof Values & keyof Props['options'], label: string, required = false) => (
-        <Field label={label} required={required} error={errors[key]}>
-            <SelectInput value={data[key]} onChange={(e) => set(key)(e.target.value)} options={options[key]} invalid={!!errors[key]} />
+    const select = (key: TextKey, label: string, list: Option[], opts: { required?: boolean; disabled?: boolean; hint?: string } = {}) => (
+        <Field label={label} required={opts.required} error={errors[key]} hint={opts.hint}>
+            <SelectInput value={data[key]} onChange={(e) => set(key)(e.target.value)} options={list} invalid={!!errors[key]} disabled={opts.disabled} />
         </Field>
     );
 
@@ -103,31 +125,43 @@ export default function PromoterForm({ mode, promoter, values, options }: Props)
                     </div>
                 )}
 
-                <FormSection icon="domain" title="Entreprise" description="Identité légale et adresse du siège.">
-                    {text('name', 'Raison sociale', { required: true, placeholder: 'Ex. SICOGI' })}
-                    {select('legal_form', 'Forme juridique', true)}
-                    {text('rccm', 'N° d’immatriculation (RCCM)', { required: true, placeholder: 'CI-ABJ-2026-B-00000' })}
-                    {text('ncc', 'N° de contribuable (NCC)', { placeholder: '0000000 A' })}
-                    {select('sector', 'Secteur d’activité')}
-                    {text('head_office', 'Adresse du siège', { required: true, placeholder: 'Rue, quartier, commune', span: 'full' })}
-                </FormSection>
-
-                <FormSection icon="badge" title="Représentant légal" description="Personne habilitée à engager l’entreprise.">
-                    {text('representative', 'Nom du représentant', { required: true, placeholder: 'Prénom Nom' })}
-                    {text('representative_role', 'Fonction', { placeholder: 'Ex. Gérant' })}
-                    <Field label="Téléphone" required error={errors.phone}>
+                <FormSection icon="manage_accounts" title="Compte" description="Type de compte et coordonnées de connexion. Le téléphone ou l’e-mail sert d’identifiant dans l’application.">
+                    {select('profile_kind', 'Type de compte', options.profile_kind, {
+                        required: true,
+                        disabled: !isNew && !canChangeKind,
+                        hint: !isNew && !canChangeKind ? 'Le dossier a été transmis pour vérification : le type ne peut plus être modifié.' : undefined,
+                    })}
+                    <Field label="Téléphone" error={errors.phone} hint="Ou une adresse e-mail">
                         <PhoneInput label="Téléphone" value={data.phone} onChange={set('phone')} invalid={!!errors.phone} />
                     </Field>
-                    {text('email', 'Adresse e-mail', { required: true, type: 'email', placeholder: 'nom@entreprise.ci' })}
+                    {text('email', 'Adresse e-mail', { type: 'email', placeholder: 'nom@exemple.ci' })}
+                    {isNew && (
+                        <label style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--fs-md)' }}>
+                            <input type="checkbox" checked={data.send_invitation} onChange={(e) => form.setData('send_invitation', e.target.checked)} />
+                            Envoyer au promoteur une invitation à activer son compte (SMS, ou e-mail à défaut de téléphone)
+                        </label>
+                    )}
                 </FormSection>
 
-                {mode !== 'company' && (
-                    <FormSection icon="manage_accounts" title="Compte" description="Paramètres du compte sur la plateforme.">
-                        {select('account_type', 'Type de compte', true)}
-                        {select('location', 'Localisation', true)}
-                        <Field label="Note interne" error={errors.note} span="full">
-                            <TextArea value={data.note} onChange={(e) => set('note')(e.target.value)} rows={3} placeholder="Visible uniquement par les administrateurs" />
-                        </Field>
+                <FormSection icon="badge" title={isCompany ? 'Dirigeant' : 'Identité'} description={isCompany ? 'Personne habilitée à engager l’entreprise.' : 'Identité et adresse du promoteur.'}>
+                    {text('first_name', 'Prénom', { required: true })}
+                    {text('last_name', 'Nom', { required: true })}
+                    {text('job_title', 'Fonction', { placeholder: isCompany ? 'Ex. Gérant' : 'Ex. Particulier' })}
+                    {select('commune_id', 'Commune', options.commune)}
+                    {select('neighborhood_id', 'Quartier', neighborhoods[data.commune_id] ?? [], { disabled: !data.commune_id })}
+                    {text('address', 'Adresse', { placeholder: 'Rue, lot, repère', span: 'full' })}
+                </FormSection>
+
+                {isCompany && (
+                    <FormSection icon="domain" title="Entreprise" description="Identité légale et siège. RCCM, NCC et siège peuvent être complétés plus tard.">
+                        {text('company_legal_name', 'Raison sociale', { required: true, placeholder: 'Ex. Bâtir Afrique' })}
+                        {text('company_trade_name', 'Nom commercial')}
+                        {select('company_legal_form', 'Forme juridique', options.legal_form)}
+                        {text('company_rccm', 'N° RCCM', { placeholder: 'CI-ABJ-2026-B-00000' })}
+                        {text('company_ncc', 'N° NCC', { placeholder: '0000000 A' })}
+                        {select('hq_commune_id', 'Commune du siège', options.commune)}
+                        {select('hq_neighborhood_id', 'Quartier du siège', neighborhoods[data.hq_commune_id] ?? [], { disabled: !data.hq_commune_id })}
+                        {text('hq_address', 'Adresse du siège', { placeholder: 'Rue, quartier, commune', span: 'full' })}
                     </FormSection>
                 )}
 

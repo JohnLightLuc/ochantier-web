@@ -127,3 +127,49 @@ export function CorrectionsDialog({ promoterName, documents, url, onClose }: Cor
         </Dialog>
     );
 }
+
+export type DocumentTypeOption = { value: string; label: string; hasBackSide: boolean; isIdentity: boolean; accept: string };
+
+type UploadDocumentDialogProps = {
+    promoterName: string;
+    types: DocumentTypeOption[] | undefined;
+    url: string;
+    onClose: () => void;
+};
+
+/** Ajout d’une pièce au nom du promoteur : elle arrive « À vérifier » dans le dossier. */
+export function UploadDocumentDialog({ promoterName, types, url, onClose }: UploadDocumentDialogProps) {
+    const form = useForm<{ document_type: string; number: string; expires_at: string; recto: File | null; verso: File | null }>({ document_type: '', number: '', expires_at: '', recto: null, verso: null });
+    const errors = form.errors as Record<string, string | undefined>;
+    const type = types?.find((t) => t.value === form.data.document_type);
+    const file = (key: 'recto' | 'verso', label: string) => (
+        <Field label={label} required error={errors[key]}>
+            <input type="file" accept={type?.accept || 'application/pdf,image/jpeg,image/png'} onChange={(e) => form.setData(key, e.target.files?.[0] ?? null)} aria-invalid={!!errors[key]} style={{ fontSize: 'var(--fs-md)' }} />
+        </Field>
+    );
+
+    return (
+        <Dialog title="Ajouter une pièce" icon="upload_file" okLabel="Ajouter au dossier" okIcon="upload" processing={form.processing} onClose={onClose} onSubmit={() => form.post(url, { forceFormData: true, preserveScroll: true, onSuccess: onClose })}>
+            <div style={{ fontSize: 'var(--fs-md)', color: 'var(--c-muted)' }}>
+                Dossier de <b style={{ color: 'var(--c-ink)' }}>{promoterName}</b> · la pièce arrivera « À vérifier ».
+            </div>
+            <Field label="Type de pièce" required error={errors.document_type}>
+                <SelectInput value={form.data.document_type} onChange={(e) => form.setData((d) => ({ ...d, document_type: e.target.value, verso: null }))} options={types ?? []} invalid={!!errors.document_type} placeholder={types ? 'Sélectionner…' : 'Chargement…'} />
+            </Field>
+            {type && (
+                <>
+                    {file('recto', type.hasBackSide ? 'Recto' : 'Fichier')}
+                    {type.hasBackSide && file('verso', 'Verso')}
+                    {type.isIdentity && (
+                        <Field label="N° de la pièce" error={errors.number}>
+                            <TextInput value={form.data.number} onChange={(e) => form.setData('number', e.target.value)} maxLength={40} invalid={!!errors.number} />
+                        </Field>
+                    )}
+                    <Field label="Date d’expiration" error={errors.expires_at} hint="Facultatif">
+                        <TextInput type="date" value={form.data.expires_at} onChange={(e) => form.setData('expires_at', e.target.value)} invalid={!!errors.expires_at} />
+                    </Field>
+                </>
+            )}
+        </Dialog>
+    );
+}

@@ -6,6 +6,7 @@ use App\Models\Promoter;
 use App\Support\Api\ApiTokens;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -235,5 +236,104 @@ class PromotersTest extends TestCase
         $this->get('/promoteurs/'.self::ID.'/chantiers')->assertRedirect('/promoteurs/'.self::ID);
 
         Http::assertNothingSent();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formOptions(): array
+    {
+        return ['message' => null, 'data' => [
+            'profile_kinds' => [['value' => 'particulier', 'label' => 'Particulier'], ['value' => 'technicien', 'label' => 'Technicien'], ['value' => 'entreprise', 'label' => 'Entreprise']],
+            'cities' => [['id' => 'v1', 'name' => 'Abidjan', 'communes' => [['id' => 'c1', 'name' => 'Cocody', 'neighborhoods' => [['id' => 'n1', 'name' => 'Angré']]]]]],
+            'document_types' => [
+                ['code' => 'promoter_cni', 'label' => 'Carte nationale d’identité', 'audience' => 'promoter', 'is_identity' => true, 'is_required' => true, 'has_back_side' => true, 'allowed_mime' => ['image/jpeg'], 'max_size_kb' => 5120],
+                ['code' => 'organization_rccm', 'label' => 'Extrait RCCM', 'audience' => 'organization', 'is_identity' => false, 'is_required' => true, 'has_back_side' => false, 'allowed_mime' => ['application/pdf'], 'max_size_kb' => 5120],
+            ],
+        ]];
+    }
+
+    public function test_the_creation_form_lists_the_options_and_the_company_is_sent_grouped_to_the_api(): void
+    {
+        Http::fake([
+            self::API.'/promoters/form-options' => Http::response($this->formOptions()),
+            self::API.'/promoters' => Http::response(['message' => 'Compte promoteur créé : invitation envoyée par SMS.', 'data' => ['id' => self::ID]], 201),
+        ]);
+
+        $this->get('/promoteurs/nouveau')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Promoters/Form')
+                ->where('mode', 'create')
+                ->where('options.commune.0', ['value' => 'c1', 'label' => 'Cocody · Abidjan'])
+                ->where('neighborhoods.c1.0.label', 'Angré')
+                ->where('values.send_invitation', true));
+
+        $this->post('/promoteurs', [
+            'profile_kind' => 'entreprise', 'first_name' => 'Konan', 'last_name' => 'Kouassi', 'phone' => '+225 07 01 02 03 04', 'email' => '',
+            'company_legal_name' => 'Bâtir Afrique', 'company_rccm' => 'CI-ABJ-2024-B-12345', 'hq_address' => 'Rue des Jardins', 'hq_commune_id' => 'c1', 'send_invitation' => true,
+        ])
+            ->assertRedirect('/promoteurs/'.self::ID)
+            ->assertSessionHas('inertia.flash_data.toast', 'Compte promoteur créé : invitation envoyée par SMS.');
+
+        Http::assertSent(fn (ClientRequest $request) => $request->method() === 'POST'
+            && $request['dial_code'] === '225' && $request['phone_number'] === '0701020304' && $request['email'] === null
+            && $request['company']['legal_name'] === 'Bâtir Afrique' && $request['company']['headquarters'] === ['address' => 'Rue des Jardins', 'commune_id' => 'c1', 'neighborhood_id' => null]
+            && $request['send_invitation'] === true);
+    }
+
+    public function test_api_errors_come_back_on_the_form_fields(): void
+    {
+        Http::fake([self::API.'/promoters' => Http::response(['message' => 'Erreur', 'errors' => ['phone_number' => ['Ce numéro est déjà utilisé par un autre compte.'], 'company.legal_name' => ['Indiquez la raison sociale.']]], 422)]);
+
+        $this->from('/promoteurs/nouveau')->post('/promoteurs', ['profile_kind' => 'entreprise', 'first_name' => 'Konan', 'last_name' => 'Kouassi', 'phone' => '+225 07 12 34 56 34'])
+            ->assertRedirect('/promoteurs/nouveau')
+            ->assertSessionHasErrors(['phone' => 'Ce numéro est déjà utilisé par un autre compte.', 'company_legal_name' => 'Indiquez la raison sociale.']);
+    }
+
+    public function test_the_edit_form_is_prefilled_and_the_update_is_sent_to_the_api(): void
+    {
+        Http::fake([
+            self::API.'/promoters/form-options' => Http::response($this->formOptions()),
+            self::API.'/promoters/'.self::ID => function (ClientRequest $request) {
+                return $request->method() === 'PATCH'
+                    ? Http::response(['message' => 'Promoteur mis à jour.', 'data' => ['id' => self::ID]])
+                    : Http::response($this->detail(['dial_code' => '225', 'phone_number' => '0712345634', 'verification' => ['can_change_kind' => false, 'state' => ['value' => 'en_verification', 'label' => 'En vérification'], 'status' => ['value' => 'soumis', 'label' => 'Soumis']]]));
+            },
+        ]);
+
+        $this->get('/promoteurs/'.self::ID.'/modifier')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Promoters/Form')
+                ->where('mode', 'edit')
+                ->where('canChangeKind', false)
+                ->where('values.phone', '+225 07 12 34 56 34')
+                ->where('values.commune_id', 'c1')
+                ->where('values.address', 'Angré 8e tranche'));
+
+        $this->patch('/promoteurs/'.self::ID, ['profile_kind' => 'particulier', 'first_name' => 'Nathanaël', 'last_name' => 'Yao-Koffi', 'phone' => '', 'email' => 'n.yao@exemple.ci', 'commune_id' => 'c1'])
+            ->assertRedirect('/promoteurs/'.self::ID)
+            ->assertSessionHas('inertia.flash_data.toast', 'Promoteur mis à jour.');
+
+        Http::assertSent(fn (ClientRequest $request) => $request->method() === 'PATCH' && $request['last_name'] === 'Yao-Koffi' && $request['phone_number'] === null && $request['email'] === 'n.yao@exemple.ci' && ! isset($request['company']));
+    }
+
+    public function test_a_document_is_uploaded_to_the_api_with_its_files(): void
+    {
+        Http::fake([self::API.'/promoters/'.self::ID.'/documents' => Http::response(['message' => 'Extrait RCCM ajouté au dossier.', 'data' => ['id' => self::ID]], 201)]);
+
+        $this->post('/promoteurs/'.self::ID.'/documents', ['document_type' => 'organization_rccm', 'recto' => UploadedFile::fake()->create('rccm.pdf', 100, 'application/pdf')])
+            ->assertRedirect('/promoteurs/'.self::ID.'/kyc')
+            ->assertSessionHas('inertia.flash_data.toast', 'Extrait RCCM ajouté au dossier.');
+
+        Http::assertSent(fn (ClientRequest $request) => $request->isMultipart()
+            && collect($request->data())->contains(fn (array $part) => $part['name'] === 'file' && $part['filename'] === 'rccm.pdf')
+            && collect($request->data())->contains(fn (array $part) => $part['name'] === 'document_type' && $part['contents'] === 'organization_rccm'));
+    }
+
+    public function test_the_buttons_follow_the_admin_permissions(): void
+    {
+        Http::fake([self::API.'/promoters/'.self::ID => Http::response($this->detail())]);
+
+        $this->get('/promoteurs/'.self::ID)->assertInertia(fn (Assert $page) => $page->where('can', ['update' => false, 'addDocument' => false])->missing('documentTypes'));
     }
 }

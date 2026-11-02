@@ -1,4 +1,5 @@
 import { TableFrame, tdStyle, thStyle } from '@/components/list/Table';
+import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
 import Panel from '@/components/ui/Panel';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -11,6 +12,7 @@ type Props = {
     documents: PromoterDocument[];
     onValidate: (document: PromoterDocument) => void;
     onReject: (document: PromoterDocument) => void;
+    onUpload?: () => void;
 };
 
 const iconButton = (enabled: boolean, color = 'var(--c-ink-2)'): CSSProperties => ({ width: 'var(--control-xs)', height: 'var(--control-xs)', border: 0, borderRadius: 'var(--radius-md)', background: 'transparent', cursor: enabled ? 'pointer' : 'not-allowed', opacity: enabled ? 1 : 0.3, display: 'grid', placeItems: 'center', color });
@@ -56,7 +58,7 @@ function ReviewSummary({ review, title }: { review: PromoterReview; title: strin
 }
 
 /** Identité, entreprise, pièces du dossier et historique des contrôles. */
-export default function KycTab({ promoter: p, documents, onValidate, onReject }: Props) {
+export default function KycTab({ promoter: p, documents, onValidate, onReject, onUpload }: Props) {
     const base = `/promoteurs/${p.slug}`;
     const required = documents.filter((d) => d.required);
     const verified = required.filter((d) => d.status.value === 'verifie').length;
@@ -95,9 +97,12 @@ export default function KycTab({ promoter: p, documents, onValidate, onReject }:
                 icon="folder_shared"
                 title="Pièces du dossier"
                 aside={
-                    <span style={{ flex: 1, fontSize: 'var(--fs-md)', color: 'var(--c-muted)' }}>
-                        {verified} / {required.length} pièces obligatoires vérifiées
-                    </span>
+                    <>
+                        <span style={{ flex: 1, fontSize: 'var(--fs-md)', color: 'var(--c-muted)' }}>
+                            {verified} / {required.length} pièces obligatoires vérifiées
+                        </span>
+                        {onUpload && <Button label="Ajouter une pièce" icon="upload_file" variant="secondary" onClick={onUpload} />}
+                    </>
                 }
             >
                 <TableFrame minWidth={820}>

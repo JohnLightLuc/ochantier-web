@@ -37,7 +37,7 @@ const QUICK_LABELS: Record<string, string> = { a_verifier: 'Dossiers à vérifie
 const REVIEWABLE = ['soumis', 'en_controle'];
 
 /** Liste des promoteurs : KPI, recherche, filtres, tri, sélection, pagination et dossiers à traiter. */
-export default function PromotersIndex({ promoters, filters, filterOptions, kpis, todo }: PromoterIndexProps) {
+export default function PromotersIndex({ promoters, filters, filterOptions, kpis, todo, can }: PromoterIndexProps) {
     const ui = useAdminUi();
     const actions = usePromoterActions();
     const [selected, setSelected] = useState<string[]>([]);
@@ -93,6 +93,7 @@ export default function PromotersIndex({ promoters, filters, filterOptions, kpis
 
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 'var(--space-2_5)', marginTop: -6 }}>
                 <Button label="Exporter" icon="download" variant="secondary" onClick={() => (window.location.href = exportUrl())} />
+                {can.create && <Button label="Ajouter un promoteur" icon="person_add" variant="primary" onClick={() => router.visit('/promoteurs/nouveau')} />}
             </div>
 
             <div data-component="StatGrid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 'var(--space-4)' }}>
