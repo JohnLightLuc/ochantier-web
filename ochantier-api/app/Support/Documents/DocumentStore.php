@@ -3,6 +3,7 @@
 namespace App\Support\Documents;
 
 use App\Enums\DocumentVerificationStatus;
+use App\Models\Admin;
 use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\User;
@@ -40,7 +41,7 @@ class DocumentStore
      * @param  array<string, UploadedFile>  $files
      * @param  Collection<int, Document>  $replaced
      */
-    public function attach(Model $owner, User $author, DocumentType $type, array $files, Collection $replaced, ?string $number = null, ?string $expiresAt = null, string $purpose = 'document'): Document
+    public function attach(Model $owner, User|Admin $author, DocumentType $type, array $files, Collection $replaced, ?string $number = null, ?string $expiresAt = null, string $purpose = 'document'): Document
     {
         /** @var Document $document */
         $document = $owner->documents()->create([

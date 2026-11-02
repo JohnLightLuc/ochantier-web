@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\Admin\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Admin\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Admin\Auth\SessionController;
+use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterAccountController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterReviewController;
 use Illuminate\Support\Facades\Route;
@@ -40,14 +41,18 @@ Route::middleware('auth:admin')->group(function () {
         Route::get('auth/sessions', [SessionController::class, 'index'])->name('auth.sessions.index');
         Route::delete('auth/sessions/{session}', [SessionController::class, 'destroy'])->whereUuid('session')->name('auth.sessions.destroy');
 
-        // Promoteurs : liste, export, fiche, contrôle du dossier et des pièces, suspension, messages.
+        // Promoteurs : liste, export, création et modification, fiche, contrôle du dossier et des pièces, suspension, messages.
         Route::prefix('promoters')->name('promoters.')->group(function () {
             Route::get('/', [PromoterController::class, 'index'])->middleware('admin.can:promoters.read')->name('index');
             Route::get('export', [PromoterController::class, 'export'])->middleware('admin.can:promoters.export')->name('export');
             Route::post('approve', [PromoterReviewController::class, 'approveMany'])->middleware('admin.can:promoters.validate')->name('approve-many');
+            Route::get('form-options', [PromoterAccountController::class, 'formOptions'])->middleware('admin.can:promoters.read')->name('form-options');
+            Route::post('/', [PromoterAccountController::class, 'store'])->middleware('admin.can:promoters.create')->name('store');
 
             Route::prefix('{promoter}')->whereUuid('promoter')->group(function () {
                 Route::get('/', [PromoterController::class, 'show'])->middleware('admin.can:promoters.read')->name('show');
+                Route::patch('/', [PromoterAccountController::class, 'update'])->middleware('admin.can:promoters.update')->name('update');
+                Route::post('documents', [PromoterAccountController::class, 'storeDocument'])->middleware('admin.can:documents.validate')->name('documents.store');
                 Route::post('approve', [PromoterReviewController::class, 'approve'])->middleware('admin.can:promoters.validate')->name('approve');
                 Route::post('corrections', [PromoterReviewController::class, 'requestCorrections'])->middleware('admin.can:promoters.validate')->name('corrections');
                 Route::post('reject', [PromoterReviewController::class, 'reject'])->middleware('admin.can:promoters.validate')->name('reject');

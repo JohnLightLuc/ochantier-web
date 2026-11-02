@@ -10,6 +10,7 @@ use App\Enums\PromoterProfileKind;
 use App\Enums\PromoterVerificationStatus;
 use App\Enums\SiteStatus;
 use App\Enums\VerificationReviewStatus;
+use App\Models\Admin;
 use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\Organization;
@@ -89,9 +90,9 @@ class PromoterAccount
      *
      * @param  array<string, mixed>  $data  Champs validés (UpdatePromoterProfileRequest).
      */
-    public function update(PromoterProfile $profile, User $author, array $data): PromoterProfile
+    public function update(PromoterProfile $profile, User|Admin $author, array $data, bool $resubmitValidated = true): PromoterProfile
     {
-        return DB::transaction(function () use ($profile, $author, $data): PromoterProfile {
+        return DB::transaction(function () use ($profile, $author, $data, $resubmitValidated): PromoterProfile {
             $user = $profile->user;
             $user->fill(Arr::only($data, ['first_name', 'last_name']));
             $verifiedChange = $user->isDirty(['first_name', 'last_name']);
@@ -110,13 +111,13 @@ class PromoterAccount
                 $verifiedChange = $this->updateCompany($profile, $data['company']) || $verifiedChange;
             }
 
-            $this->refreshVerification($profile, $author, $verifiedChange);
+            $this->refreshVerification($profile, $author, $verifiedChange && $resubmitValidated);
 
             return $profile->refresh();
         });
     }
 
-    public function setPhoto(PromoterProfile $profile, User $author, UploadedFile $photo): PromoterProfile
+    public function setPhoto(PromoterProfile $profile, User|Admin $author, UploadedFile $photo): PromoterProfile
     {
         $media = $this->media->store($photo, 'photo_profil', $author, false);
         $profile->forceFill(['photo_media_id' => $media->getKey()])->save();
@@ -136,7 +137,7 @@ class PromoterAccount
      *
      * @param  array<string, UploadedFile>  $files
      */
-    public function attachDocument(PromoterProfile $profile, User $author, DocumentType $type, array $files, ?string $number = null, ?string $expiresAt = null): Document
+    public function attachDocument(PromoterProfile $profile, User|Admin $author, DocumentType $type, array $files, ?string $number = null, ?string $expiresAt = null, bool $resubmitValidated = true): Document
     {
         $owner = $type->audience === DocumentAudience::Organization ? $this->organization($profile) : $profile;
 
@@ -144,13 +145,13 @@ class PromoterAccount
             throw ValidationException::withMessages(['document_type' => 'Ce document concerne une entreprise : passez d’abord votre compte en « Entreprise ».']);
         }
 
-        return DB::transaction(function () use ($profile, $author, $type, $files, $number, $expiresAt, $owner): Document {
+        return DB::transaction(function () use ($profile, $author, $type, $files, $number, $expiresAt, $owner, $resubmitValidated): Document {
             $replaced = $type->code === self::OTHER_DOCUMENT ? collect() : $this->documents->active($owner)->filter(
                 fn (Document $document) => $document->document_type_id === $type->getKey() || ($type->is_identity && $document->documentType->is_identity),
             );
 
             $document = $this->documents->attach($owner, $author, $type, $files, $replaced, $number, $expiresAt, $type->is_identity ? 'piece_identite' : 'document');
-            $this->refreshVerification($profile, $author, $type->code !== self::OTHER_DOCUMENT);
+            $this->refreshVerification($profile, $author, $resubmitValidated && $type->code !== self::OTHER_DOCUMENT);
 
             return $document;
         });
@@ -263,7 +264,7 @@ class PromoterAccount
      * Transmet le profil au Back office dès qu’il est complet : à la première complétion, après une correction
      * demandée, ou quand un élément déjà vérifié est modifié.
      */
-    public function refreshVerification(PromoterProfile $profile, User $author, bool $verifiedChange = false): void
+    public function refreshVerification(PromoterProfile $profile, User|Admin $author, bool $verifiedChange = false): void
     {
         $status = $profile->verification_status;
         $resubmit = in_array($status, [PromoterVerificationStatus::Brouillon, PromoterVerificationStatus::ACorriger], true)
