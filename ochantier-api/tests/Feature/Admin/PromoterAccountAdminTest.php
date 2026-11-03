@@ -99,7 +99,7 @@ class PromoterAccountAdminTest extends PromoterTestCase
 
     public function test_creation_checks_the_contact_and_the_permission(): void
     {
-        $this->asAdmin($this->operations)->postJson('/api/v1/admin/promoters', $this->companyForm())->assertForbidden();
+        $this->asAdmin(Admin::factory()->role('support')->create())->postJson('/api/v1/admin/promoters', $this->companyForm())->assertForbidden();
 
         $this->asAdmin($this->superAdmin)->postJson('/api/v1/admin/promoters', $this->companyForm(['phone_number' => '0712345634']))
             ->assertUnprocessable()

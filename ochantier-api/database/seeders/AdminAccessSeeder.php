@@ -66,7 +66,7 @@ class AdminAccessSeeder extends Seeder
             'payments' => ['approve'], 'payouts' => ['approve'], 'finance' => ['approve'], 'commercial_earnings' => ['approve'], 'settings' => ['approve'], 'matching' => ['approve'],
         ]],
         'operations' => ['Opérations', 'Contrôle des profils, chantiers, matching, affectations et pointages.', [
-            'dashboard' => ['*'], 'promoters' => ['read', 'update', 'validate'], 'organizations' => ['read', 'update', 'validate'], 'commercials' => ['*'], 'prospects' => ['*'],
+            'dashboard' => ['*'], 'promoters' => ['read', 'create', 'update', 'validate', 'export'], 'organizations' => ['read', 'update', 'validate'], 'commercials' => ['*'], 'prospects' => ['*'],
             'workers' => ['read', 'create', 'update', 'validate', 'export'], 'documents' => ['*'], 'sites' => ['*'], 'offers' => ['*'], 'matching' => ['read', 'create', 'update'],
             'missions' => ['*'], 'attendance' => ['*'], 'ratings' => ['*'], 'disputes' => ['read', 'update'], 'tickets' => ['read'], 'reports' => ['read', 'export'],
         ]],

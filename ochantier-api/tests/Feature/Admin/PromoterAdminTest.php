@@ -279,7 +279,7 @@ class PromoterAdminTest extends PromoterTestCase
     {
         $this->submitIndividual();
 
-        $this->asAdmin()->get('/api/v1/admin/promoters/export')->assertForbidden();
+        $this->asAdmin($this->adminTokenFor(Admin::factory()->role('support')->create()))->get('/api/v1/admin/promoters/export')->assertForbidden();
 
         $csv = $this->asAdmin($this->adminTokenFor(Admin::factory()->role('direction')->create()))->get('/api/v1/admin/promoters/export?status=soumis')
             ->assertOk()
