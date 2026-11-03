@@ -106,7 +106,31 @@ export type PromoterKpi = { label: string; value: string; unit?: string; icon: s
 
 export type PromoterDrawer = { kind: 'document'; document: PromoterDocument };
 
-export type PromoterTab = '' | 'kyc';
+export type PromoterTab = '' | 'kyc' | 'chantiers' | 'offres' | 'paiements' | 'avis' | 'activite';
+
+export type TabPagination = { currentPage: number; lastPage: number; from: number; to: number; total: number };
+
+type SiteRef = { id: string; title: string };
+
+export type PromoterSiteRow = { id: string; reference: string; title: string; location: string; type: string; period: string; schedule: string | null; responsible: string | null; offers: number; missions: number; status: StatusBadge };
+
+export type PromoterOfferRow = { id: string; reference: string; title: string; site: SiteRef | null; needs: string; workers: number; type: string; proposals: number; amount: string; period: string; status: StatusBadge };
+
+export type PromoterPaymentRow = { key: string; title: string; kind: string; site: SiteRef | null; who: string | null; amount: string; when: string | null; paidAt: string | null; method: string | null; reference: string | null; receipt: string | null; status: StatusBadge };
+
+export type PromoterRatingRow = { id: string; name: string; subtitle: string | null; team: boolean; score: number; comment: string; date: string; author: string | null; status: StatusBadge; moderation: string | null };
+
+export type PromoterDisputeRow = { id: string; reference: string; category: string; description: string; site: string; openedBy: string; urgency: StatusBadge | null; owner: string; date: string; status: StatusBadge };
+
+export type PromoterActivityRow = { id: string; day: string; time: string; icon: string; tone: AnyTone; author: string; role: string | null; action: string; kind: StatusBadge & { value: 'admin' | 'promoteur' }; target: string | null };
+
+export type PromoterRelations =
+    | { kind: 'sites'; status: string | null; filters: { value: string | null; label: string; count: number }[]; rows: PromoterSiteRow[]; pagination: TabPagination }
+    | { kind: 'offers'; site: SiteRef | null; rows: PromoterOfferRow[]; pagination: TabPagination }
+    | { kind: 'payments'; site: SiteRef | null; totals: { label: string; value: string; tone: AnyTone; hint: string }[]; rows: PromoterPaymentRow[] }
+    | { kind: 'ratings'; average: string | null; count: number; hidden: number; distribution: { score: number; count: number; percent: number }[]; rows: PromoterRatingRow[] }
+    | { kind: 'disputes'; rows: PromoterDisputeRow[]; pagination: TabPagination }
+    | { kind: 'activity'; author: 'admin' | 'promoteur' | null; rows: PromoterActivityRow[]; pagination: TabPagination };
 
 export type PromoterShowProps = {
     promoter: Promoter;
@@ -118,4 +142,5 @@ export type PromoterShowProps = {
     drawer: PromoterDrawer | null;
     can: { update: boolean; addDocument: boolean };
     documentTypes?: { value: string; label: string; hasBackSide: boolean; isIdentity: boolean; accept: string }[];
+    relations: PromoterRelations | null;
 };

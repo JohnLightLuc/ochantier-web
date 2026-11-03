@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\Admin\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Admin\Auth\SessionController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterAccountController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterController;
+use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterRelationController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterReviewController;
 use Illuminate\Support\Facades\Route;
 
@@ -51,6 +52,14 @@ Route::middleware('auth:admin')->group(function () {
 
             Route::prefix('{promoter}')->whereUuid('promoter')->group(function () {
                 Route::get('/', [PromoterController::class, 'show'])->middleware('admin.can:promoters.read')->name('show');
+                Route::middleware('admin.can:promoters.read')->controller(PromoterRelationController::class)->group(function () {
+                    Route::get('sites', 'sites')->name('sites');
+                    Route::get('offers', 'offers')->name('offers');
+                    Route::get('payments', 'payments')->name('payments');
+                    Route::get('ratings', 'ratings')->name('ratings');
+                    Route::get('disputes', 'disputes')->name('disputes');
+                    Route::get('activity', 'activity')->name('activity');
+                });
                 Route::patch('/', [PromoterAccountController::class, 'update'])->middleware('admin.can:promoters.update')->name('update');
                 Route::post('documents', [PromoterAccountController::class, 'storeDocument'])->middleware('admin.can:documents.validate')->name('documents.store');
                 Route::post('approve', [PromoterReviewController::class, 'approve'])->middleware('admin.can:promoters.validate')->name('approve');

@@ -6,6 +6,7 @@ use App\Models\Promoter;
 use App\Support\Api\AdminApi;
 use App\Support\Api\AdminUser;
 use App\Support\PromoterPresenter;
+use App\Support\PromoterTabs;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -24,10 +25,9 @@ class PromoterController extends Controller
     private const PER_PAGE = 20;
 
     /**
-     * Onglets de la fiche disponibles (les onglets chantiers, offres, paiements, avis et activité arriveront avec
-     * leurs modules).
+     * Onglets de la fiche : vue générale et KYC, puis les onglets en lecture seule de PromoterTabs.
      */
-    private const TABS = ['' => 'Vue générale', 'kyc' => 'Entreprise & KYC'];
+    private const TABS = ['' => 'Vue générale', 'kyc' => 'Entreprise & KYC', ...PromoterTabs::LABELS];
 
     /**
      * Clé d’URL => paramètre de l’API.
@@ -110,7 +110,7 @@ class PromoterController extends Controller
     }
 
     /**
-     * Fiche : vue générale ou onglet KYC ; `item` ouvre l’aperçu d’une pièce.
+     * Fiche : vue générale, onglet KYC (`item` ouvre l’aperçu d’une pièce) ou onglet en lecture seule (`relations`).
      */
     public function show(Request $request, string $promoter, ?string $tab = null, ?string $item = null): Response
     {
@@ -121,7 +121,7 @@ class PromoterController extends Controller
         $view = PromoterPresenter::promoter($data);
         $documents = PromoterPresenter::documents($data);
         $base = "/promoteurs/{$promoter}";
-        $document = $item ? collect($documents)->firstWhere('id', $item) : null;
+        $document = $item && $tab === 'kyc' ? collect($documents)->firstWhere('id', $item) : null;
 
         $crumbs = [['Promoteurs', '/promoteurs'], [$view['name'], $tab === '' ? null : $base]];
         $crumbs[] = [self::TABS[$tab]];
@@ -137,6 +137,7 @@ class PromoterController extends Controller
             'header' => $this->header('Détail du promoteur', '', $crumbs),
             'can' => ['update' => $this->allowed($request, 'promoters.update'), 'addDocument' => $this->allowed($request, 'documents.validate')],
             'documentTypes' => Inertia::optional(fn () => $this->documentTypes($data)),
+            'relations' => isset(PromoterTabs::LABELS[$tab]) ? app(PromoterTabs::class)->load($promoter, $tab, $request) : null,
         ]);
     }
 

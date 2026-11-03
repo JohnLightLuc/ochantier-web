@@ -24,6 +24,8 @@ class PromotersTest extends TestCase
 
     private const DOCUMENT = '01a16ab6-0000-7000-8000-0000000000d1';
 
+    private const SITE = '7c1e0000-0000-4000-8000-000000000001';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -233,9 +235,65 @@ class PromotersTest extends TestCase
             ->assertRedirect('/promoteurs?q='.rawurlencode('Bâtir Afrique'))
             ->assertSessionHas('inertia.flash_data.toast');
         $this->get('/promoteurs/horizon-btp')->assertRedirect('/promoteurs?q=Horizon%20Btp');
-        $this->get('/promoteurs/'.self::ID.'/chantiers')->assertRedirect('/promoteurs/'.self::ID);
+        $this->get('/promoteurs/'.self::ID.'/litiges')->assertRedirect('/promoteurs/'.self::ID);
 
         Http::assertNothingSent();
+    }
+
+    public function test_the_read_only_tabs_load_only_their_own_data_from_the_api(): void
+    {
+        $page = ['current_page' => 1, 'last_page' => 2, 'per_page' => 20, 'total' => 21];
+        Http::fake([
+            self::API.'/promoters/'.self::ID => Http::response($this->detail()),
+            self::API.'/promoters/'.self::ID.'/sites*' => Http::response(['data' => [[
+                'id' => self::SITE, 'reference' => 'CH-0001', 'title' => 'Résidence Les Palmiers', 'work_type' => ['value' => 'construction', 'label' => 'Construction'],
+                'property_type' => 'Villa', 'address' => 'Angré', 'commune' => 'Cocody', 'neighborhood' => 'Angré', 'start_date' => '2026-11-10', 'end_date' => '2026-11-20',
+                'duration_days' => 10, 'schedule' => ['label' => 'Démarrage dans 7 jours', 'tag' => 'Planifié'], 'responsible' => 'Nathanaël Yao',
+                'offers_count' => 1, 'missions_count' => 3, 'status' => ['value' => 'confirme', 'label' => 'Confirmé'],
+            ]], 'meta' => [...$page, 'counts' => ['all' => 21, 'confirme' => 21]]]),
+            self::API.'/promoters/'.self::ID.'/payments*' => Http::response(['data' => [[
+                'key' => 'schedule:1', 'kind' => ['value' => 'acompte', 'label' => 'Acompte'], 'short' => 'Acompte (30 %)', 'title' => 'Acompte · Résidence', 'site' => ['id' => self::SITE, 'title' => 'Résidence Les Palmiers'],
+                'who' => '3 ouvriers', 'amount' => 150000, 'status' => ['value' => 'effectue', 'label' => 'Effectué'], 'when' => null, 'paid_at' => '2026-11-02T10:00:00+00:00',
+                'method' => 'Orange Money', 'transaction_reference' => 'PAY-1', 'receipt' => ['number' => 'R-1', 'url' => 'https://api.test/media/r1'],
+            ]], 'meta' => ['totals' => ['a_regler' => 0, 'en_retard' => 0, 'a_venir' => 300000, 'payes' => 150000]]]),
+            self::API.'/promoters/'.self::ID.'/activity*' => Http::response(['data' => [
+                ['id' => 'e1', 'action' => 'promoter.approved', 'kind' => ['value' => 'admin', 'label' => 'Administrateur'], 'author' => 'Awa Koné', 'role' => null, 'what' => 'a validé le dossier', 'site' => null, 'detail' => null, 'at' => now()->toIso8601String()],
+                ['id' => 'e2', 'action' => 'sites.publish', 'kind' => ['value' => 'promoter', 'label' => 'Promoteur'], 'author' => 'Nathanaël Yao', 'role' => 'Titulaire', 'what' => 'a publié le chantier', 'site' => 'Résidence', 'detail' => null, 'at' => now()->subDays(3)->toIso8601String()],
+            ], 'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 30, 'total' => 2]]),
+            self::API.'/promoters/'.self::ID.'/disputes*' => Http::response(['data' => [], 'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 20, 'total' => 0]]),
+        ]);
+
+        $this->get('/promoteurs/'.self::ID.'/chantiers?statut=confirme&page=2')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('tab', 'chantiers')
+                ->where('relations.kind', 'sites')
+                ->where('relations.rows.0.location', 'Angré · Cocody')
+                ->where('relations.rows.0.period', '10 nov. 2026 → 20 nov. 2026')
+                ->where('relations.rows.0.status.tone', 'g')
+                ->where('relations.pagination.total', 21)
+                ->where('relations.filters.0.count', 21)
+                ->where('alerts', []));
+        Http::assertSent(fn (ClientRequest $request) => str_contains($request->url(), '/sites?') && str_contains($request->url(), 'status=confirme') && str_contains($request->url(), 'page=2'));
+        Http::assertNotSent(fn (ClientRequest $request) => str_contains($request->url(), '/payments'));
+
+        $this->get('/promoteurs/'.self::ID.'/paiements?chantier='.self::SITE)
+            ->assertInertia(fn (Assert $page) => $page->where('relations.kind', 'payments')
+                ->where('relations.site.title', 'Résidence Les Palmiers')
+                ->where('relations.rows.0.amount', '150 000 FCFA')
+                ->where('relations.rows.0.receipt', 'https://api.test/media/r1')
+                ->where('relations.totals.1.value', '300 000 FCFA'));
+        Http::assertSent(fn (ClientRequest $request) => str_contains($request->url(), 'payments?site_id='.self::SITE));
+
+        $this->get('/promoteurs/'.self::ID.'/activite?auteur=promoteur')
+            ->assertInertia(fn (Assert $page) => $page->where('relations.author', 'promoteur')
+                ->where('relations.rows.0.day', 'Aujourd’hui')
+                ->where('relations.rows.0.icon', 'verified')
+                ->where('relations.rows.1.icon', 'construction')
+                ->where('relations.rows.1.kind.value', 'promoteur'));
+        Http::assertSent(fn (ClientRequest $request) => str_contains($request->url(), 'activity?') && str_contains($request->url(), 'author=promoter'));
+
+        $this->get('/promoteurs/'.self::ID.'/avis?vue=litiges')
+            ->assertInertia(fn (Assert $page) => $page->where('relations.kind', 'disputes')->where('relations.rows', []));
     }
 
     /**

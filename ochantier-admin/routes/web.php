@@ -90,8 +90,8 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
 
     Route::get('/', DashboardController::class)->name('dashboard');
 
-    // Promoteurs : données de l’API (api/v1/admin/promoters). Création, modification et onglets liés
-    // (chantiers, offres, paiements, avis, activité) arrivent avec les étapes suivantes.
+    // Promoteurs : données de l’API (api/v1/admin/promoters). Liste, fiche et ses onglets, création, modification
+    // et décisions sur le dossier.
     Route::prefix('promoteurs')->name('promoters.')->group(function () {
         Route::get('/', [PromoterController::class, 'index'])->name('index');
         Route::get('/export', [PromoterController::class, 'export'])->name('export');
@@ -113,7 +113,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::post('/documents/{document}/rejet', [PromoterReviewController::class, 'rejectDocument'])->whereUuid('document')->name('documents.reject');
 
             Route::get('/{tab?}/{item?}', [PromoterController::class, 'show'])
-                ->where(['tab' => 'kyc', 'item' => '[A-Za-z0-9_-]+'])
+                ->where(['tab' => 'kyc|chantiers|offres|paiements|avis|activite', 'item' => '[A-Za-z0-9_-]+'])
                 ->name('show');
         });
 

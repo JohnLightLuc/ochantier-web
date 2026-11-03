@@ -231,6 +231,47 @@ class SiteRatings
     }
 
     /**
+     * Avis laissés sur des chantiers (fiche promoteur du Back Office) : statut, modération et auteur en plus.
+     *
+     * @param  Collection<int, string>  $siteIds
+     * @param  list<RatingStatus>  $statuses
+     * @return array{data: list<array<string, mixed>>, meta: array<string, mixed>}
+     */
+    public function forSites(Collection $siteIds, array $statuses): array
+    {
+        $ratings = Rating::query()
+            ->whereIn('site_id', $siteIds)
+            ->whereIn('status', $statuses)
+            ->with(['site', 'authorUser', 'assignment.need.trade', 'assignment.worker.photoMedia', 'assignment.worker.workerTrades.trade', 'assignment.replacesAssignment.worker'])
+            ->latest('published_at')
+            ->get();
+
+        $published = $ratings->where('status', RatingStatus::Publie);
+        $count = $published->count();
+        $average = $count ? round($published->avg('overall_score'), 1) : null;
+        $teamCounts = $this->teamCounts($ratings->where('rating_scope', RatingScope::Equipe)->pluck('site_id')->filter()->unique()->values());
+
+        return [
+            'data' => $ratings->map(fn (Rating $rating) => [
+                ...$this->overviewItem($rating, $teamCounts),
+                'status' => ['value' => $rating->status->value, 'label' => $rating->status->label()],
+                'moderation' => $rating->moderation_status ? ['value' => $rating->moderation_status->value, 'label' => $rating->moderation_status->label(), 'reason' => $rating->moderation_reason] : null,
+                'author' => $rating->authorUser ? trim($rating->authorUser->first_name.' '.$rating->authorUser->last_name) : null,
+            ])->values()->all(),
+            'meta' => [
+                'average' => $average,
+                'count' => $count,
+                'hidden_count' => $ratings->where('status', RatingStatus::Masque)->count(),
+                'distribution' => collect([5, 4, 3, 2, 1])->map(fn (int $score) => [
+                    'score' => $score,
+                    'count' => $c = $published->where('overall_score', $score)->count(),
+                    'percent' => $count ? (int) round($c / $count * 100) : 0,
+                ])->all(),
+            ],
+        ];
+    }
+
+    /**
      * Satisfactions et libellés des notes, pour la feuille « Noter… ».
      *
      * @return array<string, mixed>

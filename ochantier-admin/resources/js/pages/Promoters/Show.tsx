@@ -2,6 +2,7 @@ import { ReasonDialog, UploadDocumentDialog } from '@/components/promoters/dialo
 import { DocumentDrawer } from '@/components/promoters/Drawers';
 import KycTab from '@/components/promoters/KycTab';
 import OverviewTab from '@/components/promoters/OverviewTab';
+import RelationTabs from '@/components/promoters/RelationTabs';
 import PromoterHeader from '@/components/promoters/PromoterHeader';
 import { usePromoterActions } from '@/components/promoters/usePromoterActions';
 import StatCard from '@/components/ui/StatCard';
@@ -13,12 +14,17 @@ import { useState, type ReactNode } from 'react';
 const TABS: [PromoterTab, string][] = [
     ['', 'Vue générale'],
     ['kyc', 'Entreprise & KYC'],
+    ['chantiers', 'Chantiers'],
+    ['offres', 'Offres'],
+    ['paiements', 'Paiements'],
+    ['avis', 'Avis & litiges'],
+    ['activite', 'Activité'],
 ];
 
 const REJECTION_CATEGORIES = ['Document illisible', 'Document expiré', 'Informations incohérentes', 'Mauvais document', 'Autre'];
 
-/** Fiche détaillée d’un promoteur : en-tête, indicateurs, vue générale et contrôle du dossier. */
-export default function PromoterShow({ promoter, tab, kpis, tabCounts, documents, alerts, drawer, can, documentTypes }: PromoterShowProps) {
+/** Fiche détaillée d’un promoteur : en-tête, indicateurs, vue générale, contrôle du dossier et onglets en lecture seule. */
+export default function PromoterShow({ promoter, tab, kpis, tabCounts, documents, alerts, drawer, can, documentTypes, relations }: PromoterShowProps) {
     const ui = useAdminUi();
     const actions = usePromoterActions();
     const [rejecting, setRejecting] = useState<ReactNode>(null);
@@ -94,6 +100,7 @@ export default function PromoterShow({ promoter, tab, kpis, tabCounts, documents
                     </div>
 
                     {tab === '' && <OverviewTab promoter={promoter} documents={documents} alerts={alerts} />}
+                    {relations && <RelationTabs promoter={promoter} relations={relations} />}
                     {tab === 'kyc' && <KycTab promoter={promoter} documents={documents} onValidate={validateDocument} onReject={rejectDocument} onUpload={can.addDocument ? openUpload : undefined} />}
                 </section>
             </div>
