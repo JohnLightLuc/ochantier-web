@@ -24,7 +24,7 @@ class WorkerRelationController extends Controller
 
     public function availability(string $worker): JsonResponse
     {
-        return ApiResponse::success($this->relations->availability(WorkerController::find($worker)));
+        return ApiResponse::success($this->relations->availability(WorkerController::findWithoutRelations($worker)));
     }
 
     /**
@@ -33,7 +33,7 @@ class WorkerRelationController extends Controller
     public function assignments(Request $request, string $worker): JsonResponse
     {
         $filters = $request->validate(['status' => ['nullable', Rule::enum(AssignmentStatus::class)], 'per_page' => ['nullable', 'integer', 'min:1', 'max:100']]);
-        $model = WorkerController::find($worker);
+        $model = WorkerController::findWithoutRelations($worker);
         $page = $this->relations->assignments($model, $filters['status'] ?? null, (int) ($filters['per_page'] ?? 20));
 
         return ApiResponse::success(array_map(fn (Assignment $a) => $this->relations->assignment($a), $page->items()), meta: [...$this->pagination($page), 'counts' => $this->relations->assignmentCounts($model)]);
@@ -45,7 +45,7 @@ class WorkerRelationController extends Controller
     public function attendance(Request $request, string $worker): JsonResponse
     {
         $filters = $request->validate(['status' => ['nullable', Rule::enum(WorkDayStatus::class)], 'per_page' => ['nullable', 'integer', 'min:1', 'max:100']]);
-        $model = WorkerController::find($worker);
+        $model = WorkerController::findWithoutRelations($worker);
         $page = $this->relations->attendance($model, $filters['status'] ?? null, (int) ($filters['per_page'] ?? 30));
 
         return ApiResponse::success(array_map(fn (WorkDay $day) => $this->relations->workDay($day), $page->items()), meta: [...$this->pagination($page), ...$this->relations->attendanceSummary($model)]);
@@ -53,21 +53,21 @@ class WorkerRelationController extends Controller
 
     public function earnings(string $worker): JsonResponse
     {
-        $earnings = $this->relations->earnings(WorkerController::find($worker));
+        $earnings = $this->relations->earnings(WorkerController::findWithoutRelations($worker));
 
         return ApiResponse::success($earnings['data'], meta: $earnings['meta']);
     }
 
     public function ratings(string $worker): JsonResponse
     {
-        $ratings = $this->relations->ratings(WorkerController::find($worker));
+        $ratings = $this->relations->ratings(WorkerController::findWithoutRelations($worker));
 
         return ApiResponse::success($ratings['data'], meta: $ratings['meta']);
     }
 
     public function replacements(string $worker): JsonResponse
     {
-        return ApiResponse::success($this->relations->replacements(WorkerController::find($worker)));
+        return ApiResponse::success($this->relations->replacements(WorkerController::findWithoutRelations($worker)));
     }
 
     /**
@@ -80,7 +80,7 @@ class WorkerRelationController extends Controller
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ], ['origin.in' => 'Filtre inconnu.']);
-        $page = $this->relations->history(WorkerController::find($worker), $filters['origin'] ?? null, (int) ($filters['page'] ?? 1), (int) ($filters['per_page'] ?? 30));
+        $page = $this->relations->history(WorkerController::findWithoutRelations($worker), $filters['origin'] ?? null, (int) ($filters['page'] ?? 1), (int) ($filters['per_page'] ?? 30));
 
         return ApiResponse::success($page->items(), meta: $this->pagination($page));
     }

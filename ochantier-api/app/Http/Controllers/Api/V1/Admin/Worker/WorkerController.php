@@ -99,4 +99,14 @@ class WorkerController extends Controller
             ->with(['nationalityCountry', 'residenceNeighborhood', 'specialties', 'skills', 'references', 'originCommercial.user', 'validatedByAdmin'])
             ->firstOrFail();
     }
+
+    /**
+     * Ouvrier transmis au Back Office, sans les relations de la fiche (onglets qui ne lisent que ses colonnes).
+     */
+    public static function findWithoutRelations(string $id): Worker
+    {
+        abort_unless(str($id)->isUuid(), 404);
+
+        return app(WorkerDirectory::class)->query([])->where('workers.id', $id)->setEagerLoads([])->firstOrFail();
+    }
 }

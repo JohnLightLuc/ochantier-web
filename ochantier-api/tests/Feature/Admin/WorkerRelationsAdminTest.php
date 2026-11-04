@@ -6,9 +6,11 @@ use App\Enums\RatingScope;
 use App\Enums\RatingStatus;
 use App\Models\Admin;
 use App\Models\Rating;
+use App\Models\User;
 use App\Models\Worker;
 use App\Support\Auth\AdminSessions;
 use App\Support\Auth\DeviceContext;
+use Illuminate\Support\Facades\DB;
 use Tests\Feature\Promoter\ConfirmedSite;
 use Tests\Feature\Promoter\PromoterTestCase;
 
@@ -38,6 +40,19 @@ class WorkerRelationsAdminTest extends PromoterTestCase
     private function url(string $tab): string
     {
         return "/api/v1/admin/workers/{$this->worker->id}/{$tab}";
+    }
+
+    /**
+     * Nombre de requêtes SQL exécutées par un appel réussi.
+     */
+    private function queriesFor(string $url): int
+    {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->getJson($url)->assertOk();
+        DB::disableQueryLog();
+
+        return count(DB::getQueryLog());
     }
 
     /**
@@ -125,6 +140,26 @@ class WorkerRelationsAdminTest extends PromoterTestCase
             ->assertJsonFragment(['what' => 'a affecté l’ouvrier']);
         $this->getJson($this->url('history').'?origin=mission')->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.origin.value', 'mission');
         $this->getJson($this->url('history').'?origin=inconnu')->assertJsonValidationErrors(['origin' => 'Filtre inconnu.']);
+    }
+
+    public function test_the_history_names_the_commercials_without_one_query_per_status_change(): void
+    {
+        $record = fn (string $from, string $to) => $this->worker->statusHistories()->create([
+            'from_status' => $from,
+            'to_status' => $to,
+            'actor_type' => (new User)->getMorphClass(),
+            'actor_id' => User::factory()->create(['first_name' => 'Awa', 'last_name' => 'Traoré'])->id,
+        ]);
+        $record('brouillon', 'soumis');
+        $this->asAdmin()->getJson($this->url('history'))
+            ->assertOk()
+            ->assertJsonFragment(['origin' => ['value' => 'commercial', 'label' => 'Commercial'], 'author' => 'Awa Traoré', 'what' => 'a transmis le dossier']);
+        $queries = $this->queriesFor($this->url('history'));
+
+        $record('a_corriger', 'soumis');
+        $record('a_corriger', 'soumis');
+
+        $this->assertSame($queries, $this->queriesFor($this->url('history')));
     }
 
     public function test_the_tabs_need_the_read_permission(): void

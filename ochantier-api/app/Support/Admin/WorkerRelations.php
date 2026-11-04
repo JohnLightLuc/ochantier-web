@@ -23,6 +23,7 @@ use App\Models\WorkerStatusHistory;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Collection;
 
@@ -60,7 +61,7 @@ class WorkerRelations
     {
         $planned = $worker->assignments()
             ->whereIn('status', [AssignmentStatus::Confirmee, AssignmentStatus::Active])
-            ->with(['mission.site.promoterProfile.user', 'need.trade'])
+            ->with(['mission.site.promoterProfile.user.ownedOrganizations', 'need.trade'])
             ->orderBy('planned_start_date')
             ->get();
 
@@ -158,14 +159,15 @@ class WorkerRelations
      */
     public function attendanceSummary(Worker $worker): array
     {
-        $counts = WorkDay::query()->where('worker_id', $worker->getKey())->toBase()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $rows = WorkDay::query()->where('worker_id', $worker->getKey())->toBase()->selectRaw('status, count(*) as total, coalesce(sum(worked_minutes), 0) as minutes')->groupBy('status')->get()->keyBy('status');
+        $counts = $rows->map(fn (object $row) => (int) $row->total);
         $validated = (int) $counts->get(WorkDayStatus::Valide->value, 0);
         $absent = (int) $counts->get(WorkDayStatus::Absent->value, 0);
 
         return [
             'counts' => ['all' => (int) $counts->sum(), ...collect(WorkDayStatus::cases())->mapWithKeys(fn (WorkDayStatus $s) => [$s->value => (int) $counts->get($s->value, 0)])->all()],
             'presence_rate' => $validated + $absent > 0 ? round($validated / ($validated + $absent) * 100, 1) : null,
-            'worked_minutes' => (int) WorkDay::query()->where('worker_id', $worker->getKey())->where('status', WorkDayStatus::Valide)->sum('worked_minutes'),
+            'worked_minutes' => (int) ($rows->get(WorkDayStatus::Valide->value)->minutes ?? 0),
         ];
     }
 
@@ -341,8 +343,12 @@ class WorkerRelations
         $events = collect();
 
         if (! $origin || in_array($origin, ['commercial', 'systeme'], true)) {
-            $events = $events->concat(WorkerStatusHistory::query()->where('worker_id', $worker->getKey())->where('actor_type', '!=', $admin)->get()
-                ->map(fn (WorkerStatusHistory $history) => $this->statusEvent($history)));
+            $histories = WorkerStatusHistory::query()->where('worker_id', $worker->getKey())->where('actor_type', '!=', $admin)->get();
+            $commercials = User::query()
+                ->whereIn('id', $histories->where('actor_type', (new User)->getMorphClass())->pluck('actor_id')->filter()->unique())
+                ->get(['id', 'first_name', 'last_name'])
+                ->keyBy('id');
+            $events = $events->concat($histories->map(fn (WorkerStatusHistory $history) => $this->statusEvent($history, $commercials)));
         }
 
         if (! $origin || $origin === 'admin') {
@@ -351,7 +357,7 @@ class WorkerRelations
                 ->where(fn (Builder $query) => $query
                     ->where(fn (Builder $query) => $query->where('subject_type', $worker->getMorphClass())->where('subject_id', $worker->getKey()))
                     ->orWhere(fn (Builder $query) => $query->where('subject_type', (new Document)->getMorphClass())->whereIn('subject_id', $documents)))
-                ->with(['actor', 'subject'])
+                ->with(['actor', 'subject' => fn (MorphTo $subject) => $subject->morphWith([Document::class => ['documentType']])])
                 ->get()
                 ->map(fn (AuditLog $log) => $this->auditEvent($log)));
         }
@@ -380,23 +386,26 @@ class WorkerRelations
     }
 
     /**
+     * @param  Collection<string, User>  $commercials  Commerciaux auteurs des changements, par identifiant.
      * @return array<string, mixed>
      */
-    private function statusEvent(WorkerStatusHistory $history): array
+    private function statusEvent(WorkerStatusHistory $history, Collection $commercials): array
     {
         $commercial = $history->actor_type === (new User)->getMorphClass();
-        $author = $commercial ? User::query()->find($history->actor_id) : null;
+        $author = $commercial ? $commercials->get($history->actor_id) : null;
         $labels = ['soumis' => 'a transmis le dossier', 'en_controle' => 'a pris le dossier en charge', 'valide' => 'a validé le dossier', 'a_corriger' => 'a demandé des corrections', 'refuse' => 'a refusé le dossier', 'suspendu' => 'a suspendu l’ouvrier', 'exclu' => 'a exclu l’ouvrier', 'brouillon' => 'a créé le dossier'];
+        $from = $history->from_status?->value;
+        $to = $history->to_status?->value;
 
         return $this->event(
             'status:'.$history->id,
             $history->created_at,
             $commercial ? ['value' => 'commercial', 'label' => 'Commercial'] : ['value' => 'systeme', 'label' => 'Système'],
             $commercial ? (trim($author?->first_name.' '.$author?->last_name) ?: 'Le commercial') : 'O’CHANTIER',
-            $commercial ? ($labels[$history->to_status] ?? 'a changé le statut') : ($history->to_status === 'valide' && $history->from_status === 'suspendu' ? 'a levé la suspension (date de fin atteinte)' : 'a changé le statut du dossier'),
+            $commercial ? ($labels[$to] ?? 'a changé le statut') : ($to === 'valide' && $from === 'suspendu' ? 'a levé la suspension (date de fin atteinte)' : 'a changé le statut du dossier'),
             $history->reason,
-            $history->from_status,
-            $history->to_status,
+            $from,
+            $to,
         );
     }
 
@@ -437,7 +446,7 @@ class WorkerRelations
     {
         $mission = ['value' => 'mission', 'label' => 'Mission'];
 
-        return $this->assignmentQuery($worker)->get()->flatMap(function (Assignment $assignment) use ($mission): array {
+        return Assignment::query()->where('worker_id', $worker->getKey())->with('mission.site')->get()->flatMap(function (Assignment $assignment) use ($mission): array {
             $site = $assignment->mission?->site?->label ?? 'un chantier';
             $events = [$this->event('assignment:'.$assignment->id, $assignment->created_at, $mission, 'O’CHANTIER', $assignment->replaces_assignment_id ? 'a affecté l’ouvrier en remplacement' : 'a affecté l’ouvrier', $site.($assignment->planned_start_date ? ' · début le '.$assignment->planned_start_date->format('d/m/Y') : ''))];
 
