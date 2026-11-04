@@ -97,6 +97,12 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Connexions persistantes : chaque processus PHP (LiteSpeed/FPM) réutilise
+            // sa connexion d'une requête à l'autre au lieu de rouvrir TLS + auth.
+            // Indispensable avec une base distante (Neon) ; désactivé par défaut en local.
+            'options' => [
+                PDO::ATTR_PERSISTENT => (bool) env('DB_PERSISTENT', false),
+            ],
         ],
 
         'sqlsrv' => [
