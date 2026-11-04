@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterRelationController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterReviewController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerAccountController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerController;
+use App\Http\Controllers\Api\V1\Admin\Worker\WorkerRelationController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerReviewController;
 use Illuminate\Support\Facades\Route;
 
@@ -86,6 +87,15 @@ Route::middleware('auth:admin')->group(function () {
 
             Route::prefix('{worker}')->whereUuid('worker')->group(function () {
                 Route::get('/', [WorkerController::class, 'show'])->middleware('admin.can:workers.read')->name('show');
+                Route::middleware('admin.can:workers.read')->controller(WorkerRelationController::class)->group(function () {
+                    Route::get('availability', 'availability')->name('availability');
+                    Route::get('assignments', 'assignments')->name('assignments');
+                    Route::get('attendance', 'attendance')->name('attendance');
+                    Route::get('earnings', 'earnings')->name('earnings');
+                    Route::get('ratings', 'ratings')->name('ratings');
+                    Route::get('replacements', 'replacements')->name('replacements');
+                    Route::get('history', 'history')->name('history');
+                });
                 Route::patch('/', [WorkerAccountController::class, 'update'])->middleware('admin.can:workers.update')->name('update');
                 Route::post('documents', [WorkerAccountController::class, 'storeDocument'])->middleware('admin.can:documents.validate')->name('documents.store');
                 Route::post('approve', [WorkerReviewController::class, 'approve'])->middleware('admin.can:workers.validate')->name('approve');
