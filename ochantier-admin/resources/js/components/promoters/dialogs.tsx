@@ -12,11 +12,12 @@ type ReasonDialogProps = {
     reasonLabel: string;
     categories: string[];
     url: string;
+    placeholder?: string;
     onClose: () => void;
 };
 
 /** Action avec motif obligatoire (suspension d’un compte, rejet d’un document). */
-export function ReasonDialog({ title, body, icon, okLabel, reasonLabel, categories, url, onClose }: ReasonDialogProps) {
+export function ReasonDialog({ title, body, icon, okLabel, reasonLabel, categories, url, placeholder, onClose }: ReasonDialogProps) {
     const form = useForm({ category: categories[0], reason: '' });
 
     return (
@@ -31,7 +32,7 @@ export function ReasonDialog({ title, body, icon, okLabel, reasonLabel, categori
                     rows={3}
                     maxLength={500}
                     invalid={!!form.errors.reason}
-                    placeholder="Précisez le motif (visible dans l’historique et communiqué au promoteur)."
+                    placeholder={placeholder ?? 'Précisez le motif (visible dans l’historique et communiqué au promoteur).'}
                 />
             </Field>
             <span style={{ alignSelf: 'flex-end', marginTop: 'calc(-1 * var(--space-2))', fontSize: 'var(--fs-sm)', color: 'var(--c-muted)' }}>{form.data.reason.length} / 500</span>

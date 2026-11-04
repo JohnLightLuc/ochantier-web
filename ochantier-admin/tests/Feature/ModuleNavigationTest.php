@@ -11,9 +11,9 @@ class ModuleNavigationTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * Modules dont les pages lisent l’API (testés avec des réponses simulées, voir PromotersTest).
+     * Modules dont les pages lisent l’API (testés avec des réponses simulées, voir PromotersTest et WorkersTest).
      */
-    private const API_MODULES = ['/promoteurs'];
+    private const API_MODULES = ['/promoteurs', '/ouvriers'];
 
     public function test_every_sidebar_module_has_a_page(): void
     {

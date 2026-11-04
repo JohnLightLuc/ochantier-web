@@ -1,11 +1,9 @@
-import FormDialog from '@/components/overlays/FormDialog';
-import { LocationCell, TextCell } from '@/components/list/Table';
+import { TextCell } from '@/components/list/Table';
 import Icon from '@/components/ui/Icon';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { useAdminUi } from '@/contexts/AdminUiContext';
-import { formatDate, formatNumber } from '@/lib/format';
-import { workerTone } from '@/lib/workerTones';
-import type { WorkerAlert, WorkerDocument, WorkerExperience, WorkerShowProps } from '@/types/workers';
+import { formatDate, formatNumber, formatRating } from '@/lib/format';
+import type { WorkerActivity, WorkerDocument, WorkerReview, WorkerShowProps } from '@/types/workers';
 import { router } from '@inertiajs/react';
 import { useState } from 'react';
 import { AlertList, Block, Chips, DataTable, KeyValues, TileGrid } from './blocks';
@@ -13,42 +11,62 @@ import type { WorkerActions } from './useWorkerActions';
 
 export type TabProps = WorkerShowProps & { actions: WorkerActions };
 
-/** Convertit les alertes du serveur en bandeaux avec leur action. */
-export function useAlerts({ worker, alerts, demo, actions }: TabProps) {
-    const ui = useAdminUi();
-    return alerts.map((a: WorkerAlert) => ({
-        ...a,
-        onAction: !a.action
-            ? undefined
-            : a.action.type === 'link'
-              ? () => router.visit((a.action as { href: string }).href)
-              : a.action.type === 'document'
-                ? () => actions.addDocument(worker, (a.action as { document: string }).document)
-                : () => (demo.assignments.length ? actions.unavailability(worker, demo.assignments, true) : ui.toast('Aucune affectation active.', { tone: 'info' })),
-    }));
+/** Alertes du serveur avec leur lien éventuel. */
+function useAlerts({ alerts }: TabProps) {
+    return alerts.map((a) => ({ ...a, text: a.text ?? '', onAction: a.action ? () => router.visit(a.action!.href) : undefined }));
 }
 
-/** Vue d’ensemble : alertes, indicateurs, résumé, missions, événements récents. */
+const percent = (value: number | null) => (value === null ? '—' : `${Math.round(value)} %`);
+
+/** Contrôle du dossier : soumission en cours, décision et corrections demandées. */
+function ReviewBlock({ review, history }: { review: WorkerReview | null; history: WorkerReview[] }) {
+    return (
+        <Block icon="fact_check" title="Contrôle du dossier" count={history.length ? `${history.length + 1} transmissions` : undefined}>
+            {!review && <span style={{ fontSize: 'var(--fs-md)', color: 'var(--c-muted)' }}>Aucune transmission enregistrée.</span>}
+            {[review, ...history].filter((r): r is WorkerReview => !!r).map((r, index) => (
+                <div key={r.number} style={{ padding: 'var(--space-2_5) 0', borderTop: index ? '1px solid var(--c-line-soft)' : undefined }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                        <b>Transmission n° {r.number}</b>
+                        <StatusBadge label={r.status.label} tone={r.status.tone} />
+                        <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--c-muted)' }}>le {r.submittedAt ?? '—'}</span>
+                    </div>
+                    <div style={{ marginTop: 'var(--space-1)', fontSize: 'var(--fs-sm)', color: 'var(--c-muted)' }}>
+                        {r.decidedBy ? `Décision de ${r.decidedBy} le ${r.decidedAt}` : r.assignedTo ? `Pris en charge par ${r.assignedTo}` : 'En attente de prise en charge'}
+                        {r.reason ? ` · ${r.reason}` : ''}
+                    </div>
+                    {r.corrections.length > 0 && (
+                        <ul style={{ margin: 'var(--space-1_5) 0 0', paddingLeft: 'var(--space-5)', fontSize: 'var(--fs-md)' }}>
+                            {r.corrections.map((c, i) => (
+                                <li key={i} style={{ color: c.resolved ? 'var(--c-muted)' : undefined }}>
+                                    <b>{c.target}</b> : {c.reason}
+                                    {c.resolved ? ' (corrigé)' : ''}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            ))}
+        </Block>
+    );
+}
+
+/** Vue d’ensemble : alertes, indicateurs, résumé du profil, contrôle du dossier, recrutement. */
 export function OverviewTab(props: TabProps) {
-    const { worker: w, documents, demo, activities, actions, options, commissionRate } = props;
+    const { worker: w, documents } = props;
     const alerts = useAlerts(props);
-    const net = Math.round((w.dailyRate * (100 - commissionRate)) / 100);
-    const verified = documents.filter((d) => d.status.value === 'verified').length;
-    const lastIn = demo.timesheets.find((t) => t.in);
-    const current = demo.assignments.find((a) => a.status === 'En cours');
-    const next = demo.assignments.filter((a) => ['Confirmée', 'Acceptée', 'En attente d’acceptation', 'Proposée'].includes(a.status)).sort((a, b) => a.start.localeCompare(b.start))[0];
-    const cards = [current && ['Mission actuelle', current], next && ['Prochain chantier', next]].filter(Boolean) as [string, (typeof demo.assignments)[number]][];
-    const s = demo.stats;
+    const provided = documents.filter((d) => d.hasFile);
+    const verified = provided.filter((d) => d.status.value === 'valide').length;
+    const s = w.stats;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
             <AlertList alerts={alerts} />
             <TileGrid
                 tiles={[
-                    { label: 'Taux de présence', value: `${s.presence} %`, icon: 'how_to_reg', tone: 'success', bar: s.presence },
-                    { label: 'Taux d’acceptation des offres', value: `${s.acceptance} %`, icon: 'thumb_up', tone: 'info', bar: s.acceptance },
-                    { label: 'Taux d’annulation', value: `${s.cancellation} %`, icon: 'event_busy', tone: 'danger', bar: s.cancellation * 5, barColor: 'var(--c-danger)' },
-                    { label: 'Dernier pointage', value: lastIn ? `${lastIn.in} · ${formatDate(lastIn.date)}` : '—', icon: 'schedule', tone: 'neutral', sub: lastIn ? lastIn.site : 'Aucun pointage' },
+                    { label: 'Taux de présence', value: percent(s.attendance_rate), icon: 'how_to_reg', tone: 'success', bar: s.attendance_rate ?? 0 },
+                    { label: 'Taux d’acceptation des offres', value: percent(s.acceptance_rate), icon: 'thumb_up', tone: 'info', bar: s.acceptance_rate ?? 0 },
+                    { label: 'Remplacements', value: String(s.replacement_count), icon: 'swap_horiz', tone: 'warning', sub: 'Depuis l’inscription' },
+                    { label: 'Dernière mission', value: s.last_assignment_at ? formatDate(s.last_assignment_at) : '—', icon: 'schedule', tone: 'neutral', sub: `${s.missions_completed} mission(s) réalisée(s)` },
                 ]}
             />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,360px),1fr))', gap: 'var(--space-4)' }}>
@@ -56,97 +74,77 @@ export function OverviewTab(props: TabProps) {
                     <KeyValues
                         items={[
                             ['Métier principal', w.trade],
-                            ['Principales compétences', w.skills.slice(0, 3).join(', ')],
-                            ['Niveau d’expérience', `${w.qualification ?? '—'} · ${w.experienceYears} ans`],
-                            ['Coût journalier', `${formatNumber(w.dailyRate)} FCFA · net ${formatNumber(net)} FCFA`],
-                            ['Disponibilité actuelle', w.availability.label],
-                            ['Statut de vérification', `${w.status.label} · ${verified} / ${documents.length} documents vérifiés`],
+                            ['Niveau', `${w.level ?? '—'} · ${w.experienceYears} ans d’expérience`],
+                            ['Principales compétences', w.skills.slice(0, 3).join(', ') || '—'],
+                            ['Coût journalier', w.dailyRate ? `${formatNumber(w.dailyRate)} FCFA` : 'Non renseigné'],
+                            ['Note', w.reviewsCount ? `${formatRating(w.rating)} / 5 · ${w.reviewsCount} avis` : 'Aucun avis'],
+                            ['Disponibilité', w.status.value === 'valide' ? w.availability.label : '—'],
+                            ['Vérification', `${w.status.label} · ${verified} / ${provided.length} pièces vérifiées`],
+                            ['Validé', w.validatedAt ? `le ${w.validatedAt}${w.validatedBy ? ` par ${w.validatedBy}` : ''}` : '—'],
                         ]}
                     />
                 </Block>
-                <Block icon="assignment_ind" title="Missions" action={w.status.value === 'validated' ? { label: 'Affecter', icon: 'add', onClick: () => actions.assign(w, options.sites) } : null}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                        {cards.map(([kicker, a]) => (
-                            <button
-                                key={kicker}
-                                type="button"
-                                data-component="AssignmentCard"
-                                onClick={() => router.visit(`/ouvriers/${w.slug}/affectations`)}
-                                className="och-hover-card"
-                                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3)', border: '1px solid var(--c-line)', borderRadius: 'var(--radius-lg)', background: 'var(--c-surface)', cursor: 'pointer', textAlign: 'left' }}
-                            >
-                                <span style={{ width: 'var(--control-sm)', height: 'var(--control-sm)', flex: 'none', borderRadius: 'var(--radius-md)', display: 'grid', placeItems: 'center', background: 'var(--c-primary-50)' }}>
-                                    <Icon name="construction" color="var(--c-primary-600)" />
-                                </span>
-                                <span style={{ flex: 1, minWidth: 0 }}>
-                                    <span style={{ display: 'block', fontSize: 'var(--fs-xs)', color: 'var(--c-muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{kicker}</span>
-                                    <b style={{ display: 'block' }}>{a.site}</b>
-                                    <span style={{ display: 'block', fontSize: 'var(--fs-sm)', color: 'var(--c-muted)' }}>
-                                        {a.promoter} · {formatDate(a.start)} → {formatDate(a.end)} · {a.pay}
-                                    </span>
-                                </span>
-                                <StatusBadge label={a.status} tone={workerTone(a.status)} />
-                            </button>
-                        ))}
-                        {!cards.length && <span style={{ fontSize: 'var(--fs-md)', color: 'var(--c-muted)' }}>Aucune mission en cours ni à venir.</span>}
-                    </div>
+                <ReviewBlock review={w.review.current} history={w.review.history} />
+                <Block icon="storefront" title="Recrutement">
+                    <KeyValues
+                        items={[
+                            ['Commercial référent', w.recruiter ? `${w.recruiter}${w.recruiterPhone ? ` · ${w.recruiterPhone}` : ''}` : '—'],
+                            ['Commercial recruteur', w.originRecruiter ?? '—'],
+                            ['Canal d’acquisition', w.acquisitionChannel ?? '—'],
+                            ['Transmis le', formatDate(w.registeredAt)],
+                        ]}
+                    />
                 </Block>
-                <Block icon="history" title="Événements récents" action={{ label: 'Tout voir', icon: 'arrow_forward', onClick: () => router.visit(`/ouvriers/${w.slug}/historique`) }}>
-                    {activities.slice(0, 5).map((e) => (
-                        <div key={e.id} style={{ display: 'flex', gap: 'var(--space-2_5)', padding: 'var(--space-2) 0', borderTop: '1px solid var(--c-line-soft)' }}>
-                            <span style={{ width: 'var(--control-xs)', height: 'var(--control-xs)', flex: 'none', borderRadius: 'var(--radius-round)', display: 'grid', placeItems: 'center', background: `var(--c-${e.category.tone}-bg)` }}>
-                                <Icon name={e.category.icon} size="var(--icon-xs)" color={`var(--c-${e.category.tone}-fg)`} />
-                            </span>
-                            <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--fs-md)' }}>
-                                <b>{e.author}</b> {e.action}
-                                {e.newValue ? ` · ${e.newValue}` : ''}
-                                <span style={{ display: 'block', fontSize: 'var(--fs-sm)', color: 'var(--c-muted)' }}>
-                                    {formatDate(e.date)} · {e.time}
-                                </span>
-                            </span>
-                        </div>
-                    ))}
-                </Block>
+                {w.sanction && (
+                    <Block icon={w.sanction.type === 'exclusion' ? 'person_off' : 'block'} title={w.sanction.label}>
+                        <KeyValues
+                            items={[
+                                ['Motif', w.sanction.reason ?? '—'],
+                                ['Depuis le', w.sanction.startsAt ?? '—'],
+                                ['Jusqu’au', w.sanction.type === 'exclusion' ? 'Définitive' : (w.sanction.endsAt ?? 'Réactivation manuelle')],
+                                ['Décidée par', w.sanction.decidedBy ?? '—'],
+                            ]}
+                        />
+                    </Block>
+                )}
             </div>
         </div>
     );
 }
 
-/** Identité, pièce d’identité, suivi commercial et pièces justificatives. */
+/** Identité, coordonnées et pièces du dossier, avec leur contrôle. */
 export function IdentityTab(props: TabProps) {
-    const { worker: w, documents, actions } = props;
+    const { worker: w, documents, actions, can } = props;
     const ui = useAdminUi();
     const alerts = useAlerts(props);
-    const archived = w.status.value === 'archived';
-    const verified = documents.filter((d) => d.status.value === 'verified').length;
-    const base = `/ouvriers/${w.slug}`;
-    const download = (d: WorkerDocument) => (window.location.href = `${base}/documents/${d.id}/telechargement`);
+    const provided = documents.filter((d) => d.hasFile);
+    const verified = provided.filter((d) => d.status.value === 'valide').length;
+    const identity = documents.find((d) => d.key === 'identity');
+    const decide = (d: WorkerDocument) => can.documents && d.canDecide;
+    const open = (url: string) => window.open(url, '_blank', 'noopener');
 
     const preview = (d: WorkerDocument) =>
         ui.openPanel({
-            kicker: `Aperçu du document · ${w.name}`,
+            kicker: `Pièce du dossier · ${w.name}`,
             title: d.label,
             badges: [{ label: d.status.label, tone: d.status.tone }],
-            state: d.hasFile ? undefined : { kind: 'missing', title: 'Document manquant', text: 'Ce document n’a pas encore été déposé.' },
+            state: d.hasFile ? undefined : { kind: 'missing', title: 'Pièce non déposée', text: 'Le commercial n’a pas encore ajouté cette pièce au dossier.' },
             meta: [
                 ['Type', d.kind],
-                ['Référence', d.reference ?? '—'],
+                ['Numéro', d.reference ?? '—'],
                 ['Fichier', d.fileName ?? '—'],
-                ['Ajouté le', formatDate(d.addedAt)],
+                ['Ajoutée le', formatDate(d.addedAt)],
                 ['Expiration', d.expiresAt ? formatDate(d.expiresAt) : 'Sans expiration'],
-                ['Statut', d.status.label],
                 ...(d.rejectionReason ? ([['Motif du rejet', d.rejectionReason]] as [string, string][]) : []),
-                ...(d.internalComment ? ([['Commentaire interne', d.internalComment]] as [string, string][]) : []),
             ],
             actions: [
-                ...(d.hasFile ? [{ label: 'Télécharger', icon: 'download', onClick: () => download(d) }] : []),
-                ...(d.status.value === 'to_review'
+                ...d.files.map((f) => ({ label: f.side === 'verso' ? 'Ouvrir le verso' : d.files.length > 1 ? 'Ouvrir le recto' : 'Ouvrir le fichier', icon: 'open_in_new', onClick: () => open(f.url) })),
+                ...(decide(d)
                     ? [
                           { label: 'Rejeter', icon: 'cancel', variant: 'danger-soft' as const, onClick: () => actions.rejectDocument(w, d) },
                           { label: 'Valider', icon: 'check', variant: 'primary' as const, onClick: () => actions.validateDocument(w, d) },
                       ]
                     : []),
-                ...(archived ? [] : [{ label: d.hasFile ? 'Remplacer' : 'Ajouter', icon: 'upload_file', variant: (d.hasFile ? 'secondary' : 'primary') as 'secondary' | 'primary', onClick: () => actions.addDocument(w, d.type) }]),
             ],
         });
 
@@ -154,220 +152,122 @@ export function IdentityTab(props: TabProps) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
             <AlertList alerts={alerts} />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,360px),1fr))', gap: 'var(--space-4)' }}>
-                <Block full icon="badge" title="Informations personnelles" action={archived ? null : { label: 'Modifier', icon: 'edit', onClick: () => router.visit(`${base}/modifier/1`) }}>
+                <Block full icon="badge" title="Informations personnelles">
                     <KeyValues
                         items={[
                             ['Prénom', w.firstName],
                             ['Nom', w.lastName],
                             ['Sexe', w.gender],
-                            ['Date de naissance', formatDate(w.birthDate)],
+                            ['Date de naissance', w.birthDate ? `${formatDate(w.birthDate)}${w.birthPlace ? ` à ${w.birthPlace}` : ''}` : null],
                             ['Nationalité', w.nationality],
                             ['Téléphone principal', w.phone],
                             ['Téléphone secondaire', w.phoneSecondary],
-                            ['Adresse e-mail', w.email],
                             ['Adresse', w.address],
+                            ['Quartier', w.neighborhood],
                             ['Commune', w.commune],
-                            ['Ville', w.city],
-                            ['Pays', w.country],
-                            ['Contact d’urgence', w.emergencyContact ? `${w.emergencyContact} · ${w.emergencyPhone ?? ''}` : null],
+                            ['Contact d’urgence', w.emergencyContact ? `${w.emergencyContact}${w.emergencyPhone ? ` · ${w.emergencyPhone}` : ''}` : null],
                         ]}
                     />
                 </Block>
                 <Block icon="verified_user" title="Pièce d’identité">
                     <KeyValues
                         items={[
-                            ['Type', w.idType],
-                            ['Numéro', w.idNumber],
-                            ['Délivrée le', formatDate(w.idIssuedAt)],
-                            ['Expire le', formatDate(w.idExpiresAt)],
-                            ['Documents vérifiés', `${verified} / ${documents.length}`],
-                        ]}
-                    />
-                </Block>
-                <Block icon="storefront" title="Informations commerciales">
-                    <KeyValues
-                        items={[
-                            ['Commercial recruteur', w.recruiter],
-                            ['Zone commerciale', w.salesZone],
-                            ['Date d’enregistrement', formatDate(w.registeredAt)],
-                            ['Canal d’acquisition', w.acquisitionChannel],
-                            ['Commentaire', w.salesNote],
+                            ['Type', identity?.hasFile ? identity.kind : 'Non déposée'],
+                            ['Numéro', identity?.reference ?? '—'],
+                            ['Expire le', identity?.expiresAt ? formatDate(identity.expiresAt) : '—'],
+                            ['Statut', identity?.status.label ?? '—'],
+                            ['Pièces vérifiées', `${verified} / ${provided.length}`],
+                            ['Cohérence de l’identité', w.identityMismatch ? 'Incohérence signalée' : 'Aucune anomalie'],
                         ]}
                     />
                 </Block>
             </div>
             <DataTable
                 icon="folder_shared"
-                title="Documents justificatifs"
-                count={`${verified} / ${documents.length} vérifiés`}
-                minWidth={980}
-                tools={archived ? [] : [{ label: 'Ajouter un document', icon: 'upload_file', variant: 'primary', onClick: () => actions.addDocument(w) }]}
-                columns={['Document', 'Type', 'Référence', 'Ajouté le', 'Expiration', 'Statut', 'Commentaire']}
-                empty={{ icon: 'folder_shared', title: 'Aucun document', text: '' }}
+                title="Pièces du dossier"
+                count={`${verified} / ${provided.length} vérifiées`}
+                minWidth={900}
+                columns={['Pièce', 'Type', 'Numéro', 'Ajoutée le', 'Expiration', 'Statut', 'Motif du rejet']}
+                empty={{ icon: 'folder_shared', title: 'Aucune pièce', text: '' }}
                 rows={documents.map((d) => ({
-                    key: String(d.id),
+                    key: d.id,
                     onOpen: () => preview(d),
                     cells: [
-                        <TextCell strong>{d.label}</TextCell>,
-                        <TextCell>{d.kind}</TextCell>,
+                        <TextCell strong>
+                            {d.label}
+                            {d.required ? ' *' : ''}
+                        </TextCell>,
+                        <TextCell muted={!d.hasFile}>{d.hasFile ? d.kind : '—'}</TextCell>,
                         <TextCell muted={!d.reference}>{d.reference ?? '—'}</TextCell>,
-                        <TextCell>{formatDate(d.addedAt)}</TextCell>,
-                        <TextCell muted={!d.expiresAt}>{d.expiresAt ? formatDate(d.expiresAt) : 'Sans expiration'}</TextCell>,
-                        <StatusBadge label={d.status.label} tone={d.status.tone} icon={d.status.value === 'verified' ? 'verified' : undefined} />,
-                        <TextCell muted={!(d.internalComment || d.rejectionReason)}>{d.internalComment || d.rejectionReason || '—'}</TextCell>,
+                        <TextCell muted={!d.addedAt}>{d.addedAt ? formatDate(d.addedAt) : '—'}</TextCell>,
+                        <TextCell muted={!d.expiresAt}>{d.expiresAt ? formatDate(d.expiresAt) : d.hasFile ? 'Sans expiration' : '—'}</TextCell>,
+                        <StatusBadge label={d.status.label} tone={d.status.tone} icon={d.status.value === 'valide' ? 'verified' : undefined} />,
+                        <TextCell muted={!d.rejectionReason}>{d.rejectionReason ?? '—'}</TextCell>,
                     ],
                     actions: d.hasFile
                         ? [
-                              { icon: 'visibility', label: 'Prévisualiser', onClick: () => preview(d) },
-                              { icon: 'download', label: 'Télécharger', onClick: () => download(d) },
-                              ...(d.status.value === 'to_review'
+                              { icon: 'visibility', label: 'Voir la pièce', onClick: () => preview(d) },
+                              ...(decide(d)
                                   ? [
                                         { icon: 'check_circle', label: 'Valider', onClick: () => actions.validateDocument(w, d) },
                                         { icon: 'cancel', label: 'Rejeter', onClick: () => actions.rejectDocument(w, d) },
                                     ]
                                   : []),
                           ]
-                        : archived
-                          ? []
-                          : [{ icon: 'upload_file', label: 'Ajouter', onClick: () => actions.addDocument(w, d.type) }],
-                    menu:
-                        d.hasFile && !archived
-                            ? [
-                                  { icon: 'sync', label: 'Remplacer', onClick: () => actions.addDocument(w, d.type) },
-                                  { icon: 'chat', label: 'Ajouter un commentaire interne', onClick: () => actions.commentDocument(w, d) },
-                                  ...(d.status.value === 'verified' ? [{ icon: 'cancel', label: 'Rejeter', danger: true, onClick: () => actions.rejectDocument(w, d) }] : []),
-                              ]
-                            : [],
+                        : [],
                 }))}
             />
         </div>
     );
 }
 
-const LISTS: [string, 'secondaryTrades' | 'specialties' | 'skills' | 'certifications', string, string][] = [
-    ['metiers-secondaires', 'secondaryTrades', 'Métiers secondaires', 'handyman'],
-    ['specialites', 'specialties', 'Spécialités', 'category'],
-    ['competences', 'skills', 'Compétences', 'psychology'],
-    ['certifications', 'certifications', 'Certifications', 'workspace_premium'],
-];
-
-/** Métier, tarif, listes de compétences et expériences professionnelles. */
-export function SkillsTab({ worker: w, experiences, options, actions }: TabProps) {
-    const ui = useAdminUi();
-    const archived = w.status.value === 'archived';
-    const base = `/ouvriers/${w.slug}`;
-
-    const addValue = (slug: string, title: string, attr: (typeof LISTS)[number][1]) =>
-        actions.open(
-            <FormDialog
-                title={`Ajouter · ${title}`}
-                icon="add"
-                okLabel="Ajouter"
-                url={`${base}/listes/${slug}`}
-                onClose={actions.close}
-                fields={[
-                    attr === 'secondaryTrades'
-                        ? { name: 'value', label: 'Métier', type: 'select', required: true, full: true, options: options.trades.filter((t) => t !== w.trade && !w.secondaryTrades.includes(t)) }
-                        : { name: 'value', label: title.replace(/s$/, ''), required: true, full: true },
-                ]}
-            />,
-        );
-
-    const removeValue = (slug: string, value: string) =>
-        ui.confirm({ tone: 'danger', icon: 'delete', title: `Supprimer « ${value} » ?`, body: 'Cette valeur sera retirée du profil.', ok: 'Supprimer', onConfirm: () => router.delete(`${base}/listes/${slug}`, { data: { value }, preserveScroll: true }) });
-
-    const experienceDialog = (e?: WorkerExperience) =>
-        actions.open(
-            <FormDialog
-                title={e ? 'Modifier l’expérience' : 'Ajouter une expérience'}
-                icon="work_history"
-                okLabel="Enregistrer"
-                url={e ? `${base}/experiences/${e.id}` : `${base}/experiences`}
-                method={e ? 'put' : 'post'}
-                onClose={actions.close}
-                initial={e ? { company: e.company, mission: e.mission, trade: e.trade, site: e.site ?? '', location: e.location ?? '', reference: e.reference ?? '', started_at: e.startedAt, ended_at: e.endedAt ?? '', description: e.description ?? '' } : { trade: w.trade }}
-                fields={[
-                    { name: 'company', label: 'Entreprise ou promoteur', required: true },
-                    { name: 'mission', label: 'Intitulé de la mission', required: true },
-                    { name: 'trade', label: 'Métier exercé', type: 'select', required: true, options: options.trades },
-                    { name: 'site', label: 'Chantier' },
-                    { name: 'location', label: 'Localisation' },
-                    { name: 'reference', label: 'Référence professionnelle', placeholder: 'Nom et téléphone' },
-                    { name: 'started_at', label: 'Date de début', type: 'date', required: true },
-                    { name: 'ended_at', label: 'Date de fin', type: 'date' },
-                    { name: 'description', label: 'Description', type: 'textarea' },
-                ]}
-            />,
-        );
-
+/** Métiers, niveau, tarif, conditions de travail, compétences et références. */
+export function SkillsTab({ worker: w }: TabProps) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,360px),1fr))', gap: 'var(--space-4)' }}>
-                <Block icon="engineering" title="Métier principal et tarif" action={archived ? null : { label: 'Modifier', icon: 'edit', onClick: () => router.visit(`${base}/modifier/2`) }}>
+                <Block icon="engineering" title="Métier principal et tarif">
                     <KeyValues
                         items={[
                             ['Métier principal', w.trade],
-                            ['Niveau de qualification', w.qualification],
+                            ['Niveau', w.level],
                             ['Années d’expérience', `${w.experienceYears} ans`],
-                            ['Coût journalier estimé', `${formatNumber(w.dailyRate)} FCFA`],
-                            ['Mobilité', w.mobility],
-                            ['Zones d’intervention', w.zones.join(', ')],
-                            ['Missions contractuelles', w.acceptsContracts ? 'Oui' : 'Non'],
+                            ['Coût journalier estimé', w.dailyRate ? `${formatNumber(w.dailyRate)} FCFA` : null],
                         ]}
                     />
                 </Block>
-                {LISTS.map(([slug, attr, title, icon]) => (
-                    <Block key={slug} icon={icon} title={title} action={archived ? null : { label: 'Ajouter', icon: 'add', onClick: () => addValue(slug, title, attr) }}>
-                        <Chips values={w[attr]} onRemove={archived ? undefined : (v) => removeValue(slug, v)} />
-                    </Block>
-                ))}
+                <Block icon="directions_walk" title="Conditions de travail">
+                    <KeyValues items={w.work} />
+                </Block>
+                <Block icon="handyman" title="Métiers secondaires">
+                    <Chips values={w.secondaryTrades} />
+                </Block>
+                <Block icon="category" title="Spécialités">
+                    <Chips values={w.specialties} />
+                </Block>
+                <Block icon="psychology" title="Compétences">
+                    <Chips values={w.skills} />
+                </Block>
             </div>
             <DataTable
                 icon="work_history"
-                title="Expériences professionnelles"
-                count={`${experiences.length} expérience(s)`}
-                minWidth={980}
-                tools={archived ? [] : [{ label: 'Ajouter une expérience', icon: 'add', variant: 'primary', onClick: () => experienceDialog() }]}
-                columns={['Entreprise / promoteur', 'Mission', 'Métier', 'Chantier', 'Localisation', 'Période', 'Référence']}
-                empty={{ icon: 'work_history', title: 'Aucune expérience', text: 'Ajoutez les missions passées de l’ouvrier.' }}
-                rows={experiences.map((e) => ({
-                    key: String(e.id),
-                    cells: [
-                        <TextCell strong>{e.company}</TextCell>,
-                        <TextCell>{e.mission}</TextCell>,
-                        <TextCell>{e.trade}</TextCell>,
-                        <TextCell>{e.site || '—'}</TextCell>,
-                        <LocationCell value={e.location || '—'} />,
-                        <TextCell>
-                            {formatDate(e.startedAt)} → {e.endedAt ? formatDate(e.endedAt) : 'en cours'}
-                        </TextCell>,
-                        <TextCell muted={!e.reference}>{e.reference || '—'}</TextCell>,
-                    ],
-                    actions: archived
-                        ? []
-                        : [
-                              { icon: 'edit', label: 'Modifier', onClick: () => experienceDialog(e) },
-                              {
-                                  icon: 'delete',
-                                  label: 'Supprimer',
-                                  onClick: () =>
-                                      ui.confirm({ tone: 'danger', icon: 'delete', title: 'Supprimer cette expérience ?', body: `« ${e.mission} » chez ${e.company} sera retirée du profil.`, ok: 'Supprimer', onConfirm: () => router.delete(`${base}/experiences/${e.id}`, { preserveScroll: true }) }),
-                              },
-                          ],
+                title="Références professionnelles"
+                count={`${w.references.length} référence(s)`}
+                minWidth={760}
+                columns={['Chantier ou projet', 'Rôle', 'Employeur', 'Période']}
+                empty={{ icon: 'work_history', title: 'Aucune référence', text: 'Le commercial n’a déclaré aucune expérience passée.' }}
+                rows={w.references.map((r, i) => ({
+                    key: String(i),
+                    cells: [<TextCell strong>{r.project ?? '—'}</TextCell>, <TextCell>{r.role ?? '—'}</TextCell>, <TextCell>{r.employer ?? '—'}</TextCell>, <TextCell>{r.period}</TextCell>],
+                    actions: [],
                 }))}
             />
         </div>
     );
 }
 
-/** Journal complet, groupé par jour et filtrable par catégorie. */
-export function HistoryTab({ activities }: TabProps) {
-    return <HistoryList activities={activities} />;
-}
-
-
 /** Événement de journal affichable (ouvrier ou commercial). */
-export type HistoryEvent = Pick<TabProps['activities'][number], 'id' | 'date' | 'time' | 'author' | 'category' | 'action' | 'oldValue' | 'newValue' | 'comment' | 'origin'>;
+export type HistoryEvent = WorkerActivity;
 
 /** Journal filtrable par catégorie et groupé par jour. */
 export function HistoryList({ activities }: { activities: HistoryEvent[] }) {

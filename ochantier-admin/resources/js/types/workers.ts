@@ -1,10 +1,11 @@
 import type { Option } from '@/components/ui/Field';
-import type { Badge } from '@/types';
+import type { AnyTone, Badge } from '@/types';
 
 export type ValueBadge = Badge & { value: string };
 
+/** Ligne de la liste. `slug` est l’identifiant de l’ouvrier dans l’API, utilisé dans les URL. */
 export type WorkerRow = {
-    id: number;
+    id: string;
     slug: string;
     code: string;
     name: string;
@@ -12,6 +13,9 @@ export type WorkerRow = {
     experienceYears: number;
     dailyRate: number;
     rating: number;
+    commune: string | null;
+    recruiter: string | null;
+    expiredDocuments: number;
     availability: ValueBadge;
     status: ValueBadge;
 };
@@ -23,64 +27,60 @@ export type WorkerIndexProps = {
     filters: WorkerFilters;
     filterOptions: Record<'metier' | 'niveau' | 'disponibilite' | 'statut' | 'localisation' | 'cout' | 'note', Option[]>;
     kpis: { total: number; available: number; onMission: number; toReview: number };
-    todo: { review: number; replacement: number; documents: number };
+    todo: { review: number; corrections: number; documents: number };
+    can: { validate: boolean; update: boolean; export: boolean };
 };
 
-export type Worker = {
-    id: number;
-    slug: string;
-    code: string;
-    name: string;
-    firstName: string;
-    lastName: string;
+export type WorkerReview = {
+    number: number;
+    status: Badge;
+    submittedAt: string | null;
+    assignedTo: string | null;
+    decidedBy: string | null;
+    decidedAt: string | null;
+    reason: string | null;
+    corrections: { target: string; reason: string; resolved: boolean }[];
+};
+
+export type Worker = WorkerRow & {
+    firstName: string | null;
+    lastName: string | null;
     gender: string | null;
     birthDate: string | null;
+    birthPlace: string | null;
     nationality: string | null;
     phone: string;
     phoneSecondary: string | null;
-    email: string | null;
-    address: string | null;
-    commune: string | null;
-    city: string | null;
-    country: string | null;
     emergencyContact: string | null;
     emergencyPhone: string | null;
-    trade: string;
+    address: string | null;
+    neighborhood: string | null;
+    level: string | null;
     secondaryTrades: string[];
     specialties: string[];
     skills: string[];
-    certifications: string[];
-    qualification: string | null;
-    experienceYears: number;
-    experienceDescription: string | null;
-    dailyRate: number;
-    mobility: string | null;
-    zones: string[];
-    worksSolo: boolean;
-    worksInTeam: boolean;
-    acceptsContracts: boolean;
-    idType: string | null;
-    idNumber: string | null;
-    idIssuedAt: string | null;
-    idExpiresAt: string | null;
-    recruiter: string | null;
-    salesZone: string | null;
-    acquisitionChannel: string | null;
-    salesNote: string | null;
-    rating: number;
+    references: { project: string | null; role: string | null; employer: string | null; period: string }[];
+    work: [string, string | null][];
     reviewsCount: number;
-    registeredAt: string;
-    status: ValueBadge;
-    availability: ValueBadge;
-    suspensionReason: string | null;
-    rejection: { reason: string; comment: string; request: string } | null;
+    registeredAt: string | null;
+    validatedAt: string | null;
+    validatedBy: string | null;
+    originRecruiter: string | null;
+    recruiterPhone: string | null;
+    acquisitionChannel: string | null;
     identityMismatch: boolean;
-    possibleDuplicate: boolean;
+    stats: { missions_completed: number; attendance_rate: number | null; acceptance_rate: number | null; replacement_count: number; last_assignment_at: string | null };
+    sanction: { type: 'suspension' | 'exclusion'; label: string; reason: string | null; startsAt: string | null; endsAt: string | null; decidedBy: string | null } | null;
+    review: { canDecide: boolean; canApprove: boolean; approvalRefusal: string | null; current: WorkerReview | null; history: WorkerReview[] };
+    can: { suspend: boolean; reactivate: boolean; exclude: boolean };
 };
 
+export type WorkerDocumentFile = { name: string; side: string; mime: string; url: string };
+
+/** Pièce du dossier ; `id` vaut la clé de l’emplacement quand aucune pièce n’a été déposée. */
 export type WorkerDocument = {
-    id: number;
-    type: string;
+    id: string;
+    key: string;
     label: string;
     kind: string;
     required: boolean;
@@ -90,35 +90,14 @@ export type WorkerDocument = {
     expiresAt: string | null;
     status: ValueBadge;
     rejectionReason: string | null;
-    internalComment: string | null;
     hasFile: boolean;
+    canDecide: boolean;
+    files: WorkerDocumentFile[];
 };
 
-export type WorkerExperience = {
-    id: number;
-    company: string;
-    mission: string;
-    trade: string;
-    site: string | null;
-    location: string | null;
-    startedAt: string;
-    endedAt: string | null;
-    description: string | null;
-    reference: string | null;
-};
-
-export type WorkerPeriod = {
-    id: number;
-    startsOn: string;
-    endsOn: string;
-    type: ValueBadge & { blocks: boolean };
-    reason: string | null;
-    zone: string | null;
-    comment: string | null;
-};
-
+/** Événement du journal (pages qui affichent un historique). */
 export type WorkerActivity = {
-    id: number;
+    id: number | string;
     date: string;
     time: string;
     author: string;
@@ -130,69 +109,26 @@ export type WorkerActivity = {
     origin: string;
 };
 
-export type Assignment = { id: string; site: string; promoter: string; offer: string; trade: string; type: string; start: string; end: string; pay: string; amount: number; status: string; progress: number };
-export type Timesheet = { id: string; date: string; site: string; in: string; out: string; status: string; validation: string; anomaly: string; correction: string; photoOk: boolean };
-export type Payout = { id: string; ref: string; site: string; from: string; to: string; days: number; status: string; paidAt: string | null; method: string; gross: number; commission: number; net: number };
-export type Review = {
-    id: string;
-    team: boolean;
-    site: string;
-    promoter: string;
-    date: string;
-    note: number;
-    criteria: number[];
-    comment: string;
-    reply: string;
-    status: string;
-    teamName: string;
-    teamNote: number;
-    teamComment: string;
-    members: [string, number][];
-};
-export type ReplacementCase = {
-    id: string;
-    assignmentId: string | null;
-    site: string;
-    moment: string;
-    start: string;
-    end: string;
-    reason: string;
-    comment: string;
-    urgency: string;
-    recovery: string;
-    step: number;
-    status: string;
-    chosen: { name: string; detail: string; score: number } | null;
-    times: string[];
-};
-export type Candidate = { slug: string; name: string; trade: string; experienceYears: number; commune: string | null; dailyRate: number; rating: number; availability: string; score: number; criteria: [string, number][] };
-
 export type WorkerAlert = {
     tone: string;
     icon: string;
     title: string;
-    text: string;
+    text: string | null;
     cta: string | null;
-    action: { type: 'link'; href: string } | { type: 'document'; document: string } | { type: 'replacement' } | null;
+    action: { type: 'link'; href: string } | null;
 };
 
-export type WorkerKpi = { label: string; value: string; unit?: string; icon: string; tone: string; hint: string };
+export type WorkerKpi = { label: string; value: string; unit?: string | null; icon: string; tone: AnyTone; hint: string };
 
-export type WorkerTab = '' | 'identite-documents' | 'metiers-competences' | 'disponibilites' | 'affectations' | 'pointages' | 'paiements' | 'avis' | 'remplacements' | 'historique';
+export type WorkerTab = '' | 'identite-documents' | 'metiers-competences';
 
 export type WorkerShowProps = {
     worker: Worker;
     tab: WorkerTab;
     kpis: WorkerKpi[];
     tabCounts: Partial<Record<WorkerTab, number>>;
-    banner: { tone: string; icon: string; title: string; text: string; showDocuments: boolean } | null;
-    alerts: WorkerAlert[];
     documents: WorkerDocument[];
-    experiences: WorkerExperience[];
-    periods: WorkerPeriod[];
-    activities: WorkerActivity[];
-    demo: { assignments: Assignment[]; timesheets: Timesheet[]; payouts: Payout[]; reviews: Review[]; replacements: ReplacementCase[]; stats: { missions: number; days: number; presence: number; acceptance: number; cancellation: number } };
-    candidates: Candidate[];
-    commissionRate: number;
-    options: { trades: string[]; communes: string[]; sites: string[] };
+    alerts: WorkerAlert[];
+    correctionFields: Option[];
+    can: { validate: boolean; update: boolean; documents: boolean };
 };

@@ -1,8 +1,4 @@
-import AvailabilityTab from '@/components/workers/AvailabilityTab';
-import { AssignmentsTab, PayoutsTab, TimesheetsTab } from '@/components/workers/MissionTabs';
-import ReplacementsTab from '@/components/workers/ReplacementsTab';
-import ReviewsTab from '@/components/workers/ReviewsTab';
-import { HistoryTab, IdentityTab, OverviewTab, SkillsTab } from '@/components/workers/tabs';
+import { IdentityTab, OverviewTab, SkillsTab } from '@/components/workers/tabs';
 import { useWorkerActions } from '@/components/workers/useWorkerActions';
 import WorkerHeader from '@/components/workers/WorkerHeader';
 import StatCard from '@/components/ui/StatCard';
@@ -13,16 +9,9 @@ const TABS: [WorkerTab, string][] = [
     ['', 'Vue d’ensemble'],
     ['identite-documents', 'Identité et documents'],
     ['metiers-competences', 'Métiers et compétences'],
-    ['disponibilites', 'Disponibilités'],
-    ['affectations', 'Affectations et missions'],
-    ['pointages', 'Pointages'],
-    ['paiements', 'Paiements et gains'],
-    ['avis', 'Avis et notes'],
-    ['remplacements', 'Indisponibilités et remplacements'],
-    ['historique', 'Historique'],
 ];
 
-/** Fiche de l’ouvrier : en-tête, KPI et dix onglets. */
+/** Fiche de l’ouvrier : en-tête, indicateurs, vue d’ensemble, pièces et contrôle du dossier, métiers. */
 export default function WorkerShow(props: WorkerShowProps) {
     const { worker, tab, kpis, tabCounts } = props;
     const actions = useWorkerActions();
@@ -34,11 +23,11 @@ export default function WorkerShow(props: WorkerShowProps) {
         <>
             <Head title={`${worker.name}${tab ? ` · ${label}` : ''}`} />
             <div data-component="WorkerModule" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
-                <WorkerHeader {...props} actions={actions} />
+                <WorkerHeader worker={worker} documents={props.documents} correctionFields={props.correctionFields} can={props.can} actions={actions} />
 
                 <div data-component="StatGrid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 'var(--space-4)' }}>
                     {kpis.map((k) => (
-                        <StatCard key={k.label} label={k.label} value={k.value} unit={k.unit} icon={k.icon} tone={k.tone as never} hint={k.hint} />
+                        <StatCard key={k.label} label={k.label} value={k.value} unit={k.unit ?? undefined} icon={k.icon} tone={k.tone} hint={k.hint} />
                     ))}
                 </div>
 
@@ -69,13 +58,6 @@ export default function WorkerShow(props: WorkerShowProps) {
                     {tab === '' && <OverviewTab {...tabProps} />}
                     {tab === 'identite-documents' && <IdentityTab {...tabProps} />}
                     {tab === 'metiers-competences' && <SkillsTab {...tabProps} />}
-                    {tab === 'disponibilites' && <AvailabilityTab {...tabProps} />}
-                    {tab === 'affectations' && <AssignmentsTab {...tabProps} />}
-                    {tab === 'pointages' && <TimesheetsTab {...tabProps} />}
-                    {tab === 'paiements' && <PayoutsTab {...tabProps} />}
-                    {tab === 'avis' && <ReviewsTab {...tabProps} />}
-                    {tab === 'remplacements' && <ReplacementsTab {...tabProps} />}
-                    {tab === 'historique' && <HistoryTab {...tabProps} />}
                 </section>
             </div>
 
