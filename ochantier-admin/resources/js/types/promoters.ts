@@ -122,7 +122,7 @@ export type PromoterRatingRow = { id: string; name: string; subtitle: string | n
 
 export type PromoterDisputeRow = { id: string; reference: string; category: string; description: string; site: string; openedBy: string; urgency: StatusBadge | null; owner: string; date: string; status: StatusBadge };
 
-export type PromoterActivityRow = { id: string; day: string; time: string; icon: string; tone: AnyTone; author: string; role: string | null; action: string; kind: StatusBadge & { value: 'admin' | 'promoteur' }; target: string | null };
+export type PromoterActivityRow = { id: string; day: string; time: string; icon: string; tone: AnyTone; author: string; role: string | null; action: string; kind: StatusBadge & { value: string }; target: string | null };
 
 export type PromoterRelations =
     | { kind: 'sites'; status: string | null; filters: { value: string | null; label: string; count: number }[]; rows: PromoterSiteRow[]; pagination: TabPagination }

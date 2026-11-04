@@ -1,3 +1,4 @@
+import WorkerRelationTabs from '@/components/workers/RelationTabs';
 import { IdentityTab, OverviewTab, SkillsTab } from '@/components/workers/tabs';
 import { useWorkerActions } from '@/components/workers/useWorkerActions';
 import WorkerHeader from '@/components/workers/WorkerHeader';
@@ -11,9 +12,16 @@ const TABS: [WorkerTab, string][] = [
     ['', 'Vue d’ensemble'],
     ['identite-documents', 'Identité et documents'],
     ['metiers-competences', 'Métiers et compétences'],
+    ['disponibilites', 'Disponibilités'],
+    ['affectations', 'Affectations et missions'],
+    ['pointages', 'Pointages'],
+    ['paiements', 'Paiements et gains'],
+    ['avis', 'Avis et notes'],
+    ['remplacements', 'Indisponibilités et remplacements'],
+    ['historique', 'Historique'],
 ];
 
-/** Fiche de l’ouvrier : en-tête, indicateurs, vue d’ensemble, pièces et contrôle du dossier, métiers. */
+/** Fiche de l’ouvrier : en-tête, indicateurs, vue d’ensemble, pièces et contrôle du dossier, métiers, onglets en lecture seule. */
 export default function WorkerShow(props: WorkerShowProps) {
     const { worker, tab, kpis, tabCounts } = props;
     const actions = useWorkerActions();
@@ -65,6 +73,7 @@ export default function WorkerShow(props: WorkerShowProps) {
                     {tab === '' && <OverviewTab {...tabProps} />}
                     {tab === 'identite-documents' && <IdentityTab {...tabProps} />}
                     {tab === 'metiers-competences' && <SkillsTab {...tabProps} />}
+                    {props.relations && <WorkerRelationTabs relations={props.relations} />}
                 </section>
             </div>
 

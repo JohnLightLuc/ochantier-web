@@ -121,7 +121,24 @@ export type WorkerAlert = {
 
 export type WorkerKpi = { label: string; value: string; unit?: string | null; icon: string; tone: AnyTone; hint: string };
 
-export type WorkerTab = '' | 'identite-documents' | 'metiers-competences';
+export type WorkerTab = '' | 'identite-documents' | 'metiers-competences' | 'disponibilites' | 'affectations' | 'pointages' | 'paiements' | 'avis' | 'remplacements' | 'historique';
+
+type Pagination = { currentPage: number; lastPage: number; from: number; to: number; total: number };
+type StatusFilter = { value: string | null; label: string; count: number };
+type Total = { label: string; value: string; tone: AnyTone; hint: string };
+
+export type WorkerAssignmentRow = { id: string; site: string; promoter: string; mission: string; trade: string; period: string; days: string; rate: string; promoterRate: string; status: ValueBadge };
+
+export type WorkerTimelineRow = { id: string; day: string; time: string; icon: string; tone: AnyTone; author: string; role: string | null; action: string; kind: ValueBadge; target: string | null };
+
+export type WorkerRelations =
+    | { kind: 'availability'; status: ValueBadge | null; availableFrom: string | null; current: WorkerAssignmentRow | null; upcoming: WorkerAssignmentRow[]; openUnavailabilities: number; declarations: { id: string; status: ValueBadge; period: string; source: string; comment: string | null }[] }
+    | { kind: 'assignments'; status: string | null; filters: StatusFilter[]; rows: WorkerAssignmentRow[]; pagination: Pagination }
+    | { kind: 'attendance'; status: string | null; filters: StatusFilter[]; summary: Total[]; rows: { id: string; date: string; site: string; arrival: string; departure: string; outOfZone: boolean; duration: string; validation: string; observation: string | null; status: ValueBadge }[]; pagination: Pagination }
+    | { kind: 'earnings'; totals: Total[]; rows: { id: string; site: string; mission: string; period: string; days: number; rate: string; earned: string; paid: string; remaining: string; status: ValueBadge }[]; payouts: { id: string; reference: string; site: string; period: string; gross: string; commission: string; net: string; status: ValueBadge }[] }
+    | { kind: 'ratings'; average: string | null; count: number; hidden: number; distribution: { score: number; count: number; percent: number }[]; rows: { id: string; score: number; comment: string; site: string; author: string; date: string; status: Badge; moderation: string | null }[] }
+    | { kind: 'replacements'; unavailabilities: { id: string; site: string; moment: string; date: string; duration: string; reason: string; urgent: boolean; replacement: string; status: ValueBadge }[]; replacedOthers: { id: string; site: string; replaced: string; handover: string; status: ValueBadge }[] }
+    | { kind: 'history'; origin: string | null; origins: { value: string; label: string }[]; rows: WorkerTimelineRow[]; pagination: Pagination };
 
 export type WorkerShowProps = {
     worker: Worker;
@@ -133,4 +150,5 @@ export type WorkerShowProps = {
     correctionFields: Option[];
     can: { validate: boolean; update: boolean; documents: boolean };
     documentTypes?: { value: string; label: string; hasBackSide: boolean; isIdentity: boolean; accept: string }[];
+    relations: WorkerRelations | null;
 };

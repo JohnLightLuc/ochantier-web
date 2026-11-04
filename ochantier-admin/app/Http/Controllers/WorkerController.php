@@ -6,6 +6,7 @@ use App\Models\Worker;
 use App\Support\Api\AdminApi;
 use App\Support\Api\AdminUser;
 use App\Support\WorkerPresenter;
+use App\Support\WorkerTabs;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -24,10 +25,10 @@ class WorkerController extends Controller
     private const PER_PAGE = 20;
 
     /**
-     * Onglets de la fiche disponibles (disponibilités, missions, pointages, paiements, avis, remplacements et
-     * historique arriveront avec leurs modules).
+     * Onglets de la fiche : vue d’ensemble, identité et documents, métiers, puis les onglets en lecture seule de
+     * WorkerTabs.
      */
-    public const TABS = ['' => 'Vue d’ensemble', 'identite-documents' => 'Identité et documents', 'metiers-competences' => 'Métiers et compétences'];
+    public const TABS = ['' => 'Vue d’ensemble', 'identite-documents' => 'Identité et documents', 'metiers-competences' => 'Métiers et compétences', ...WorkerTabs::LABELS];
 
     /**
      * Clé d’URL => paramètre de l’API (les tranches de coût et de note sont traduites à part).
@@ -100,7 +101,7 @@ class WorkerController extends Controller
     }
 
     /**
-     * Fiche : vue d’ensemble, identité et documents, métiers et compétences.
+     * Fiche : vue d’ensemble, identité et documents, métiers et compétences, ou onglet en lecture seule (`relations`).
      */
     public function show(Request $request, string $worker, ?string $tab = null): Response
     {
@@ -122,6 +123,7 @@ class WorkerController extends Controller
             'correctionFields' => array_map(fn (string $value, string $label): array => compact('value', 'label'), array_keys(WorkerPresenter::CORRECTION_FIELDS), WorkerPresenter::CORRECTION_FIELDS),
             'can' => ['validate' => $this->allowed($request, 'workers.validate'), 'update' => $this->allowed($request, 'workers.update'), 'documents' => $this->allowed($request, 'documents.validate')],
             'documentTypes' => Inertia::optional(fn () => app(WorkerFormController::class)->documentTypes()),
+            'relations' => isset(WorkerTabs::LABELS[$tab]) ? app(WorkerTabs::class)->load($worker, $tab, $request) : null,
             'header' => $this->header('Fiche de l’ouvrier', '', [['Ouvriers', '/ouvriers'], [$view['name'], $tab ? $base : null], ...($tab ? [[self::TABS[$tab]]] : [])]),
         ]);
     }

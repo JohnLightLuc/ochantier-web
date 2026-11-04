@@ -11,10 +11,10 @@ import type { Promoter, PromoterActivityRow, PromoterRelations, TabPagination } 
 import { Link, router } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 
-type Row = { key: string; cells: ReactNode[]; actions?: RowAction[] };
+export type RelationRow = { key: string; cells: ReactNode[]; actions?: RowAction[] };
 
 /** Tableau en lecture seule d’un onglet de la fiche. */
-function RelationTable({ columns, rows, empty }: { columns: string[]; rows: Row[]; empty: { icon: string; title: string; text: string } }) {
+export function RelationTable({ columns, rows, empty }: { columns: string[]; rows: RelationRow[]; empty: { icon: string; title: string; text: string } }) {
     if (rows.length === 0) return <StateBlock kind="nodata" icon={empty.icon} title={empty.title} text={empty.text} />;
     const withActions = rows.some((r) => r.actions?.length);
 
@@ -47,7 +47,7 @@ function RelationTable({ columns, rows, empty }: { columns: string[]; rows: Row[
 }
 
 /** Change les paramètres de l’URL de l’onglet (filtre, page) sans perdre la position. */
-const visit = (params: Record<string, string | null>) => {
+export const visit = (params: Record<string, string | null>) => {
     const url = new URL(window.location.href);
     Object.entries(params).forEach(([key, value]) => (value === null ? url.searchParams.delete(key) : url.searchParams.set(key, value)));
     if (!('page' in params)) url.searchParams.delete('page');
@@ -55,7 +55,7 @@ const visit = (params: Record<string, string | null>) => {
 };
 
 /** Filtres en pastilles (statut, auteur, sous-onglet). */
-function Pills({ items }: { items: { label: string; count?: number; on: boolean; onClick: () => void }[] }) {
+export function Pills({ items }: { items: { label: string; count?: number; on: boolean; onClick: () => void }[] }) {
     return (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
             {items.map((item) => (
@@ -74,7 +74,7 @@ function Pills({ items }: { items: { label: string; count?: number; on: boolean;
     );
 }
 
-function Bar({ count, children }: { count: string; children?: ReactNode }) {
+export function Bar({ count, children }: { count: string; children?: ReactNode }) {
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2_5)', flexWrap: 'wrap' }}>
             {children}
@@ -83,12 +83,12 @@ function Bar({ count, children }: { count: string; children?: ReactNode }) {
     );
 }
 
-function Pages({ pagination }: { pagination: TabPagination }) {
+export function Pages({ pagination }: { pagination: TabPagination }) {
     if (pagination.lastPage <= 1) return null;
     return <Pagination page={pagination.currentPage} lastPage={pagination.lastPage} from={pagination.from} to={pagination.to} total={pagination.total} onPage={(page) => visit({ page: String(page) })} />;
 }
 
-const stack = { display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' } as const;
+export const stack = { display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' } as const;
 
 /** Onglets en lecture seule : chantiers, offres, paiements, avis et litiges, activité. */
 export default function RelationTabs({ promoter, relations }: { promoter: Promoter; relations: PromoterRelations }) {
@@ -281,22 +281,35 @@ function ReviewsTab({ base, relations }: { base: string; relations: Extract<Prom
 }
 
 function ActivityTab({ relations }: { relations: Extract<PromoterRelations, { kind: 'activity' }> }) {
-    const groups = relations.rows.reduce<{ day: string; items: PromoterActivityRow[] }[]>((acc, e) => {
+    return (
+        <Timeline
+            rows={relations.rows}
+            pagination={relations.pagination}
+            filters={[
+                { label: 'Tous', value: null },
+                { label: 'Administrateurs', value: 'admin' },
+                { label: 'Promoteur', value: 'promoteur' },
+            ]}
+            active={relations.author}
+            param="auteur"
+            emptyText="Aucune action enregistrée pour ce promoteur."
+        />
+    );
+}
+
+/** Chronologie groupée par jour, filtrable par auteur ou origine (paramètre d’URL `param`). */
+export function Timeline({ rows, pagination, filters, active, param, emptyText }: { rows: PromoterActivityRow[]; pagination: TabPagination; filters: { label: string; value: string | null }[]; active: string | null; param: string; emptyText: string }) {
+    const groups = rows.reduce<{ day: string; items: PromoterActivityRow[] }[]>((acc, e) => {
         const last = acc[acc.length - 1];
         if (last && last.day === e.day) last.items.push(e);
         else acc.push({ day: e.day, items: [e] });
         return acc;
     }, []);
-    const filters: [string, 'admin' | 'promoteur' | null][] = [
-        ['Tous', null],
-        ['Administrateurs', 'admin'],
-        ['Promoteur', 'promoteur'],
-    ];
 
     return (
         <div style={stack}>
-            <Bar count={plural(relations.pagination.total, 'événement', 'événements')}>
-                <Pills items={filters.map(([label, value]) => ({ label, on: value === relations.author, onClick: () => visit({ auteur: value }) }))} />
+            <Bar count={plural(pagination.total, 'événement', 'événements')}>
+                <Pills items={filters.map((f) => ({ label: f.label, on: f.value === active, onClick: () => visit({ [param]: f.value }) }))} />
             </Bar>
 
             {groups.map((g) => (
@@ -322,9 +335,8 @@ function ActivityTab({ relations }: { relations: Extract<PromoterRelations, { ki
                 </div>
             ))}
 
-            {groups.length === 0 && <StateBlock kind="empty" icon="history" title="Aucun événement" text={relations.author ? 'Aucun événement pour ce filtre.' : 'Aucune action enregistrée pour ce promoteur.'} />}
-            <Pages pagination={relations.pagination} />
+            {groups.length === 0 && <StateBlock kind="empty" icon="history" title="Aucun événement" text={active ? 'Aucun événement pour ce filtre.' : emptyText} />}
+            <Pages pagination={pagination} />
         </div>
     );
 }
-

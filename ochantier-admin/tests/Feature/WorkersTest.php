@@ -186,7 +186,7 @@ class WorkersTest extends TestCase
                 ->where('can.validate', true));
 
         $this->get('/ouvriers/'.self::ID.'/metiers-competences')->assertInertia(fn (Assert $page) => $page->where('tab', 'metiers-competences')->where('worker.references.0.period', '10 janv. 2024 → 30 juin 2024'));
-        $this->get('/ouvriers/'.self::ID.'/pointages')->assertRedirect('/ouvriers/'.self::ID);
+        $this->get('/ouvriers/'.self::ID.'/inconnu')->assertRedirect('/ouvriers/'.self::ID);
     }
 
     public function test_old_links_lead_to_the_search_or_the_list(): void
@@ -351,5 +351,45 @@ class WorkersTest extends TestCase
         Http::assertSent(fn (ClientRequest $request) => $request->isMultipart()
             && collect($request->data())->contains(fn (array $part) => $part['name'] === 'file' && $part['filename'] === 'photo.jpg')
             && collect($request->data())->contains(fn (array $part) => $part['name'] === 'document_type' && $part['contents'] === 'worker_photo'));
+    }
+
+    public function test_the_read_only_tabs_load_only_their_own_data_from_the_api(): void
+    {
+        $assignment = ['id' => 'as1', 'mission' => ['id' => 'm1', 'reference' => 'MIS-0001', 'status' => ['value' => 'active', 'label' => 'Active']], 'site' => ['id' => 's1', 'title' => 'Résidence Les Palmiers'], 'promoter' => 'Bâtir Afrique',
+            'trade' => 'Maçon', 'role' => null, 'is_team_lead' => true, 'start_date' => '2026-11-10', 'end_date' => '2026-11-20', 'actual_start_at' => null, 'actual_end_at' => null,
+            'promoter_daily_rate' => 25000, 'worker_net_daily_rate' => 22000, 'worked_days' => 3, 'validated_days' => 2, 'replaces' => false, 'end_reason' => null, 'status' => ['value' => 'confirmee', 'label' => 'Confirmée']];
+        $page = ['current_page' => 1, 'last_page' => 1, 'per_page' => 20, 'total' => 1];
+
+        Http::fake([
+            self::API.'/workers/'.self::ID => Http::response(['data' => $this->detail()]),
+            self::API.'/workers/'.self::ID.'/assignments*' => Http::response(['data' => [$assignment], 'meta' => [...$page, 'counts' => ['all' => 1, 'confirmee' => 1]]]),
+            self::API.'/workers/'.self::ID.'/earnings' => Http::response(['data' => [['id' => 'as1', 'mission' => $assignment['mission'], 'site' => $assignment['site'], 'start_date' => '2026-11-10', 'end_date' => '2026-11-20', 'worker_net_daily_rate' => 22000, 'validated_days' => 2, 'status' => $assignment['status'], 'earned' => 44000, 'paid' => 0, 'remaining' => 44000]],
+                'meta' => ['totals' => ['earned' => 44000, 'paid' => 0, 'remaining' => 44000], 'payouts' => []]]),
+            self::API.'/workers/'.self::ID.'/history*' => Http::response(['data' => [
+                ['id' => 'audit:1', 'at' => now()->toIso8601String(), 'origin' => ['value' => 'admin', 'label' => 'Back Office'], 'author' => 'Awa Koné', 'what' => 'a validé le dossier', 'detail' => null, 'from' => 'en_controle', 'to' => 'valide'],
+            ], 'meta' => $page]),
+        ]);
+
+        $this->get('/ouvriers/'.self::ID.'/affectations?statut=confirmee')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('tab', 'affectations')
+                ->where('relations.kind', 'assignments')
+                ->where('relations.rows.0.trade', 'Maçon · chef d’équipe')
+                ->where('relations.rows.0.days', '2 / 3')
+                ->where('relations.rows.0.rate', '22 000 FCFA')
+                ->where('relations.rows.0.status.tone', 'b')
+                ->where('relations.filters.1.count', 1));
+        Http::assertSent(fn (ClientRequest $r) => str_contains($r->url(), '/assignments?') && str_contains($r->url(), 'status=confirmee'));
+        Http::assertNotSent(fn (ClientRequest $r) => str_contains($r->url(), '/earnings'));
+
+        $this->get('/ouvriers/'.self::ID.'/paiements')
+            ->assertInertia(fn (Assert $page) => $page->where('relations.kind', 'earnings')->where('relations.totals.0.value', '44 000 FCFA')->where('relations.rows.0.days', 2)->where('relations.payouts', []));
+
+        $this->get('/ouvriers/'.self::ID.'/historique?origine=admin')
+            ->assertInertia(fn (Assert $page) => $page->where('relations.origin', 'admin')
+                ->where('relations.rows.0.day', 'Aujourd’hui')
+                ->where('relations.rows.0.icon', 'desktop_windows')
+                ->where('relations.rows.0.target', 'En vérification → Validé'));
+        Http::assertSent(fn (ClientRequest $r) => str_contains($r->url(), '/history?') && str_contains($r->url(), 'origin=admin'));
     }
 }

@@ -137,7 +137,9 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::post('/documents/{document}/validation', [WorkerStatusController::class, 'approveDocument'])->whereUuid('document')->name('documents.approve');
             Route::post('/documents/{document}/rejet', [WorkerStatusController::class, 'rejectDocument'])->whereUuid('document')->name('documents.reject');
 
-            Route::get('/{tab?}', [WorkerController::class, 'show'])->where('tab', 'identite-documents|metiers-competences')->name('show');
+            Route::get('/{tab?}', [WorkerController::class, 'show'])
+                ->where('tab', 'identite-documents|metiers-competences|disponibilites|affectations|pointages|paiements|avis|remplacements|historique')
+                ->name('show');
         });
 
         Route::get('/{worker}/{rest?}', [WorkerController::class, 'legacy'])->where('rest', '.*')->name('legacy');
