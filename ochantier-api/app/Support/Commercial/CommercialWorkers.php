@@ -45,6 +45,7 @@ class CommercialWorkers
             ->whereIn('verification_status', self::TABS[$tab][1])
             ->with(['workerTrades.trade', 'residenceCommune', 'verificationReviews.verificationCorrections.document.documentType'])
             ->latest('submitted_at')
+            ->latest('id')
             ->get();
 
         return [

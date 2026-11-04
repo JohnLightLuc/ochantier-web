@@ -16,3 +16,6 @@ Schedule::command('ochantier:promoter-reminders')->dailyAt('08:00');
 
 // Rappels aux commerciaux : relances conseillées, et le lundi objectif du mois et classement.
 Schedule::command('ochantier:commercial-reminders')->dailyAt('08:00');
+
+// Fin des suspensions d’ouvriers arrivées à leur date : l’ouvrier redevient validé.
+Schedule::command('ochantier:lift-worker-suspensions')->hourly();

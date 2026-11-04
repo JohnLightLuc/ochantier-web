@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterAccountController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterRelationController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterReviewController;
+use App\Http\Controllers\Api\V1\Admin\Worker\WorkerController;
+use App\Http\Controllers\Api\V1\Admin\Worker\WorkerReviewController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -70,6 +72,25 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('suspension', [PromoterReviewController::class, 'suspend'])->middleware('admin.can:promoters.update')->name('suspend');
                 Route::delete('suspension', [PromoterReviewController::class, 'reactivate'])->middleware('admin.can:promoters.update')->name('reactivate');
                 Route::post('messages', [PromoterReviewController::class, 'message'])->middleware('admin.can:promoters.update')->name('messages');
+            });
+        });
+
+        // Ouvriers : liste, export, fiche, contrôle du dossier et des pièces, suspension et exclusion.
+        Route::prefix('workers')->name('workers.')->group(function () {
+            Route::get('/', [WorkerController::class, 'index'])->middleware('admin.can:workers.read')->name('index');
+            Route::get('export', [WorkerController::class, 'export'])->middleware('admin.can:workers.export')->name('export');
+            Route::post('approve', [WorkerReviewController::class, 'approveMany'])->middleware('admin.can:workers.validate')->name('approve-many');
+
+            Route::prefix('{worker}')->whereUuid('worker')->group(function () {
+                Route::get('/', [WorkerController::class, 'show'])->middleware('admin.can:workers.read')->name('show');
+                Route::post('approve', [WorkerReviewController::class, 'approve'])->middleware('admin.can:workers.validate')->name('approve');
+                Route::post('corrections', [WorkerReviewController::class, 'requestCorrections'])->middleware('admin.can:workers.validate')->name('corrections');
+                Route::post('reject', [WorkerReviewController::class, 'reject'])->middleware('admin.can:workers.validate')->name('reject');
+                Route::post('documents/{document}/approve', [WorkerReviewController::class, 'approveDocument'])->whereUuid('document')->middleware('admin.can:documents.validate')->name('documents.approve');
+                Route::post('documents/{document}/reject', [WorkerReviewController::class, 'rejectDocument'])->whereUuid('document')->middleware('admin.can:documents.validate')->name('documents.reject');
+                Route::post('suspension', [WorkerReviewController::class, 'suspend'])->middleware('admin.can:workers.update')->name('suspend');
+                Route::delete('suspension', [WorkerReviewController::class, 'reactivate'])->middleware('admin.can:workers.update')->name('reactivate');
+                Route::post('exclusion', [WorkerReviewController::class, 'exclude'])->middleware('admin.can:workers.validate')->name('exclude');
             });
         });
     });
