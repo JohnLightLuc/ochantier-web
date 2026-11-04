@@ -3,6 +3,8 @@
 use App\Http\Controllers\Api\V1\Admin\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Admin\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Admin\Auth\SessionController;
+use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialAccessController;
+use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterAccountController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterRelationController;
@@ -106,6 +108,19 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('suspension', [WorkerReviewController::class, 'suspend'])->middleware('admin.can:workers.update')->name('suspend');
                 Route::delete('suspension', [WorkerReviewController::class, 'reactivate'])->middleware('admin.can:workers.update')->name('reactivate');
                 Route::post('exclusion', [WorkerReviewController::class, 'exclude'])->middleware('admin.can:workers.validate')->name('exclude');
+            });
+        });
+
+        // Commerciaux : liste, export, fiche, suspension, réactivation et fin de contrat.
+        Route::prefix('commercials')->name('commercials.')->group(function () {
+            Route::get('/', [CommercialController::class, 'index'])->middleware('admin.can:commercials.read')->name('index');
+            Route::get('export', [CommercialController::class, 'export'])->middleware('admin.can:commercials.export')->name('export');
+
+            Route::prefix('{commercial}')->whereUuid('commercial')->group(function () {
+                Route::get('/', [CommercialController::class, 'show'])->middleware('admin.can:commercials.read')->name('show');
+                Route::post('suspension', [CommercialAccessController::class, 'suspend'])->middleware('admin.can:commercials.update')->name('suspend');
+                Route::post('reactivation', [CommercialAccessController::class, 'reactivate'])->middleware('admin.can:commercials.update')->name('reactivate');
+                Route::post('termination', [CommercialAccessController::class, 'terminate'])->middleware('admin.can:commercials.delete')->name('terminate');
             });
         });
     });

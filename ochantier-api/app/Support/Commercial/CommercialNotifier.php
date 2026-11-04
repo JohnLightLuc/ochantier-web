@@ -35,6 +35,9 @@ class CommercialNotifier
         'prospect.follow_up' => ['tab' => 'dossiers', 'alert' => 'relances', 'priority' => Priority::Basse, 'sms' => false, 'cta' => 'Voir le prospect'],
         'objective.reminder' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Basse, 'sms' => false, 'cta' => 'Voir l’accueil'],
         'ranking.updated' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Basse, 'sms' => false, 'cta' => ''],
+        'account.suspended' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => ''],
+        'account.reactivated' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => ''],
+        'account.terminated' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => ''],
     ];
 
     /**
@@ -87,6 +90,14 @@ class CommercialNotifier
         $this->inbox->send($user, 'payout.paid', self::EVENTS['payout.paid'], 'Paiement reçu',
             $this->earnings->money($payout->total_amount).' versés sur votre compte Mobile Money.',
             ['target' => ['type' => 'earnings', 'id' => null, 'month' => CarbonImmutable::parse($payout->period_start)->format('Y-m')]], $payout, 'payout.paid:'.$payout->id);
+    }
+
+    /**
+     * Décision du Back Office sur le compte (suspension, réactivation, fin de contrat).
+     */
+    public function accountEvent(CommercialProfile $commercial, string $event, string $title, string $body): void
+    {
+        $this->inbox->send($commercial->user, $event, self::EVENTS[$event], $title, $body, ['target' => ['type' => 'profile', 'id' => null]], $commercial, $event.':'.$commercial->id.':'.now()->timestamp);
     }
 
     /**
