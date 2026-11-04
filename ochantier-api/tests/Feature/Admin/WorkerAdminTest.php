@@ -88,7 +88,8 @@ class WorkerAdminTest extends CommercialTestCase
         $this->getJson('/api/v1/admin/workers?search=kouassi&todo=a_verifier')->assertJsonPath('meta.total', 1);
         $this->getJson('/api/v1/admin/workers?status=valide')->assertJsonPath('meta.total', 0);
         $this->getJson('/api/v1/admin/workers?trade_id='.$this->trade('peintre')->id)->assertJsonPath('meta.total', 0);
-        $this->getJson('/api/v1/admin/workers?status=brouillon')->assertJsonValidationErrors(['status']);
+        $this->getJson('/api/v1/admin/workers?status=brouillon')->assertJsonPath('meta.total', 0);
+        $this->getJson('/api/v1/admin/workers?status=inconnu')->assertJsonValidationErrors(['status']);
 
         $this->fiche($worker)
             ->assertJsonPath('data.reference', $worker->reference)

@@ -12,12 +12,12 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 
 /**
- * Ouvriers du Back Office : dossiers transmis par les commerciaux (les brouillons restent côté commercial),
- * filtrés, triés et comptés.
+ * Ouvriers du Back Office : dossiers transmis par les commerciaux et ouvriers enregistrés par le Back Office (même
+ * en brouillon ; les brouillons des commerciaux restent côté commercial), filtrés, triés et comptés.
  */
 class WorkerDirectory
 {
-    public const STATUSES = ['soumis', 'en_controle', 'a_corriger', 'valide', 'refuse', 'suspendu', 'exclu'];
+    public const STATUSES = ['brouillon', 'soumis', 'en_controle', 'a_corriger', 'valide', 'refuse', 'suspendu', 'exclu'];
 
     /**
      * Listes « à traiter » : dossiers à vérifier, renvoyés au commercial, avec une pièce expirée.
@@ -56,7 +56,7 @@ class WorkerDirectory
      */
     public function counts(): array
     {
-        $statuses = Worker::query()->whereIn('verification_status', self::STATUSES)->toBase()->selectRaw('verification_status, count(*) as total')->groupBy('verification_status')->pluck('total', 'verification_status');
+        $statuses = $this->visible(Worker::query())->toBase()->selectRaw('verification_status, count(*) as total')->groupBy('verification_status')->pluck('total', 'verification_status');
         $availability = Worker::query()->where('verification_status', WorkerVerificationStatus::Valide)->toBase()->selectRaw('availability_status, count(*) as total')->groupBy('availability_status')->pluck('total', 'availability_status');
 
         return [
@@ -74,7 +74,7 @@ class WorkerDirectory
      */
     public function options(): array
     {
-        $workers = Worker::query()->whereIn('verification_status', self::STATUSES);
+        $workers = $this->visible(Worker::query());
 
         return [
             'trades' => Trade::query()->whereIn('id', fn (QueryBuilder $query) => $query->select('trade_id')->from('worker_trades')->whereIn('worker_id', (clone $workers)->select('id')))
@@ -93,8 +93,8 @@ class WorkerDirectory
         $search = isset($filters['search']) ? '%'.addcslashes(trim($filters['search']), '%_\\').'%' : null;
         $level = isset($filters['level']) ? self::LEVELS[$filters['level']] : null;
 
-        return Worker::query()
-            ->whereIn('workers.verification_status', $filters['status'] ?? null ? [$filters['status']] : self::STATUSES)
+        return $this->visible(Worker::query())
+            ->when($filters['status'] ?? null, fn (Builder $query, string $status) => $query->where('workers.verification_status', $status))
             ->when($search, fn (Builder $query) => $query->where(fn (Builder $query) => $query
                 ->where('first_name', 'ilike', $search)
                 ->orWhere('last_name', 'ilike', $search)
@@ -118,6 +118,19 @@ class WorkerDirectory
                 'a_corriger' => $query->where('workers.verification_status', WorkerVerificationStatus::ACorriger),
                 'pieces_expirees' => $query->whereExists(fn (QueryBuilder $query) => $this->expiredDocuments($query->selectRaw('1'))),
             });
+    }
+
+    /**
+     * Ouvriers visibles du Back Office : tout sauf les brouillons des commerciaux.
+     *
+     * @param  Builder<Worker>  $query
+     * @return Builder<Worker>
+     */
+    private function visible(Builder $query): Builder
+    {
+        return $query->where(fn (Builder $query) => $query
+            ->where('workers.verification_status', '!=', WorkerVerificationStatus::Brouillon)
+            ->orWhere('workers.acquisition_channel', Worker::BACK_OFFICE_CHANNEL));
     }
 
     private function primaryYears(QueryBuilder $query): QueryBuilder

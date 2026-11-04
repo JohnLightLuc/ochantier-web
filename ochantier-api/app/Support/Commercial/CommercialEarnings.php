@@ -51,7 +51,8 @@ class CommercialEarnings
     {
         $rule = $this->rule();
 
-        if (! $rule || ! $worker->origin_commercial_id) {
+        // Un ouvrier enregistré par le Back Office n’ouvre pas de commission à son commercial référent.
+        if (! $rule || ! $worker->origin_commercial_id || $worker->acquisition_channel === Worker::BACK_OFFICE_CHANNEL) {
             return null;
         }
 

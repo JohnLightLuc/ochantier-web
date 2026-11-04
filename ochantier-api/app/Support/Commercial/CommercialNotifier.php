@@ -30,6 +30,7 @@ class CommercialNotifier
         'worker.correction' => ['tab' => 'dossiers', 'alert' => 'corrections', 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Corriger le dossier'],
         'worker.validated' => ['tab' => 'dossiers', 'alert' => 'dossiers', 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir le dossier'],
         'worker.refused' => ['tab' => 'dossiers', 'alert' => 'dossiers', 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir le dossier'],
+        'worker.updated' => ['tab' => 'dossiers', 'alert' => 'dossiers', 'priority' => Priority::Basse, 'sms' => false, 'cta' => 'Voir le dossier'],
         'payout.paid' => ['tab' => 'paiements', 'alert' => 'paiements', 'priority' => Priority::Normale, 'sms' => true, 'cta' => 'Voir mes gains'],
         'prospect.follow_up' => ['tab' => 'dossiers', 'alert' => 'relances', 'priority' => Priority::Basse, 'sms' => false, 'cta' => 'Voir le prospect'],
         'objective.reminder' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Basse, 'sms' => false, 'cta' => 'Voir l’accueil'],
@@ -56,6 +57,16 @@ class CommercialNotifier
     public function correctionRequested(Worker $worker, array $reasons): void
     {
         $this->notify($worker, 'worker.correction', 'Correction demandée', $this->name($worker).' — '.implode(' ; ', $reasons).'.', 'worker.correction:'.$worker->id.':'.now()->timestamp);
+    }
+
+    /**
+     * Dossier modifié par le Back Office (ouvrier dont le commercial est le référent).
+     *
+     * @param  list<string>  $changes  Libellés des informations modifiées.
+     */
+    public function updatedByBackOffice(Worker $worker, array $changes): void
+    {
+        $this->notify($worker, 'worker.updated', 'Dossier mis à jour', $this->name($worker).' : '.implode(', ', $changes).' mis à jour par le Back office.', 'worker.updated:'.$worker->id.':'.now()->timestamp);
     }
 
     public function validated(Worker $worker, ?int $commission): void

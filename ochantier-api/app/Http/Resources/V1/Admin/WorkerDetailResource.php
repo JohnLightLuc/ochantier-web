@@ -12,6 +12,7 @@ use App\Models\VerificationCorrection;
 use App\Models\VerificationReview;
 use App\Models\Worker;
 use App\Models\WorkerTrade;
+use App\Support\Admin\WorkerAdministration;
 use App\Support\Admin\WorkerVerification;
 use App\Support\Commercial\ProspectDossier;
 use App\Support\Documents\DocumentStore;
@@ -53,7 +54,7 @@ class WorkerDetailResource extends Resource
                 'emergency_contact' => [
                     'name' => $this->emergency_contact_name,
                     'relation' => $this->emergency_contact_relation,
-                    'phone' => PhoneNumber::of($this->resource, 'emergency_contact_')?->formatted(),
+                    ...(PhoneNumber::of($this->resource, 'emergency_contact_')?->toArray() ?? ['dial_code' => null, 'phone_number' => null, 'phone' => null]),
                 ],
             ],
             'residence' => [
@@ -122,10 +123,12 @@ class WorkerDetailResource extends Resource
                 'decided_by' => $sanction->decidedByAdmin ? $this->admin($sanction->decidedByAdmin) : null,
             ] : null,
             'validated_by' => $this->validatedByAdmin ? $this->admin($this->validatedByAdmin) : null,
+            'missing' => $this->verification_status->value === 'brouillon' ? app(WorkerAdministration::class)->missing($this->resource) : [],
             'can' => [
                 'suspend' => $this->verification_status->value === 'valide',
                 'reactivate' => $this->verification_status->value === 'suspendu',
                 'exclude' => ! in_array($this->verification_status->value, ['exclu', 'brouillon'], true),
+                'edit' => $this->verification_status->value !== 'exclu',
             ],
         ];
     }

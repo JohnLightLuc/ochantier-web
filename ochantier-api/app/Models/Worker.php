@@ -22,6 +22,11 @@ class Worker extends Model
     use HasUuids, SoftDeletes;
 
     /**
+     * Canal d’acquisition d’un ouvrier enregistré par le Back Office (sans commission pour le commercial référent).
+     */
+    public const BACK_OFFICE_CHANNEL = 'back_office';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>

@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterAccountController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterRelationController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterReviewController;
+use App\Http\Controllers\Api\V1\Admin\Worker\WorkerAccountController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerReviewController;
 use Illuminate\Support\Facades\Route;
@@ -75,14 +76,18 @@ Route::middleware('auth:admin')->group(function () {
             });
         });
 
-        // Ouvriers : liste, export, fiche, contrôle du dossier et des pièces, suspension et exclusion.
+        // Ouvriers : liste, export, création et modification, fiche, contrôle du dossier et des pièces, suspension et exclusion.
         Route::prefix('workers')->name('workers.')->group(function () {
             Route::get('/', [WorkerController::class, 'index'])->middleware('admin.can:workers.read')->name('index');
             Route::get('export', [WorkerController::class, 'export'])->middleware('admin.can:workers.export')->name('export');
             Route::post('approve', [WorkerReviewController::class, 'approveMany'])->middleware('admin.can:workers.validate')->name('approve-many');
+            Route::get('form-options', [WorkerAccountController::class, 'formOptions'])->middleware('admin.can:workers.read')->name('form-options');
+            Route::post('/', [WorkerAccountController::class, 'store'])->middleware('admin.can:workers.create')->name('store');
 
             Route::prefix('{worker}')->whereUuid('worker')->group(function () {
                 Route::get('/', [WorkerController::class, 'show'])->middleware('admin.can:workers.read')->name('show');
+                Route::patch('/', [WorkerAccountController::class, 'update'])->middleware('admin.can:workers.update')->name('update');
+                Route::post('documents', [WorkerAccountController::class, 'storeDocument'])->middleware('admin.can:documents.validate')->name('documents.store');
                 Route::post('approve', [WorkerReviewController::class, 'approve'])->middleware('admin.can:workers.validate')->name('approve');
                 Route::post('corrections', [WorkerReviewController::class, 'requestCorrections'])->middleware('admin.can:workers.validate')->name('corrections');
                 Route::post('reject', [WorkerReviewController::class, 'reject'])->middleware('admin.can:workers.validate')->name('reject');
