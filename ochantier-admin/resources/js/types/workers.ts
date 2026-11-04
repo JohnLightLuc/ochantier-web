@@ -28,7 +28,7 @@ export type WorkerIndexProps = {
     filterOptions: Record<'metier' | 'niveau' | 'disponibilite' | 'statut' | 'localisation' | 'cout' | 'note', Option[]>;
     kpis: { total: number; available: number; onMission: number; toReview: number };
     todo: { review: number; corrections: number; documents: number };
-    can: { validate: boolean; update: boolean; export: boolean };
+    can: { create: boolean; validate: boolean; update: boolean; export: boolean };
 };
 
 export type WorkerReview = {
@@ -72,7 +72,8 @@ export type Worker = WorkerRow & {
     stats: { missions_completed: number; attendance_rate: number | null; acceptance_rate: number | null; replacement_count: number; last_assignment_at: string | null };
     sanction: { type: 'suspension' | 'exclusion'; label: string; reason: string | null; startsAt: string | null; endsAt: string | null; decidedBy: string | null } | null;
     review: { canDecide: boolean; canApprove: boolean; approvalRefusal: string | null; current: WorkerReview | null; history: WorkerReview[] };
-    can: { suspend: boolean; reactivate: boolean; exclude: boolean };
+    missing: string[];
+    can: { suspend: boolean; reactivate: boolean; exclude: boolean; edit: boolean };
 };
 
 export type WorkerDocumentFile = { name: string; side: string; mime: string; url: string };
@@ -131,4 +132,5 @@ export type WorkerShowProps = {
     alerts: WorkerAlert[];
     correctionFields: Option[];
     can: { validate: boolean; update: boolean; documents: boolean };
+    documentTypes?: { value: string; label: string; hasBackSide: boolean; isIdentity: boolean; accept: string }[];
 };

@@ -92,6 +92,7 @@ export default function WorkersIndex({ workers, filters, filterOptions, kpis, to
 
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 'var(--space-2_5)', marginTop: -6 }}>
                 {can.export && <Button label="Exporter" icon="download" variant="secondary" onClick={() => (window.location.href = exportUrl())} />}
+                {can.create && <Button label="Ajouter un ouvrier" icon="add" variant="primary" onClick={() => router.visit('/ouvriers/nouveau')} />}
             </div>
 
             <div data-component="StatGrid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 'var(--space-4)' }}>

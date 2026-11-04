@@ -1,9 +1,11 @@
 import { IdentityTab, OverviewTab, SkillsTab } from '@/components/workers/tabs';
 import { useWorkerActions } from '@/components/workers/useWorkerActions';
 import WorkerHeader from '@/components/workers/WorkerHeader';
+import { UploadDocumentDialog } from '@/components/promoters/dialogs';
 import StatCard from '@/components/ui/StatCard';
 import type { WorkerShowProps, WorkerTab } from '@/types/workers';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
 
 const TABS: [WorkerTab, string][] = [
     ['', 'Vue d’ensemble'],
@@ -15,7 +17,12 @@ const TABS: [WorkerTab, string][] = [
 export default function WorkerShow(props: WorkerShowProps) {
     const { worker, tab, kpis, tabCounts } = props;
     const actions = useWorkerActions();
-    const tabProps = { ...props, actions };
+    const [uploading, setUploading] = useState(false);
+    const openUpload = () => {
+        setUploading(true);
+        if (!props.documentTypes) router.reload({ only: ['documentTypes'] });
+    };
+    const tabProps = { ...props, actions, onUpload: props.can.documents && worker.can.edit ? openUpload : undefined };
     const base = `/ouvriers/${worker.slug}`;
     const label = TABS.find(([key]) => key === tab)?.[1];
 
@@ -62,6 +69,7 @@ export default function WorkerShow(props: WorkerShowProps) {
             </div>
 
             {actions.dialog}
+            {uploading && <UploadDocumentDialog promoterName={worker.name} types={props.documentTypes} url={`${base}/documents`} onClose={() => setUploading(false)} />}
         </>
     );
 }

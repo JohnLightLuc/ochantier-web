@@ -81,7 +81,7 @@ class WorkerController extends Controller
                 'toReview' => $meta['counts']['todo']['a_verifier'],
             ],
             'todo' => ['review' => $meta['counts']['todo']['a_verifier'], 'corrections' => $meta['counts']['todo']['a_corriger'], 'documents' => $meta['counts']['todo']['pieces_expirees']],
-            'can' => ['validate' => $this->allowed($request, 'workers.validate'), 'update' => $this->allowed($request, 'workers.update'), 'export' => $this->allowed($request, 'workers.export')],
+            'can' => ['create' => $this->allowed($request, 'workers.create'), 'validate' => $this->allowed($request, 'workers.validate'), 'update' => $this->allowed($request, 'workers.update'), 'export' => $this->allowed($request, 'workers.export')],
         ]);
     }
 
@@ -121,6 +121,7 @@ class WorkerController extends Controller
             'alerts' => WorkerPresenter::alerts($data, $base),
             'correctionFields' => array_map(fn (string $value, string $label): array => compact('value', 'label'), array_keys(WorkerPresenter::CORRECTION_FIELDS), WorkerPresenter::CORRECTION_FIELDS),
             'can' => ['validate' => $this->allowed($request, 'workers.validate'), 'update' => $this->allowed($request, 'workers.update'), 'documents' => $this->allowed($request, 'documents.validate')],
+            'documentTypes' => Inertia::optional(fn () => app(WorkerFormController::class)->documentTypes()),
             'header' => $this->header('Fiche de l’ouvrier', '', [['Ouvriers', '/ouvriers'], [$view['name'], $tab ? $base : null], ...($tab ? [[self::TABS[$tab]]] : [])]),
         ]);
     }
@@ -131,12 +132,6 @@ class WorkerController extends Controller
      */
     public function legacy(string $worker): RedirectResponse
     {
-        if ($worker === 'nouveau') {
-            Inertia::flash('toast', 'Les ouvriers sont enregistrés par les commerciaux depuis leur application ; la création depuis le Back Office arrive prochainement.');
-
-            return to_route('workers.index');
-        }
-
         if (Str::isUuid($worker)) {
             Inertia::flash('toast', 'Cet onglet n’est pas encore disponible : voici la vue d’ensemble de l’ouvrier.');
 

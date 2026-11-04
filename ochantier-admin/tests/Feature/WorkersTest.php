@@ -6,6 +6,7 @@ use App\Models\Worker;
 use App\Support\Api\ApiTokens;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -30,7 +31,7 @@ class WorkersTest extends TestCase
         config(['services.ochantier_api.url' => self::API]);
         $this->withSession([]);
         $this->startSession();
-        $this->signIn(['workers.read', 'workers.validate', 'workers.update', 'workers.export', 'documents.validate']);
+        $this->signIn(['workers.read', 'workers.create', 'workers.validate', 'workers.update', 'workers.export', 'documents.validate']);
     }
 
     /**
@@ -104,7 +105,8 @@ class WorkersTest extends TestCase
             ],
             'sanction' => null,
             'validated_by' => null,
-            'can' => ['suspend' => false, 'reactivate' => false, 'exclude' => true],
+            'missing' => [],
+            'can' => ['suspend' => false, 'reactivate' => false, 'exclude' => true, 'edit' => true],
             ...$overrides,
         ];
     }
@@ -192,7 +194,6 @@ class WorkersTest extends TestCase
         Worker::factory()->create(['slug' => 'kouame-koffi', 'first_name' => 'Kouamé', 'last_name' => 'Koffi']);
 
         $this->get('/ouvriers/kouame-koffi/pointages')->assertRedirect('/ouvriers?q='.rawurlencode('Kouamé Koffi'));
-        $this->get('/ouvriers/nouveau')->assertRedirect('/ouvriers')->assertSessionHas('inertia.flash_data.toast');
 
         Http::assertNothingSent();
     }
@@ -236,7 +237,119 @@ class WorkersTest extends TestCase
             self::API.'/workers*' => Http::response($this->listResponse([$this->row()])),
         ]);
 
-        $this->get('/ouvriers')->assertInertia(fn (Assert $page) => $page->where('can', ['validate' => false, 'update' => false, 'export' => false]));
+        $this->get('/ouvriers')->assertInertia(fn (Assert $page) => $page->where('can', ['create' => false, 'validate' => false, 'update' => false, 'export' => false]));
         $this->get('/ouvriers/'.self::ID)->assertInertia(fn (Assert $page) => $page->where('can', ['validate' => false, 'update' => false, 'documents' => false]));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formOptions(): array
+    {
+        return ['data' => [
+            'commercials' => [['id' => 'cm1', 'full_name' => 'Yao Konan']],
+            'trades' => [
+                ['id' => 't1', 'code' => 'macon', 'label' => 'Maçon', 'specialties' => [['id' => 's1', 'label' => 'Fondations']], 'skills' => [['id' => 'k1', 'label' => 'Lecture de plans']]],
+                ['id' => 't2', 'code' => 'peintre', 'label' => 'Peintre', 'specialties' => [], 'skills' => []],
+            ],
+            'cities' => [['id' => 'v1', 'name' => 'Abidjan', 'communes' => [['id' => 'c1', 'name' => 'Cocody', 'neighborhoods' => [['id' => 'n1', 'name' => 'Angré']]]]]],
+            'document_types' => [['code' => 'worker_photo', 'label' => 'Photo d’identité', 'is_identity' => false, 'is_required' => true, 'has_back_side' => false, 'allowed_mime' => ['image/jpeg'], 'max_size_kb' => 5120]],
+            'genders' => [['value' => 'M', 'label' => 'Homme'], ['value' => 'F', 'label' => 'Femme']],
+            'offer_types' => [['value' => 'ponctuelle', 'label' => 'Ponctuelle']],
+            'payment_frequencies' => [['value' => 'journalier', 'label' => 'Journalier']],
+        ]];
+    }
+
+    public function test_the_creation_form_lists_the_options_and_sends_the_api_body(): void
+    {
+        Http::fake([
+            self::API.'/workers/form-options' => Http::response($this->formOptions()),
+            self::API.'/workers' => Http::response(['message' => 'Ouvrier enregistré : ajoutez les pièces manquantes pour transmettre le dossier.', 'data' => ['id' => self::ID]], 201),
+        ]);
+
+        $this->get('/ouvriers/nouveau')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Workers/Form')
+                ->where('mode', 'create')
+                ->where('options.commercial', [['value' => 'cm1', 'label' => 'Yao Konan']])
+                ->where('options.commune', [['value' => 'c1', 'label' => 'Cocody · Abidjan']])
+                ->where('neighborhoods.c1', [['value' => 'n1', 'label' => 'Angré']])
+                ->where('tradeLists.t1.skills', [['value' => 'k1', 'label' => 'Lecture de plans']]));
+
+        $this->post('/ouvriers', [
+            'commercial_id' => 'cm1', 'first_name' => 'Ibrahim', 'last_name' => 'Ouattara', 'phone' => '+225 07 08 09 10 11',
+            'residence_commune_id' => 'c1', 'emergency_phone' => '01 02 03 04 05', 'trade_id' => 't1', 'experience_years' => '8',
+            'secondary_trade_id' => '', 'secondary_experience_years' => '3', 'daily_rate' => '15 000', 'skill_ids' => ['k1'],
+            'works_solo' => true, 'works_in_team' => false, 'accepted_offer_types' => ['ponctuelle'],
+            'references' => [['project' => 'Résidence Les Palmiers', 'role' => '', 'employer' => '', 'start_date' => '', 'end_date' => ''], ['project' => '  ', 'role' => 'x']],
+        ])
+            ->assertRedirect('/ouvriers/'.self::ID.'/identite-documents')
+            ->assertSessionHas('inertia.flash_data.toast', 'Ouvrier enregistré : ajoutez les pièces manquantes pour transmettre le dossier.');
+
+        Http::assertSent(fn (ClientRequest $r) => $r->method() === 'POST' && str_ends_with($r->url(), '/workers')
+            && $r['dial_code'] === '225' && $r['phone_number'] === '0708091011'
+            && $r['emergency_contact_phone_number'] === '0102030405'
+            && $r['experience_years'] === 8 && $r['daily_rate'] === 15000
+            && $r['secondary_trade_id'] === null && $r['secondary_experience_years'] === null
+            && $r['works_in_team'] === false && $r['skill_ids'] === ['k1']
+            && $r['references'] === [['project' => 'Résidence Les Palmiers', 'role' => null, 'employer' => null, 'start_date' => null, 'end_date' => null]]);
+    }
+
+    public function test_api_errors_come_back_on_the_form_fields(): void
+    {
+        Http::fake([self::API.'/workers' => Http::response(['message' => 'Erreur', 'errors' => [
+            'phone_number' => ['Ce numéro est déjà inscrit sur O’CHANTIER.'],
+            'emergency_contact_phone_number' => ['Le contact d’urgence doit avoir un autre numéro que l’ouvrier.'],
+            'skill_ids.0' => ['Cette compétence ne correspond pas aux métiers choisis.'],
+        ]], 422)]);
+
+        $this->from('/ouvriers/nouveau')->post('/ouvriers', ['first_name' => 'Ibrahim'])->assertSessionHasErrors([
+            'phone' => 'Ce numéro est déjà inscrit sur O’CHANTIER.',
+            'emergency_phone' => 'Le contact d’urgence doit avoir un autre numéro que l’ouvrier.',
+            'skill_ids' => 'Cette compétence ne correspond pas aux métiers choisis.',
+        ]);
+    }
+
+    public function test_the_edit_form_is_prefilled_and_the_update_is_sent_to_the_api(): void
+    {
+        Http::fake([
+            self::API.'/workers/form-options' => Http::response($this->formOptions()),
+            self::API.'/workers/'.self::ID => fn (ClientRequest $request) => $request->method() === 'PATCH'
+                ? Http::response(['message' => 'Ouvrier mis à jour.', 'data' => ['id' => self::ID]])
+                : Http::response(['data' => $this->detail()]),
+        ]);
+
+        $this->get('/ouvriers/'.self::ID.'/modifier')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Workers/Form')
+                ->where('mode', 'edit')
+                ->where('worker.name', 'Jean Kouassi')
+                ->where('values.commercial_id', 'cm1')
+                ->where('values.phone', '+225 07 00 00 00 99')
+                ->where('values.emergency_phone', '')
+                ->where('values.trade_id', 't1')
+                ->where('values.secondary_trade_id', 't2')
+                ->where('values.experience_years', '6')
+                ->where('values.specialty_ids', ['s1'])
+                ->where('values.references.0.project', 'Résidence Les Palmiers'));
+
+        $this->patch('/ouvriers/'.self::ID, ['commercial_id' => 'cm1', 'first_name' => 'Jean', 'last_name' => 'Kouassi', 'phone' => '0700000099', 'daily_rate' => '18000'])
+            ->assertRedirect('/ouvriers/'.self::ID)
+            ->assertSessionHas('inertia.flash_data.toast', 'Ouvrier mis à jour.');
+
+        Http::assertSent(fn (ClientRequest $r) => $r->method() === 'PATCH' && $r['daily_rate'] === 18000 && $r['phone_number'] === '0700000099');
+    }
+
+    public function test_a_document_is_uploaded_to_the_api_with_its_files(): void
+    {
+        Http::fake([self::API.'/workers/'.self::ID.'/documents' => Http::response(['message' => 'Photo d’identité ajoutée au dossier.', 'data' => ['id' => self::ID]], 201)]);
+
+        $this->post('/ouvriers/'.self::ID.'/documents', ['document_type' => 'worker_photo', 'recto' => UploadedFile::fake()->image('photo.jpg')])
+            ->assertRedirect('/ouvriers/'.self::ID.'/identite-documents')
+            ->assertSessionHas('inertia.flash_data.toast', 'Photo d’identité ajoutée au dossier.');
+
+        Http::assertSent(fn (ClientRequest $request) => $request->isMultipart()
+            && collect($request->data())->contains(fn (array $part) => $part['name'] === 'file' && $part['filename'] === 'photo.jpg')
+            && collect($request->data())->contains(fn (array $part) => $part['name'] === 'document_type' && $part['contents'] === 'worker_photo'));
     }
 }

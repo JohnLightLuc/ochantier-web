@@ -6,6 +6,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import { useAdminUi } from '@/contexts/AdminUiContext';
 import { formatDate, formatNumber, formatRating } from '@/lib/format';
 import type { WorkerShowProps } from '@/types/workers';
+import { router } from '@inertiajs/react';
 import { useState } from 'react';
 import type { WorkerActions } from './useWorkerActions';
 
@@ -60,6 +61,7 @@ export default function WorkerHeader({ worker: w, documents, correctionFields, c
                 </div>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', alignItems: 'center', position: 'relative' }}>
+                {can.update && w.can.edit && <Button label="Modifier" icon="edit" variant="secondary" onClick={() => router.visit(`/ouvriers/${w.slug}/modifier`)} />}
                 {can.validate && w.review.canDecide && (
                     <>
                         <Button label="Refuser" icon="person_cancel" variant="danger-soft" onClick={() => actions.reject(w)} />

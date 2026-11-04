@@ -54,6 +54,7 @@ use App\Http\Controllers\SubscriptionActionController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\SubscriptionPlanController;
 use App\Http\Controllers\WorkerController;
+use App\Http\Controllers\WorkerFormController;
 use App\Http\Controllers\WorkerStatusController;
 use App\Support\Settings;
 use Illuminate\Support\Facades\Route;
@@ -114,14 +115,19 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('/{promoter}/{rest?}', [PromoterController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
-    // Ouvriers : données de l’API (api/v1/admin/workers). Dossiers transmis par les commerciaux : liste, fiche et
-    // contrôle (pièces, validation, corrections, refus), suspension et exclusion.
+    // Ouvriers : données de l’API (api/v1/admin/workers). Liste, création et modification, fiche, contrôle du dossier
+    // (pièces, validation, corrections, refus), suspension et exclusion.
     Route::prefix('ouvriers')->name('workers.')->group(function () {
         Route::get('/', [WorkerController::class, 'index'])->name('index');
         Route::get('/export', [WorkerController::class, 'export'])->name('export');
         Route::post('/validation-groupee', [WorkerStatusController::class, 'approveMany'])->name('validate-many');
+        Route::get('/nouveau', [WorkerFormController::class, 'create'])->name('create');
+        Route::post('/', [WorkerFormController::class, 'store'])->name('store');
 
         Route::prefix('{worker}')->whereUuid('worker')->group(function () {
+            Route::get('/modifier', [WorkerFormController::class, 'edit'])->name('edit');
+            Route::patch('/', [WorkerFormController::class, 'update'])->name('update');
+            Route::post('/documents', [WorkerFormController::class, 'storeDocument'])->name('documents.store');
             Route::post('/validation', [WorkerStatusController::class, 'approve'])->name('validate');
             Route::post('/corrections', [WorkerStatusController::class, 'requestCorrections'])->name('corrections');
             Route::post('/rejet', [WorkerStatusController::class, 'reject'])->name('reject');

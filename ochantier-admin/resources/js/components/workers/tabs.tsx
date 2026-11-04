@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { AlertList, Block, Chips, DataTable, KeyValues, TileGrid } from './blocks';
 import type { WorkerActions } from './useWorkerActions';
 
-export type TabProps = WorkerShowProps & { actions: WorkerActions };
+export type TabProps = WorkerShowProps & { actions: WorkerActions; onUpload?: () => void };
 
 /** Alertes du serveur avec leur lien éventuel. */
 function useAlerts({ alerts }: TabProps) {
@@ -114,7 +114,7 @@ export function OverviewTab(props: TabProps) {
 
 /** Identité, coordonnées et pièces du dossier, avec leur contrôle. */
 export function IdentityTab(props: TabProps) {
-    const { worker: w, documents, actions, can } = props;
+    const { worker: w, documents, actions, can, onUpload } = props;
     const ui = useAdminUi();
     const alerts = useAlerts(props);
     const provided = documents.filter((d) => d.hasFile);
@@ -187,6 +187,7 @@ export function IdentityTab(props: TabProps) {
                 title="Pièces du dossier"
                 count={`${verified} / ${provided.length} vérifiées`}
                 minWidth={900}
+                tools={onUpload ? [{ label: 'Ajouter une pièce', icon: 'upload_file', variant: 'primary', onClick: onUpload }] : []}
                 columns={['Pièce', 'Type', 'Numéro', 'Ajoutée le', 'Expiration', 'Statut', 'Motif du rejet']}
                 empty={{ icon: 'folder_shared', title: 'Aucune pièce', text: '' }}
                 rows={documents.map((d) => ({

@@ -1,1 +1,0 @@
-import{d as e}from"./Button-BpQq87Gd.js";import{t}from"./useBlockActions-BPMIeky4.js";import{t as n}from"./BlockPage-Cc5YyBvz.js";var r=e();function i(e){let{run:i,dialog:a}=t(e.sheets);return(0,r.jsx)(n,{...e,module:`Rapports`,run:i,dialog:a})}export{i as default};

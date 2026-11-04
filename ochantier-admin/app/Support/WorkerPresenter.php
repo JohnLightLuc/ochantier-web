@@ -10,9 +10,9 @@ use Carbon\Carbon;
  */
 class WorkerPresenter
 {
-    public const STATUS_TONES = ['soumis' => 'a', 'en_controle' => 'b', 'a_corriger' => 'o', 'valide' => 'g', 'refuse' => 'r', 'suspendu' => 'r', 'exclu' => 'n'];
+    public const STATUS_TONES = ['brouillon' => 'n', 'soumis' => 'a', 'en_controle' => 'b', 'a_corriger' => 'o', 'valide' => 'g', 'refuse' => 'r', 'suspendu' => 'r', 'exclu' => 'n'];
 
-    public const STATUS_LABELS = ['soumis' => 'À vérifier', 'en_controle' => 'En vérification', 'a_corriger' => 'À corriger', 'valide' => 'Validé', 'refuse' => 'Refusé', 'suspendu' => 'Suspendu', 'exclu' => 'Exclu'];
+    public const STATUS_LABELS = ['brouillon' => 'Brouillon', 'soumis' => 'À vérifier', 'en_controle' => 'En vérification', 'a_corriger' => 'À corriger', 'valide' => 'Validé', 'refuse' => 'Refusé', 'suspendu' => 'Suspendu', 'exclu' => 'Exclu'];
 
     private const AVAILABILITY_TONES = ['disponible' => 'g', 'occupe' => 'a', 'indisponible' => 'r'];
 
@@ -156,7 +156,8 @@ class WorkerPresenter
                 'current' => $w['review']['current'] ? self::review($w['review']['current']) : null,
                 'history' => array_map(self::review(...), $w['review']['history']),
             ],
-            'can' => ['suspend' => $w['can']['suspend'], 'reactivate' => $w['can']['reactivate'], 'exclude' => $w['can']['exclude']],
+            'missing' => $w['missing'] ?? [],
+            'can' => ['suspend' => $w['can']['suspend'], 'reactivate' => $w['can']['reactivate'], 'exclude' => $w['can']['exclude'], 'edit' => $w['can']['edit'] ?? false],
         ];
     }
 
@@ -210,6 +211,10 @@ class WorkerPresenter
         $alerts = [];
         $status = $w['status']['value'];
         $docs = ['type' => 'link', 'href' => "{$base}/identite-documents"];
+
+        if (($w['missing'] ?? []) !== []) {
+            $alerts[] = ['tone' => 'warning', 'icon' => 'rule', 'title' => 'Dossier incomplet', 'text' => 'À compléter avant la transmission au contrôle : '.implode(', ', $w['missing']).'.', 'cta' => 'Voir les pièces', 'action' => $docs];
+        }
 
         if ($w['review']['can_decide']) {
             $alerts[] = $w['review']['can_approve']
