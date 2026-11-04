@@ -38,13 +38,8 @@ use App\Http\Controllers\PromoterReviewController;
 use App\Http\Controllers\QualityController;
 use App\Http\Controllers\ReviewActionController;
 use App\Http\Controllers\ReviewController;
-use App\Http\Controllers\SalesAgentAccountController;
+use App\Http\Controllers\SalesAgentAccessController;
 use App\Http\Controllers\SalesAgentController;
-use App\Http\Controllers\SalesAgentDocumentController;
-use App\Http\Controllers\SalesAgentFieldController;
-use App\Http\Controllers\SalesAgentPerformanceController;
-use App\Http\Controllers\SalesAgentTerritoryController;
-use App\Http\Controllers\SalesRankingController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SiteController;
 use App\Http\Controllers\SiteDocumentController;
@@ -145,74 +140,19 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('/{worker}/{rest?}', [WorkerController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
+    // Commerciaux : données de l’API (api/v1/admin/commercials). Liste, fiche et décisions sur le compte.
     Route::prefix('commerciaux')->name('sales-agents.')->group(function () {
         Route::get('/', [SalesAgentController::class, 'index'])->name('index');
         Route::get('/export', [SalesAgentController::class, 'export'])->name('export');
-        Route::get('/nouveau', [SalesAgentController::class, 'create'])->name('create');
-        Route::post('/', [SalesAgentController::class, 'store'])->name('store');
 
-        Route::prefix('classement')->name('ranking.')->group(function () {
-            Route::get('/{year?}/{month?}', [SalesRankingController::class, 'show'])->whereNumber(['year', 'month'])->name('show');
-            Route::get('/{year}/{month}/export', [SalesRankingController::class, 'export'])->whereNumber(['year', 'month'])->name('export');
-            Route::post('/{year}/{month}/publication', [SalesRankingController::class, 'togglePublication'])->whereNumber(['year', 'month'])->name('publication');
-            Route::post('/{year}/{month}/cloture', [SalesRankingController::class, 'close'])->whereNumber(['year', 'month'])->name('close');
+        Route::prefix('{commercial}')->whereUuid('commercial')->group(function () {
+            Route::post('/suspension', [SalesAgentAccessController::class, 'suspend'])->name('suspend');
+            Route::post('/reactivation', [SalesAgentAccessController::class, 'reactivate'])->name('reactivate');
+            Route::post('/fin-de-contrat', [SalesAgentAccessController::class, 'terminate'])->name('terminate');
+            Route::get('/{tab?}', [SalesAgentController::class, 'show'])->where('tab', 'profil')->name('show');
         });
 
-        Route::prefix('{salesAgent}')->scopeBindings()->group(function () {
-            Route::get('/modifier/{step?}', [SalesAgentController::class, 'edit'])->whereNumber('step')->name('edit');
-            Route::post('/', [SalesAgentController::class, 'update'])->name('update');
-            Route::get('/fiche', [SalesAgentController::class, 'sheet'])->name('sheet');
-
-            Route::post('/invitation', [SalesAgentAccountController::class, 'invite'])->name('invite');
-            Route::post('/lien/copie', [SalesAgentAccountController::class, 'copyLink'])->name('link.copy');
-            Route::post('/lien/revocation', [SalesAgentAccountController::class, 'revokeLink'])->name('link.revoke');
-            Route::post('/lien/nouveau', [SalesAgentAccountController::class, 'newLink'])->name('link.new');
-            Route::post('/email', [SalesAgentAccountController::class, 'updateEmail'])->name('email');
-            Route::post('/activation', [SalesAgentAccountController::class, 'activate'])->name('activate');
-            Route::post('/reinitialisation', [SalesAgentAccountController::class, 'resetAccess'])->name('reset');
-            Route::post('/suspension', [SalesAgentAccountController::class, 'suspend'])->name('suspend');
-            Route::post('/reactivation', [SalesAgentAccountController::class, 'reactivate'])->name('reactivate');
-            Route::post('/desactivation', [SalesAgentAccountController::class, 'deactivate'])->name('deactivate');
-            Route::post('/archivage', [SalesAgentAccountController::class, 'archive'])->name('archive');
-            Route::delete('/', [SalesAgentAccountController::class, 'destroy'])->name('destroy');
-            Route::post('/permissions/{permission}', [SalesAgentAccountController::class, 'togglePermission'])->name('permissions.toggle');
-            Route::post('/role', [SalesAgentAccountController::class, 'updateRole'])->name('role');
-            Route::post('/double-authentification', [SalesAgentAccountController::class, 'toggleTwoFactor'])->name('two-factor');
-            Route::delete('/sessions/{session?}', [SalesAgentAccountController::class, 'revokeSessions'])->name('sessions.revoke');
-
-            Route::post('/zones', [SalesAgentTerritoryController::class, 'addZone'])->name('zones.store');
-            Route::post('/zones/transfert', [SalesAgentTerritoryController::class, 'transferZone'])->name('zones.transfer');
-            Route::delete('/listes/{list}', [SalesAgentTerritoryController::class, 'removeValue'])->name('lists.remove');
-            Route::post('/indisponibilite', [SalesAgentTerritoryController::class, 'unavailability'])->name('unavailability');
-            Route::delete('/periodes/{period}', [SalesAgentTerritoryController::class, 'destroyPeriod'])->name('periods.destroy');
-
-            Route::post('/objectifs', [SalesAgentPerformanceController::class, 'storeObjective'])->name('objectives.store');
-            Route::put('/objectifs/{objective}', [SalesAgentPerformanceController::class, 'updateObjective'])->name('objectives.update');
-            Route::post('/objectifs/{objective}/cloture', [SalesAgentPerformanceController::class, 'closeObjective'])->name('objectives.close');
-            Route::post('/appreciations', [SalesAgentPerformanceController::class, 'storeAppreciation'])->name('appreciations.store');
-            Route::post('/score/{month}/correction', [SalesAgentPerformanceController::class, 'correctScore'])->where('month', '\d{4}-\d{2}')->name('score.correct');
-            Route::post('/bonus', [SalesAgentPerformanceController::class, 'storeBonus'])->name('bonuses.store');
-            Route::post('/retenues', [SalesAgentPerformanceController::class, 'storeDeduction'])->name('deductions.store');
-            Route::get('/gains/releve', [SalesAgentPerformanceController::class, 'statement'])->name('payouts.statement');
-            Route::get('/gains/{ref}/justificatif', [SalesAgentPerformanceController::class, 'receipt'])->name('payouts.receipt');
-            Route::post('/gains/{ref}/{action}', [SalesAgentPerformanceController::class, 'updatePayout'])->whereIn('action', ['valider', 'suspendre', 'reprendre'])->name('payouts.update');
-            Route::get('/rapport', [SalesAgentPerformanceController::class, 'report'])->name('report');
-
-            Route::get('/activites/export', [SalesAgentFieldController::class, 'exportActivities'])->name('activities.export');
-            Route::post('/activites/{fieldActivity}/validation', [SalesAgentFieldController::class, 'validateActivity'])->name('activities.validate');
-            Route::post('/activites/{fieldActivity}/anomalie', [SalesAgentFieldController::class, 'flagActivity'])->name('activities.flag');
-            Route::post('/ouvriers/{worker}/soumission', [SalesAgentFieldController::class, 'submitWorker'])->withoutScopedBindings()->name('workers.submit');
-
-            Route::post('/documents', [SalesAgentDocumentController::class, 'store'])->name('documents.store');
-            Route::post('/documents/{document}/validation', [SalesAgentDocumentController::class, 'approve'])->name('documents.approve');
-            Route::post('/documents/{document}/rejet', [SalesAgentDocumentController::class, 'reject'])->name('documents.reject');
-            Route::post('/documents/{document}/commentaire', [SalesAgentDocumentController::class, 'comment'])->name('documents.comment');
-            Route::get('/documents/{document}/telechargement', [SalesAgentDocumentController::class, 'download'])->name('documents.download');
-
-            Route::get('/{tab?}', [SalesAgentController::class, 'show'])
-                ->where('tab', 'profil-documents|ouvriers|activite|zones-disponibilites|objectifs-performances|classement|gains-paiements|acces-securite|historique')
-                ->name('show');
-        });
+        Route::get('/{commercial}/{rest?}', [SalesAgentController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
     Route::prefix('chantiers')->name('sites.')->group(function () {

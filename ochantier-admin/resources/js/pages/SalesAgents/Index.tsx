@@ -2,8 +2,7 @@ import ActionStrip from '@/components/list/ActionStrip';
 import { FilterChip, FilterSelect, SearchInput, SelectionBar } from '@/components/list/ListToolbar';
 import Pagination from '@/components/list/Pagination';
 import { Checkbox, LocationCell, PersonCell, ProgressCell, RowActions, SortableTh, StackCell, TableFrame, TextCell, tdStyle, thStyle, type SortDirection } from '@/components/list/Table';
-import { fcfa, useSalesActions, type AgentRef } from '@/components/sales/useSalesActions';
-import { CommercialOfTheMonthCard } from '@/components/sales/visuals';
+import { fcfa, useSalesActions } from '@/components/sales/useSalesActions';
 import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
 import type { MenuItem } from '@/components/ui/Menu';
@@ -19,12 +18,10 @@ const COLUMNS: [string, string | null][] = [
     ['Commercial', 'commercial'],
     ['Contact', null],
     ['Zone', 'zone'],
-    ['Ouvriers', null],
+    ['Ouvriers du mois', 'valides'],
     ['Taux de validation', 'taux'],
     ['Objectif', 'objectif'],
-    ['Gain hebdomadaire', 'gain'],
-    ['Performance', 'performance'],
-    ['Disponibilité', null],
+    ['Commissions du mois', 'commissions'],
     ['Statut du compte', 'statut'],
     ['Dernière activité', 'activite'],
 ];
@@ -32,22 +29,17 @@ const COLUMNS: [string, string | null][] = [
 const FILTERS: [keyof SalesIndexProps['filterOptions'], string][] = [
     ['statut', 'Statut'],
     ['zone', 'Zone'],
-    ['agence', 'Agence'],
-    ['disponibilite', 'Disponibilité'],
-    ['performance', 'Performance'],
     ['superviseur', 'Superviseur'],
     ['periode', 'Période d’activité'],
 ];
 
-const QUICK_LABELS: Record<string, string> = { objectifs: 'Objectifs atteints à date', relances: 'Commerciaux à relancer', gains: 'Gains à valider' };
+const QUICK_LABELS: Record<string, string> = { objectifs: 'Objectifs atteints', relances: 'Commerciaux à relancer', gains: 'Commissions à verser' };
 
-const PRE_ACTIVATION = ['draft', 'invited', 'pending_activation'];
-
-/** Liste des commerciaux : Commercial du mois, KPI, filtres, tri, sélection et suivi des performances. */
-export default function SalesAgentsIndex({ agents, filters, filterOptions, kpis, todo, cotm, months, currentMonth }: SalesIndexProps) {
+/** Liste des commerciaux : KPI, filtres, tri, sélection et suivi des performances. */
+export default function SalesAgentsIndex({ agents, filters, filterOptions, kpis, todo, can }: SalesIndexProps) {
     const actions = useSalesActions();
-    const [selected, setSelected] = useState<number[]>([]);
-    const [menuFor, setMenuFor] = useState<number | null>(null);
+    const [selected, setSelected] = useState<string[]>([]);
+    const [menuFor, setMenuFor] = useState<string | null>(null);
     const rows = agents.data;
 
     useEffect(() => setSelected([]), [agents]);
@@ -63,46 +55,34 @@ export default function SalesAgentsIndex({ agents, filters, filterOptions, kpis,
     };
 
     const allSelected = rows.length > 0 && rows.every((r) => selected.includes(r.id));
-    const exportUrl = (ids?: number[]) => `/commerciaux/export${ids?.length ? `?ids=${ids.join(',')}` : ''}`;
-    const ref = (c: SalesAgentRow): AgentRef => ({ slug: c.slug, name: c.name, code: c.code, email: c.email, phone: c.phone, zone: c.zone, status: c.status });
+    const exportUrl = (ids?: string[]) => `/commerciaux/export${ids?.length ? `?ids=${ids.join(',')}` : ''}`;
 
     const rowMenu = (c: SalesAgentRow): MenuItem[] => {
-        const a = ref(c);
-        const status = c.status.value;
-        const items: MenuItem[] = [
-            { icon: 'key', label: 'Voir les accès', onClick: () => router.visit(`/commerciaux/${c.slug}/acces-securite`) },
-            { icon: 'admin_panel_settings', label: 'Modifier les accès', onClick: () => router.visit(`/commerciaux/${c.slug}/modifier/4`) },
+        const on = c.status.value;
+        return [
+            ...(can.update && on === 'actif' ? [{ icon: 'block', label: 'Suspendre', danger: true, onClick: () => actions.suspend(c) }] : []),
+            ...(can.update && (on === 'suspendu' || on === 'termine') ? [{ icon: 'settings_backup_restore', label: 'Réactiver', onClick: () => actions.reactivate(c) }] : []),
+            ...(can.terminate && on !== 'termine' ? [{ icon: 'person_off', label: 'Mettre fin au contrat', danger: true, onClick: () => actions.terminate(c) }] : []),
         ];
-        if (PRE_ACTIVATION.includes(status)) items.push({ icon: 'forward_to_inbox', label: status === 'draft' ? 'Envoyer l’invitation' : 'Renvoyer l’invitation', onClick: () => actions.invite(a) });
-        if (status === 'active') {
-            items.push({ icon: 'event_busy', label: 'Rendre indisponible', onClick: () => router.visit(`/commerciaux/${c.slug}/zones-disponibilites`) });
-            items.push({ icon: 'block', label: 'Suspendre', danger: true, onClick: () => actions.suspend(a) });
-        }
-        if (status === 'suspended' || status === 'deactivated') items.push({ icon: 'settings_backup_restore', label: 'Réactiver', onClick: () => actions.reactivate(a) });
-        if (status !== 'deactivated' && status !== 'archived') items.push({ icon: 'person_off', label: 'Désactiver', danger: true, onClick: () => actions.deactivate(a) });
-        items.push({ icon: 'delete_forever', label: 'Supprimer le compte', danger: true, onClick: () => actions.destroy(a) });
-        return items;
     };
 
-    const filtered = Object.entries(filters).some(([k, v]) => !['tri', 'sens', 'page', 'mois'].includes(k) && v);
+    const filtered = Object.entries(filters).some(([k, v]) => !['tri', 'sens', 'page'].includes(k) && v);
 
     return (
         <>
             <Head title="Commerciaux" />
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 'var(--space-2_5)', marginTop: -6 }}>
-                <Button label="Classement" icon="leaderboard" variant="secondary" onClick={() => router.visit('/commerciaux/classement')} />
-                <Button label="Exporter" icon="download" variant="secondary" onClick={() => (window.location.href = exportUrl())} />
-                <Button label="Ajouter un commercial" icon="add" variant="primary" onClick={() => router.visit('/commerciaux/nouveau')} />
-            </div>
-
-            <CommercialOfTheMonthCard cotm={cotm} months={months} currentMonth={currentMonth} onMonth={(mois) => apply({ mois: mois === currentMonth ? undefined : mois }, true)} />
+            {can.export && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 'var(--space-2_5)', marginTop: -6 }}>
+                    <Button label="Exporter" icon="download" variant="secondary" onClick={() => (window.location.href = exportUrl())} />
+                </div>
+            )}
 
             <div data-component="StatGrid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 'var(--space-4)' }}>
                 <StatCard label="Total commerciaux" value={String(kpis.total)} icon="groups" tone="g" />
                 <StatCard label="Actifs" value={String(kpis.active)} icon="person" tone="g" />
                 <StatCard label="Ouvriers enregistrés" value={formatNumber(kpis.recruited)} icon="engineering" tone="a" />
-                <StatCard label="Commissions à payer" value={formatNumber(kpis.payable)} unit="FCFA" icon="paid" tone="a" />
+                <StatCard label="Commissions à verser" value={formatNumber(kpis.payable)} unit="FCFA" icon="paid" tone="a" />
             </div>
 
             <section data-component="ListPanel" style={{ background: 'var(--c-surface)', border: '1px solid var(--c-line)', borderRadius: 'var(--radius-2xl)', padding: 'var(--space-5) var(--space-5) var(--space-4)', minWidth: 0, scrollMarginTop: 'var(--space-4)' }}>
@@ -116,15 +96,15 @@ export default function SalesAgentsIndex({ agents, filters, filterOptions, kpis,
                 </div>
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2_5)', marginBottom: 'var(--space-3)' }}>
-                    <SearchInput value={filters.q ?? ''} placeholder="Rechercher par nom, téléphone ou zone" onChange={(q) => apply({ q })} />
+                    <SearchInput value={filters.q ?? ''} placeholder="Rechercher par nom, matricule, téléphone ou e-mail" onChange={(q) => apply({ q })} />
                     {FILTERS.map(([key, label]) => (
                         <FilterSelect key={key} label={label} value={filters[key] ?? ''} options={filterOptions[key]} onChange={(value) => apply({ [key]: value })} />
                     ))}
                 </div>
 
-                {selected.length > 0 && <SelectionBar count={selected.length} onExport={() => (window.location.href = exportUrl(selected))} onClear={() => setSelected([])} />}
+                {can.export && selected.length > 0 && <SelectionBar count={selected.length} onExport={() => (window.location.href = exportUrl(selected))} onClear={() => setSelected([])} />}
 
-                <TableFrame minWidth={1500}>
+                <TableFrame minWidth={1300}>
                     <thead>
                         <tr style={{ background: 'var(--c-surface-3)' }}>
                             <th style={{ ...thStyle, width: 44 }}>
@@ -145,7 +125,7 @@ export default function SalesAgentsIndex({ agents, filters, filterOptions, kpis,
                     <tbody>
                         {rows.map((c) => {
                             const on = selected.includes(c.id);
-                            const open = () => router.visit(`/commerciaux/${c.slug}`);
+                            const open = () => router.visit(`/commerciaux/${c.id}`);
                             return (
                                 <tr key={c.id} onClick={open} className="och-hover-soft" style={{ cursor: 'pointer', background: on ? 'var(--c-primary-50)' : 'var(--c-surface)' }}>
                                     <td style={tdStyle}>
@@ -155,39 +135,30 @@ export default function SalesAgentsIndex({ agents, filters, filterOptions, kpis,
                                         <PersonCell name={c.name} sub={c.code} />
                                     </td>
                                     <td style={tdStyle}>
-                                        <StackCell main={c.phone} sub={c.email} />
+                                        <StackCell main={c.phone ?? '—'} sub={c.email ?? undefined} />
                                     </td>
                                     <td style={tdStyle}>
-                                        <LocationCell value={c.zone} />
+                                        <LocationCell value={c.zone ?? '—'} />
                                     </td>
-                                    <td style={tdStyle}>{c.registered != null ? <StackCell main={`${c.registered} enregistrés`} sub={`${c.validated} validés`} /> : <TextCell muted>—</TextCell>}</td>
+                                    <td style={tdStyle}>
+                                        <StackCell main={`${c.monthRegistered} transmis`} sub={`${c.monthValidated} validés`} />
+                                    </td>
                                     <td style={tdStyle}>
                                         <TextCell muted={c.validationRate == null}>{c.validationRate != null ? `${c.validationRate} %` : '—'}</TextCell>
                                     </td>
+                                    <td style={tdStyle}>{c.objective ? <ProgressCell value={c.objective.percent} /> : <TextCell muted>—</TextCell>}</td>
                                     <td style={tdStyle}>
-                                        <ProgressCell value={c.objective} />
+                                        <TextCell>{fcfa(c.monthCommissions)}</TextCell>
                                     </td>
                                     <td style={tdStyle}>
-                                        <TextCell muted={c.weeklyGain == null}>{c.weeklyGain != null ? fcfa(c.weeklyGain) : '—'}</TextCell>
-                                    </td>
-                                    <td style={tdStyle}>
-                                        <StatusBadge label={c.performance.label} tone={c.performance.tone} />
-                                    </td>
-                                    <td style={tdStyle}>
-                                        <StatusBadge label={c.availability.label} tone={c.availability.tone} />
-                                    </td>
-                                    <td style={tdStyle}>
-                                        <StatusBadge label={c.status.label} tone={c.status.tone} icon={c.status.value === 'active' ? 'verified' : undefined} />
+                                        <StatusBadge label={c.status.label} tone={c.status.tone} icon={c.status.value === 'actif' ? 'verified' : undefined} />
                                     </td>
                                     <td style={tdStyle}>
                                         <TextCell muted={!c.lastActivityOn}>{c.lastActivityOn ? formatDate(c.lastActivityOn) : '—'}</TextCell>
                                     </td>
                                     <RowActions
-                                        actions={[
-                                            { icon: 'visibility', label: 'Voir la fiche', onClick: open },
-                                            ...(c.status.value !== 'archived' ? [{ icon: 'edit', label: 'Modifier', onClick: () => router.visit(`/commerciaux/${c.slug}/modifier`) }] : []),
-                                        ]}
-                                        menu={rowMenu(c)}
+                                        actions={[{ icon: 'visibility', label: 'Voir la fiche', onClick: open }]}
+                                        menu={rowMenu(c).length ? rowMenu(c) : undefined}
                                         menuOpen={menuFor === c.id}
                                         onToggleMenu={() => setMenuFor(menuFor === c.id ? null : c.id)}
                                     />
@@ -205,7 +176,7 @@ export default function SalesAgentsIndex({ agents, filters, filterOptions, kpis,
                         </div>
                     ) : (
                         <div style={{ paddingTop: 'var(--space-4)' }}>
-                            <StateBlock kind="nodata" icon="badge" title="Aucun commercial enregistré" text="Créez un premier commercial pour recruter des ouvriers sur le terrain." actionLabel="Ajouter un commercial" onAction={() => router.visit('/commerciaux/nouveau')} />
+                            <StateBlock kind="nodata" icon="badge" title="Aucun commercial enregistré" text="Les commerciaux créés apparaîtront ici." />
                         </div>
                     ))}
 
@@ -217,13 +188,13 @@ export default function SalesAgentsIndex({ agents, filters, filterOptions, kpis,
                 icon="schedule"
                 active={filters.rapide ?? null}
                 activeLabel={filters.rapide ? QUICK_LABELS[filters.rapide] : undefined}
-                ctaLabel={filters.rapide ? 'Afficher tous les commerciaux' : 'Voir les performances'}
-                onCta={() => (filters.rapide ? applyQuick(null) : router.visit('/commerciaux/classement'))}
+                ctaLabel="Afficher tous les commerciaux"
+                onCta={() => applyQuick(null)}
                 onSelect={applyQuick}
                 items={[
-                    { key: 'objectifs', count: todo.objective, label: todo.objective > 1 ? 'objectifs atteints à date (prorata du mois)' : 'objectif atteint à date (prorata du mois)', icon: 'emoji_events', tone: 'a' },
-                    { key: 'relances', count: todo.followUp, label: 'commerciaux à relancer (inactifs, performance faible ou compte non activé)', icon: 'person_alert', tone: 'r' },
-                    { key: 'gains', count: todo.earnings, label: `gains de ${todo.previousMonth.toLowerCase()} à valider · ${fcfa(todo.pending)}`, icon: 'paid', tone: 'a' },
+                    { key: 'objectifs', count: todo.objective, label: todo.objective > 1 ? 'objectifs du mois atteints' : 'objectif du mois atteint', icon: 'emoji_events', tone: 'a' },
+                    { key: 'relances', count: todo.followUp, label: 'commerciaux à relancer (inactifs depuis 30 jours ou compte non activé)', icon: 'person_alert', tone: 'r' },
+                    { key: 'gains', count: todo.earnings, label: `commerciaux avec des commissions à verser · ${fcfa(todo.pending)}`, icon: 'paid', tone: 'a' },
                 ]}
             />
 
