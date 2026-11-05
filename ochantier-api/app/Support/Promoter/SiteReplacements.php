@@ -10,6 +10,7 @@ use App\Enums\UnavailabilityDeclarant;
 use App\Enums\UnavailabilityRequestPhase;
 use App\Enums\UnavailabilityRequestStatus;
 use App\Enums\WorkDayStatus;
+use App\Models\Admin;
 use App\Models\Assignment;
 use App\Models\ReasonCode;
 use App\Models\Replacement;
@@ -62,10 +63,10 @@ class SiteReplacements
     }
 
     /**
-     * Signale l’ouvrier à remplacer : demande d’indisponibilité (déclarée par le promoteur) et recherche d’un
+     * Signale l’ouvrier à remplacer : demande d’indisponibilité (déclarée par le promoteur ou le Back Office) et recherche d’un
      * remplaçant du même métier, au plus au tarif promoteur de l’affectation.
      */
-    public function request(Assignment $assignment, User $author, ReasonCode $reason, ?string $comment): Replacement
+    public function request(Assignment $assignment, User|Admin $author, ReasonCode $reason, ?string $comment): Replacement
     {
         if (! in_array($assignment->status, [AssignmentStatus::Confirmee, AssignmentStatus::Active], true) || ! in_array($assignment->mission->status, SiteAttendance::OPEN_MISSIONS, true)) {
             throw ValidationException::withMessages(['assignment' => $this->attendance->name($assignment).' ne fait plus partie de l’équipe de ce chantier.']);
@@ -85,7 +86,7 @@ class SiteReplacements
                 'mission_id' => $assignment->mission_id,
                 'worker_id' => $assignment->worker_id,
                 'phase' => $started ? UnavailabilityRequestPhase::EnExecution : UnavailabilityRequestPhase::AvantDemarrage,
-                'declared_by_type' => UnavailabilityDeclarant::Promoteur,
+                'declared_by_type' => $author instanceof Admin ? UnavailabilityDeclarant::Admin : UnavailabilityDeclarant::Promoteur,
                 'declared_by_id' => $author->getKey(),
                 'effective_at' => now(),
                 'last_worked_date' => $started ? $assignment->workDays()->where('status', '!=', WorkDayStatus::Absent)->max('work_date') : null,
@@ -98,7 +99,7 @@ class SiteReplacements
                 'unavailability_request_id' => $unavailability->getKey(),
                 'mission_id' => $assignment->mission_id,
                 'original_assignment_id' => $assignment->getKey(),
-                'requested_by_user_id' => $author->getKey(),
+                'requested_by_user_id' => $author instanceof User ? $author->getKey() : null,
                 'requested_criteria' => [
                     'trade_id' => $assignment->need->trade_id,
                     'max_promoter_daily_rate' => $assignment->promoter_daily_rate,
@@ -284,7 +285,7 @@ class SiteReplacements
         ];
     }
 
-    private function history(Replacement $replacement, ?ReplacementStatus $from, ReplacementStatus $to, string $reason, User $author): void
+    private function history(Replacement $replacement, ?ReplacementStatus $from, ReplacementStatus $to, string $reason, User|Admin $author): void
     {
         $replacement->statusHistories()->create(['from_status' => $from?->value, 'to_status' => $to->value, 'reason' => $reason, 'actor_type' => $author->getMorphClass(), 'actor_id' => $author->getKey()]);
     }

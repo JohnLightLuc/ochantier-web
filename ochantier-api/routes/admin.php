@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Admin\Assignment\AssignmentController;
 use App\Http\Controllers\Api\V1\Admin\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Admin\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Admin\Auth\SessionController;
@@ -124,6 +125,14 @@ Route::middleware('auth:admin')->group(function () {
                 Route::delete('suspension', [WorkerReviewController::class, 'reactivate'])->middleware('admin.can:workers.update')->name('reactivate');
                 Route::post('exclusion', [WorkerReviewController::class, 'exclude'])->middleware('admin.can:workers.validate')->name('exclude');
             });
+        });
+
+        // Affectations : liste, export, fiche et déclaration d’indisponibilité.
+        Route::prefix('assignments')->name('assignments.')->controller(AssignmentController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:missions.read')->name('index');
+            Route::get('export', 'export')->middleware('admin.can:missions.export')->name('export');
+            Route::get('{assignmentId}', 'show')->whereUuid('assignmentId')->middleware('admin.can:missions.read')->name('show');
+            Route::post('{assignmentId}/unavailability', 'declareUnavailability')->whereUuid('assignmentId')->middleware('admin.can:missions.update')->name('unavailability');
         });
 
         // Matching : file des besoins, lancement du calcul et résultats.
