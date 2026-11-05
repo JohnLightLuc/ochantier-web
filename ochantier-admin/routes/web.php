@@ -23,10 +23,7 @@ use App\Http\Controllers\DisputeController;
 use App\Http\Controllers\FinanceActionController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\IntegrationController;
-use App\Http\Controllers\MatchingCandidateController;
 use App\Http\Controllers\MatchingController;
-use App\Http\Controllers\MatchingRunController;
-use App\Http\Controllers\MatchingSelectionController;
 use App\Http\Controllers\NeedController;
 use App\Http\Controllers\NeedDecisionController;
 use App\Http\Controllers\NeedRefreshController;
@@ -226,44 +223,12 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('/{need}/{rest?}', [NeedController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
+    // Matching : données de l’API (api/v1/admin/matching). File des besoins, lancement et résultats.
     Route::prefix('matching')->name('matching.')->group(function () {
         Route::get('/', [MatchingController::class, 'index'])->name('index');
-        Route::get('/resultats', [MatchingController::class, 'results'])->name('results');
-        Route::get('/resultats/export', [MatchingController::class, 'export'])->name('export');
-        Route::get('/a-valider', [MatchingController::class, 'toValidate'])->name('to-validate');
-        Route::get('/historique', [MatchingController::class, 'history'])->name('history');
-        Route::get('/analyses', [MatchingController::class, 'analyses'])->name('analyses');
-        Route::get('/lancer', [MatchingController::class, 'launch'])->name('launch');
-
-        Route::post('/lancement', [MatchingRunController::class, 'launch'])->name('run');
-        Route::post('/lancement/annulation', [MatchingRunController::class, 'cancel'])->name('cancel');
-        Route::post('/actualisation', [MatchingRunController::class, 'refresh'])->name('refresh');
-        Route::post('/transmission', [MatchingSelectionController::class, 'transmitMany'])->name('transmit-many');
-
-        Route::prefix('offres/{offer}')->name('offers.')->group(function () {
-            Route::post('/choix', [MatchingSelectionController::class, 'toggle'])->name('toggle');
-            Route::post('/remplacant', [MatchingSelectionController::class, 'replacement'])->name('replacement');
-            Route::post('/soumission', [MatchingSelectionController::class, 'submit'])->name('submit');
-            Route::post('/correction', [MatchingSelectionController::class, 'correction'])->name('correction');
-            Route::post('/rejet', [MatchingSelectionController::class, 'reject'])->name('reject');
-            Route::post('/reinitialisation', [MatchingSelectionController::class, 'reset'])->name('reset');
-            Route::post('/sur-selection', [MatchingSelectionController::class, 'overselection'])->name('overselection');
-            Route::post('/transmission', [MatchingSelectionController::class, 'transmit'])->name('transmit');
-            Route::post('/commerciaux', [MatchingRunController::class, 'notifySales'])->name('notify-sales');
-
-            Route::post('/profils/{key}/rejet', [MatchingCandidateController::class, 'reject'])->name('profiles.reject');
-            Route::post('/profils/{key}/derogation', [MatchingCandidateController::class, 'derogation'])->name('profiles.derogation');
-            Route::post('/profils/{key}/recalcul', [MatchingCandidateController::class, 'recalculate'])->name('profiles.recalculate');
-            Route::post('/profils/{key}/archivage', [MatchingCandidateController::class, 'archive'])->name('profiles.archive');
-            Route::post('/profils/{key}/verification', [MatchingCandidateController::class, 'verification'])->name('profiles.verification');
-        });
-
-        Route::get('/besoins/{offer}/{tab?}', [MatchingController::class, 'need'])
-            ->where('tab', 'resultats|comparaison|selection|exclus')
-            ->name('need');
-        Route::get('/{match}/{tab?}', [MatchingController::class, 'match'])
-            ->where(['match' => 'mt-\\d+-\\d{4}', 'tab' => 'score|besoin|profil|validation|affectation|resultat|historique'])
-            ->name('match');
+        Route::post('/besoins/{offer}/lancement', [MatchingController::class, 'run'])->whereUuid('offer')->name('run');
+        Route::get('/besoins/{offer}', [MatchingController::class, 'show'])->whereUuid('offer')->name('show');
+        Route::get('/{rest}', [MatchingController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
     Route::prefix('affectations')->name('assignments.')->group(function () {
