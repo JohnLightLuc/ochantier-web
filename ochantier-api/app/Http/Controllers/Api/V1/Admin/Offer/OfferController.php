@@ -196,6 +196,6 @@ class OfferController extends Controller
     {
         abort_unless(str($id)->isUuid(), 404);
 
-        return app(OfferDirectory::class)->query([])->where('offers.id', $id)->with(['needs.trade', 'needs.assignments'])->firstOrFail();
+        return app(OfferDirectory::class)->query([])->where('offers.id', $id)->with(['needs' => fn ($query) => $query->orderBy('reference')->with(['trade', 'assignments'])])->firstOrFail();
     }
 }

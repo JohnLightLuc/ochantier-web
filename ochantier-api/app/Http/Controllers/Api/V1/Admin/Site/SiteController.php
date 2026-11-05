@@ -71,7 +71,7 @@ class SiteController extends Controller
 
         return app(SiteDirectory::class)->query(['include_archived' => true])
             ->where('sites.id', $id)
-            ->with(['neighborhood', 'responsibleUser', 'closedByAdmin', 'needs.trade'])
+            ->with(['neighborhood', 'responsibleUser', 'closedByAdmin', 'needs' => fn ($query) => $query->orderBy('reference')->with('trade')])
             ->firstOrFail();
     }
 }

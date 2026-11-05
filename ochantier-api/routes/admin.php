@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialPortfolioController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialRankingController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialTerritoryController;
+use App\Http\Controllers\Api\V1\Admin\Matching\MatchingController;
 use App\Http\Controllers\Api\V1\Admin\Offer\OfferController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterAccountController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterController;
@@ -123,6 +124,13 @@ Route::middleware('auth:admin')->group(function () {
                 Route::delete('suspension', [WorkerReviewController::class, 'reactivate'])->middleware('admin.can:workers.update')->name('reactivate');
                 Route::post('exclusion', [WorkerReviewController::class, 'exclude'])->middleware('admin.can:workers.validate')->name('exclude');
             });
+        });
+
+        // Matching : file des besoins, lancement du calcul et résultats.
+        Route::prefix('matching')->name('matching.')->controller(MatchingController::class)->group(function () {
+            Route::get('queue', 'queue')->middleware('admin.can:matching.read')->name('queue');
+            Route::get('offers/{offerId}', 'show')->whereUuid('offerId')->middleware('admin.can:matching.read')->name('offers.show');
+            Route::post('offers/{offerId}/run', 'run')->whereUuid('offerId')->middleware('admin.can:matching.create')->name('offers.run');
         });
 
         // Besoins (offres des promoteurs) : liste, export, fiche, onglets et décisions.

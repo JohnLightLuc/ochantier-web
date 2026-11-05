@@ -35,6 +35,20 @@ trait ConfirmedSite
      */
     protected function acceptProposal(): Proposal
     {
+        $this->publishedSite();
+        $this->artisan('ochantier:simulate-matching')->assertSuccessful();
+
+        $proposal = Proposal::query()->sole();
+        $this->postJson("/api/v1/promoter/proposals/{$proposal->id}/accept")->assertOk();
+
+        return $proposal->refresh();
+    }
+
+    /**
+     * Chantier publié par le promoteur, avec ses besoins, avant tout matching.
+     */
+    protected function publishedSite(): void
+    {
         $this->seed([AdminAccessSeeder::class, PlatformRulesSeeder::class, CommercialOfferSeeder::class]);
         $this->worker('Kouamé Koffi', 'macon', 22700, rating: 4.7);
         $this->worker('Touré Ali', 'macon', 23600, rating: 4.9);
@@ -53,15 +67,9 @@ trait ConfirmedSite
             ['trade_id' => $this->trade('peintre')->id, 'headcount' => 1, 'daily_rate' => 18000],
         ]])->assertOk();
         $this->postJson("/api/v1/promoter/sites/{$site['id']}/publish")->assertOk();
-        $this->artisan('ochantier:simulate-matching')->assertSuccessful();
-
-        $proposal = Proposal::query()->sole();
-        $this->postJson("/api/v1/promoter/proposals/{$proposal->id}/accept")->assertOk();
 
         $this->site = Site::query()->findOrFail($site['id']);
         $this->startDate = CarbonImmutable::today()->addDays(5);
-
-        return $proposal->refresh();
     }
 
     /**
