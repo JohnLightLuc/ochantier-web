@@ -45,7 +45,7 @@ class CommercialDetailResource extends CommercialListResource
             ] : null,
             'termination_reason' => $status === 'termine' ? $statistics->terminationReason($this->resource) : null,
             'access_link' => app(CommercialActivation::class)->state($user),
-            'password_set' => $user->password_hash !== null,
+            'password_set' => $user->password_hash !== null && ! $user->must_change_password,
             'zone_request_pending' => $this->zoneRequests()->where('status', ZoneRequestStatus::EnAttente)->exists(),
             'documents' => $this->slots(),
             'ranking' => $statistics->ranking($this->resource, $status),

@@ -201,7 +201,7 @@ class WorkerAdminTest extends CommercialTestCase
             ->assertJsonPath('data.sanction.type.value', 'exclusion')
             ->assertJsonPath('data.can.exclude', false);
         $this->postJson("/api/v1/admin/workers/{$worker->id}/exclusion", ['reason' => 'Fraude avérée sur les pointages.'])->assertJsonValidationErrors(['worker']);
-        $this->assertSame(['worker.approved', 'worker.suspended', 'worker.suspended', 'worker.reactivated', 'worker.excluded'], AuditLog::query()->where('module', 'workers')->orderBy('created_at')->pluck('action')->all());
+        $this->assertSame(['worker.approved', 'worker.suspended', 'worker.suspended', 'worker.reactivated', 'worker.excluded'], AuditLog::query()->where('module', 'workers')->orderBy('created_at')->orderBy('id')->pluck('action')->all());
     }
 
     public function test_decisions_need_their_permissions(): void
@@ -214,5 +214,13 @@ class WorkerAdminTest extends CommercialTestCase
         $this->postJson("/api/v1/admin/workers/{$worker->id}/exclusion", ['reason' => 'Test de droits.'])->assertForbidden();
 
         $this->asAdmin()->get('/api/v1/admin/workers/'.fake()->uuid())->assertNotFound();
+    }
+
+    public function test_the_availability_filter_only_lists_validated_workers(): void
+    {
+        $validated = Worker::query()->create(['first_name' => 'Valide', 'last_name' => 'Test', 'dial_code' => '225', 'phone_number' => '0700000061', 'verification_status' => WorkerVerificationStatus::Valide, 'availability_status' => 'disponible', 'origin_commercial_id' => $this->commercial->commercialProfile->id, 'current_commercial_id' => $this->commercial->commercialProfile->id, 'reference' => 'OUV-900001']);
+        Worker::query()->create(['first_name' => 'Brouillon', 'last_name' => 'Test', 'dial_code' => '225', 'phone_number' => '0700000062', 'verification_status' => WorkerVerificationStatus::Brouillon, 'availability_status' => 'disponible', 'acquisition_channel' => Worker::BACK_OFFICE_CHANNEL, 'origin_commercial_id' => $this->commercial->commercialProfile->id, 'current_commercial_id' => $this->commercial->commercialProfile->id, 'reference' => 'OUV-900002']);
+
+        $this->asAdmin()->getJson('/api/v1/admin/workers?availability=disponible')->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $validated->id);
     }
 }

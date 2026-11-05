@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\Admin\Worker\WorkerAccountController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerRelationController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerReviewController;
+use App\Http\Controllers\Api\V1\Auth\CommercialActivationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -41,6 +42,10 @@ Route::prefix('auth')->name('auth.')->group(function () {
     Route::post('password/forgot', [PasswordController::class, 'forgot'])->middleware('throttle:admin-login')->name('password.forgot');
     Route::post('password/reset', [PasswordController::class, 'reset'])->middleware('throttle:10,1')->name('password.reset');
     Route::post('refresh', [SessionController::class, 'refresh'])->middleware('throttle:30,1')->name('refresh');
+
+    // Lien reçu par un commercial : appelé sans jeton par la page publique du Back Office.
+    Route::get('commercial-activation', [CommercialActivationController::class, 'show'])->middleware('throttle:10,1')->name('commercial-activation.show');
+    Route::post('commercial-activation', [CommercialActivationController::class, 'store'])->middleware('throttle:10,1')->name('commercial-activation.store');
 });
 
 Route::middleware('auth:admin')->group(function () {

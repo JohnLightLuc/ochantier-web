@@ -106,7 +106,7 @@ class WorkerDirectory
                 ->whereColumn('worker_trades.worker_id', 'workers.id')->where('is_primary', true)
                 ->where('years_experience', '>=', $level[0])
                 ->when($level[1] !== null, fn (QueryBuilder $query) => $query->where('years_experience', '<=', $level[1]))))
-            ->when($filters['availability'] ?? null, fn (Builder $query, string $availability) => $query->where('availability_status', $availability))
+            ->when($filters['availability'] ?? null, fn (Builder $query, string $availability) => $query->where('availability_status', $availability)->where('workers.verification_status', WorkerVerificationStatus::Valide))
             ->when($filters['commune_id'] ?? null, fn (Builder $query, string $commune) => $query->where('residence_commune_id', $commune))
             ->when($filters['commercial_id'] ?? null, fn (Builder $query, string $commercial) => $query->where('current_commercial_id', $commercial))
             ->when(isset($filters['daily_rate_min']), fn (Builder $query) => $query->where('estimated_daily_rate', '>=', (int) $filters['daily_rate_min']))

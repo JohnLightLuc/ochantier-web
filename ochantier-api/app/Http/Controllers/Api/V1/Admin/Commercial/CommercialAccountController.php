@@ -121,7 +121,7 @@ class CommercialAccountController extends Controller
         $user = CommercialController::find($commercial)->user;
 
         return ApiResponse::success([
-            'password_set' => $user->password_hash !== null,
+            'password_set' => $user->password_hash !== null && ! $user->must_change_password,
             'must_change_password' => $user->must_change_password,
             'phone_verified_at' => $user->phone_verified_at?->toIso8601String(),
             'last_login_at' => $user->last_login_at?->toIso8601String(),

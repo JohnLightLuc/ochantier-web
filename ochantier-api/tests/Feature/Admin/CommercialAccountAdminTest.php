@@ -95,12 +95,12 @@ class CommercialAccountAdminTest extends CommercialTestCase
         $commercial = $this->create();
         $token = $this->tokenFromLastSms();
 
-        $this->getJson('/api/v1/auth/commercial/activation?token='.$token)->assertOk()->assertJsonPath('data.first_name', 'Fatou');
-        $this->postJson('/api/v1/auth/commercial/activation', ['token' => $token, 'password' => 'court', 'password_confirmation' => 'court'])->assertJsonValidationErrors(['password']);
-        $this->postJson('/api/v1/auth/commercial/activation', ['token' => $token, 'password' => 'motdepasse2', 'password_confirmation' => 'motdepasse2'])->assertOk();
+        $this->getJson('/api/v1/admin/auth/commercial-activation?token='.$token)->assertOk()->assertJsonPath('data.first_name', 'Fatou');
+        $this->postJson('/api/v1/admin/auth/commercial-activation', ['token' => $token, 'password' => 'court', 'password_confirmation' => 'court'])->assertJsonValidationErrors(['password']);
+        $this->postJson('/api/v1/admin/auth/commercial-activation', ['token' => $token, 'password' => 'motdepasse2', 'password_confirmation' => 'motdepasse2'])->assertOk();
 
-        $this->getJson('/api/v1/auth/commercial/activation?token='.$token)->assertJsonValidationErrors(['token']);
-        $this->postJson('/api/v1/auth/commercial/activation', ['token' => $token, 'password' => 'motdepasse3', 'password_confirmation' => 'motdepasse3'])->assertJsonValidationErrors(['token']);
+        $this->getJson('/api/v1/admin/auth/commercial-activation?token='.$token)->assertJsonValidationErrors(['token']);
+        $this->postJson('/api/v1/admin/auth/commercial-activation', ['token' => $token, 'password' => 'motdepasse3', 'password_confirmation' => 'motdepasse3'])->assertJsonValidationErrors(['token']);
 
         $this->assertSame(UserStatus::EnAttenteActivation, $commercial->user->fresh()->status);
         $this->postJson('/api/v1/auth/commercial/login', ['dial_code' => '225', 'phone_number' => '0500000077', 'password' => 'motdepasse2'])->assertSuccessful();
@@ -117,11 +117,11 @@ class CommercialAccountAdminTest extends CommercialTestCase
         $this->postJson($url)->assertOk();
         $second = $this->tokenFromLastSms();
         $this->assertNotSame($first, $second);
-        $this->getJson('/api/v1/auth/commercial/activation?token='.$first)->assertJsonValidationErrors(['token']);
-        $this->getJson('/api/v1/auth/commercial/activation?token='.$second)->assertOk();
+        $this->getJson('/api/v1/admin/auth/commercial-activation?token='.$first)->assertJsonValidationErrors(['token']);
+        $this->getJson('/api/v1/admin/auth/commercial-activation?token='.$second)->assertOk();
 
         $this->deleteJson($url)->assertOk()->assertJsonPath('data.access_link.state.value', 'expire');
-        $this->getJson('/api/v1/auth/commercial/activation?token='.$second)->assertJsonValidationErrors(['token']);
+        $this->getJson('/api/v1/admin/auth/commercial-activation?token='.$second)->assertJsonValidationErrors(['token']);
         $this->deleteJson($url)->assertUnprocessable()->assertJsonValidationErrors(['commercial']);
     }
 
@@ -132,7 +132,7 @@ class CommercialAccountAdminTest extends CommercialTestCase
 
         $this->travel(CommercialActivation::VALID_HOURS + 1)->hours();
 
-        $this->getJson('/api/v1/auth/commercial/activation?token='.$token)->assertJsonValidationErrors(['token']);
+        $this->getJson('/api/v1/admin/auth/commercial-activation?token='.$token)->assertJsonValidationErrors(['token']);
     }
 
     public function test_a_reset_link_closes_the_sessions_of_an_active_account(): void
@@ -143,7 +143,7 @@ class CommercialAccountAdminTest extends CommercialTestCase
         $this->postJson("/api/v1/admin/commercials/{$commercial->id}/access-link")->assertOk();
 
         $this->assertSame(0, AuthSession::query()->where('authenticatable_id', $this->commercial->id)->whereNull('revoked_at')->count());
-        $this->postJson('/api/v1/auth/commercial/activation', ['token' => $this->tokenFromLastSms(), 'password' => 'motdepasse4', 'password_confirmation' => 'motdepasse4'])->assertOk();
+        $this->postJson('/api/v1/admin/auth/commercial-activation', ['token' => $this->tokenFromLastSms(), 'password' => 'motdepasse4', 'password_confirmation' => 'motdepasse4'])->assertOk();
         $this->postJson('/api/v1/auth/commercial/login', ['dial_code' => '225', 'phone_number' => '0500000001', 'password' => 'motdepasse4'])->assertSuccessful();
     }
 
@@ -171,7 +171,7 @@ class CommercialAccountAdminTest extends CommercialTestCase
         $url = "/api/v1/admin/commercials/{$commercial->id}";
 
         $this->postJson("{$url}/termination", ['reason' => 'Compte créé par erreur.'])->assertOk();
-        $this->getJson('/api/v1/auth/commercial/activation?token='.$token)->assertJsonValidationErrors(['token']);
+        $this->getJson('/api/v1/admin/auth/commercial-activation?token='.$token)->assertJsonValidationErrors(['token']);
         $this->postJson("{$url}/access-link")->assertUnprocessable()->assertJsonValidationErrors(['commercial']);
         $this->patchJson($url, $this->form(['primary_commune_id' => null, 'secondary_commune_ids' => null]))->assertUnprocessable();
 
