@@ -3,10 +3,7 @@
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AssignmentController;
-use App\Http\Controllers\AttendanceActionController;
 use App\Http\Controllers\AttendanceController;
-use App\Http\Controllers\AttendanceEntityController;
-use App\Http\Controllers\AttendanceSectionController;
 use App\Http\Controllers\Auth\CommercialActivationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\NewPasswordController;
@@ -242,44 +239,13 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('/{rest}', [AssignmentController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
+    // Pointages : données de l’API (api/v1/admin/attendance). Liste, fiche et relance du promoteur.
     Route::prefix('pointages')->name('attendances.')->group(function () {
         Route::get('/', [AttendanceController::class, 'index'])->name('index');
-        Route::get('/aujourdhui', [AttendanceController::class, 'index'])->name('today');
         Route::get('/export', [AttendanceController::class, 'export'])->name('export');
-        Route::get('/export/{view}', [AttendanceSectionController::class, 'export'])->whereIn('view', ['incomplets', 'absences', 'rapport', 'heures-ouvriers'])->name('sections.export');
-        Route::get('/incomplets', [AttendanceSectionController::class, 'incomplete'])->name('incomplete');
-        Route::get('/anomalies', [AttendanceSectionController::class, 'anomalies'])->name('anomalies');
-        Route::get('/corrections', [AttendanceSectionController::class, 'corrections'])->name('corrections');
-        Route::get('/absences', [AttendanceSectionController::class, 'absences'])->name('absences');
-        Route::get('/calendrier', [AttendanceSectionController::class, 'calendar'])->name('calendar');
-        Route::get('/rapports', [AttendanceSectionController::class, 'reports'])->name('reports');
-        Route::get('/application', [AttendanceEntityController::class, 'app'])->name('app');
-        Route::post('/application/groupe', [AttendanceEntityController::class, 'recordMany'])->name('app.many');
-        Route::get('/chantiers/{site}/{tab?}', [AttendanceEntityController::class, 'site'])->where('tab', 'semaine|mois')->name('site');
-        Route::get('/ouvriers/{worker}/{tab?}', [AttendanceEntityController::class, 'worker'])->where('tab', 'affectations')->name('worker');
-        Route::post('/relance', [AttendanceActionController::class, 'remind'])->name('remind');
-        Route::post('/cloture', [AttendanceActionController::class, 'close'])->name('close');
-
-        Route::prefix('{attendance}')->where(['attendance' => 'PT-\\d{4}-\\d{4}'])->scopeBindings()->group(function () {
-            Route::post('/notes', [AttendanceActionController::class, 'note'])->name('note');
-            Route::post('/corrections', [AttendanceActionController::class, 'requestCorrection'])->name('corrections.store');
-            Route::post('/corrections/{correction}/approbation', [AttendanceActionController::class, 'approveCorrection'])->name('corrections.approve');
-            Route::post('/corrections/{correction}/rejet', [AttendanceActionController::class, 'rejectCorrection'])->name('corrections.reject');
-            Route::post('/anomalies', [AttendanceActionController::class, 'reportAnomaly'])->name('anomalies.store');
-            Route::post('/anomalies/{anomaly}/statut', [AttendanceActionController::class, 'updateAnomaly'])->name('anomalies.update');
-            Route::post('/regularisation', [AttendanceActionController::class, 'regularize'])->name('regularize');
-            Route::post('/reouverture', [AttendanceActionController::class, 'reopen'])->name('reopen');
-            Route::post('/transmission', [AttendanceActionController::class, 'transmit'])->name('transmit');
-            Route::post('/preuves/{event}/{proof}/{action}', [AttendanceActionController::class, 'proof'])
-                ->whereIn('event', ['arrivee', 'depart'])->whereIn('action', ['verification', 'rejet', 'remplacement', 'commentaire'])->name('proofs');
-            Route::post('/application/{action}', [AttendanceEntityController::class, 'record'])
-                ->whereIn('action', ['arrivee', 'validation-arrivee', 'depart', 'validation-depart', 'absence', 'validation-absence'])->name('app.record');
-            Route::post('/decisions/{object}', [AttendanceActionController::class, 'decide'])->whereIn('object', ['lateness', 'early_leave', 'overtime', 'absence'])->name('decide');
-
-            Route::get('/{tab?}', [AttendanceController::class, 'show'])
-                ->where('tab', 'arrivee|depart|temps|preuves|anomalies|corrections|impact-financier|historique')
-                ->name('show');
-        });
+        Route::post('/{attendance}/relance', [AttendanceController::class, 'remind'])->whereUuid('attendance')->name('remind');
+        Route::get('/{attendance}', [AttendanceController::class, 'show'])->whereUuid('attendance')->name('show');
+        Route::get('/{rest}', [AttendanceController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
     Route::prefix('paiements')->name('payments.')->group(function () {

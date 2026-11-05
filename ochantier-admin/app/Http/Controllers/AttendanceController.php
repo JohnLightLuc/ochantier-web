@@ -2,228 +2,208 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Attendance;
-use App\Models\AttendanceActivity;
-use App\Models\AttendanceAnomaly;
-use App\Models\AttendanceCorrection;
-use App\Support\AttendanceCalculator as Calc;
-use App\Support\AttendanceInsights as Insights;
+use App\Support\Api\AdminApi;
+use App\Support\Api\AdminUser;
+use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
+use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Pointages : supervision des arrivées et départs enregistrés puis validés par les promoteurs
- * depuis l’Application Promoteur (liste, fiche d’une journée).
+ * Pointages : liste et fiche d’une journée, lues dans l’API (api/v1/admin/attendance), une ligne par ouvrier et par
+ * jour. La validation reste celle du promoteur ; le Back Office peut le relancer.
+ *
+ * Les paramètres d’URL de la liste restent en français et sont traduits pour l’API.
  */
 class AttendanceController extends Controller
 {
-    /**
-     * Onglets de la fiche : segment d’URL → libellé.
-     */
-    public const TABS = ['' => 'Vue d’ensemble', 'arrivee' => 'Arrivée', 'depart' => 'Départ', 'temps' => 'Temps de présence', 'preuves' => 'Preuves', 'anomalies' => 'Anomalies', 'corrections' => 'Corrections', 'impact-financier' => 'Impact financier', 'historique' => 'Historique'];
+    private const PER_PAGE = 20;
 
-    public const ANOMALY_TYPES = [
-        'Pointage hors zone', 'Pointage en double', 'Départ sans arrivée', 'Départ antérieur à l’arrivée', 'Durée anormalement courte', 'Durée anormalement longue', 'Chevauchement de deux chantiers',
-        'Même preuve utilisée plusieurs fois', 'Modification répétée', 'Pointage sur affectation inactive', 'Pointage pendant une indisponibilité', 'Localisation incohérente',
-        'Heure du terminal différente de l’heure serveur', 'Preuve illisible', 'Ouvrier déjà déclaré absent', 'Promoteur non autorisé sur le chantier',
-    ];
+    public const STATUS_TONES = ['en_cours' => 'b', 'a_valider' => 'a', 'valide' => 'g', 'rejete' => 'r', 'absent' => 'r', 'annule' => 'n'];
 
-    public const LEVELS = ['Information', 'Faible', 'Modérée', 'Élevée', 'Critique'];
+    public const STATUS_LABELS = ['en_cours' => 'En cours', 'a_valider' => 'À valider', 'valide' => 'Validé', 'rejete' => 'Rejeté', 'absent' => 'Absent', 'annule' => 'Annulé'];
 
-    public const ANOMALY_STATUSES = ['Nouvelle', 'À vérifier', 'En cours d’analyse', 'Justification demandée', 'Confirmée', 'Fausse alerte', 'Corrigée', 'Clôturée'];
+    private const PERIODS = ['aujourdhui' => 'Aujourd’hui', 'hier' => 'Hier', '7j' => '7 derniers jours', '30j' => '30 derniers jours'];
 
-    public const CORRECTION_FIELDS = ['Heure d’arrivée', 'Heure de départ', 'Durée de pause', 'Localisation', 'Motif d’absence'];
+    private const QUERY = ['q' => 'search', 'statut' => 'status', 'metier' => 'trade_id', 'localisation' => 'commune_id', 'rapide' => 'todo', 'chantier' => 'site_id', 'ouvrier' => 'worker_id', 'page' => 'page'];
 
-    public const CORRECTION_MOTIFS = ['Oubli de pointage', 'Erreur de saisie', 'Problème technique', 'Heure réelle différente', 'Autre'];
+    private const SORTS = ['date' => 'date', 'ouvrier' => 'worker', 'statut' => 'status', 'duree' => 'minutes'];
 
-    /**
-     * Décisions possibles sur un retard, un départ anticipé, des heures supplémentaires ou une absence.
-     *
-     * @var array<string, array{0: string, 1: array<int, string>}>
-     */
-    public const DECISIONS = [
-        'lateness' => ['Retard', ['Justifié', 'Non justifié', 'Contesté', 'Régularisé']],
-        'early_leave' => ['Départ anticipé', ['Justifié', 'Non justifié', 'Autorisé', 'Contesté', 'Régularisé']],
-        'overtime' => ['Heures supplémentaires', ['Autorisées', 'Refusées', 'Validées']],
-        'absence' => ['Absence', ['Validée', 'Justifiée', 'Non justifiée', 'Contestée', 'Annulée', 'Régularisée']],
-    ];
+    private const FILTER_KEYS = ['q', 'statut', 'metier', 'localisation', 'rapide', 'chantier', 'ouvrier', 'periode', 'tri', 'sens', 'page'];
 
-    /**
-     * Filtres lus dans l’URL.
-     *
-     * @return array<string, mixed>
-     */
-    private function filters(Request $request): array
-    {
-        return $request->only(['periode', 'du', 'au', 'q', 'raccourci', 'tri', 'page', 'plus', ...array_keys(Insights::FILTERS)]);
-    }
+    public function __construct(private AdminApi $api) {}
 
-    /**
-     * Pointages de la période, recherchés, filtrés, triés (et restreints au raccourci actif).
-     *
-     * @param  array<string, mixed>  $filters
-     * @return array{0: Collection<int, array{0: Attendance, 1: array<string, mixed>}>, 1: Collection<int, array{0: Attendance, 1: array<string, mixed>}>, 2: array<string, mixed>}
-     */
-    private function listed(array $filters, string $defaultPeriod): array
-    {
-        $key = array_key_exists($filters['periode'] ?? '', Insights::PERIODS) ? $filters['periode'] : $defaultPeriod;
-        [$from, $to] = Insights::period($key, $filters['du'] ?? null, $filters['au'] ?? null);
-        $period = Insights::load($from, $to);
-        $shortcut = array_key_exists($filters['raccourci'] ?? '', Insights::SHORTCUTS) ? $filters['raccourci'] : null;
-        $rows = Insights::sort(Insights::filter($period, $filters), $filters['tri'] ?? 'date')
-            ->filter(fn (array $x): bool => ! $shortcut || Insights::matchesShortcut($shortcut, $x[0], $x[1]))->values();
-
-        return [$period, $rows, ['key' => $key, 'from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d'), 'label' => $from->equalTo($to) ? Insights::dateLabel($from) : Insights::dateLabel($from).' → '.Insights::dateLabel($to), 'shortcut' => $shortcut]];
-    }
-
-    /**
-     * Liste des pointages (ou ceux du jour) : raccourcis, filtres, tri, sélection et export.
-     */
     public function index(Request $request): Response
     {
-        $today = $request->routeIs('attendances.today');
         $filters = $this->filters($request);
-        if ($today) {
-            $filters['periode'] = 'jour';
-        }
-        [$period, $rows, $meta] = $this->listed($filters, 'jour');
-        $count = fn (string $k): int => $period->filter(fn (array $x): bool => Insights::matchesShortcut($k, $x[0], $x[1]))->count();
-        $more = (bool) ($filters['plus'] ?? false);
+        $response = $this->api->get('attendance', [...$this->apiQuery($filters), 'per_page' => self::PER_PAGE]);
+        $meta = $response->json('meta');
+        $rows = array_map($this->row(...), $response->json('data'));
+        $from = $meta['total'] ? ($meta['current_page'] - 1) * $meta['per_page'] + 1 : 0;
+        $option = fn (string $value, string $label): array => compact('value', 'label');
 
         return Inertia::render('Attendances/Index', [
-            'sections' => Insights::sections($today ? '/pointages/aujourdhui' : '/pointages'),
-            'period' => $meta,
-            'periods' => $today ? [] : Insights::PERIODS,
-            'filters' => array_filter($filters),
-            'shortcuts' => collect(Insights::SHORTCUTS)->map(fn (array $s, string $k): array => ['key' => $k, 'label' => $s[0], 'icon' => $s[1], 'tone' => $s[2], 'count' => $count($k), 'kpi' => in_array($k, Insights::KPI_SHORTCUTS, true)])->values()->all(),
-            'filterDefs' => Insights::filterOptions($period, $more ? array_keys(Insights::FILTERS) : Insights::BASIC_FILTERS),
-            'filterCount' => count(Insights::FILTERS),
-            'sorts' => Insights::SORTS,
-            'attendances' => Insights::paginate($rows, (int) ($filters['page'] ?? 1), 8, fn (array $x): array => Insights::row($x[0], $x[1])),
-            'hasData' => Attendance::query()->exists(),
-            'options' => Insights::options(),
-            'header' => $today ? $this->header('Pointages du jour', '', [['Pointages', '/pointages'], ['Aujourd’hui']]) : $this->header('Gestion des pointages', 'Enregistrés et validés par les promoteurs depuis l’Application Promoteur · supervision et contrôle'),
+            'attendances' => ['data' => $rows, 'currentPage' => $meta['current_page'], 'lastPage' => $meta['last_page'], 'total' => $meta['total'], 'from' => $from, 'to' => $from ? $from + count($rows) - 1 : 0],
+            'filters' => $filters,
+            'filterOptions' => [
+                'periode' => array_map($option, array_keys(self::PERIODS), self::PERIODS),
+                'statut' => array_map($option, array_keys(self::STATUS_LABELS), self::STATUS_LABELS),
+                'metier' => array_map(fn (array $t): array => $option($t['id'], $t['label']), $meta['trades']),
+                'localisation' => array_map(fn (array $c): array => $option($c['id'], $c['name']), $meta['communes']),
+            ],
+            'kpis' => ['pending' => $meta['counts']['statuses']['a_valider'], 'validated' => $meta['counts']['statuses']['valide'], 'absent' => $meta['counts']['statuses']['absent'], 'anomalies' => $meta['counts']['todo']['anomalies']],
+            'todo' => $meta['counts']['todo'],
+            'can' => $this->can($request),
         ]);
     }
 
-    /**
-     * Export CSV de la liste (filtres actifs) ou d’une sélection (?refs=PT-…,PT-…).
-     */
-    public function export(Request $request): StreamedResponse
+    public function export(Request $request): HttpResponse
     {
-        $refs = array_filter(explode(',', (string) $request->query('refs', '')));
-        [, $rows] = $this->listed($this->filters($request), 'jour');
-        if ($refs) {
-            $rows = Insights::load(scope: fn ($q) => $q->whereIn('reference', $refs));
-        }
+        $response = $this->api->get('attendance/export', $this->apiQuery($this->filters($request)));
 
-        return Insights::csv($refs ? 'pointages-selection' : 'pointages', $rows);
+        return response($response->body(), 200, ['Content-Type' => 'text/csv; charset=UTF-8', 'Content-Disposition' => $response->header('Content-Disposition') ?: 'attachment; filename="pointages.csv"']);
     }
 
-    /**
-     * Fiche d’une journée de pointage.
-     */
-    public function show(Attendance $attendance, ?string $tab = null): Response
+    public function show(Request $request, string $attendance): Response
     {
-        $tab ??= '';
-        abort_unless(array_key_exists($tab, self::TABS), 404);
-        $p = $attendance->load([...Insights::RELATIONS, 'site.promoter', 'activities']);
-        $c = Calc::calculate($p);
-        $cfg = Calc::rules();
-        $base = "/pointages/{$p->reference}";
-        $firstOpen = $c['openAnomalies']->first();
-        $absence = $p->absence;
+        $a = $this->api->get("attendance/{$attendance}")->json('data');
 
         return Inertia::render('Attendances/Show', [
             'attendance' => [
-                ...Insights::row($p, $c),
-                'site' => ['name' => $p->site->name, 'slug' => $p->site->slug, 'promoter' => $p->site->promoter_name, 'promoterSlug' => $p->site->promoter?->slug, 'commune' => $p->site->commune, 'latitude' => $p->site->latitude, 'longitude' => $p->site->longitude],
-                'arrivalEvent' => $p->arrival,
-                'departureEvent' => $p->departure,
-                'pauses' => $p->pauses,
-                'absence' => $absence,
-                'decisions' => collect(self::DECISIONS)->filter(fn (array $d, string $key): bool => (bool) $p->{$key})->map(fn (array $d, string $key): array => ['key' => $key, 'label' => $d[0], 'status' => $p->{$key}['status'], 'options' => $d[1]])->values()->all(),
-                'closure' => $p->closure,
-                'transmission' => $p->transmission,
-                'notes' => $p->notes,
-                'tag' => $firstOpen ? ['label' => $firstOpen->type, 'tone' => Calc::tone($firstOpen->level)] : ['label' => $c['indicators'][0] ?? $c['closureStatus'], 'tone' => 'n'],
+                ...$this->row($a),
+                'assignmentId' => $a['assignment_id'],
+                'observation' => $a['observation'],
+                'validatedAt' => $this->day($a['validated_at']),
+                'validatedBy' => $a['validated_by'],
+                'arrivalProof' => $this->proof($a['events']['arrival']),
+                'departureProof' => $this->proof($a['events']['departure']),
+                'anomalies' => array_map(fn (array $x) => ['id' => $x['id'], 'type' => $x['type']['label'], 'status' => $x['status']['label'], 'detectedBy' => $x['detected_by']['label'], 'comment' => $x['comment'], 'resolution' => $x['resolution']], $a['anomalies']),
+                'corrections' => array_map(fn (array $x) => ['id' => $x['id'], 'status' => $x['status']['label'], 'reason' => $x['reason'], 'date' => $this->day($x['created_at'])], $a['corrections']),
+                'canRemind' => $a['can']['remind'],
             ],
-            'calc' => [
-                ...collect($c)->except(['openAnomalies', 'blocking', 'pendingCorrections'])->all(),
-                'openAnomalies' => $c['openAnomalies']->map(fn (AttendanceAnomaly $a): array => $a->only(['id', 'type', 'level', 'note']))->values()->all(),
-                'pendingCorrections' => $c['pendingCorrections']->map(fn (AttendanceCorrection $x): array => $x->only(['id', 'field', 'old_value', 'new_value']))->values()->all(),
-                'labels' => [
-                    'net' => Calc::duration($c['net']), 'gross' => Calc::duration($c['gross']), 'pause' => Calc::duration($c['pause']), 'plan' => Calc::duration($c['plan']),
-                    'late' => $c['lateFlag'] ? Calc::duration($c['late']) : null, 'early' => $c['early'] ? Calc::duration($c['early']) : null, 'overtime' => $c['overtime'] ? Calc::duration($c['overtime']) : null,
-                    'unpaid' => $c['net'] !== null && $c['net'] < $c['plan'] ? Calc::duration($c['plan'] - $c['net']) : null,
-                    'min' => Calc::duration($cfg['min_duration']),
-                ],
-            ],
-            'anomalies' => $p->anomalies->map(fn (AttendanceAnomaly $a): array => [...$a->only(['id', 'type', 'level', 'status', 'note', 'decision']), 'detectedOn' => $a->detected_on->format('Y-m-d')])->values()->all(),
-            'corrections' => $p->corrections->map(fn (AttendanceCorrection $x): array => [
-                ...$x->only(['id', 'field', 'motif', 'comment', 'proof', 'status', 'decision', 'impact']),
-                'oldValue' => $x->old_value, 'newValue' => $x->new_value, 'requestedBy' => $x->requested_by, 'requestedAt' => $x->requested_at->format('Y-m-d H:i'),
-            ])->values()->all(),
-            'activities' => $p->activities->map(fn (AttendanceActivity $e): array => [
-                'id' => $e->id, 'date' => $e->occurred_at->format('Y-m-d'), 'time' => $e->occurred_at->format('H:i'), 'author' => $e->author,
-                'category' => ['value' => $e->category, 'label' => ucfirst($e->category), 'tone' => self::categoryTone($e->category), 'icon' => self::categoryIcon($e->category)],
-                'action' => $e->action, 'oldValue' => $e->old_value, 'newValue' => $e->new_value, 'comment' => $e->comment, 'origin' => $e->origin,
-            ])->values()->all(),
-            'correctionValues' => $this->correctionValues($p),
-            'tab' => $tab,
-            'tabs' => collect(self::TABS)->map(fn (string $label, string $key): array => [$key, $label, match ($key) {
-                'anomalies' => $c['openAnomalies']->count(),
-                'corrections' => $c['pendingCorrections']->count(),
-                default => 0,
-            }])->values()->all(),
-            'rules' => $cfg,
-            'options' => Insights::options(),
-            'header' => $this->header('Fiche du pointage', '', [['Pointages', '/pointages'], [$p->reference, $tab ? $base : null], ...($tab ? [[self::TABS[$tab]]] : [])]),
+            'can' => $this->can($request),
+            'header' => $this->header('Fiche du pointage', '', [['Pointages', '/pointages'], [$a['worker']['full_name']]]),
         ]);
     }
 
-    /**
-     * Valeurs actuelles des données corrigeables.
-     *
-     * @return array<string, string>
-     */
-    private function correctionValues(Attendance $p): array
+    public function remind(string $attendance): RedirectResponse
     {
+        try {
+            $response = $this->api->post("attendance/{$attendance}/remind");
+        } catch (ValidationException $e) {
+            $refusal = array_intersect_key($e->errors(), array_flip(['attendance', 'api']));
+
+            if ($refusal === []) {
+                throw $e;
+            }
+
+            Inertia::flash('toastError', collect($refusal)->flatten()->first());
+
+            return back();
+        }
+
+        Inertia::flash('toast', $response->json('message'));
+
+        return back();
+    }
+
+    /**
+     * Anciennes adresses du module : retour à la liste.
+     */
+    public function legacy(): RedirectResponse
+    {
+        Inertia::flash('toast', 'Cette page a été remplacée : voici les pointages.');
+
+        return to_route('attendances.index');
+    }
+
+    /**
+     * @param  array<string, mixed>  $a
+     * @return array<string, mixed>
+     */
+    private function row(array $a): array
+    {
+        $value = $a['status']['value'];
+
         return [
-            'Heure d’arrivée' => $p->arrival['time'] ?? '—',
-            'Heure de départ' => $p->departure['time'] ?? '—',
-            'Durée de pause' => isset($p->pauses[0]) ? $p->pauses[0]['minutes'].' min' : '—',
-            'Localisation' => $p->arrival['location'] ? $p->arrival['location']['meters'].' m' : '—',
-            'Motif d’absence' => $p->absence['motif'] ?? '—',
+            'id' => $a['id'],
+            'date' => $a['date'],
+            'status' => ['value' => $value, 'label' => self::STATUS_LABELS[$value] ?? $a['status']['label'], 'tone' => self::STATUS_TONES[$value] ?? 'n'],
+            'worker' => $a['worker'],
+            'site' => $a['site'],
+            'promoter' => $a['promoter'],
+            'trade' => $a['trade'],
+            'arrival' => $a['arrival'],
+            'departure' => $a['departure'],
+            'minutes' => $a['worked_minutes'],
+            'outOfZone' => $a['out_of_zone'],
+            'openAnomalies' => $a['open_anomalies'],
+            'locked' => $a['is_locked'],
         ];
     }
 
-    public static function categoryTone(string $category): string
+    /**
+     * @param  array<string, mixed>|null  $event
+     * @return array<string, mixed>|null
+     */
+    private function proof(?array $event): ?array
     {
-        return match ($category) {
-            'validation', 'pointage' => 'success',
-            'statut' => 'info',
-            'modification' => 'purple',
-            'rejet', 'litige' => 'danger',
-            'paiement' => 'orange',
-            default => 'neutral',
-        };
+        return $event ? ['time' => $event['time'], 'distance' => $event['distance_m'], 'accuracy' => $event['accuracy_m'], 'outOfZone' => $event['out_of_zone'], 'author' => $event['author'], 'photo' => $event['photo_url'], 'signature' => $event['signature_url'], 'status' => $event['status']['label']] : null;
     }
 
-    public static function categoryIcon(string $category): string
+    /**
+     * @return array{update: bool, export: bool}
+     */
+    private function can(Request $request): array
     {
-        return match ($category) {
-            'pointage' => 'schedule',
-            'validation' => 'verified',
-            'statut' => 'swap_vert',
-            'modification' => 'edit',
-            'rejet' => 'block',
-            'litige' => 'report',
-            'paiement' => 'payments',
-            default => 'history',
+        $user = $request->user();
+        $allowed = fn (string $permission): bool => $user instanceof AdminUser && $user->hasPermission($permission);
+
+        return ['update' => $allowed('attendance.update'), 'export' => $allowed('attendance.export')];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function filters(Request $request): array
+    {
+        return array_filter($request->only(self::FILTER_KEYS), fn ($value) => is_string($value) && $value !== '');
+    }
+
+    /**
+     * @param  array<string, string>  $filters
+     * @return array<string, mixed>
+     */
+    private function apiQuery(array $filters): array
+    {
+        $query = [];
+
+        foreach (array_intersect_key($filters, self::QUERY) as $key => $value) {
+            $query[self::QUERY[$key]] = $value;
+        }
+
+        if ($sort = self::SORTS[$filters['tri'] ?? ''] ?? null) {
+            $query['sort'] = $sort;
+            $query['direction'] = ($filters['sens'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+        }
+
+        $today = today();
+        [$from, $to] = match ($filters['periode'] ?? null) {
+            'aujourdhui' => [$today, $today],
+            'hier' => [$today->copy()->subDay(), $today->copy()->subDay()],
+            '7j' => [$today->copy()->subDays(6), $today],
+            '30j' => [$today->copy()->subDays(29), $today],
+            default => [null, null],
         };
+
+        return $from ? [...$query, 'date_from' => $from->toDateString(), 'date_to' => $to->toDateString()] : $query;
+    }
+
+    private function day(?string $date): ?string
+    {
+        return $date ? Carbon::parse($date)->format('Y-m-d') : null;
     }
 }

@@ -407,7 +407,7 @@ class PaymentController extends Controller
     {
         return [
             'id' => $e->id, 'date' => $e->occurred_at->format('Y-m-d'), 'time' => $e->occurred_at->format('H:i'), 'author' => $e->author,
-            'category' => ['value' => $e->category, 'label' => ucfirst($e->category), 'tone' => AttendanceController::categoryTone($e->category === 'creation' ? 'statut' : $e->category), 'icon' => AttendanceController::categoryIcon($e->category)],
+            'category' => ['value' => $e->category, 'label' => ucfirst($e->category), 'tone' => self::categoryTone($e->category === 'creation' ? 'statut' : $e->category), 'icon' => self::categoryIcon($e->category)],
             'action' => $e->action, 'oldValue' => $e->old_value, 'newValue' => $e->new_value, 'comment' => $e->comment, 'origin' => $e->origin,
         ];
     }
@@ -501,5 +501,31 @@ class PaymentController extends Controller
             'options' => self::options(),
             'header' => $this->header('Fiche de l’opération', '', [['Paiements', '/paiements'], ['Opérations', '/paiements/operations'], [$p->reference, $tab ? $base : null], ...($tab ? [[self::TABS[$tab]]] : [])]),
         ]);
+    }
+
+    private static function categoryTone(string $category): string
+    {
+        return match ($category) {
+            'validation', 'pointage' => 'success',
+            'statut' => 'info',
+            'modification' => 'purple',
+            'rejet', 'litige' => 'danger',
+            'paiement' => 'orange',
+            default => 'neutral',
+        };
+    }
+
+    private static function categoryIcon(string $category): string
+    {
+        return match ($category) {
+            'pointage' => 'schedule',
+            'validation' => 'verified',
+            'statut' => 'swap_vert',
+            'modification' => 'edit',
+            'rejet' => 'block',
+            'litige' => 'report',
+            'paiement' => 'payments',
+            default => 'history',
+        };
     }
 }

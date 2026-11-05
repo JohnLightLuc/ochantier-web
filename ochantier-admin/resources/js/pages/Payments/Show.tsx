@@ -52,7 +52,7 @@ export default function PaymentShow({ sections, payment: p, calc: c, anomalies, 
             ? [
                   { icon: 'person', label: 'Voir l’ouvrier', onClick: go(`/ouvriers/${p.worker.slug}`) },
                   { icon: 'assignment_ind', label: 'Voir l’affectation', onClick: go(`/ouvriers/${p.worker.slug}/affectations`) },
-                  { icon: 'schedule', label: 'Voir les pointages', onClick: go(`/pointages/ouvriers/${p.worker.slug}`) },
+                  { icon: 'schedule', label: 'Voir les pointages', onClick: go(`/pointages`) },
               ]
             : []),
         { icon: 'currency_exchange', label: 'Rembourser', onClick: () => actions.refund(p.reference, c.received) },
