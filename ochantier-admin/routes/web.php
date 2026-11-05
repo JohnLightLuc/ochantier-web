@@ -45,9 +45,7 @@ use App\Http\Controllers\SalesAgentFormController;
 use App\Http\Controllers\SalesRankingController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SiteController;
-use App\Http\Controllers\SiteDocumentController;
-use App\Http\Controllers\SiteIncidentController;
-use App\Http\Controllers\SiteStatusController;
+use App\Http\Controllers\SiteDecisionController;
 use App\Http\Controllers\SubscriptionActionController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\SubscriptionPlanController;
@@ -187,36 +185,21 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('/{commercial}/{rest?}', [SalesAgentController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
+    // Chantiers : données de l’API (api/v1/admin/sites). Liste, fiche et décisions.
     Route::prefix('chantiers')->name('sites.')->group(function () {
         Route::get('/', [SiteController::class, 'index'])->name('index');
         Route::get('/export', [SiteController::class, 'export'])->name('export');
-        Route::post('/', [SiteController::class, 'store'])->name('store');
 
-        Route::prefix('{site}')->scopeBindings()->group(function () {
-            Route::get('/fiche', [SiteController::class, 'sheet'])->name('sheet');
-
-            Route::put('/informations', [SiteStatusController::class, 'updateInfo'])->name('info.update');
-            Route::post('/correction', [SiteStatusController::class, 'requestCorrection'])->name('correction');
-            Route::post('/planification', [SiteStatusController::class, 'plan'])->name('plan');
-            Route::post('/suspension', [SiteStatusController::class, 'suspend'])->name('suspend');
-            Route::post('/reprise', [SiteStatusController::class, 'resume'])->name('resume');
-            Route::post('/cloture', [SiteStatusController::class, 'close'])->name('close');
-            Route::post('/annulation', [SiteStatusController::class, 'cancel'])->name('cancel');
-            Route::post('/archivage', [SiteStatusController::class, 'archive'])->name('archive');
-
-            Route::post('/incidents', [SiteIncidentController::class, 'store'])->name('incidents.store');
-            Route::post('/incidents/{incident}/resolution', [SiteIncidentController::class, 'resolve'])->name('incidents.resolve');
-
-            Route::post('/documents', [SiteDocumentController::class, 'store'])->name('documents.store');
-            Route::post('/documents/{document}/validation', [SiteDocumentController::class, 'approve'])->name('documents.approve');
-            Route::post('/documents/{document}/rejet', [SiteDocumentController::class, 'reject'])->name('documents.reject');
-            Route::post('/documents/{document}/commentaire', [SiteDocumentController::class, 'comment'])->name('documents.comment');
-            Route::get('/documents/{document}/telechargement', [SiteDocumentController::class, 'download'])->name('documents.download');
-
-            Route::get('/{tab?}', [SiteController::class, 'show'])
-                ->where('tab', 'equipe|incidents|documents|historique')
-                ->name('show');
+        Route::prefix('{site}')->whereUuid('site')->group(function () {
+            Route::post('/suspension', [SiteDecisionController::class, 'suspend'])->name('suspend');
+            Route::delete('/suspension', [SiteDecisionController::class, 'resume'])->name('resume');
+            Route::post('/annulation', [SiteDecisionController::class, 'cancel'])->name('cancel');
+            Route::post('/cloture', [SiteDecisionController::class, 'close'])->name('close');
+            Route::post('/archivage', [SiteDecisionController::class, 'archive'])->name('archive');
+            Route::get('/', [SiteController::class, 'show'])->name('show');
         });
+
+        Route::get('/{site}/{rest?}', [SiteController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
     Route::prefix('besoins')->name('needs.')->group(function () {
