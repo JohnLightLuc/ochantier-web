@@ -8,9 +8,11 @@ use App\Http\Resources\V1\Admin\AssignmentDetailResource;
 use App\Http\Resources\V1\Admin\AssignmentListResource;
 use App\Models\Assignment;
 use App\Models\ReasonCode;
+use App\Models\Replacement;
 use App\Support\Admin\AdminAudit;
 use App\Support\Admin\AssignmentDirectory;
 use App\Support\ApiResponse;
+use App\Support\Matching\ReplacementSearch;
 use App\Support\Promoter\SiteReplacements;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,11 +20,12 @@ use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Affectations du Back Office : liste, export, fiche et déclaration d’une indisponibilité.
+ * Affectations du Back Office : liste, export, fiche, déclaration d’une indisponibilité et recherche d’un
+ * remplaçant.
  */
 class AssignmentController extends Controller
 {
-    public function __construct(private AssignmentDirectory $directory, private SiteReplacements $replacements) {}
+    public function __construct(private AssignmentDirectory $directory, private SiteReplacements $replacements, private ReplacementSearch $search) {}
 
     public function index(AssignmentIndexRequest $request): JsonResponse
     {
@@ -82,6 +85,22 @@ class AssignmentController extends Controller
         AdminAudit::record($request->user(), 'missions', 'assignment.unavailability_declared', $request, $model, null, ['replacement_id' => $replacement->id, 'reason' => $reason->label]);
 
         return $this->fiche($request, $assignment, 'Indisponibilité déclarée : le remplacement est ouvert.');
+    }
+
+    public function searchReplacement(Request $request, string $replacement): JsonResponse
+    {
+        $model = Replacement::query()->findOrFail($replacement);
+        $this->search->run($model, $request->user(), $request);
+
+        return $this->fiche($request, $model->original_assignment_id, 'Recherche terminée.');
+    }
+
+    public function sendReplacement(Request $request, string $replacement): JsonResponse
+    {
+        $model = Replacement::query()->findOrFail($replacement);
+        $this->search->send($model, $request->user(), $request);
+
+        return $this->fiche($request, $model->original_assignment_id, 'Remplaçants envoyés au promoteur.');
     }
 
     private function fiche(Request $request, string $assignment, ?string $message = null): JsonResponse

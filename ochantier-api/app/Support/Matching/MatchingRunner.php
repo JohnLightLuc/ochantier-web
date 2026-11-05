@@ -24,6 +24,7 @@ use App\Support\Admin\AdminAudit;
 use App\Support\PhoneNumber;
 use App\Support\Pricing\PricingRules;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -36,6 +37,11 @@ class MatchingRunner
     public const OPEN_OFFERS = [OfferStatus::Soumise, OfferStatus::EnControle, OfferStatus::Publiee];
 
     public const OPEN_NEEDS = [NeedStatus::Soumis, NeedStatus::EnControle, NeedStatus::ACorriger, NeedStatus::Matching, NeedStatus::ContactOuvriers];
+
+    /**
+     * Relations lues par suggestion().
+     */
+    public const SUGGESTION_WITH = ['worker.workerTrades.trade', 'worker.residenceCommune', 'workerOfferContacts', 'workerResponses', 'need'];
 
     /**
      * Suggestions gardées d’une relance à l’autre.
@@ -125,6 +131,21 @@ class MatchingRunner
             ]);
         }
 
+        $this->recordExclusions($need, $run, $excluded);
+
+        if ($need->status !== NeedStatus::Matching) {
+            $need->statusHistories()->create(['from_status' => $need->status->value, 'to_status' => NeedStatus::Matching->value, 'reason' => 'Matching lancé', 'actor_type' => $admin->getMorphClass(), 'actor_id' => $admin->getKey()]);
+            $need->forceFill(['status' => NeedStatus::Matching])->save();
+        }
+
+        return ['candidates' => $eligible->count(), 'excluded' => $excluded->count()];
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $excluded  Évaluations non proposables du calcul.
+     */
+    public function recordExclusions(Need $need, MatchingRun $run, Collection $excluded): void
+    {
         foreach ($excluded as $evaluation) {
             foreach ($evaluation['exclusions'] as $item) {
                 MatchingExclusion::query()->create([
@@ -138,13 +159,6 @@ class MatchingRunner
                 ]);
             }
         }
-
-        if ($need->status !== NeedStatus::Matching) {
-            $need->statusHistories()->create(['from_status' => $need->status->value, 'to_status' => NeedStatus::Matching->value, 'reason' => 'Matching lancé', 'actor_type' => $admin->getMorphClass(), 'actor_id' => $admin->getKey()]);
-            $need->forceFill(['status' => NeedStatus::Matching])->save();
-        }
-
-        return ['candidates' => $eligible->count(), 'excluded' => $excluded->count()];
     }
 
     /**
@@ -157,7 +171,7 @@ class MatchingRunner
         $staleAfter = (int) (Setting::query()->whereKey('matching.obsolete_after_days')->value('value') ?? 3);
 
         return $offer->needs()->with(['trade', 'specialty'])->orderBy('reference')->get()->map(function (Need $need) use ($staleAfter, $admin) {
-            $run = $need->matchingRuns()->with('triggeredByAdmin')->latest('executed_at')->latest('id')->first();
+            $run = $need->matchingRuns()->where('run_type', '!=', MatchingRunType::Remplacement)->with('triggeredByAdmin')->latest('executed_at')->latest('id')->first();
 
             return [
                 'id' => $need->id,
@@ -169,7 +183,7 @@ class MatchingRunner
                 'daily_budget' => $need->indicative_daily_budget,
                 'status' => ['value' => $need->status->value, 'label' => $need->status->label()],
                 'last_run' => $run ? ['at' => $run->executed_at?->toIso8601String(), 'by' => $run->triggeredByAdmin?->fullName(), 'type' => $run->run_type?->value, 'stale' => $run->executed_at?->lt(now()->subDays($staleAfter)) ?? false] : null,
-                'suggestions' => $need->suggestions()->whereNotIn('status', [SuggestionStatus::Expire, SuggestionStatus::Ecarte])->with(['worker.workerTrades.trade', 'worker.residenceCommune', 'workerOfferContacts', 'workerResponses', 'need'])->orderBy('rank')->orderByDesc('score')->get()->map(fn (Suggestion $suggestion) => $this->suggestion($suggestion))->values()->all(),
+                'suggestions' => $need->suggestions()->whereNotIn('status', [SuggestionStatus::Expire, SuggestionStatus::Ecarte])->whereHas('matchingRun', fn ($query) => $query->where('run_type', '!=', MatchingRunType::Remplacement))->with(self::SUGGESTION_WITH)->orderBy('rank')->orderByDesc('score')->get()->map(fn (Suggestion $suggestion) => $this->suggestion($suggestion))->values()->all(),
                 'exclusions' => $run ? $this->exclusions($need, $run, $admin) : [],
             ];
         })->all();
@@ -228,7 +242,7 @@ class MatchingRunner
     /**
      * @return array<string, mixed>
      */
-    private function suggestion(Suggestion $suggestion): array
+    public function suggestion(Suggestion $suggestion): array
     {
         $worker = $suggestion->worker;
         $factors = $suggestion->score_factors ?? [];

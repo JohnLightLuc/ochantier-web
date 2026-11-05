@@ -38,13 +38,15 @@ class MatchingEngine
     ];
 
     /**
+     * @param  CarbonImmutable|null  $from  Début de la période à couvrir, si elle diffère du besoin (remplacement).
+     * @param  CarbonImmutable|null  $to  Fin de cette période.
      * @return Collection<int, array<string, mixed>> Évaluations triées : proposables d’abord, par score.
      */
-    public function evaluate(Need $need, MatchingWeightSet $weights): Collection
+    public function evaluate(Need $need, MatchingWeightSet $weights, ?CarbonImmutable $from = null, ?CarbonImmutable $to = null): Collection
     {
         $need->loadMissing(['site.commune', 'requestedWorkers']);
-        $start = CarbonImmutable::parse($need->start_date);
-        $end = CarbonImmutable::parse($need->end_date ?? $start->addDays(max(0, $need->duration_days - 1)));
+        $start = $from ?? CarbonImmutable::parse($need->start_date);
+        $end = $to ?? CarbonImmutable::parse($need->end_date ?? $start->addDays(max(0, $need->duration_days - 1)));
         $workers = $this->candidates($need);
         $ids = $workers->pluck('id')->all();
         $period = '['.$start->toDateString().','.$end->toDateString().']';

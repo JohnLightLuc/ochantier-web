@@ -147,6 +147,15 @@ class SiteReplacements
         return DB::transaction(function () use ($replacement, $author, $candidates, $chosen): Replacement {
             $original = $replacement->originalAssignment()->with(['mission', 'need'])->firstOrFail();
             $handover = $this->handoverDate($original);
+
+            // Le remplaçant n’est pas réservé pendant que le promoteur décide : il a pu être affecté ailleurs entre-temps.
+            $taken = Assignment::query()->where('worker_id', $chosen->worker_id)->whereIn('status', [AssignmentStatus::Confirmee, AssignmentStatus::Active])
+                ->whereRaw('period && ?::daterange', [sprintf('[%s,%s]', $handover->toDateString(), $original->planned_end_date->toDateString())])->exists();
+
+            if ($taken) {
+                throw ValidationException::withMessages(['suggestion_id' => trim($chosen->worker->first_name.' '.$chosen->worker->last_name).' n’est plus disponible : choisissez un autre remplaçant.']);
+            }
+
             $actor = ['actor_type' => $author->getMorphClass(), 'actor_id' => $author->getKey()];
             $reason = $replacement->unavailabilityRequest->reason?->label;
 

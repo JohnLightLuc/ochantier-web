@@ -127,12 +127,14 @@ Route::middleware('auth:admin')->group(function () {
             });
         });
 
-        // Affectations : liste, export, fiche et déclaration d’indisponibilité.
+        // Affectations : liste, export, fiche, indisponibilité et recherche de remplaçants.
         Route::prefix('assignments')->name('assignments.')->controller(AssignmentController::class)->group(function () {
             Route::get('/', 'index')->middleware('admin.can:missions.read')->name('index');
             Route::get('export', 'export')->middleware('admin.can:missions.export')->name('export');
             Route::get('{assignmentId}', 'show')->whereUuid('assignmentId')->middleware('admin.can:missions.read')->name('show');
             Route::post('{assignmentId}/unavailability', 'declareUnavailability')->whereUuid('assignmentId')->middleware('admin.can:missions.update')->name('unavailability');
+            Route::post('replacements/{replacementId}/search', 'searchReplacement')->whereUuid('replacementId')->middleware('admin.can:missions.update')->name('replacements.search');
+            Route::post('replacements/{replacementId}/send', 'sendReplacement')->whereUuid('replacementId')->middleware('admin.can:missions.update')->name('replacements.send');
         });
 
         // Matching : file des besoins, lancement du calcul et résultats.

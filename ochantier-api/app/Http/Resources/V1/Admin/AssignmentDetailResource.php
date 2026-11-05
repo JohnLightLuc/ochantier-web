@@ -7,6 +7,7 @@ use App\Models\Assignment;
 use App\Models\Replacement;
 use App\Models\UnavailabilityRequest;
 use App\Support\Admin\AssignmentDirectory;
+use App\Support\Matching\ReplacementSearch;
 use Illuminate\Http\Request;
 
 /**
@@ -24,6 +25,7 @@ class AssignmentDetailResource extends AssignmentListResource
         $days = $this->workDays()->toBase()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
         $replacedBy = Replacement::query()->where('original_assignment_id', $this->id)->with(['replacementAssignment.worker'])->latest()->get();
         $replaces = $this->replacesAssignment?->worker;
+        $open = $replacedBy->firstWhere('id', $this->open_replacement_id);
 
         return [
             ...parent::toArray($request),
@@ -47,6 +49,7 @@ class AssignmentDetailResource extends AssignmentListResource
                 'replaced_by' => $item->replacementAssignment ? ['id' => $item->replacementAssignment->worker_id, 'full_name' => trim($item->replacementAssignment->worker->first_name.' '.$item->replacementAssignment->worker->last_name)] : null,
                 'created_at' => $item->created_at?->toIso8601String(),
             ])->all(),
+            'search' => $open ? app(ReplacementSearch::class)->present($open) : null,
             'can' => ['declare_unavailability' => in_array($this->status, AssignmentDirectory::OPEN, true) && $this->open_replacement_id === null && $this->planned_end_date->gte(today()->addDay())],
         ];
     }
