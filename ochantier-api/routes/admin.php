@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Admin\Assignment\AssignmentController;
+use App\Http\Controllers\Api\V1\Admin\Attendance\AttendanceController;
 use App\Http\Controllers\Api\V1\Admin\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Admin\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Admin\Auth\SessionController;
@@ -125,6 +126,14 @@ Route::middleware('auth:admin')->group(function () {
                 Route::delete('suspension', [WorkerReviewController::class, 'reactivate'])->middleware('admin.can:workers.update')->name('reactivate');
                 Route::post('exclusion', [WorkerReviewController::class, 'exclude'])->middleware('admin.can:workers.validate')->name('exclude');
             });
+        });
+
+        // Pointages : liste, export, fiche d’une journée et relance du promoteur.
+        Route::prefix('attendance')->name('attendance.')->controller(AttendanceController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:attendance.read')->name('index');
+            Route::get('export', 'export')->middleware('admin.can:attendance.export')->name('export');
+            Route::get('{workDayId}', 'show')->whereUuid('workDayId')->middleware('admin.can:attendance.read')->name('show');
+            Route::post('{workDayId}/remind', 'remind')->whereUuid('workDayId')->middleware('admin.can:attendance.update')->name('remind');
         });
 
         // Affectations : liste, export, fiche, indisponibilité et recherche de remplaçants.

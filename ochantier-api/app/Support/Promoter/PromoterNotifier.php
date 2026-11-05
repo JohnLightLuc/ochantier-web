@@ -208,6 +208,19 @@ class PromoterNotifier
     }
 
     /**
+     * Relance du Back Office pour une journée non validée : une par jour, chantier et date. Renvoie le nombre de
+     * destinataires notifiés.
+     */
+    public function attendanceReminder(Site $site, CarbonImmutable $date): int
+    {
+        $count = WorkDay::query()->whereDate('work_date', $date)->whereNull('validated_at')->whereHas('mission', fn ($query) => $query->where('site_id', $site->getKey()))->count();
+
+        return $this->notify($site->promoterProfile, 'attendance.pending', 'Journée à valider · '.$site->label,
+            'Validez le pointage du '.$this->date($date).' ('.$count.' ouvrier'.($count > 1 ? 's' : '').').', $site,
+            ['type' => 'attendance', 'id' => $site->id, 'date' => $date->toDateString()], $site, 'attendance.reminder:'.$site->id.':'.$date->toDateString().':'.today()->toDateString());
+    }
+
+    /**
      * Centre de notifications de l’utilisateur : groupes Aujourd’hui / Cette semaine / Plus anciennes.
      *
      * @return array{data: list<array<string, mixed>>, meta: array<string, mixed>}
