@@ -163,7 +163,7 @@ class CommercialPerformance
      *
      * @return Collection<int, array{commercial_id: string, name: string, validated: int, rank: int}>
      */
-    private function board(CarbonImmutable $month): Collection
+    public function board(CarbonImmutable $month): Collection
     {
         $counts = Worker::query()
             ->where('verification_status', WorkerVerificationStatus::Valide)

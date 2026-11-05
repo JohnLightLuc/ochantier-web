@@ -2,11 +2,14 @@
 
 namespace App\Support\Commercial;
 
+use App\Enums\CommercialAdjustmentKind;
+use App\Enums\CommercialAdjustmentStatus;
 use App\Enums\CommercialEarningEvent;
 use App\Enums\CommercialEarningStatus;
 use App\Enums\CommercialPayoutStatus;
 use App\Enums\EarningCalculation;
 use App\Enums\ParameterStatus;
+use App\Models\CommercialAdjustment;
 use App\Models\CommercialEarning;
 use App\Models\CommercialEarningRule;
 use App\Models\CommercialPayout;
@@ -166,6 +169,18 @@ class CommercialEarnings
                 'count' => $earnings->whereIn('status', $definition[1])->count(),
             ])->values()->all(),
             'history' => $earnings->whereIn('status', self::TABS[$tab][1])->map(fn (CommercialEarning $earning) => $this->row($earning))->values()->all(),
+            'adjustments' => $commercial->commercialAdjustments()
+                ->whereIn('status', [CommercialAdjustmentStatus::Approuvee, CommercialAdjustmentStatus::Payee])
+                ->whereBetween('granted_on', [$month->startOfMonth()->toDateString(), $month->endOfMonth()->toDateString()])
+                ->latest('granted_on')->get()
+                ->map(fn (CommercialAdjustment $adjustment) => [
+                    'id' => $adjustment->id,
+                    'kind' => ['value' => $adjustment->kind->value, 'label' => $adjustment->kind->label()],
+                    'amount' => $adjustment->amount,
+                    'amount_label' => ($adjustment->kind === CommercialAdjustmentKind::Prime ? '+' : '−').$this->money($adjustment->amount),
+                    'reason' => $adjustment->reason,
+                    'status' => ['value' => $adjustment->status->value, 'label' => $adjustment->status->label()],
+                ])->values()->all(),
             'note' => 'Les montants estimés peuvent évoluer après validation du Back office.',
         ];
     }

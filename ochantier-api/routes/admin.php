@@ -5,8 +5,10 @@ use App\Http\Controllers\Api\V1\Admin\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Admin\Auth\SessionController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialAccessController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialAccountController;
+use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialCompensationController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialPortfolioController;
+use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialRankingController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialTerritoryController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterAccountController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterController;
@@ -120,6 +122,10 @@ Route::middleware('auth:admin')->group(function () {
             Route::get('export', [CommercialController::class, 'export'])->middleware('admin.can:commercials.export')->name('export');
             Route::get('form-options', [CommercialAccountController::class, 'formOptions'])->middleware('admin.can:commercials.read')->name('form-options');
             Route::post('/', [CommercialAccountController::class, 'store'])->middleware('admin.can:commercials.create')->name('store');
+            Route::get('ranking', [CommercialRankingController::class, 'show'])->middleware('admin.can:commercials.read')->name('ranking');
+            Route::get('ranking/export', [CommercialRankingController::class, 'export'])->middleware('admin.can:commercials.export')->name('ranking.export');
+            Route::post('ranking/close', [CommercialRankingController::class, 'close'])->middleware('admin.can:commercials.validate')->name('ranking.close');
+            Route::post('ranking/publish', [CommercialRankingController::class, 'publish'])->middleware('admin.can:commercials.validate')->name('ranking.publish');
 
             Route::prefix('{commercial}')->whereUuid('commercial')->group(function () {
                 Route::get('/', [CommercialController::class, 'show'])->middleware('admin.can:commercials.read')->name('show');
@@ -144,6 +150,13 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('zone-requests/{zoneRequest}/refuse', [CommercialTerritoryController::class, 'refuseRequest'])->whereUuid('zoneRequest')->middleware('admin.can:commercials.validate')->name('zone-requests.refuse');
                 Route::get('objectives', [CommercialTerritoryController::class, 'objectives'])->middleware('admin.can:commercials.read')->name('objectives');
                 Route::post('objectives', [CommercialTerritoryController::class, 'saveObjective'])->middleware('admin.can:commercials.update')->name('objectives.save');
+                Route::get('earnings', [CommercialCompensationController::class, 'earnings'])->middleware('admin.can:commercials.read')->name('earnings');
+                Route::post('adjustments', [CommercialCompensationController::class, 'propose'])->middleware('admin.can:commercial_earnings.update')->name('adjustments.store');
+                Route::post('adjustments/{adjustment}/approve', [CommercialCompensationController::class, 'approve'])->whereUuid('adjustment')->middleware('admin.can:commercial_earnings.approve')->name('adjustments.approve');
+                Route::post('adjustments/{adjustment}/refuse', [CommercialCompensationController::class, 'refuse'])->whereUuid('adjustment')->middleware('admin.can:commercial_earnings.approve')->name('adjustments.refuse');
+                Route::get('appreciations', [CommercialCompensationController::class, 'appreciations'])->middleware('admin.can:commercials.read')->name('appreciations');
+                Route::post('appreciations', [CommercialCompensationController::class, 'storeAppreciation'])->middleware('admin.can:commercials.update')->name('appreciations.store');
+                Route::get('history', [CommercialCompensationController::class, 'history'])->middleware('admin.can:commercials.read')->name('history');
             });
         });
     });

@@ -5,6 +5,7 @@ namespace App\Support\Commercial;
 use App\Enums\CommercialProfileStatus;
 use App\Enums\Priority;
 use App\Enums\ProspectStatus;
+use App\Models\CommercialAdjustment;
 use App\Models\CommercialPayout;
 use App\Models\CommercialProfile;
 use App\Models\Notification;
@@ -40,6 +41,8 @@ class CommercialNotifier
         'account.terminated' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => ''],
         'zone.accepted' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => ''],
         'zone.refused' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => ''],
+        'ranking.published' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir le classement'],
+        'adjustment.approved' => ['tab' => 'paiements', 'alert' => 'paiements', 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir mes gains'],
         'objective.set' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => ''],
     ];
 
@@ -109,6 +112,18 @@ class CommercialNotifier
     public function accountEvent(CommercialProfile $commercial, string $event, string $title, string $body): void
     {
         $this->inbox->send($commercial->user, $event, self::EVENTS[$event], $title, $body, ['target' => ['type' => 'profile', 'id' => null]], $commercial, $event.':'.$commercial->id.':'.now()->timestamp);
+    }
+
+    public function rankingPublished(CommercialProfile $commercial, string $body, string $rankingId): void
+    {
+        $this->inbox->send($commercial->user, 'ranking.published', self::EVENTS['ranking.published'], 'Classement publié', $body,
+            ['target' => ['type' => 'ranking', 'id' => null], 'cta' => self::EVENTS['ranking.published']['cta']], $commercial, 'ranking.published:'.$rankingId);
+    }
+
+    public function adjustmentApproved(CommercialProfile $commercial, CommercialAdjustment $adjustment, string $body): void
+    {
+        $this->inbox->send($commercial->user, 'adjustment.approved', self::EVENTS['adjustment.approved'], 'Vos gains ont été ajustés', $body,
+            ['target' => ['type' => 'earnings', 'id' => null, 'month' => $adjustment->granted_on->format('Y-m')], 'cta' => self::EVENTS['adjustment.approved']['cta']], $adjustment, 'adjustment.approved:'.$adjustment->id);
     }
 
     /**
