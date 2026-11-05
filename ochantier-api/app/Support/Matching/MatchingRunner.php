@@ -20,6 +20,7 @@ use App\Models\Offer;
 use App\Models\Setting;
 use App\Models\Suggestion;
 use App\Support\Admin\AdminAudit;
+use App\Support\PhoneNumber;
 use App\Support\Pricing\PricingRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -40,7 +41,7 @@ class MatchingRunner
      */
     public const KEPT = [SuggestionStatus::Contacte, SuggestionStatus::Accepte, SuggestionStatus::ProposePromoteur, SuggestionStatus::Selectionne];
 
-    public function __construct(private MatchingEngine $engine, private PricingRules $pricing) {}
+    public function __construct(private MatchingEngine $engine, private PricingRules $pricing, private ProposalPublisher $publisher) {}
 
     public function refusal(Offer $offer): ?string
     {
@@ -55,6 +56,9 @@ class MatchingRunner
 
     public function run(Offer $offer, Admin $admin, Request $request): void
     {
+        $this->publisher->expireOverdue($offer);
+        $offer = $offer->fresh();
+
         if ($refusal = $this->refusal($offer)) {
             throw ValidationException::withMessages(['offer' => $refusal]);
         }
@@ -164,7 +168,7 @@ class MatchingRunner
                 'daily_budget' => $need->indicative_daily_budget,
                 'status' => ['value' => $need->status->value, 'label' => $need->status->label()],
                 'last_run' => $run ? ['at' => $run->executed_at?->toIso8601String(), 'by' => $run->triggeredByAdmin?->fullName(), 'type' => $run->run_type?->value, 'stale' => $run->executed_at?->lt(now()->subDays($staleAfter)) ?? false] : null,
-                'suggestions' => $need->suggestions()->whereNotIn('status', [SuggestionStatus::Expire])->with(['worker.workerTrades.trade', 'worker.residenceCommune'])->orderBy('rank')->orderByDesc('score')->get()->map(fn (Suggestion $suggestion) => $this->suggestion($suggestion))->values()->all(),
+                'suggestions' => $need->suggestions()->whereNotIn('status', [SuggestionStatus::Expire])->with(['worker.workerTrades.trade', 'worker.residenceCommune', 'workerOfferContacts', 'workerResponses', 'need'])->orderBy('rank')->orderByDesc('score')->get()->map(fn (Suggestion $suggestion) => $this->suggestion($suggestion))->values()->all(),
                 'exclusions' => $run ? MatchingExclusion::query()->where('matching_run_id', $run->getKey())->with('worker')->get()->map(fn (MatchingExclusion $exclusion) => [
                     'id' => $exclusion->id,
                     'worker' => ['id' => $exclusion->worker_id, 'full_name' => trim($exclusion->worker->first_name.' '.$exclusion->worker->last_name), 'reference' => $exclusion->worker->reference],
@@ -191,10 +195,13 @@ class MatchingRunner
             'level' => $factors['level'] ?? null,
             'requested' => (bool) ($factors['requested'] ?? false),
             'status' => ['value' => $suggestion->status->value, 'label' => $suggestion->status->label()],
+            'contact' => ($contact = $suggestion->workerOfferContacts->sortByDesc('contacted_at')->first()) ? ['channel' => $contact->channel->label(), 'at' => $contact->contacted_at?->toIso8601String()] : null,
+            'response' => ($response = $suggestion->workerResponses->sortByDesc('responded_at')->first()) ? ['decision' => ['value' => $response->decision->value, 'label' => $response->decision->label()], 'conditions' => $response->conditions, 'net_daily_rate' => $response->net_daily_rate_shown, 'at' => $response->responded_at?->toIso8601String()] : null,
             'worker' => [
                 'id' => $worker->id,
                 'reference' => $worker->reference,
                 'full_name' => trim($worker->first_name.' '.$worker->last_name),
+                'phone' => PhoneNumber::of($worker)?->formatted(),
                 'commune' => $worker->residenceCommune?->name,
                 'rating' => $worker->rating_avg !== null ? (float) $worker->rating_avg : null,
                 'experience_years' => $worker->workerTrades->firstWhere('trade_id', $suggestion->need->trade_id)?->years_experience,

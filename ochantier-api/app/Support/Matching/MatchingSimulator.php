@@ -21,7 +21,6 @@ use App\Models\Need;
 use App\Models\Offer;
 use App\Models\Proposal;
 use App\Models\Replacement;
-use App\Models\Setting;
 use App\Models\Site;
 use App\Models\Suggestion;
 use App\Models\Worker;
@@ -46,7 +45,7 @@ class MatchingSimulator
      */
     private const OPEN_NEEDS = [NeedStatus::Soumis, NeedStatus::EnControle, NeedStatus::ACorriger, NeedStatus::Matching, NeedStatus::ContactOuvriers];
 
-    public function __construct(private PricingRules $pricing) {}
+    public function __construct(private PricingRules $pricing, private ProposalPublisher $publisher) {}
 
     /**
      * Offres en attente d’une proposition : publiées par un promoteur, journalières, sans proposition à valider.
@@ -114,7 +113,7 @@ class MatchingSimulator
                     ]));
                 }
 
-                $status = $workers->isEmpty() ? NeedStatus::Matching : NeedStatus::PropositionPromoteur;
+                $status = NeedStatus::Matching;
                 $need->statusHistories()->create(['from_status' => $need->status->value, 'to_status' => $status->value, 'reason' => 'Simulation locale du matching', 'actor_type' => 'systeme']);
                 $need->forceFill(['status' => $status])->save();
             }
@@ -127,32 +126,9 @@ class MatchingSimulator
                 return null;
             }
 
-            $daily = (int) $proposed->sum('promoter_daily_rate');
-            $days = (int) $offer->start_date->diffInDays($offer->end_date) + 1;
-            $prices = $proposed->groupBy('need_id')->map(fn (Collection $items) => $this->pricing->breakdown((int) $items->sum('promoter_daily_rate') * $days));
+            $proposed->each(fn (Suggestion $suggestion) => $suggestion->forceFill(['status' => SuggestionStatus::Accepte])->save());
 
-            $proposal = $offer->proposals()->create([
-                'reference' => sprintf('PR-%s-%04d', now()->format('Y'), DB::scalar("SELECT nextval('proposal_reference_seq')")),
-                'site_id' => $site->getKey(),
-                'sequence' => ($offer->proposals()->max('sequence') ?? 0) + 1,
-                'status' => ProposalStatus::AValider,
-                'requested_count' => $requested,
-                'proposed_count' => $proposed->count(),
-                'is_partial' => $proposed->count() < $requested,
-                'daily_amount' => $daily,
-                'days' => $days,
-                'workers_amount' => $prices->sum('workers'),
-                'commission_amount' => $prices->sum('commission'),
-                'total_amount' => $prices->sum('total'),
-                'deposit_amount' => $prices->sum('deposit'),
-                'expires_at' => now()->addHours((int) (Setting::query()->whereKey('proposals.validity_hours')->value('value') ?? 48)),
-            ]);
-            $proposal->suggestions()->saveMany($proposed);
-
-            $this->moveSite($site, SiteStatus::Paiement);
-            app(PromoterNotifier::class)->proposalReceived($proposal);
-
-            return $proposal;
+            return $this->publisher->publish($offer, $proposed, null, 'Simulation locale de la proposition');
         });
     }
 

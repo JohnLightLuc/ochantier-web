@@ -4,15 +4,20 @@ namespace Tests\Feature\Admin;
 
 use App\Enums\NeedStatus;
 use App\Enums\OfferStatus;
+use App\Enums\ProposalStatus;
 use App\Enums\SiteStatus;
 use App\Enums\SuggestionStatus;
 use App\Models\Admin;
+use App\Models\Assignment;
 use App\Models\AuditLog;
 use App\Models\MatchingExclusion;
 use App\Models\MatchingWeightSet;
+use App\Models\Notification;
 use App\Models\Offer;
+use App\Models\Proposal;
 use App\Models\Suggestion;
 use App\Models\Worker;
+use App\Models\WorkerResponse;
 use App\Support\Auth\AdminSessions;
 use App\Support\Auth\DeviceContext;
 use Tests\Feature\Promoter\ConfirmedSite;
@@ -145,11 +150,116 @@ class MatchingAdminTest extends PromoterTestCase
         $this->postJson($this->url($offer, '/run'))->assertJsonValidationErrors(['offer']);
     }
 
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function suggestions(Offer $offer): array
+    {
+        return collect($this->getJson($this->url($offer))->json('data.needs'))->flatMap(fn (array $need) => $need['suggestions'])->all();
+    }
+
+    private function agree(string $suggestion): void
+    {
+        $this->postJson("/api/v1/admin/matching/suggestions/{$suggestion}/response", ['channel' => 'appel', 'decision' => 'accepte'])->assertOk();
+    }
+
+    public function test_a_response_is_recorded_with_its_rate_and_author(): void
+    {
+        $offer = $this->openOffer();
+        $this->asAdmin()->postJson($this->url($offer, '/run'))->assertOk();
+        [$first, $second] = $this->suggestions($offer);
+
+        $this->postJson("/api/v1/admin/matching/suggestions/{$first['id']}/contact", ['channel' => 'appel'])->assertOk();
+        $this->assertSame(NeedStatus::ContactOuvriers, Suggestion::query()->findOrFail($first['id'])->need->fresh()->status);
+
+        $response = $this->postJson("/api/v1/admin/matching/suggestions/{$first['id']}/response", ['channel' => 'appel', 'decision' => 'refuse', 'conditions' => 'Déjà pris ce mois-ci.'])->assertOk();
+        $row = collect($response->json('data.needs'))->flatMap(fn (array $need) => $need['suggestions'])->firstWhere('id', $first['id']);
+        $this->assertSame('refuse', $row['status']['value']);
+        $this->assertSame('Déjà pris ce mois-ci.', $row['response']['conditions']);
+        $this->assertSame($first['worker_daily_rate'], $row['response']['net_daily_rate']);
+        $this->assertSame('Appel', $row['contact']['channel']);
+        $this->assertNotNull($row['worker']['phone']);
+
+        $stored = WorkerResponse::query()->where('suggestion_id', $first['id'])->sole();
+        $this->assertSame($first['worker_daily_rate'], $stored->net_daily_rate_shown);
+
+        // Un ouvrier qui a refusé ce besoin ne revient pas à la relance.
+        $this->postJson($this->url($offer, '/run'))->assertOk();
+        $this->assertTrue(MatchingExclusion::query()->where('worker_id', $first['worker']['id'])->where('criterion', 'refus')->exists());
+
+        $this->postJson('/api/v1/admin/matching/suggestions/'.$second['id'].'/response', ['channel' => 'inconnu', 'decision' => 'accepte'])->assertJsonValidationErrors(['channel']);
+    }
+
+    public function test_the_real_flow_goes_from_the_run_to_the_deposit(): void
+    {
+        $offer = $this->openOffer();
+        $promoter = $this->promoter;
+        $this->asAdmin()->postJson($this->url($offer, '/run'))->assertOk();
+
+        $this->postJson($this->url($offer, '/send'))->assertJsonValidationErrors(['offer']);
+
+        foreach ($this->suggestions($offer) as $suggestion) {
+            $this->agree($suggestion['id']);
+        }
+
+        $this->getJson($this->url($offer))->assertJsonPath('data.retained', 3);
+        $this->postJson($this->url($offer, '/send'))->assertOk()->assertJsonPath('data.offer.status.value', 'publiee');
+
+        $proposal = Proposal::query()->sole();
+        $this->assertSame(ProposalStatus::AValider, $proposal->status);
+        $this->assertSame(3, $proposal->proposed_count);
+        $this->assertFalse($proposal->is_partial);
+        $this->assertNotNull($proposal->published_by_admin_id);
+        $this->assertSame(OfferStatus::Publiee, $offer->fresh()->status);
+        $this->assertSame(SiteStatus::Paiement, $this->site->fresh()->status);
+        $this->assertSame(3, Suggestion::query()->where('status', SuggestionStatus::ProposePromoteur)->count());
+        $this->assertTrue(Notification::query()->where('event_code', 'proposal.received')->where('recipient_id', $promoter->id)->exists());
+        $this->assertTrue(AuditLog::query()->where('action', 'matching.proposal_sent')->exists());
+        $this->postJson($this->url($offer, '/run'))->assertJsonValidationErrors(['offer']);
+
+        $this->actingAsPromoter($promoter);
+        $this->postJson("/api/v1/promoter/proposals/{$proposal->id}/accept")->assertOk();
+        $this->postJson('/api/v1/promoter/payments', ['proposal_id' => $proposal->id, 'operator_code' => 'orange_money', 'dial_code' => '225', 'phone_number' => '0712345634'])->assertCreated();
+
+        $this->assertSame(SiteStatus::Confirme, $this->site->fresh()->status);
+        $this->assertSame(3, Assignment::query()->count());
+    }
+
+    public function test_a_partial_proposal_keeps_the_reserves_and_the_search_open(): void
+    {
+        $offer = $this->openOffer();
+        $this->asAdmin()->postJson($this->url($offer, '/run'))->assertOk();
+        $suggestions = $this->suggestions($offer);
+        $this->agree($suggestions[0]['id']);
+
+        $this->postJson($this->url($offer, '/send'))->assertOk();
+
+        $proposal = Proposal::query()->sole();
+        $this->assertTrue($proposal->is_partial);
+        $this->assertSame(1, $proposal->proposed_count);
+    }
+
+    public function test_an_expired_proposal_reopens_the_search(): void
+    {
+        $offer = $this->openOffer();
+        $this->asAdmin()->postJson($this->url($offer, '/run'))->assertOk();
+        $this->agree($this->suggestions($offer)[0]['id']);
+        $this->postJson($this->url($offer, '/send'))->assertOk();
+        $proposal = Proposal::query()->sole();
+        $proposal->forceFill(['expires_at' => now()->subHour()])->save();
+
+        $this->postJson($this->url($offer, '/run'))->assertOk();
+
+        $this->assertSame(ProposalStatus::Expiree, $proposal->fresh()->status);
+        $this->assertSame(SiteStatus::Recherche, $this->site->fresh()->status);
+    }
+
     public function test_the_routes_need_their_permissions(): void
     {
         $offer = $this->openOffer();
 
         $this->asAdmin(Admin::factory()->create())->getJson('/api/v1/admin/matching/queue')->assertForbidden();
         $this->asAdmin(Admin::factory()->role('finance')->create())->postJson($this->url($offer, '/run'))->assertForbidden();
+        $this->postJson($this->url($offer, '/send'))->assertForbidden();
     }
 }

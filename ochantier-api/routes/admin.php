@@ -131,6 +131,9 @@ Route::middleware('auth:admin')->group(function () {
             Route::get('queue', 'queue')->middleware('admin.can:matching.read')->name('queue');
             Route::get('offers/{offerId}', 'show')->whereUuid('offerId')->middleware('admin.can:matching.read')->name('offers.show');
             Route::post('offers/{offerId}/run', 'run')->whereUuid('offerId')->middleware('admin.can:matching.create')->name('offers.run');
+            Route::post('offers/{offerId}/send', 'send')->whereUuid('offerId')->middleware('admin.can:matching.update')->name('offers.send');
+            Route::post('suggestions/{suggestionId}/contact', 'contact')->whereUuid('suggestionId')->middleware('admin.can:matching.update')->name('suggestions.contact');
+            Route::post('suggestions/{suggestionId}/response', 'respond')->whereUuid('suggestionId')->middleware('admin.can:matching.update')->name('suggestions.response');
         });
 
         // Besoins (offres des promoteurs) : liste, export, fiche, onglets et décisions.
