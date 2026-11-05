@@ -2,16 +2,10 @@
 
 namespace App\Console\Commands;
 
-use App\Enums\AssignmentStatus;
-use App\Enums\MissionStatus;
 use App\Enums\SiteStatus;
-use App\Models\Assignment;
-use App\Models\Mission;
 use App\Models\Site;
-use App\Support\Promoter\PromoterNotifier;
-use App\Support\Promoter\PromoterSubscriptions;
+use App\Support\Promoter\SiteClosure;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Simule localement la clôture d’un chantier par le Back office : missions et affectations terminées, chantier
@@ -52,46 +46,10 @@ class SimulateSiteEnd extends Command
             return self::FAILURE;
         }
 
-        $closed = DB::transaction(fn (): int => $this->close($site));
-        app(PromoterNotifier::class)->siteEnded($site->refresh(), app(PromoterSubscriptions::class)->isSubscribed($site->promoterProfile));
+        $closed = app(SiteClosure::class)->close($site, self::REASON);
 
         $this->info("{$site->label} : chantier terminé, {$closed} mission(s) clôturée(s).");
 
         return self::SUCCESS;
-    }
-
-    private function close(Site $site): int
-    {
-        $now = now();
-        $missions = $site->missions()->whereIn('status', [MissionStatus::Confirmee, MissionStatus::EnCours, MissionStatus::Suspendue])->get();
-
-        foreach ($missions as $mission) {
-            /** @var Mission $mission */
-            $assignments = $mission->assignments()->whereIn('status', [AssignmentStatus::Confirmee, AssignmentStatus::Active])->get();
-
-            foreach ($assignments as $assignment) {
-                /** @var Assignment $assignment */
-                $assignment->statusHistories()->create(['from_status' => $assignment->status->value, 'to_status' => AssignmentStatus::Terminee->value, 'reason' => self::REASON, 'actor_type' => 'systeme']);
-                $assignment->update([
-                    'status' => AssignmentStatus::Terminee,
-                    'actual_start_at' => $assignment->actual_start_at ?? $assignment->planned_start_date->min($now),
-                    'actual_end_at' => $now,
-                    'end_reason' => self::REASON,
-                ]);
-            }
-
-            $mission->statusHistories()->create(['from_status' => $mission->status->value, 'to_status' => MissionStatus::Terminee->value, 'reason' => self::REASON, 'actor_type' => 'systeme']);
-            $mission->update([
-                'status' => MissionStatus::Terminee,
-                'actual_start_date' => $mission->actual_start_date ?? $mission->planned_start_date->min($now),
-                'actual_end_date' => $now->toDateString(),
-                'closed_at' => $now,
-            ]);
-        }
-
-        $site->statusHistories()->create(['from_status' => $site->status->value, 'to_status' => SiteStatus::Termine->value, 'reason' => self::REASON, 'actor_type' => 'systeme']);
-        $site->update(['status' => SiteStatus::Termine, 'closed_at' => $now]);
-
-        return $missions->count();
     }
 }

@@ -428,6 +428,10 @@ class SiteAttendance
      */
     private function pointable(Site $site, string $assignmentId, CarbonImmutable $date): Assignment
     {
+        if ($site->status === SiteStatus::Suspendu) {
+            throw ValidationException::withMessages(['assignment_id' => 'Ce chantier est suspendu : le pointage reprendra à sa réouverture.']);
+        }
+
         $opensOn = $this->opensOn($site);
 
         if ($opensOn === null) {

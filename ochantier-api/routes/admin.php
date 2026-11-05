@@ -14,6 +14,8 @@ use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterAccountController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterRelationController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterReviewController;
+use App\Http\Controllers\Api\V1\Admin\Site\SiteController;
+use App\Http\Controllers\Api\V1\Admin\Site\SiteDecisionController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerAccountController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerRelationController;
@@ -118,6 +120,21 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('suspension', [WorkerReviewController::class, 'suspend'])->middleware('admin.can:workers.update')->name('suspend');
                 Route::delete('suspension', [WorkerReviewController::class, 'reactivate'])->middleware('admin.can:workers.update')->name('reactivate');
                 Route::post('exclusion', [WorkerReviewController::class, 'exclude'])->middleware('admin.can:workers.validate')->name('exclude');
+            });
+        });
+
+        // Chantiers : liste, export, fiche et décisions (suspension, reprise, annulation, clôture, archivage).
+        Route::prefix('sites')->name('sites.')->group(function () {
+            Route::get('/', [SiteController::class, 'index'])->middleware('admin.can:sites.read')->name('index');
+            Route::get('export', [SiteController::class, 'export'])->middleware('admin.can:sites.export')->name('export');
+
+            Route::prefix('{siteId}')->whereUuid('siteId')->group(function () {
+                Route::get('/', [SiteController::class, 'show'])->middleware('admin.can:sites.read')->name('show');
+                Route::post('suspension', [SiteDecisionController::class, 'suspend'])->middleware('admin.can:sites.update')->name('suspend');
+                Route::delete('suspension', [SiteDecisionController::class, 'resume'])->middleware('admin.can:sites.update')->name('resume');
+                Route::post('cancellation', [SiteDecisionController::class, 'cancel'])->middleware('admin.can:sites.validate')->name('cancel');
+                Route::post('closure', [SiteDecisionController::class, 'close'])->middleware('admin.can:sites.validate')->name('close');
+                Route::post('archive', [SiteDecisionController::class, 'archive'])->middleware('admin.can:sites.validate')->name('archive');
             });
         });
 

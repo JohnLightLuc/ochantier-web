@@ -191,6 +191,10 @@ class Reservations
                 : 'Ce chantier est clôturé : il n’accepte plus de réservation.']);
         }
 
+        if ($site->status === SiteStatus::Suspendu) {
+            throw ValidationException::withMessages(['site' => 'Ce chantier est suspendu : il n’accepte pas de nouvelle réservation pour le moment.']);
+        }
+
         return $this->publisher->publishAdditional($site, $user, $data);
     }
 
