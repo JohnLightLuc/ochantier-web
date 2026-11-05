@@ -159,7 +159,6 @@ class SalesAgentsTest extends TestCase
     public function test_old_links_lead_to_the_search_or_the_list(): void
     {
         $this->get('/commerciaux/koffi-yao/gains-paiements')->assertRedirect('/commerciaux?q=Koffi%20Yao');
-        $this->get('/commerciaux/classement')->assertRedirect('/commerciaux');
         $this->get('/commerciaux/'.self::ID.'/gains-paiements')->assertRedirect('/commerciaux/'.self::ID);
     }
 
@@ -237,6 +236,7 @@ class SalesAgentsTest extends TestCase
             self::API.'/commercials/'.self::ID.'/prospects*' => Http::response(['data' => [['id' => 'p1', 'full_name' => 'Ali Touré', 'phone' => '+225 07', 'trade' => null, 'commune' => null, 'stage' => ['value' => 'pret', 'label' => 'Prêt à soumettre'], 'completion' => ['percent' => 100], 'hint' => 'Prêt à soumettre', 'created_at' => '2026-11-02T10:00:00+00:00', 'last_followup_at' => null]], 'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 20, 'total' => 1, 'counts' => ['nouveau' => 1]]]),
             self::API.'/commercials/'.self::ID.'/zone-requests/'.self::ID.'/accept' => Http::response(['message' => 'Demande acceptée.']),
             self::API.'/commercials/'.self::ID.'/zone-requests' => Http::response(['data' => ['requests' => [['id' => 'r1', 'communes' => [['id' => 'c1', 'name' => 'Cocody']], 'status' => ['value' => 'en_attente', 'label' => 'En attente'], 'created_at' => '2026-11-02T10:00:00+00:00', 'decision_comment' => null, 'decided_by' => null, 'decided_at' => null]]]]),
+            self::API.'/commercials/'.self::ID.'/appreciations' => Http::response(['data' => [['id' => 'a1', 'body' => 'Bon suivi.', 'author' => 'Awa Koné', 'created_at' => '2026-11-02T10:00:00+00:00']]]),
             self::API.'/commercials/'.self::ID.'/objectives' => Http::response(['data' => [['period' => ['start' => '2026-11-01', 'end' => '2026-11-30'], 'period_label' => 'Nov 2026', 'target' => 8, 'achieved' => 2, 'percent' => 25, 'comment' => null, 'can_edit' => true]], 'message' => 'Objectif enregistré.']),
             self::API.'/commercials/'.self::ID => Http::response(['data' => $this->detail()]),
         ]);
@@ -244,7 +244,7 @@ class SalesAgentsTest extends TestCase
         $this->get('/commerciaux/'.self::ID.'/ouvriers')->assertOk()->assertInertia(fn (Assert $page) => $page->where('relations.kind', 'workers')->where('relations.rows.0.code', 'OUV-000001')->where('relations.pagination.to', 1)->has('relations.filters', 2)->has('fieldOptions.colleagues', 1)->where('fieldOptions.colleagues.0.label', 'Yao Konan')->where('tabCounts.zones', 1));
         $this->get('/commerciaux/'.self::ID.'/activite?statut=nouveau')->assertOk()->assertInertia(fn (Assert $page) => $page->where('relations.kind', 'prospects')->where('relations.status', 'nouveau')->where('relations.rows.0.status.tone', 'g')->where('fieldOptions', null));
         $this->get('/commerciaux/'.self::ID.'/zones')->assertOk()->assertInertia(fn (Assert $page) => $page->where('relations.requests.0.status.tone', 'a')->where('agent.zoneList.0.primary', true));
-        $this->get('/commerciaux/'.self::ID.'/objectifs')->assertOk()->assertInertia(fn (Assert $page) => $page->where('relations.rows.0.month', '2026-11'));
+        $this->get('/commerciaux/'.self::ID.'/objectifs')->assertOk()->assertInertia(fn (Assert $page) => $page->where('relations.rows.0.month', '2026-11')->where('relations.appreciations.0.body', 'Bon suivi.'));
 
         $this->from('/commerciaux/'.self::ID.'/ouvriers')->post('/commerciaux/'.self::ID.'/ouvriers/transfert', ['to_commercial_id' => 'c9', 'worker_ids' => ['w1'], 'reason' => 'Changement de secteur.'])->assertSessionHas('inertia.flash_data.toast', '2 ouvriers transférés.');
         Http::assertSent(fn (ClientRequest $request) => str_ends_with($request->url(), '/workers/transfer') && $request['worker_ids'] === ['w1']);
@@ -252,11 +252,42 @@ class SalesAgentsTest extends TestCase
         $this->from('/commerciaux/'.self::ID.'/objectifs')->post('/commerciaux/'.self::ID.'/objectifs', ['month' => '2026-11', 'target' => '8'])->assertSessionHas('inertia.flash_data.toast', 'Objectif enregistré.');
     }
 
+    public function test_the_earnings_and_history_tabs_and_the_ranking_page_read_the_api(): void
+    {
+        $ranking = ['month' => '2026-10', 'label' => 'Octobre 2026', 'closed_at' => null, 'published_at' => null, 'can_close' => true, 'can_publish' => false, 'top' => null, 'rows' => [['commercial_id' => self::ID, 'name' => 'Adama Coulibaly', 'employee_number' => 'COM-00001', 'validated' => 3, 'rank' => 1]], 'months' => [['value' => '2026-10', 'label' => 'Octobre 2026']]];
+
+        Http::fake([
+            self::API.'/commercials/ranking/close' => Http::response(['message' => 'Classement clôturé.', 'data' => $ranking]),
+            self::API.'/commercials/ranking/export*' => Http::response("Rang;Matricule\n", 200, ['Content-Disposition' => 'attachment; filename="classement.csv"']),
+            self::API.'/commercials/ranking*' => Http::response(['data' => $ranking]),
+            self::API.'/commercials/'.self::ID.'/earnings*' => Http::response(['data' => [
+                'month' => '2026-10', 'month_label' => 'Octobre 2026', 'months' => [['value' => '2026-10', 'label' => 'Octobre 2026']], 'confirmed' => 10000, 'paid' => 0, 'pending' => 5000,
+                'history' => [['id' => 'e1', 'worker_id' => 'w1', 'name' => 'Jean Kouassi', 'amount' => 5000, 'status' => ['value' => 'confirmee', 'label' => 'Confirmée'], 'event_at' => '2026-10-02T10:00:00+00:00']],
+                'adjustments' => [['id' => 'x1', 'kind' => ['value' => 'prime', 'label' => 'Prime'], 'amount' => 25000, 'reason' => 'Commercial du mois.', 'granted_on' => '2026-10-31', 'status' => ['value' => 'proposee', 'label' => 'Proposée'], 'proposed_by' => ['id' => '1', 'full_name' => 'Awa Koné'], 'decided_by' => null, 'can_decide' => true]],
+                'payouts' => [],
+            ]]),
+            self::API.'/commercials/'.self::ID.'/adjustments' => Http::response(['message' => 'Proposition enregistrée.'], 201),
+            self::API.'/commercials/'.self::ID.'/history*' => Http::response(['data' => [['id' => 'l1', 'what' => 'a suspendu le compte', 'author' => 'Awa Koné', 'detail' => 'Dossiers dupliqués.', 'at' => '2026-11-02T10:00:00+00:00']], 'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 20, 'total' => 1]]),
+            self::API.'/commercials/'.self::ID => Http::response(['data' => $this->detail()]),
+        ]);
+
+        $this->get('/commerciaux/'.self::ID.'/gains?mois=2026-10')->assertOk()->assertInertia(fn (Assert $page) => $page->where('relations.kind', 'earnings')->where('relations.totals.pending', 5000)->where('relations.history.0.worker', 'Jean Kouassi')->where('relations.adjustments.0.status.tone', 'a')->where('relations.adjustments.0.canDecide', true)->where('relations.history.0.date', '2026-10-02'));
+        Http::assertSent(fn (ClientRequest $request) => str_contains($request->url(), '/earnings?month=2026-10'));
+
+        $this->get('/commerciaux/'.self::ID.'/historique')->assertOk()->assertInertia(fn (Assert $page) => $page->where('relations.rows.0.action', 'a suspendu le compte')->where('relations.rows.0.target', 'Dossiers dupliqués.'));
+
+        $this->from('/commerciaux/'.self::ID.'/gains')->post('/commerciaux/'.self::ID.'/ajustements', ['kind' => 'prime', 'amount' => '25000', 'reason' => 'Commercial du mois.'])->assertSessionHas('inertia.flash_data.toast', 'Proposition enregistrée.');
+
+        $this->get('/commerciaux/classement?mois=2026-10')->assertOk()->assertInertia(fn (Assert $page) => $page->component('SalesAgents/Ranking')->where('canClose', true)->where('rows.0.name', 'Adama Coulibaly')->where('can.validate', false));
+        $this->get('/commerciaux/classement/export?mois=2026-10')->assertOk()->assertHeader('Content-Disposition', 'attachment; filename="classement.csv"');
+        $this->from('/commerciaux/classement')->post('/commerciaux/classement/cloture', ['month' => '2026-10'])->assertSessionHas('inertia.flash_data.toast', 'Classement clôturé.');
+    }
+
     public function test_the_buttons_follow_the_admin_permissions(): void
     {
         $this->signIn(['commercials.read']);
         Http::fake([self::API.'/commercials*' => Http::response($this->listResponse([]))]);
 
-        $this->get('/commerciaux')->assertOk()->assertInertia(fn (Assert $page) => $page->where('can', ['create' => false, 'update' => false, 'terminate' => false, 'export' => false, 'documents' => false, 'validate' => false]));
+        $this->get('/commerciaux')->assertOk()->assertInertia(fn (Assert $page) => $page->where('can', ['create' => false, 'update' => false, 'terminate' => false, 'export' => false, 'documents' => false, 'validate' => false, 'proposeAdjustment' => false, 'approveAdjustment' => false]));
     }
 }

@@ -42,6 +42,7 @@ use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SalesAgentAccessController;
 use App\Http\Controllers\SalesAgentController;
 use App\Http\Controllers\SalesAgentFormController;
+use App\Http\Controllers\SalesRankingController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SiteController;
 use App\Http\Controllers\SiteDocumentController;
@@ -153,6 +154,11 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('/nouveau', [SalesAgentFormController::class, 'create'])->name('create');
         Route::post('/', [SalesAgentFormController::class, 'store'])->name('store');
 
+        Route::get('/classement/export', [SalesRankingController::class, 'export'])->name('ranking.export');
+        Route::post('/classement/cloture', [SalesRankingController::class, 'close'])->name('ranking.close');
+        Route::post('/classement/publication', [SalesRankingController::class, 'publish'])->name('ranking.publish');
+        Route::get('/classement', [SalesRankingController::class, 'show'])->name('ranking.show');
+
         Route::prefix('{commercial}')->whereUuid('commercial')->group(function () {
             Route::get('/modifier', [SalesAgentFormController::class, 'edit'])->name('edit');
             Route::patch('/', [SalesAgentFormController::class, 'update'])->name('update');
@@ -168,10 +174,14 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::post('/demandes-zone/{zoneRequest}/acceptation', [SalesAgentAccessController::class, 'acceptZoneRequest'])->whereUuid('zoneRequest')->name('zone-requests.accept');
             Route::post('/demandes-zone/{zoneRequest}/refus', [SalesAgentAccessController::class, 'refuseZoneRequest'])->whereUuid('zoneRequest')->name('zone-requests.refuse');
             Route::post('/objectifs', [SalesAgentAccessController::class, 'saveObjective'])->name('objectives.save');
+            Route::post('/ajustements', [SalesAgentAccessController::class, 'proposeAdjustment'])->name('adjustments.store');
+            Route::post('/ajustements/{adjustment}/approbation', [SalesAgentAccessController::class, 'approveAdjustment'])->whereUuid('adjustment')->name('adjustments.approve');
+            Route::post('/ajustements/{adjustment}/refus', [SalesAgentAccessController::class, 'refuseAdjustment'])->whereUuid('adjustment')->name('adjustments.refuse');
+            Route::post('/appreciations', [SalesAgentAccessController::class, 'storeAppreciation'])->name('appreciations.store');
             Route::post('/suspension', [SalesAgentAccessController::class, 'suspend'])->name('suspend');
             Route::post('/reactivation', [SalesAgentAccessController::class, 'reactivate'])->name('reactivate');
             Route::post('/fin-de-contrat', [SalesAgentAccessController::class, 'terminate'])->name('terminate');
-            Route::get('/{tab?}', [SalesAgentController::class, 'show'])->where('tab', 'profil-documents|ouvriers|activite|zones|objectifs|acces-securite')->name('show');
+            Route::get('/{tab?}', [SalesAgentController::class, 'show'])->where('tab', 'profil-documents|ouvriers|activite|zones|objectifs|gains|acces-securite|historique')->name('show');
         });
 
         Route::get('/{commercial}/{rest?}', [SalesAgentController::class, 'legacy'])->where('rest', '.*')->name('legacy');

@@ -7,20 +7,26 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 /**
- * Onglets terrain de la fiche commercial (ouvriers, activité, zones, objectifs) : seul l’onglet affiché est lu dans
+ * Onglets de la fiche commercial (ouvriers, activité, zones, objectifs, gains, historique) : seul l’onglet affiché est lu dans
  * l’API (api/v1/admin/commercials/{id}/…), puis mis en forme.
  *
- * Paramètres d’URL : page et statut.
+ * Paramètres d’URL : page, statut et mois (gains).
  */
 class SalesAgentTabs
 {
-    public const LABELS = ['ouvriers' => 'Ouvriers suivis', 'activite' => 'Activité terrain', 'zones' => 'Zones', 'objectifs' => 'Objectifs'];
+    public const LABELS = ['ouvriers' => 'Ouvriers suivis', 'activite' => 'Activité terrain', 'zones' => 'Zones', 'objectifs' => 'Objectifs', 'gains' => 'Gains et ajustements', 'historique' => 'Historique'];
 
     private const PROSPECT_TONES = ['nouveau' => 'b', 'a_contacter' => 'a', 'rendez_vous' => 'p', 'a_completer' => 'o', 'converti' => 'g', 'abandonne' => 'n', 'pret' => 'g'];
 
     private const PROSPECT_LABELS = ['nouveau' => 'Nouveau', 'a_contacter' => 'À contacter', 'rendez_vous' => 'Rendez-vous', 'a_completer' => 'À compléter', 'converti' => 'Converti', 'abandonne' => 'Abandonné'];
 
     private const REQUEST_TONES = ['en_attente' => 'a', 'acceptee' => 'g', 'refusee' => 'r', 'annulee' => 'n'];
+
+    private const EARNING_TONES = ['en_attente' => 'a', 'confirmee' => 'b', 'versee' => 'g'];
+
+    private const ADJUSTMENT_TONES = ['proposee' => 'a', 'approuvee' => 'g', 'refusee' => 'r', 'payee' => 'g', 'annulee' => 'n'];
+
+    private const PAYOUT_TONES = ['a_payer' => 'a', 'en_traitement' => 'b', 'paye' => 'g', 'rejete' => 'r'];
 
     public function __construct(private AdminApi $api) {}
 
@@ -37,6 +43,8 @@ class SalesAgentTabs
             'activite' => $this->prospects($commercial, $page, array_key_exists((string) $status, self::PROSPECT_LABELS) ? $status : null),
             'zones' => $this->zones($commercial),
             'objectifs' => $this->objectives($commercial),
+            'gains' => $this->earnings($commercial, is_string($request->query('mois')) && preg_match('/^\d{4}-\d{2}$/', $request->query('mois')) ? $request->query('mois') : null),
+            'historique' => $this->history($commercial, $page),
         };
     }
 
@@ -108,6 +116,69 @@ class SalesAgentTabs
                 'comment' => $o['comment'], 'canEdit' => $o['can_edit'],
             ], $this->api->get("commercials/{$commercial}/objectives")->json('data')),
             'currentMonth' => now()->format('Y-m'),
+            'appreciations' => array_map(fn (array $a) => ['id' => $a['id'], 'body' => $a['body'], 'author' => $a['author'], 'date' => $this->day($a['created_at'])], $this->api->get("commercials/{$commercial}/appreciations")->json('data')),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function earnings(string $commercial, ?string $month): array
+    {
+        $d = $this->api->get("commercials/{$commercial}/earnings", array_filter(['month' => $month]))->json('data');
+
+        return [
+            'kind' => 'earnings',
+            'month' => $d['month'],
+            'monthLabel' => $d['month_label'],
+            'months' => $d['months'],
+            'totals' => ['confirmed' => $d['confirmed'], 'paid' => $d['paid'], 'pending' => $d['pending']],
+            'history' => array_map(fn (array $e) => [
+                'id' => $e['id'], 'worker' => $e['name'], 'workerId' => $e['worker_id'], 'amount' => $e['amount'],
+                'status' => ['value' => $e['status']['value'], 'label' => $e['status']['label'], 'tone' => self::EARNING_TONES[$e['status']['value']] ?? 'n'], 'date' => $this->day($e['event_at']),
+            ], $d['history']),
+            'adjustments' => array_map(fn (array $a) => [
+                'id' => $a['id'], 'kind' => $a['kind'], 'amount' => $a['amount'], 'reason' => $a['reason'], 'grantedOn' => $a['granted_on'], 'proposedBy' => $a['proposed_by']['full_name'], 'decidedBy' => $a['decided_by'], 'canDecide' => $a['can_decide'],
+                'status' => ['value' => $a['status']['value'], 'label' => $a['status']['label'], 'tone' => self::ADJUSTMENT_TONES[$a['status']['value']] ?? 'n'],
+            ], $d['adjustments']),
+            'payouts' => array_map(fn (array $p) => [
+                'id' => $p['id'], 'reference' => $p['reference'], 'start' => $p['period']['start'], 'end' => $p['period']['end'], 'amount' => $p['amount'],
+                'status' => ['value' => $p['status']['value'], 'label' => $p['status']['label'], 'tone' => self::PAYOUT_TONES[$p['status']['value']] ?? 'n'], 'paidAt' => $this->day($p['paid_at']),
+            ], $d['payouts']),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function history(string $commercial, int $page): array
+    {
+        $response = $this->api->get("commercials/{$commercial}/history", ['page' => $page]);
+        $today = Carbon::today(config('app.timezone'));
+
+        return [
+            'kind' => 'history',
+            'pagination' => $this->pagination($response->json('meta'), count($response->json('data'))),
+            'rows' => array_map(function (array $e) use ($today) {
+                $at = Carbon::parse($e['at'])->timezone(config('app.timezone'));
+
+                return [
+                    'id' => $e['id'],
+                    'day' => match (true) {
+                        $at->isSameDay($today) => 'Aujourd’hui',
+                        $at->isSameDay($today->copy()->subDay()) => 'Hier',
+                        default => $at->translatedFormat('l j F Y'),
+                    },
+                    'time' => $at->format('H:i'),
+                    'icon' => 'desktop_windows',
+                    'tone' => 'b',
+                    'author' => $e['author'],
+                    'role' => null,
+                    'action' => $e['what'],
+                    'kind' => ['value' => 'admin', 'label' => 'Back Office', 'tone' => 'b'],
+                    'target' => $e['detail'],
+                ];
+            }, $response->json('data')),
         ];
     }
 

@@ -117,21 +117,15 @@ class SalesAgentController extends Controller
     }
 
     /**
-     * Anciennes adresses (slug local `/commerciaux/koffi-yao/gains-paiements`, onglet ou page pas encore disponible) :
+     * Anciennes adresses (slug local `/commerciaux/koffi-yao/gains-paiements`, onglet retiré) :
      * une fiche de l’API rouvre sa vue d’ensemble ; un ancien slug lance la recherche du commercial dans la liste.
      */
     public function legacy(string $commercial): RedirectResponse
     {
         if (Str::isUuid($commercial)) {
-            Inertia::flash('toast', 'Cet onglet n’est pas encore disponible : voici la vue d’ensemble du commercial.');
+            Inertia::flash('toast', 'Cet onglet n’existe plus : voici la vue d’ensemble du commercial.');
 
             return to_route('sales-agents.show', $commercial);
-        }
-
-        if ($commercial === 'classement') {
-            Inertia::flash('toast', 'Cette page n’est pas encore disponible.');
-
-            return to_route('sales-agents.index');
         }
 
         $name = SalesAgent::query()->where('slug', $commercial)->first()?->name ?? Str::of($commercial)->replace('-', ' ')->title()->value();
@@ -141,11 +135,11 @@ class SalesAgentController extends Controller
     }
 
     /**
-     * @return array{create: bool, update: bool, terminate: bool, export: bool, documents: bool, validate: bool}
+     * @return array{create: bool, update: bool, terminate: bool, export: bool, documents: bool, validate: bool, proposeAdjustment: bool, approveAdjustment: bool}
      */
     private function can(Request $request): array
     {
-        return ['create' => $this->allowed($request, 'commercials.create'), 'update' => $this->allowed($request, 'commercials.update'), 'terminate' => $this->allowed($request, 'commercials.delete'), 'export' => $this->allowed($request, 'commercials.export'), 'documents' => $this->allowed($request, 'documents.validate'), 'validate' => $this->allowed($request, 'commercials.validate')];
+        return ['create' => $this->allowed($request, 'commercials.create'), 'update' => $this->allowed($request, 'commercials.update'), 'terminate' => $this->allowed($request, 'commercials.delete'), 'export' => $this->allowed($request, 'commercials.export'), 'documents' => $this->allowed($request, 'documents.validate'), 'validate' => $this->allowed($request, 'commercials.validate'), 'proposeAdjustment' => $this->allowed($request, 'commercial_earnings.update'), 'approveAdjustment' => $this->allowed($request, 'commercial_earnings.approve')];
     }
 
     /**

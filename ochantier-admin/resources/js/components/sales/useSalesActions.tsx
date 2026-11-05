@@ -3,7 +3,7 @@ import { ReasonDialog } from '@/components/promoters/dialogs';
 import { useAdminUi } from '@/contexts/AdminUiContext';
 import { formatNumber } from '@/lib/format';
 import type { Option } from '@/components/ui/Field';
-import type { SalesAccess, SalesObjective, SalesZoneRequest } from '@/types/sales';
+import type { SalesAccess, SalesAdjustment, SalesObjective, SalesZoneRequest } from '@/types/sales';
 import type { WorkerDocument } from '@/types/workers';
 import { router } from '@inertiajs/react';
 import { useState, type ReactNode } from 'react';
@@ -25,6 +25,32 @@ export function useSalesActions() {
 
     return {
         dialog,
+
+        adjustment: (a: AgentRef) =>
+            setDialog(
+                <FormDialog
+                    title="Proposer une prime ou une retenue"
+                    body={`${a.name} · Une autre personne devra l’approuver avant que le commercial la voie.`}
+                    icon="payments"
+                    okLabel="Proposer"
+                    url={`${base(a)}/ajustements`}
+                    onClose={close}
+                    fields={[
+                        { name: 'kind', label: 'Nature', type: 'select', required: true, options: [{ value: 'prime', label: 'Prime' }, { value: 'retenue', label: 'Retenue' }] },
+                        { name: 'amount', label: 'Montant (FCFA)', type: 'number', required: true },
+                        { name: 'reason', label: 'Motif (visible par le commercial après approbation)', type: 'textarea', required: true },
+                    ]}
+                />,
+            ),
+
+        approveAdjustment: (a: AgentRef, x: SalesAdjustment) =>
+            ui.confirm({ tone: 'success', icon: 'verified', title: `Approuver cette ${x.kind.label.toLowerCase()} ?`, body: `${fcfa(x.amount)} · ${x.reason}. Le commercial sera notifié.`, ok: 'Approuver', onConfirm: () => post(`${base(a)}/ajustements/${x.id}/approbation`) }),
+
+        refuseAdjustment: (a: AgentRef, x: SalesAdjustment) =>
+            setDialog(<ReasonDialog title={`Refuser cette ${x.kind.label.toLowerCase()} ?`} body={`${fcfa(x.amount)} · ${x.reason}`} icon="cancel" okLabel="Refuser" reasonLabel="Motif du refus *" categories={['Montant incorrect', 'Motif insuffisant', 'Doublon', 'Autre']} url={`${base(a)}/ajustements/${x.id}/refus`} onClose={close} />),
+
+        appreciation: (a: AgentRef) =>
+            setDialog(<FormDialog title="Ajouter une appréciation" body="Visible uniquement par l’équipe O’CHANTIER." icon="rate_review" okLabel="Enregistrer" url={`${base(a)}/appreciations`} onClose={close} fields={[{ name: 'body', label: 'Appréciation', type: 'textarea', required: true }]} />),
 
         /** Sans `worker`, tout le portefeuille part, avec les prospects non transmis. */
         transfer: (a: AgentRef, colleagues: Option[], worker?: { id: string; name: string }) =>

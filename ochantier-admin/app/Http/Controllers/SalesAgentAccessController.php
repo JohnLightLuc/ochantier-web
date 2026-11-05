@@ -92,6 +92,26 @@ class SalesAgentAccessController extends Controller
         return $this->send(fn () => $this->api->post("commercials/{$commercial}/objectives", ['month' => $request->input('month') ?: null, 'target' => $request->input('target') ?: null, 'comment' => trim((string) $request->input('comment')) ?: null]));
     }
 
+    public function proposeAdjustment(Request $request, string $commercial): RedirectResponse
+    {
+        return $this->send(fn () => $this->api->post("commercials/{$commercial}/adjustments", ['kind' => $request->input('kind'), 'amount' => $request->input('amount') ?: null, 'reason' => trim((string) $request->input('reason')) ?: null]));
+    }
+
+    public function approveAdjustment(string $commercial, string $adjustment): RedirectResponse
+    {
+        return $this->send(fn () => $this->api->post("commercials/{$commercial}/adjustments/{$adjustment}/approve"));
+    }
+
+    public function refuseAdjustment(Request $request, string $commercial, string $adjustment): RedirectResponse
+    {
+        return $this->send(fn () => $this->api->post("commercials/{$commercial}/adjustments/{$adjustment}/refuse", ['reason' => $this->reason($request)]));
+    }
+
+    public function storeAppreciation(Request $request, string $commercial): RedirectResponse
+    {
+        return $this->send(fn () => $this->api->post("commercials/{$commercial}/appreciations", ['body' => trim((string) $request->input('body')) ?: null]));
+    }
+
     /**
      * Motif choisi et précisions, dans le seul motif attendu par l’API.
      */

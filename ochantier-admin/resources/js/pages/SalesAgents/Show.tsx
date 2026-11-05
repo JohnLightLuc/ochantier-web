@@ -15,7 +15,9 @@ const TABS: [SalesTab, string][] = [
     ['activite', 'Activité terrain'],
     ['zones', 'Zones'],
     ['objectifs', 'Objectifs'],
+    ['gains', 'Gains et ajustements'],
     ['acces-securite', 'Accès et sécurité'],
+    ['historique', 'Historique'],
 ];
 
 /** Fiche du commercial : en-tête, indicateurs et onglets. */

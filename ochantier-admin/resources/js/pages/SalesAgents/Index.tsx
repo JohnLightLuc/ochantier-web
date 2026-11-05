@@ -72,12 +72,11 @@ export default function SalesAgentsIndex({ agents, filters, filterOptions, kpis,
         <>
             <Head title="Commerciaux" />
 
-            {(can.export || can.create) && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 'var(--space-2_5)', marginTop: -6 }}>
-                    {can.export && <Button label="Exporter" icon="download" variant="secondary" onClick={() => (window.location.href = exportUrl())} />}
-                    {can.create && <Button label="Ajouter un commercial" icon="add" variant="primary" onClick={() => router.visit('/commerciaux/nouveau')} />}
-                </div>
-            )}
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 'var(--space-2_5)', marginTop: -6 }}>
+                <Button label="Classement" icon="leaderboard" variant="secondary" onClick={() => router.visit('/commerciaux/classement')} />
+                {can.export && <Button label="Exporter" icon="download" variant="secondary" onClick={() => (window.location.href = exportUrl())} />}
+                {can.create && <Button label="Ajouter un commercial" icon="add" variant="primary" onClick={() => router.visit('/commerciaux/nouveau')} />}
+            </div>
 
             <div data-component="StatGrid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 'var(--space-4)' }}>
                 <StatCard label="Total commerciaux" value={String(kpis.total)} icon="groups" tone="g" />
