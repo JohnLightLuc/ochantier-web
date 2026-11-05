@@ -33,7 +33,7 @@ class SiteOperations
 
     public const ARCHIVABLE = [SiteStatus::Termine, SiteStatus::Annule];
 
-    public function __construct(private PromoterNotifier $notifier, private SiteClosure $closure) {}
+    public function __construct(private PromoterNotifier $notifier, private SiteClosure $closure, private OfferOperations $offers) {}
 
     public function suspend(Site $site, Admin $admin, string $reason, Request $request): void
     {
@@ -69,6 +69,7 @@ class SiteOperations
 
             foreach ($site->offers()->whereNotIn('status', [OfferStatus::Cloturee, OfferStatus::Annulee])->get() as $offer) {
                 /** @var Offer $offer */
+                $this->offers->closeNeeds($offer, $admin, $reason);
                 $offer->statusHistories()->create(['from_status' => $offer->status->value, 'to_status' => OfferStatus::Annulee->value, 'actor_type' => $admin->getMorphClass(), 'actor_id' => $admin->getKey()]);
                 $offer->update(['status' => OfferStatus::Annulee, 'cancellation_reason' => $reason]);
             }

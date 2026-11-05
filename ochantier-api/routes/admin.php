@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialPortfolioController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialRankingController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialTerritoryController;
+use App\Http\Controllers\Api\V1\Admin\Offer\OfferController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterAccountController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterRelationController;
@@ -121,6 +122,26 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('suspension', [WorkerReviewController::class, 'suspend'])->middleware('admin.can:workers.update')->name('suspend');
                 Route::delete('suspension', [WorkerReviewController::class, 'reactivate'])->middleware('admin.can:workers.update')->name('reactivate');
                 Route::post('exclusion', [WorkerReviewController::class, 'exclude'])->middleware('admin.can:workers.validate')->name('exclude');
+            });
+        });
+
+        // Besoins (offres des promoteurs) : liste, export, fiche, onglets et décisions.
+        Route::prefix('offers')->name('offers.')->controller(OfferController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:offers.read')->name('index');
+            Route::get('export', 'export')->middleware('admin.can:offers.export')->name('export');
+
+            Route::prefix('{offerId}')->whereUuid('offerId')->group(function () {
+                Route::middleware('admin.can:offers.read')->group(function () {
+                    Route::get('/', 'show')->name('show');
+                    Route::get('workers', 'workers')->name('workers');
+                    Route::get('documents', 'documents')->name('documents');
+                    Route::get('history', 'history')->name('history');
+                });
+                Route::post('suspension', 'suspend')->middleware('admin.can:offers.update')->name('suspend');
+                Route::delete('suspension', 'resume')->middleware('admin.can:offers.update')->name('resume');
+                Route::post('extension', 'extend')->middleware('admin.can:offers.update')->name('extend');
+                Route::post('cancellation', 'cancel')->middleware('admin.can:offers.validate')->name('cancel');
+                Route::post('closure', 'close')->middleware('admin.can:offers.validate')->name('close');
             });
         });
 

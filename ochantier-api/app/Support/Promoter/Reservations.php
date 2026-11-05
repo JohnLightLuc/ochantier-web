@@ -79,7 +79,7 @@ class Reservations
             'a_valider' => $query->whereHas('proposals', $pending)->whereDoesntHave('needs.missions', fn (Builder $query) => $query->where('status', '!=', MissionStatus::EnAttenteAcompte)),
             'confirmees' => $query->whereHas('needs.missions', fn (Builder $query) => $query->whereIn('status', [MissionStatus::Confirmee, MissionStatus::EnCours, MissionStatus::Terminee])),
             'refusees' => $query->whereHas('proposals', fn (Builder $query) => $query->where('status', ProposalStatus::Refusee)),
-            default => $query->whereIn('status', [OfferStatus::Soumise, OfferStatus::EnControle, OfferStatus::Publiee])->whereDoesntHave('proposals', $pending),
+            default => $query->whereIn('status', [OfferStatus::Soumise, OfferStatus::EnControle, OfferStatus::Publiee, OfferStatus::Suspendue])->whereDoesntHave('proposals', $pending),
         };
     }
 

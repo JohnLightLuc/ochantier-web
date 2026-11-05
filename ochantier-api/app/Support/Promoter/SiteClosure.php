@@ -4,10 +4,12 @@ namespace App\Support\Promoter;
 
 use App\Enums\AssignmentStatus;
 use App\Enums\MissionStatus;
+use App\Enums\NeedStatus;
 use App\Enums\SiteStatus;
 use App\Models\Admin;
 use App\Models\Assignment;
 use App\Models\Mission;
+use App\Models\Need;
 use App\Models\Site;
 use Illuminate\Support\Facades\DB;
 
@@ -50,6 +52,12 @@ class SiteClosure
                     'actual_end_date' => $now->toDateString(),
                     'closed_at' => $now,
                 ]);
+            }
+
+            foreach ($site->needs()->whereIn('status', [NeedStatus::Confirme, NeedStatus::EnCours])->get() as $need) {
+                /** @var Need $need */
+                $need->statusHistories()->create(['from_status' => $need->status->value, 'to_status' => NeedStatus::Termine->value, 'reason' => $reason, ...$actor]);
+                $need->forceFill(['status' => NeedStatus::Termine])->save();
             }
 
             $site->statusHistories()->create(['from_status' => $site->status->value, 'to_status' => SiteStatus::Termine->value, 'reason' => $reason, ...$actor]);
