@@ -42,7 +42,7 @@ class WorkerAdministration
         'trades' => 'métiers', 'specialties' => 'spécialités', 'skills' => 'compétences', 'references' => 'références',
     ];
 
-    public function __construct(private DocumentStore $documents, private CommercialNotifier $notifier) {}
+    public function __construct(private DocumentStore $documents, private CommercialNotifier $notifier, private CommercialPortfolio $portfolio) {}
 
     /**
      * @param  array<string, mixed>  $data  Champs validés (WorkerFormRequest).
@@ -79,7 +79,8 @@ class WorkerAdministration
         $before = $this->state($worker);
 
         DB::transaction(function () use ($worker, $data, $admin): void {
-            $worker->forceFill([...$this->attributes($data), 'current_commercial_id' => $data['commercial_id'], 'lock_version' => $worker->lock_version + 1])->save();
+            $this->portfolio->move($worker, $data['commercial_id'], 'Référent modifié depuis la fiche de l’ouvrier', $admin);
+            $worker->forceFill([...$this->attributes($data), 'lock_version' => $worker->lock_version + 1])->save();
             $this->syncRelations($worker, $data);
             $this->submitIfComplete($worker, $admin);
         });

@@ -80,16 +80,16 @@ class CommercialPerformance
     }
 
     /**
-     * Objectifs des 6 derniers mois, du plus récent au plus ancien.
+     * Derniers objectifs, du plus récent au plus ancien.
      *
      * @return list<array<string, mixed>>
      */
-    public function objectiveHistory(CommercialProfile $commercial): array
+    public function objectiveHistory(CommercialProfile $commercial, int $limit = 6): array
     {
         return $commercial->commercialObjectives()
             ->where('indicator', CommercialObjectiveIndicator::OuvriersValides)
             ->latest('period_start')
-            ->limit(6)
+            ->limit($limit)
             ->get()
             ->map(fn (CommercialObjective $objective) => $this->objective($commercial, CarbonImmutable::parse($objective->period_start)))
             ->filter()

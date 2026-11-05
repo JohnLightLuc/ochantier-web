@@ -3,6 +3,7 @@
 namespace App\Http\Resources\V1\Admin;
 
 use App\Enums\DocumentAudience;
+use App\Enums\ZoneRequestStatus;
 use App\Http\Resources\V1\DocumentResource;
 use App\Models\CommercialProfile;
 use App\Models\Document;
@@ -45,6 +46,7 @@ class CommercialDetailResource extends CommercialListResource
             'termination_reason' => $status === 'termine' ? $statistics->terminationReason($this->resource) : null,
             'access_link' => app(CommercialActivation::class)->state($user),
             'password_set' => $user->password_hash !== null,
+            'zone_request_pending' => $this->zoneRequests()->where('status', ZoneRequestStatus::EnAttente)->exists(),
             'documents' => $this->slots(),
             'ranking' => $statistics->ranking($this->resource, $status),
             'months' => $statistics->months($this->resource),

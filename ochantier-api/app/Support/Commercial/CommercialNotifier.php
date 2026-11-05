@@ -38,6 +38,9 @@ class CommercialNotifier
         'account.suspended' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => ''],
         'account.reactivated' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => ''],
         'account.terminated' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => ''],
+        'zone.accepted' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => ''],
+        'zone.refused' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => ''],
+        'objective.set' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => ''],
     ];
 
     /**
@@ -74,8 +77,16 @@ class CommercialNotifier
 
     public function validated(Worker $worker, ?int $commission): void
     {
+        $transferred = $worker->origin_commercial_id !== $worker->current_commercial_id;
+
         $this->notify($worker, 'worker.validated', 'Dossier validé',
-            $this->name($worker).' a été validé(e).'.($commission ? ' Commission de '.$this->earnings->money($commission).' confirmée.' : ''), 'worker.validated:'.$worker->id);
+            $this->name($worker).' a été validé(e).'.($commission && ! $transferred ? ' Commission de '.$this->earnings->money($commission).' confirmée.' : ''), 'worker.validated:'.$worker->id);
+
+        // Après un transfert, la commission reste au recruteur : lui seul en est informé.
+        if ($commission && $transferred && ($recruiter = $worker->originCommercial?->user)) {
+            $this->inbox->send($recruiter, 'worker.validated', self::EVENTS['worker.validated'], 'Commission confirmée',
+                $this->name($worker).' a été validé(e). Commission de '.$this->earnings->money($commission).' confirmée.', ['target' => ['type' => 'earnings', 'id' => null], 'cta' => 'Voir mes gains'], $worker, 'worker.validated.commission:'.$worker->id);
+        }
     }
 
     public function refused(Worker $worker, string $reason): void
@@ -175,7 +186,7 @@ class CommercialNotifier
 
     private function notify(Worker $worker, string $event, string $title, string $body, string $dedup): void
     {
-        $user = $worker->originCommercial?->user;
+        $user = $worker->currentCommercial?->user;
 
         if ($user) {
             $this->inbox->send($user, $event, self::EVENTS[$event], $title, $body,

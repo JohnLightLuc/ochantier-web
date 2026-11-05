@@ -35,7 +35,7 @@ class CommercialWorkers
     public function list(CommercialProfile $commercial, string $tab = 'tous', ?string $search = null): array
     {
         $base = fn () => Worker::query()
-            ->where('origin_commercial_id', $commercial->getKey())
+            ->where('current_commercial_id', $commercial->getKey())
             ->when($search, fn (Builder $query, string $search) => $query->where(fn (Builder $query) => $query
                 ->where('first_name', 'ilike', '%'.addcslashes($search, '%_\\').'%')
                 ->orWhere('last_name', 'ilike', '%'.addcslashes($search, '%_\\').'%')
