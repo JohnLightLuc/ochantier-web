@@ -58,6 +58,40 @@ class SalesAgentAccessController extends Controller
         return $this->send(fn () => $this->api->post("commercials/{$commercial}/documents/{$document}/reject", ['reason' => $this->reason($request)]));
     }
 
+    public function transfer(Request $request, string $commercial): RedirectResponse
+    {
+        return $this->send(fn () => $this->api->post("commercials/{$commercial}/workers/transfer", array_filter([
+            'to_commercial_id' => $request->input('to_commercial_id') ?: null,
+            'worker_ids' => array_values(array_filter((array) $request->input('worker_ids', []))) ?: null,
+            'reason' => trim((string) $request->input('reason')) ?: null,
+        ])));
+    }
+
+    public function addZone(Request $request, string $commercial): RedirectResponse
+    {
+        return $this->send(fn () => $this->api->post("commercials/{$commercial}/zones", ['commune_id' => $request->input('commune_id') ?: null, 'is_primary' => $request->input('kind') === 'primary']));
+    }
+
+    public function removeZone(string $commercial, string $commune): RedirectResponse
+    {
+        return $this->send(fn () => $this->api->delete("commercials/{$commercial}/zones/{$commune}"));
+    }
+
+    public function acceptZoneRequest(Request $request, string $commercial, string $zoneRequest): RedirectResponse
+    {
+        return $this->send(fn () => $this->api->post("commercials/{$commercial}/zone-requests/{$zoneRequest}/accept", array_filter(['primary_commune_id' => $request->input('primary_commune_id'), 'comment' => $request->input('comment')])));
+    }
+
+    public function refuseZoneRequest(Request $request, string $commercial, string $zoneRequest): RedirectResponse
+    {
+        return $this->send(fn () => $this->api->post("commercials/{$commercial}/zone-requests/{$zoneRequest}/refuse", ['reason' => $this->reason($request)]));
+    }
+
+    public function saveObjective(Request $request, string $commercial): RedirectResponse
+    {
+        return $this->send(fn () => $this->api->post("commercials/{$commercial}/objectives", ['month' => $request->input('month') ?: null, 'target' => $request->input('target') ?: null, 'comment' => trim((string) $request->input('comment')) ?: null]));
+    }
+
     /**
      * Motif choisi et précisions, dans le seul motif attendu par l’API.
      */

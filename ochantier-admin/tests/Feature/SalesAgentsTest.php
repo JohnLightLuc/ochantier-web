@@ -75,6 +75,7 @@ class SalesAgentsTest extends TestCase
             'trades' => [['label' => 'Maçon', 'count' => 4]],
             'access_link' => ['state' => ['value' => 'aucun', 'label' => 'Aucun lien envoyé'], 'sent_at' => null, 'expires_at' => null, 'used_at' => null],
             'password_set' => true,
+            'zone_request_pending' => true,
             'documents' => ['slots' => [['key' => 'commercial_cni', 'label' => 'Pièce d’identité du commercial', 'required' => true, 'state' => ['value' => 'manquant', 'label' => 'Manquant'], 'document' => null]], 'others' => []],
             'can' => ['suspend' => true, 'reactivate' => false, 'terminate' => true, 'edit' => true, 'send_link' => true],
             ...$overrides,
@@ -227,11 +228,35 @@ class SalesAgentsTest extends TestCase
         $this->post('/activation-commercial', ['token' => 'bon', 'password' => 'motdepasse2', 'password_confirmation' => 'motdepasse2'])->assertRedirect('/activation-commercial');
     }
 
+    public function test_the_field_tabs_read_only_their_own_data_and_decisions_reach_the_api(): void
+    {
+        Http::fake([
+            self::API.'/commercials/form-options' => Http::response(['data' => ['supervisors' => [['id' => self::ID, 'full_name' => 'Adama Coulibaly'], ['id' => 'c9', 'full_name' => 'Yao Konan']], 'cities' => [['id' => 'v1', 'name' => 'Abidjan', 'communes' => [['id' => 'c1', 'name' => 'Cocody']]]], 'document_types' => []]]),
+            self::API.'/commercials/'.self::ID.'/workers/transfer' => Http::response(['message' => '2 ouvriers transférés.']),
+            self::API.'/commercials/'.self::ID.'/workers*' => Http::response(['data' => [['id' => 'w1', 'full_name' => 'Jean Kouassi', 'reference' => 'OUV-000001', 'trade' => ['label' => 'Maçon'], 'commune' => ['name' => 'Cocody'], 'status' => ['value' => 'valide', 'label' => 'Validé'], 'submitted_at' => '2026-11-02T10:00:00+00:00']], 'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 20, 'total' => 1, 'counts' => ['valide' => 1, 'soumis' => 0], 'transfers' => []]]),
+            self::API.'/commercials/'.self::ID.'/prospects*' => Http::response(['data' => [['id' => 'p1', 'full_name' => 'Ali Touré', 'phone' => '+225 07', 'trade' => null, 'commune' => null, 'stage' => ['value' => 'pret', 'label' => 'Prêt à soumettre'], 'completion' => ['percent' => 100], 'hint' => 'Prêt à soumettre', 'created_at' => '2026-11-02T10:00:00+00:00', 'last_followup_at' => null]], 'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 20, 'total' => 1, 'counts' => ['nouveau' => 1]]]),
+            self::API.'/commercials/'.self::ID.'/zone-requests/'.self::ID.'/accept' => Http::response(['message' => 'Demande acceptée.']),
+            self::API.'/commercials/'.self::ID.'/zone-requests' => Http::response(['data' => ['requests' => [['id' => 'r1', 'communes' => [['id' => 'c1', 'name' => 'Cocody']], 'status' => ['value' => 'en_attente', 'label' => 'En attente'], 'created_at' => '2026-11-02T10:00:00+00:00', 'decision_comment' => null, 'decided_by' => null, 'decided_at' => null]]]]),
+            self::API.'/commercials/'.self::ID.'/objectives' => Http::response(['data' => [['period' => ['start' => '2026-11-01', 'end' => '2026-11-30'], 'period_label' => 'Nov 2026', 'target' => 8, 'achieved' => 2, 'percent' => 25, 'comment' => null, 'can_edit' => true]], 'message' => 'Objectif enregistré.']),
+            self::API.'/commercials/'.self::ID => Http::response(['data' => $this->detail()]),
+        ]);
+
+        $this->get('/commerciaux/'.self::ID.'/ouvriers')->assertOk()->assertInertia(fn (Assert $page) => $page->where('relations.kind', 'workers')->where('relations.rows.0.code', 'OUV-000001')->where('relations.pagination.to', 1)->has('relations.filters', 2)->has('fieldOptions.colleagues', 1)->where('fieldOptions.colleagues.0.label', 'Yao Konan')->where('tabCounts.zones', 1));
+        $this->get('/commerciaux/'.self::ID.'/activite?statut=nouveau')->assertOk()->assertInertia(fn (Assert $page) => $page->where('relations.kind', 'prospects')->where('relations.status', 'nouveau')->where('relations.rows.0.status.tone', 'g')->where('fieldOptions', null));
+        $this->get('/commerciaux/'.self::ID.'/zones')->assertOk()->assertInertia(fn (Assert $page) => $page->where('relations.requests.0.status.tone', 'a')->where('agent.zoneList.0.primary', true));
+        $this->get('/commerciaux/'.self::ID.'/objectifs')->assertOk()->assertInertia(fn (Assert $page) => $page->where('relations.rows.0.month', '2026-11'));
+
+        $this->from('/commerciaux/'.self::ID.'/ouvriers')->post('/commerciaux/'.self::ID.'/ouvriers/transfert', ['to_commercial_id' => 'c9', 'worker_ids' => ['w1'], 'reason' => 'Changement de secteur.'])->assertSessionHas('inertia.flash_data.toast', '2 ouvriers transférés.');
+        Http::assertSent(fn (ClientRequest $request) => str_ends_with($request->url(), '/workers/transfer') && $request['worker_ids'] === ['w1']);
+        $this->from('/commerciaux/'.self::ID.'/zones')->post('/commerciaux/'.self::ID.'/demandes-zone/'.self::ID.'/acceptation', ['primary_commune_id' => 'c1'])->assertSessionHas('inertia.flash_data.toast', 'Demande acceptée.');
+        $this->from('/commerciaux/'.self::ID.'/objectifs')->post('/commerciaux/'.self::ID.'/objectifs', ['month' => '2026-11', 'target' => '8'])->assertSessionHas('inertia.flash_data.toast', 'Objectif enregistré.');
+    }
+
     public function test_the_buttons_follow_the_admin_permissions(): void
     {
         $this->signIn(['commercials.read']);
         Http::fake([self::API.'/commercials*' => Http::response($this->listResponse([]))]);
 
-        $this->get('/commerciaux')->assertOk()->assertInertia(fn (Assert $page) => $page->where('can', ['create' => false, 'update' => false, 'terminate' => false, 'export' => false, 'documents' => false]));
+        $this->get('/commerciaux')->assertOk()->assertInertia(fn (Assert $page) => $page->where('can', ['create' => false, 'update' => false, 'terminate' => false, 'export' => false, 'documents' => false, 'validate' => false]));
     }
 }

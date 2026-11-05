@@ -6,6 +6,7 @@ use App\Models\SalesAgent;
 use App\Support\Api\AdminApi;
 use App\Support\Api\AdminUser;
 use App\Support\CommercialPresenter;
+use App\Support\SalesAgentTabs;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -26,7 +27,7 @@ class SalesAgentController extends Controller
     /**
      * Onglets de la fiche : segment d’URL => libellé.
      */
-    public const TABS = ['' => 'Vue d’ensemble', 'profil-documents' => 'Profil et documents', 'acces-securite' => 'Accès et sécurité'];
+    public const TABS = ['' => 'Vue d’ensemble', 'profil-documents' => 'Profil et documents', ...SalesAgentTabs::LABELS, 'acces-securite' => 'Accès et sécurité'];
 
     /**
      * Clé d’URL => paramètre de l’API.
@@ -103,7 +104,9 @@ class SalesAgentController extends Controller
             'agent' => $agent,
             'tab' => $tab,
             'documents' => $documents,
-            'tabCounts' => ['profil-documents' => count(array_filter($documents, fn (array $d) => $d['canDecide']))],
+            'tabCounts' => ['profil-documents' => count(array_filter($documents, fn (array $d) => $d['canDecide'])), 'zones' => $data['zone_request_pending'] ? 1 : 0],
+            'relations' => isset(SalesAgentTabs::LABELS[$tab]) ? app(SalesAgentTabs::class)->load($commercial, $tab, $request) : null,
+            'fieldOptions' => in_array($tab, ['ouvriers', 'zones'], true) ? app(SalesAgentFormController::class)->fieldOptions($commercial) : null,
             'access' => $tab === 'acces-securite' ? CommercialPresenter::access($this->api->get("commercials/{$commercial}/access")->json('data')) : null,
             'documentTypes' => Inertia::optional(fn () => app(SalesAgentFormController::class)->documentTypes()),
             'kpis' => CommercialPresenter::kpis($data),
@@ -138,11 +141,11 @@ class SalesAgentController extends Controller
     }
 
     /**
-     * @return array{create: bool, update: bool, terminate: bool, export: bool, documents: bool}
+     * @return array{create: bool, update: bool, terminate: bool, export: bool, documents: bool, validate: bool}
      */
     private function can(Request $request): array
     {
-        return ['create' => $this->allowed($request, 'commercials.create'), 'update' => $this->allowed($request, 'commercials.update'), 'terminate' => $this->allowed($request, 'commercials.delete'), 'export' => $this->allowed($request, 'commercials.export'), 'documents' => $this->allowed($request, 'documents.validate')];
+        return ['create' => $this->allowed($request, 'commercials.create'), 'update' => $this->allowed($request, 'commercials.update'), 'terminate' => $this->allowed($request, 'commercials.delete'), 'export' => $this->allowed($request, 'commercials.export'), 'documents' => $this->allowed($request, 'documents.validate'), 'validate' => $this->allowed($request, 'commercials.validate')];
     }
 
     /**

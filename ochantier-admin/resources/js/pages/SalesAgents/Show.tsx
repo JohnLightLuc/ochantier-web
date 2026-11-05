@@ -1,4 +1,5 @@
 import { UploadDocumentDialog } from '@/components/promoters/dialogs';
+import SalesRelationTabs from '@/components/sales/RelationTabs';
 import SalesAgentHeader from '@/components/sales/SalesAgentHeader';
 import { AccessTab, OverviewTab, ProfileTab } from '@/components/sales/tabs';
 import { useSalesActions } from '@/components/sales/useSalesActions';
@@ -10,11 +11,15 @@ import { useState } from 'react';
 const TABS: [SalesTab, string][] = [
     ['', 'Vue d’ensemble'],
     ['profil-documents', 'Profil et documents'],
+    ['ouvriers', 'Ouvriers suivis'],
+    ['activite', 'Activité terrain'],
+    ['zones', 'Zones'],
+    ['objectifs', 'Objectifs'],
     ['acces-securite', 'Accès et sécurité'],
 ];
 
 /** Fiche du commercial : en-tête, indicateurs et onglets. */
-export default function SalesAgentShow({ agent, tab, kpis, banner, can, documents, tabCounts, access, documentTypes }: SalesShowProps) {
+export default function SalesAgentShow({ agent, tab, kpis, banner, can, documents, tabCounts, access, documentTypes, relations, fieldOptions }: SalesShowProps) {
     const actions = useSalesActions();
     const [uploading, setUploading] = useState(false);
     const openUpload = () => {
@@ -63,6 +68,7 @@ export default function SalesAgentShow({ agent, tab, kpis, banner, can, document
 
                     {tab === '' && <OverviewTab agent={agent} />}
                     {tab === 'profil-documents' && <ProfileTab {...tabProps} />}
+                    {relations && <SalesRelationTabs agent={agent} relations={relations} options={fieldOptions} can={can} actions={actions} />}
                     {tab === 'acces-securite' && <AccessTab {...tabProps} />}
                 </section>
             </div>

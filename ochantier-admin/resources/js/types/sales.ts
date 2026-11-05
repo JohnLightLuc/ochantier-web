@@ -1,6 +1,8 @@
 import type { Option } from '@/components/ui/Field';
 import type { ComponentProps } from 'react';
 import type { UploadDocumentDialog } from '@/components/promoters/dialogs';
+import type { Badge } from '@/types';
+import type { TabPagination } from '@/types/promoters';
 import type { ValueBadge, WorkerDocument } from '@/types/workers';
 
 export type SalesAgentRow = {
@@ -11,6 +13,7 @@ export type SalesAgentRow = {
     phone: string | null;
     email: string | null;
     zone: string | null;
+    zoneList: { id: string; name: string; primary: boolean }[];
     secondaryZones: string[];
     supervisor: string | null;
     workersTotal: number;
@@ -29,7 +32,7 @@ type UploadType = NonNullable<ComponentProps<typeof UploadDocumentDialog>['types
 
 export type SalesFilters = Partial<Record<'q' | 'statut' | 'zone' | 'superviseur' | 'periode' | 'rapide' | 'tri' | 'sens' | 'page', string>>;
 
-export type SalesCan = { create: boolean; update: boolean; terminate: boolean; export: boolean; documents: boolean };
+export type SalesCan = { create: boolean; update: boolean; terminate: boolean; export: boolean; documents: boolean; validate: boolean };
 
 export type SalesIndexProps = {
     agents: { data: SalesAgentRow[]; currentPage: number; lastPage: number; total: number; from: number; to: number };
@@ -57,7 +60,7 @@ export type SalesAgent = SalesAgentRow & {
     can: { suspend: boolean; reactivate: boolean; terminate: boolean; edit: boolean; send_link: boolean };
 };
 
-export type SalesTab = '' | 'profil-documents' | 'acces-securite';
+export type SalesTab = '' | 'profil-documents' | 'ouvriers' | 'activite' | 'zones' | 'objectifs' | 'acces-securite';
 
 export type SalesAccess = {
     lastLoginAt: string | null;
@@ -77,4 +80,22 @@ export type SalesShowProps = {
     tabCounts: Partial<Record<SalesTab, number>>;
     access: SalesAccess | null;
     documentTypes?: UploadType[];
+    relations: SalesRelations | null;
+    fieldOptions: SalesFieldOptions | null;
 };
+
+export type SalesFieldOptions = { colleagues: Option[]; communes: Option[] };
+
+type StatusFilter = { label: string; value: string | null; count: number };
+
+export type SalesTransfer = { id: string; worker: { id: string; full_name: string }; from: string | null; to: string | null; direction: 'sortant' | 'entrant'; reason: string; by: string; at: string | null };
+
+export type SalesZoneRequest = { id: string; communes: { id: string; name: string }[]; status: ValueBadge; createdAt: string | null; comment: string | null; decidedBy: string | null; decidedAt: string | null };
+
+export type SalesObjective = { month: string; label: string; target: number; achieved: number; percent: number; comment: string | null; canEdit: boolean };
+
+export type SalesRelations =
+    | { kind: 'workers'; status: string | null; filters: StatusFilter[]; pagination: TabPagination; rows: { id: string; name: string; code: string; trade: string | null; commune: string | null; status: ValueBadge; submittedAt: string | null }[]; transfers: SalesTransfer[] }
+    | { kind: 'prospects'; status: string | null; filters: StatusFilter[]; pagination: TabPagination; rows: { id: string; name: string; phone: string | null; trade: string | null; commune: string | null; status: Badge & { value: string }; percent: number; hint: string; createdAt: string | null; lastFollowupAt: string | null }[] }
+    | { kind: 'zones'; requests: SalesZoneRequest[] }
+    | { kind: 'objectives'; rows: SalesObjective[]; currentMonth: string };

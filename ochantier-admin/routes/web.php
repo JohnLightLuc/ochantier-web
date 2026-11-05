@@ -162,10 +162,16 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::post('/lien-acces', [SalesAgentAccessController::class, 'sendLink'])->name('link.send');
             Route::delete('/lien-acces', [SalesAgentAccessController::class, 'revokeLink'])->name('link.revoke');
             Route::delete('/sessions/{session?}', [SalesAgentAccessController::class, 'revokeSessions'])->whereUuid('session')->name('sessions.revoke');
+            Route::post('/ouvriers/transfert', [SalesAgentAccessController::class, 'transfer'])->name('workers.transfer');
+            Route::post('/zones', [SalesAgentAccessController::class, 'addZone'])->name('zones.store');
+            Route::delete('/zones/{commune}', [SalesAgentAccessController::class, 'removeZone'])->whereUuid('commune')->name('zones.destroy');
+            Route::post('/demandes-zone/{zoneRequest}/acceptation', [SalesAgentAccessController::class, 'acceptZoneRequest'])->whereUuid('zoneRequest')->name('zone-requests.accept');
+            Route::post('/demandes-zone/{zoneRequest}/refus', [SalesAgentAccessController::class, 'refuseZoneRequest'])->whereUuid('zoneRequest')->name('zone-requests.refuse');
+            Route::post('/objectifs', [SalesAgentAccessController::class, 'saveObjective'])->name('objectives.save');
             Route::post('/suspension', [SalesAgentAccessController::class, 'suspend'])->name('suspend');
             Route::post('/reactivation', [SalesAgentAccessController::class, 'reactivate'])->name('reactivate');
             Route::post('/fin-de-contrat', [SalesAgentAccessController::class, 'terminate'])->name('terminate');
-            Route::get('/{tab?}', [SalesAgentController::class, 'show'])->where('tab', 'profil-documents|acces-securite')->name('show');
+            Route::get('/{tab?}', [SalesAgentController::class, 'show'])->where('tab', 'profil-documents|ouvriers|activite|zones|objectifs|acces-securite')->name('show');
         });
 
         Route::get('/{commercial}/{rest?}', [SalesAgentController::class, 'legacy'])->where('rest', '.*')->name('legacy');

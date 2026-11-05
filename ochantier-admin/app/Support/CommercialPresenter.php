@@ -43,6 +43,7 @@ class CommercialPresenter
             'phone' => $c['phone'],
             'email' => $c['email'],
             'zone' => $primary['name'] ?? null,
+            'zoneList' => array_map(fn (array $zone) => ['id' => $zone['id'], 'name' => $zone['name'], 'primary' => $zone['is_primary']], $c['zones']),
             'secondaryZones' => array_values(array_map(fn (array $zone) => $zone['name'], array_filter($c['zones'], fn (array $zone) => $zone['name'] !== ($primary['name'] ?? null)))),
             'supervisor' => $c['supervisor']['full_name'] ?? null,
             'workersTotal' => $c['workers']['total'],

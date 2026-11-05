@@ -95,14 +95,6 @@ export function ProfileTab({ agent: a, can, documents, actions, onUpload }: TabP
                         ]}
                     />
                 </Block>
-                <Block icon="location_on" title="Zones attribuées">
-                    <KeyValues
-                        items={[
-                            ['Zone principale', a.zone],
-                            ['Zones secondaires', a.secondaryZones.join(', ')],
-                        ]}
-                    />
-                </Block>
             </div>
             <DataTable
                 icon="folder_shared"

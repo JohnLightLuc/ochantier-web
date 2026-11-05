@@ -2,7 +2,8 @@ import FormDialog from '@/components/overlays/FormDialog';
 import { ReasonDialog } from '@/components/promoters/dialogs';
 import { useAdminUi } from '@/contexts/AdminUiContext';
 import { formatNumber } from '@/lib/format';
-import type { SalesAccess } from '@/types/sales';
+import type { Option } from '@/components/ui/Field';
+import type { SalesAccess, SalesObjective, SalesZoneRequest } from '@/types/sales';
 import type { WorkerDocument } from '@/types/workers';
 import { router } from '@inertiajs/react';
 import { useState, type ReactNode } from 'react';
@@ -24,6 +25,80 @@ export function useSalesActions() {
 
     return {
         dialog,
+
+        /** Sans `worker`, tout le portefeuille part, avec les prospects non transmis. */
+        transfer: (a: AgentRef, colleagues: Option[], worker?: { id: string; name: string }) =>
+            setDialog(
+                <FormDialog
+                    title={worker ? `Transférer ${worker.name}` : 'Transférer le portefeuille'}
+                    body={worker ? 'Le nouveau commercial suit l’ouvrier et corrige son dossier. La commission et les résultats restent au recruteur.' : `Tous les ouvriers suivis par ${a.name} et ses prospects non transmis passent au commercial choisi. Les commissions déjà engagées restent au recruteur ; celles des prospects iront au nouveau commercial.`}
+                    icon="move_down"
+                    okLabel="Transférer"
+                    url={`${base(a)}/ouvriers/transfert`}
+                    onClose={close}
+                    extra={worker ? { worker_ids: [worker.id] } : undefined}
+                    fields={[
+                        { name: 'to_commercial_id', label: 'Nouveau commercial', type: 'select', required: true, full: true, options: colleagues },
+                        { name: 'reason', label: 'Motif', type: 'textarea', required: true },
+                    ]}
+                />,
+            ),
+
+        addZone: (a: AgentRef & { zoneList: { id: string }[] }, communes: Option[]) =>
+            setDialog(
+                <FormDialog
+                    title="Attribuer une zone"
+                    body={a.name}
+                    icon="add_location_alt"
+                    okLabel="Attribuer"
+                    url={`${base(a)}/zones`}
+                    onClose={close}
+                    fields={[
+                        { name: 'commune_id', label: 'Commune', type: 'select', required: true, full: true, options: communes.filter((c) => !a.zoneList.some((z) => z.id === c.value)) },
+                        { name: 'kind', label: 'Type d’attribution', type: 'select', required: true, full: true, options: [{ value: 'secondary', label: 'Zone secondaire' }, { value: 'primary', label: 'Zone principale (l’actuelle devient secondaire)' }] },
+                    ]}
+                />,
+            ),
+
+        removeZone: (a: AgentRef, zone: { id: string; name: string }) => ui.confirm({ tone: 'danger', icon: 'wrong_location', title: `Retirer ${zone.name} ?`, body: 'Les ouvriers de cette commune restent suivis par ce commercial.', ok: 'Retirer', onConfirm: () => del(`${base(a)}/zones/${zone.id}`) }),
+
+        acceptZoneRequest: (a: AgentRef, r: SalesZoneRequest) =>
+            setDialog(
+                <FormDialog
+                    title="Accepter le changement de zone"
+                    body={`Les zones de ${a.name} seront remplacées par : ${r.communes.map((c) => c.name).join(', ')}.`}
+                    icon="check_circle"
+                    tone="success"
+                    okLabel="Accepter"
+                    url={`${base(a)}/demandes-zone/${r.id}/acceptation`}
+                    onClose={close}
+                    fields={[
+                        { name: 'primary_commune_id', label: 'Zone principale', type: 'select', required: true, full: true, options: r.communes.map((c) => ({ value: c.id, label: c.name })) },
+                        { name: 'comment', label: 'Commentaire', type: 'textarea' },
+                    ]}
+                />,
+            ),
+
+        refuseZoneRequest: (a: AgentRef, r: SalesZoneRequest) =>
+            setDialog(<ReasonDialog title="Refuser le changement de zone ?" body="Le commercial verra ce motif dans ses notifications." icon="cancel" okLabel="Refuser la demande" reasonLabel="Motif du refus *" categories={['Zone déjà couverte', 'Besoin non justifié', 'Résultats insuffisants', 'Autre']} url={`${base(a)}/demandes-zone/${r.id}/refus`} onClose={close} />),
+
+        objective: (a: AgentRef, months: Option[], objective?: SalesObjective) =>
+            setDialog(
+                <FormDialog
+                    title={objective ? `Modifier l’objectif · ${objective.label}` : 'Fixer un objectif'}
+                    body="Nombre d’ouvriers validés à atteindre sur le mois. Le commercial le voit dans son application."
+                    icon="flag"
+                    okLabel="Enregistrer"
+                    url={`${base(a)}/objectifs`}
+                    onClose={close}
+                    initial={objective ? { month: objective.month, target: String(objective.target), comment: objective.comment ?? '' } : {}}
+                    fields={[
+                        { name: 'month', label: 'Mois', type: 'select', required: true, options: objective ? [{ value: objective.month, label: objective.label }] : months },
+                        { name: 'target', label: 'Ouvriers validés visés', type: 'number', required: true },
+                        { name: 'comment', label: 'Commentaire', type: 'textarea' },
+                    ]}
+                />,
+            ),
 
         sendLink: (a: AgentRef) => {
             const active = a.status.value === 'actif';

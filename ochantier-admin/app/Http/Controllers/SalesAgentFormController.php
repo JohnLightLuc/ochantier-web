@@ -102,6 +102,27 @@ class SalesAgentFormController extends Controller
     }
 
     /**
+     * Listes des fenêtres de la fiche : collègues actifs (transferts) et communes (zones).
+     *
+     * @return array{colleagues: list<array{value: string, label: string}>, communes: list<array{value: string, label: string}>}
+     */
+    public function fieldOptions(string $commercial): array
+    {
+        return [
+            'colleagues' => array_values(array_filter(array_map(fn (array $s) => ['value' => $s['id'], 'label' => $s['full_name']], $this->options()['supervisors']), fn (array $s) => $s['value'] !== $commercial)),
+            'communes' => $this->communes(),
+        ];
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    private function communes(): array
+    {
+        return collect($this->options()['cities'])->flatMap(fn (array $city) => array_map(fn (array $commune) => ['value' => $commune['id'], 'label' => $city['name'] === $commune['name'] ? $commune['name'] : "{$commune['name']} · {$city['name']}"], $city['communes']))->values()->all();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function options(): array
@@ -116,7 +137,6 @@ class SalesAgentFormController extends Controller
     private function form(string $mode, ?array $agent, array $values): Response
     {
         $options = $this->options();
-        $communes = collect($options['cities'])->flatMap(fn (array $city) => array_map(fn (array $commune) => ['value' => $commune['id'], 'label' => $city['name'] === $commune['name'] ? $commune['name'] : "{$commune['name']} · {$city['name']}"], $city['communes']));
         $supervisors = array_map(fn (array $s) => ['value' => $s['id'], 'label' => $s['full_name']], $options['supervisors']);
 
         return Inertia::render('SalesAgents/Form', [
@@ -125,7 +145,7 @@ class SalesAgentFormController extends Controller
             'values' => $values,
             'options' => [
                 'supervisor' => array_values(array_filter($supervisors, fn (array $s) => $s['value'] !== ($agent['id'] ?? null))),
-                'commune' => $communes->values()->all(),
+                'commune' => $this->communes(),
             ],
             'header' => $this->header($mode === 'create' ? 'Ajouter un commercial' : 'Modifier un commercial', $agent ? "{$agent['name']} · {$agent['code']}" : 'Les champs marqués * sont obligatoires.', [['Commerciaux', '/commerciaux'], ...($agent ? [[$agent['name'], "/commerciaux/{$agent['id']}"]] : []), [$mode === 'create' ? 'Nouveau commercial' : 'Modifier']]),
         ]);
