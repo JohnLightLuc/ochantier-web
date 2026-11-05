@@ -13,7 +13,7 @@ class ModuleNavigationTest extends TestCase
     /**
      * Modules dont les pages lisent l’API (testés avec des réponses simulées, voir PromotersTest et WorkersTest).
      */
-    private const API_MODULES = ['/promoteurs', '/ouvriers', '/commerciaux', '/chantiers'];
+    private const API_MODULES = ['/promoteurs', '/ouvriers', '/commerciaux', '/chantiers', '/besoins'];
 
     public function test_every_sidebar_module_has_a_page(): void
     {

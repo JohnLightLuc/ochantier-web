@@ -28,8 +28,8 @@ use App\Http\Controllers\MatchingController;
 use App\Http\Controllers\MatchingRunController;
 use App\Http\Controllers\MatchingSelectionController;
 use App\Http\Controllers\NeedController;
-use App\Http\Controllers\NeedDocumentController;
-use App\Http\Controllers\NeedStatusController;
+use App\Http\Controllers\NeedDecisionController;
+use App\Http\Controllers\NeedRefreshController;
 use App\Http\Controllers\PaymentActionController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PromoterController;
@@ -205,37 +205,25 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('/{site}/{rest?}', [SiteController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
+    // Besoins : données de l’API (api/v1/admin/offers). Liste, fiche, onglets et décisions.
     Route::prefix('besoins')->name('needs.')->group(function () {
         Route::get('/', [NeedController::class, 'index'])->name('index');
         Route::get('/export', [NeedController::class, 'export'])->name('export');
-        Route::post('/actualisation-groupee', [NeedStatusController::class, 'refreshMany'])->name('refresh-many');
-        Route::get('/nouveau-besoin', [NeedController::class, 'create'])->name('create');
-        Route::post('/', [NeedController::class, 'store'])->name('store');
 
-        Route::prefix('{need}')->scopeBindings()->group(function () {
-            Route::get('/modifier', [NeedController::class, 'edit'])->name('edit');
-            Route::post('/', [NeedController::class, 'update'])->name('update');
-            Route::get('/fiche', [NeedController::class, 'sheet'])->name('sheet');
-
-            Route::post('/suspension', [NeedStatusController::class, 'suspend'])->name('suspend');
-            Route::post('/reactivation', [NeedStatusController::class, 'reactivate'])->name('reactivate');
-            Route::post('/annulation', [NeedStatusController::class, 'cancel'])->name('cancel');
-            Route::post('/cloture', [NeedStatusController::class, 'close'])->name('close');
-            Route::post('/archivage', [NeedStatusController::class, 'archive'])->name('archive');
-            Route::post('/actualisation', [NeedStatusController::class, 'refreshAll'])->name('refresh');
-            Route::post('/offres/{offer}/actualisation', [NeedStatusController::class, 'refreshOffer'])->name('offers.refresh');
-            Route::post('/offres/{offer}/prolongation', [NeedStatusController::class, 'extend'])->name('offers.extend');
-            Route::post('/offres/{offer}/cloture-candidatures', [NeedStatusController::class, 'closeApplications'])->name('offers.close-applications');
-
-            Route::post('/documents', [NeedDocumentController::class, 'store'])->name('documents.store');
-            Route::post('/documents/{document}/validation', [NeedDocumentController::class, 'approve'])->name('documents.approve');
-            Route::delete('/documents/{document}', [NeedDocumentController::class, 'destroy'])->name('documents.destroy');
-            Route::get('/documents/{document}/telechargement', [NeedDocumentController::class, 'download'])->name('documents.download');
-
-            Route::get('/{tab?}', [NeedController::class, 'show'])
-                ->where('tab', 'metiers|affectations|documents|historique')
-                ->name('show');
+        Route::prefix('{need}')->whereUuid('need')->group(function () {
+            Route::post('/suspension', [NeedDecisionController::class, 'suspend'])->name('suspend');
+            Route::delete('/suspension', [NeedDecisionController::class, 'resume'])->name('resume');
+            Route::post('/prolongation', [NeedDecisionController::class, 'extend'])->name('extend');
+            Route::post('/annulation', [NeedDecisionController::class, 'cancel'])->name('cancel');
+            Route::post('/cloture', [NeedDecisionController::class, 'close'])->name('close');
+            Route::get('/{tab?}', [NeedController::class, 'show'])->where('tab', 'ouvriers|documents|historique')->name('show');
         });
+
+        // Actualisation sur les données locales, tant que le module Affectations n’utilise pas l’API.
+        Route::post('/{need}/actualisation', [NeedRefreshController::class, 'refreshAll'])->name('refresh');
+        Route::post('/{need}/offres/{offer}/actualisation', [NeedRefreshController::class, 'refreshOffer'])->name('offers.refresh');
+
+        Route::get('/{need}/{rest?}', [NeedController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
     Route::prefix('matching')->name('matching.')->group(function () {
