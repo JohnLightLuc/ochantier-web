@@ -1,18 +1,27 @@
+import { UploadDocumentDialog } from '@/components/promoters/dialogs';
 import SalesAgentHeader from '@/components/sales/SalesAgentHeader';
-import { OverviewTab, ProfileTab } from '@/components/sales/tabs';
+import { AccessTab, OverviewTab, ProfileTab } from '@/components/sales/tabs';
 import { useSalesActions } from '@/components/sales/useSalesActions';
 import StatCard from '@/components/ui/StatCard';
 import type { SalesShowProps, SalesTab } from '@/types/sales';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
 
 const TABS: [SalesTab, string][] = [
     ['', 'Vue d’ensemble'],
-    ['profil', 'Profil'],
+    ['profil-documents', 'Profil et documents'],
+    ['acces-securite', 'Accès et sécurité'],
 ];
 
 /** Fiche du commercial : en-tête, indicateurs et onglets. */
-export default function SalesAgentShow({ agent, tab, kpis, banner, can }: SalesShowProps) {
+export default function SalesAgentShow({ agent, tab, kpis, banner, can, documents, tabCounts, access, documentTypes }: SalesShowProps) {
     const actions = useSalesActions();
+    const [uploading, setUploading] = useState(false);
+    const openUpload = () => {
+        setUploading(true);
+        if (!documentTypes) router.reload({ only: ['documentTypes'] });
+    };
+    const tabProps = { agent, can, documents, access, actions, onUpload: can.documents && agent.can.edit ? openUpload : undefined };
     const base = `/commerciaux/${agent.id}`;
     const label = TABS.find(([key]) => key === tab)?.[1];
 
@@ -32,6 +41,7 @@ export default function SalesAgentShow({ agent, tab, kpis, banner, can }: SalesS
                     <div role="tablist" style={{ display: 'flex', gap: 'var(--space-1)', borderBottom: '1px solid var(--c-line)', marginBottom: 'var(--space-5)', overflowX: 'auto' }}>
                         {TABS.map(([key, text]) => {
                             const on = key === tab;
+                            const count = tabCounts[key];
                             return (
                                 <Link
                                     key={key}
@@ -43,17 +53,22 @@ export default function SalesAgentShow({ agent, tab, kpis, banner, can }: SalesS
                                     style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', height: 'var(--control-md)', padding: '0 var(--space-4)', borderBottom: `2.5px solid ${on ? 'var(--c-primary)' : 'transparent'}`, marginBottom: -1, fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-base)', color: on ? 'var(--c-primary)' : 'var(--c-muted)', whiteSpace: 'nowrap', textDecoration: 'none' }}
                                 >
                                     {text}
+                                    {!!count && (
+                                        <span style={{ minWidth: 22, padding: '1px var(--space-1_5)', borderRadius: 'var(--radius-pill)', fontSize: 'var(--fs-xs)', textAlign: 'center', background: on ? 'var(--c-primary)' : 'var(--c-warning-bg)', color: on ? 'var(--c-on-dark)' : 'var(--c-warning-fg)' }}>{count}</span>
+                                    )}
                                 </Link>
                             );
                         })}
                     </div>
 
                     {tab === '' && <OverviewTab agent={agent} />}
-                    {tab === 'profil' && <ProfileTab agent={agent} />}
+                    {tab === 'profil-documents' && <ProfileTab {...tabProps} />}
+                    {tab === 'acces-securite' && <AccessTab {...tabProps} />}
                 </section>
             </div>
 
             {actions.dialog}
+            {uploading && <UploadDocumentDialog promoterName={agent.name} types={documentTypes} url={`${base}/documents`} onClose={() => setUploading(false)} />}
         </>
     );
 }

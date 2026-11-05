@@ -73,7 +73,10 @@ class SalesAgentsTest extends TestCase
             'ranking' => ['rank' => 2, 'total' => 5, 'label' => '2ᵉ sur 5 commerciaux'],
             'months' => [['month' => '2026-11', 'label' => 'Nov', 'registered' => 3, 'validated' => 2]],
             'trades' => [['label' => 'Maçon', 'count' => 4]],
-            'can' => ['suspend' => true, 'reactivate' => false, 'terminate' => true],
+            'access_link' => ['state' => ['value' => 'aucun', 'label' => 'Aucun lien envoyé'], 'sent_at' => null, 'expires_at' => null, 'used_at' => null],
+            'password_set' => true,
+            'documents' => ['slots' => [['key' => 'commercial_cni', 'label' => 'Pièce d’identité du commercial', 'required' => true, 'state' => ['value' => 'manquant', 'label' => 'Manquant'], 'document' => null]], 'others' => []],
+            'can' => ['suspend' => true, 'reactivate' => false, 'terminate' => true, 'edit' => true, 'send_link' => true],
             ...$overrides,
         ];
     }
@@ -136,7 +139,7 @@ class SalesAgentsTest extends TestCase
         Http::fake([self::API.'/commercials/'.self::ID => Http::response(['data' => $this->detail([
             'status' => ['value' => 'suspendu', 'label' => 'Suspendu'],
             'suspension' => ['reason' => 'Profils dupliqués.', 'at' => '2026-11-03T09:00:00+00:00', 'by' => 'Awa Koné'],
-            'can' => ['suspend' => false, 'reactivate' => true, 'terminate' => true],
+            'can' => ['suspend' => false, 'reactivate' => true, 'terminate' => true, 'edit' => true, 'send_link' => false],
         ])])]);
 
         $this->get('/commerciaux/'.self::ID)
@@ -149,14 +152,13 @@ class SalesAgentsTest extends TestCase
                 ->where('banner.title', 'Compte suspendu.')
                 ->where('banner.text', 'Motif : Profils dupliqués. Par Awa Koné.'));
 
-        $this->get('/commerciaux/'.self::ID.'/profil')->assertOk()->assertInertia(fn (Assert $page) => $page->where('tab', 'profil')->where('agent.address', 'Angré'));
+        $this->get('/commerciaux/'.self::ID.'/profil-documents')->assertOk()->assertInertia(fn (Assert $page) => $page->where('tab', 'profil-documents')->where('agent.address', 'Angré')->where('documents.0.status.label', 'Manquant'));
     }
 
     public function test_old_links_lead_to_the_search_or_the_list(): void
     {
         $this->get('/commerciaux/koffi-yao/gains-paiements')->assertRedirect('/commerciaux?q=Koffi%20Yao');
         $this->get('/commerciaux/classement')->assertRedirect('/commerciaux');
-        $this->get('/commerciaux/nouveau')->assertRedirect('/commerciaux');
         $this->get('/commerciaux/'.self::ID.'/gains-paiements')->assertRedirect('/commerciaux/'.self::ID);
     }
 
@@ -181,11 +183,55 @@ class SalesAgentsTest extends TestCase
             ->assertSessionHasErrors(['reason']);
     }
 
+    public function test_the_access_tab_reads_the_sessions_and_link_actions_reach_the_api(): void
+    {
+        Http::fake([
+            self::API.'/commercials/'.self::ID.'/access' => Http::response(['data' => ['password_set' => true, 'must_change_password' => false, 'phone_verified_at' => null, 'last_login_at' => null, 'failed_login_count' => 1, 'locked_until' => null, 'sessions' => [['id' => 's1', 'device_name' => 'Samsung A54', 'platform' => 'android', 'app_version' => '1.0', 'current' => false, 'last_activity_at' => '2026-11-03T08:00:00+00:00', 'created_at' => '2026-11-03T08:00:00+00:00']]]]),
+            self::API.'/commercials/'.self::ID.'/access-link' => Http::response(['message' => 'Lien envoyé, valable 72 heures.']),
+            self::API.'/commercials/'.self::ID => Http::response(['data' => $this->detail()]),
+        ]);
+
+        $this->get('/commerciaux/'.self::ID.'/acces-securite')->assertOk()->assertInertia(fn (Assert $page) => $page->where('access.sessions.0.device', 'Samsung A54')->where('access.failedLogins', 1));
+        $this->from('/commerciaux/'.self::ID)->post('/commerciaux/'.self::ID.'/lien-acces')->assertSessionHas('inertia.flash_data.toast', 'Lien envoyé, valable 72 heures.');
+    }
+
+    public function test_the_form_sends_the_api_body_and_errors_come_back_on_the_fields(): void
+    {
+        Http::fake([
+            self::API.'/commercials/form-options' => Http::response(['data' => ['supervisors' => [['id' => 'c9', 'full_name' => 'Yao Konan']], 'cities' => [['id' => 'v1', 'name' => 'Abidjan', 'communes' => [['id' => 'c1', 'name' => 'Cocody']]]], 'document_types' => []]]),
+            self::API.'/commercials' => Http::sequence()
+                ->push(['message' => 'Numéro déjà utilisé.', 'errors' => ['phone_number' => ['Numéro déjà utilisé.']]], 422)
+                ->push(['message' => 'Commercial créé.', 'data' => ['id' => self::ID]], 201),
+        ]);
+
+        $this->get('/commerciaux/nouveau')->assertOk()->assertInertia(fn (Assert $page) => $page->component('SalesAgents/Form')->where('options.commune.0.label', 'Cocody · Abidjan')->where('values.send_link', true));
+
+        $form = ['first_name' => 'Fatou', 'last_name' => 'Diallo', 'phone' => '+225 05 00 00 00 77', 'started_at' => '2026-11-02', 'primary_commune_id' => 'c1', 'secondary_commune_ids' => [], 'send_link' => true];
+        $this->from('/commerciaux/nouveau')->post('/commerciaux', $form)->assertSessionHasErrors(['phone' => 'Numéro déjà utilisé.']);
+        $this->post('/commerciaux', $form)->assertRedirect('/commerciaux/'.self::ID.'/acces-securite');
+
+        Http::assertSent(fn (ClientRequest $request) => $request->method() === 'POST' && $request['phone_number'] === '0500000077' && $request['dial_code'] === '225' && $request['send_link'] === true);
+    }
+
+    public function test_the_activation_page_explains_an_invalid_link_and_saves_the_password(): void
+    {
+        $this->app['auth']->forgetGuards();
+        Http::fake(fn (ClientRequest $request) => match (true) {
+            str_contains($request->url(), 'token=perime') => Http::response(['message' => 'Lien expiré.', 'errors' => ['token' => ['Lien expiré.']]], 422),
+            $request->method() === 'GET' => Http::response(['data' => ['first_name' => 'Fatou', 'phone' => '+225 05 •• •• 77', 'expires_at' => '2026-11-08T08:00:00+00:00']]),
+            default => Http::response(['message' => 'Mot de passe enregistré.']),
+        });
+
+        $this->get('/activation-commercial?token=perime')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Auth/Login')->where('step', 'activation')->where('firstName', null));
+        $this->get('/activation-commercial?token=bon')->assertOk()->assertInertia(fn (Assert $page) => $page->where('firstName', 'Fatou'));
+        $this->post('/activation-commercial', ['token' => 'bon', 'password' => 'motdepasse2', 'password_confirmation' => 'motdepasse2'])->assertRedirect('/activation-commercial');
+    }
+
     public function test_the_buttons_follow_the_admin_permissions(): void
     {
         $this->signIn(['commercials.read']);
         Http::fake([self::API.'/commercials*' => Http::response($this->listResponse([]))]);
 
-        $this->get('/commerciaux')->assertOk()->assertInertia(fn (Assert $page) => $page->where('can', ['update' => false, 'terminate' => false, 'export' => false]));
+        $this->get('/commerciaux')->assertOk()->assertInertia(fn (Assert $page) => $page->where('can', ['create' => false, 'update' => false, 'terminate' => false, 'export' => false, 'documents' => false]));
     }
 }

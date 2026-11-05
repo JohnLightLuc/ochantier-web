@@ -79,7 +79,40 @@ class CommercialPresenter
             'ranking' => $c['ranking'],
             'months' => $c['months'],
             'trades' => $c['trades'],
+            'accessLink' => ['state' => $c['access_link']['state']['value'], 'label' => $c['access_link']['state']['label'], 'sentAt' => self::day($c['access_link']['sent_at']), 'expiresAt' => self::day($c['access_link']['expires_at']), 'usedAt' => self::day($c['access_link']['used_at'])],
+            'passwordSet' => $c['password_set'],
             'can' => $c['can'],
+        ];
+    }
+
+    /**
+     * Pièces du dossier, dans la forme des pièces d’un ouvrier.
+     *
+     * @param  array<string, mixed>  $c
+     * @return list<array<string, mixed>>
+     */
+    public static function documents(array $c): array
+    {
+        return [
+            ...array_map(fn (array $s) => WorkerPresenter::document($s['document'], $s['key'], $s['label'], $s['required'], $s['state']['value']), $c['documents']['slots']),
+            ...array_map(fn (array $d) => WorkerPresenter::document($d, $d['type']['code'], $d['type']['label'], false, $d['status']['value']), $c['documents']['others']),
+        ];
+    }
+
+    /**
+     * Onglet Accès et sécurité.
+     *
+     * @param  array<string, mixed>  $a
+     * @return array<string, mixed>
+     */
+    public static function access(array $a): array
+    {
+        return [
+            'lastLoginAt' => self::day($a['last_login_at']),
+            'phoneVerified' => $a['phone_verified_at'] !== null,
+            'failedLogins' => $a['failed_login_count'],
+            'lockedUntil' => self::day($a['locked_until']),
+            'sessions' => array_map(fn (array $s) => ['id' => $s['id'], 'device' => $s['device_name'] ?? 'Appareil inconnu', 'platform' => $s['platform'], 'lastActivity' => self::day($s['last_activity_at'])], $a['sessions']),
         ];
     }
 
@@ -109,7 +142,7 @@ class CommercialPresenter
     public static function banner(array $c): ?array
     {
         return match ($c['status']['value']) {
-            'en_attente_activation' => ['tone' => 'warning', 'icon' => 'hourglass_top', 'title' => 'Activation en attente.', 'text' => 'Le commercial n’a pas encore créé son mot de passe personnel.'],
+            'en_attente_activation' => ['tone' => 'warning', 'icon' => 'hourglass_top', 'title' => 'Activation en attente.', 'text' => $c['password_set'] ? 'Mot de passe choisi : le compte deviendra actif à la première connexion.' : 'Le commercial n’a pas encore choisi son mot de passe. Lien : '.mb_strtolower($c['access_link']['state']['label']).'.'],
             'suspendu' => ['tone' => 'danger', 'icon' => 'block', 'title' => 'Compte suspendu.', 'text' => trim('Motif : '.($c['suspension']['reason'] ?? '—').' '.(($c['suspension']['by'] ?? null) ? "Par {$c['suspension']['by']}." : ''))],
             'termine' => ['tone' => 'neutral', 'icon' => 'person_off', 'title' => 'Contrat terminé.', 'text' => trim(($c['ended_at'] ? 'Depuis le '.Carbon::parse($c['ended_at'])->format('d/m/Y').'. ' : '').($c['termination_reason'] ?? '').' Ouvriers et gains conservés.')],
             default => null,

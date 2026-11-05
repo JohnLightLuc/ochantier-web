@@ -1,11 +1,14 @@
 import FormDialog from '@/components/overlays/FormDialog';
+import { ReasonDialog } from '@/components/promoters/dialogs';
 import { useAdminUi } from '@/contexts/AdminUiContext';
 import { formatNumber } from '@/lib/format';
+import type { SalesAccess } from '@/types/sales';
+import type { WorkerDocument } from '@/types/workers';
 import { router } from '@inertiajs/react';
 import { useState, type ReactNode } from 'react';
 
 /** Champs d’un commercial utilisés par les actions. */
-export type AgentRef = { id: string; name: string; status: { value: string } };
+export type AgentRef = { id: string; name: string; phone?: string | null; email?: string | null; status: { value: string } };
 
 export const fcfa = (n: number) => `${formatNumber(n)} FCFA`;
 
@@ -16,8 +19,40 @@ export function useSalesActions() {
     const close = () => setDialog(null);
     const base = (a: AgentRef) => `/commerciaux/${a.id}`;
 
+    const post = (url: string) => router.post(url, {}, { preserveScroll: true });
+    const del = (url: string) => router.delete(url, { preserveScroll: true });
+
     return {
         dialog,
+
+        sendLink: (a: AgentRef) => {
+            const active = a.status.value === 'actif';
+            ui.confirm({
+                tone: active ? 'warning' : 'primary',
+                icon: active ? 'lock_reset' : 'forward_to_inbox',
+                title: active ? 'Réinitialiser l’accès ?' : 'Envoyer le lien d’activation ?',
+                body: `Un lien valable 72 heures sera envoyé au ${a.phone ?? 'numéro du commercial'}${a.email ? ` et à ${a.email}` : ''}. Le lien précédent ne fonctionnera plus.${active ? ' Toutes ses sessions seront fermées.' : ''}`,
+                ok: 'Envoyer le lien',
+                onConfirm: () => post(`${base(a)}/lien-acces`),
+            });
+        },
+
+        revokeLink: (a: AgentRef) => ui.confirm({ tone: 'danger', icon: 'link_off', title: 'Révoquer le lien ?', body: 'Le lien actuel ne fonctionnera plus. Vous pourrez en envoyer un nouveau.', ok: 'Révoquer', onConfirm: () => del(`${base(a)}/lien-acces`) }),
+
+        revokeSession: (a: AgentRef, session?: SalesAccess['sessions'][number]) =>
+            ui.confirm({
+                tone: 'danger',
+                icon: 'logout',
+                title: session ? 'Fermer cette session ?' : 'Déconnecter tous les appareils ?',
+                body: session ? session.device : 'Toutes les sessions ouvertes seront fermées immédiatement.',
+                ok: session ? 'Fermer' : 'Tout déconnecter',
+                onConfirm: () => del(`${base(a)}/sessions${session ? `/${session.id}` : ''}`),
+            }),
+
+        validateDocument: (a: AgentRef, d: WorkerDocument) => ui.confirm({ tone: 'success', icon: 'verified', title: 'Valider cette pièce ?', body: `« ${d.label} » sera marquée comme vérifiée.`, ok: 'Valider la pièce', onConfirm: () => post(`${base(a)}/documents/${d.id}/validation`) }),
+
+        rejectDocument: (a: AgentRef, d: WorkerDocument) =>
+            setDialog(<ReasonDialog title="Rejeter cette pièce ?" body={`« ${d.label} » devra être remplacée.`} icon="cancel" okLabel="Rejeter la pièce" reasonLabel="Motif du rejet *" categories={['Document illisible', 'Document expiré', 'Incohérence d’identité', 'Mauvais document', 'Autre']} url={`${base(a)}/documents/${d.id}/rejet`} onClose={close} />),
 
         suspend: (a: AgentRef) =>
             setDialog(

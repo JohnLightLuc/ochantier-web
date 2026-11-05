@@ -9,6 +9,7 @@ use App\Http\Controllers\AttendanceActionController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AttendanceEntityController;
 use App\Http\Controllers\AttendanceSectionController;
+use App\Http\Controllers\Auth\CommercialActivationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\OtpController;
@@ -40,6 +41,7 @@ use App\Http\Controllers\ReviewActionController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SalesAgentAccessController;
 use App\Http\Controllers\SalesAgentController;
+use App\Http\Controllers\SalesAgentFormController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SiteController;
 use App\Http\Controllers\SiteDocumentController;
@@ -69,6 +71,10 @@ Route::middleware('guest')->group(function () {
     Route::get('/reinitialiser-mot-de-passe', [NewPasswordController::class, 'create'])->name('password.reset');
     Route::post('/reinitialiser-mot-de-passe', [NewPasswordController::class, 'store'])->middleware('throttle:6,1')->name('password.store');
 });
+
+// Lien reçu par un commercial (adresse fixée côté API : COMMERCIAL_ACTIVATION_URL).
+Route::get('/activation-commercial', [CommercialActivationController::class, 'create'])->name('commercial-activation');
+Route::post('/activation-commercial', [CommercialActivationController::class, 'store'])->middleware('throttle:6,1')->name('commercial-activation.store');
 
 Route::middleware('auth')->group(function () {
     Route::post('/deconnexion', [LoginController::class, 'destroy'])->name('logout');
@@ -144,12 +150,22 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
     Route::prefix('commerciaux')->name('sales-agents.')->group(function () {
         Route::get('/', [SalesAgentController::class, 'index'])->name('index');
         Route::get('/export', [SalesAgentController::class, 'export'])->name('export');
+        Route::get('/nouveau', [SalesAgentFormController::class, 'create'])->name('create');
+        Route::post('/', [SalesAgentFormController::class, 'store'])->name('store');
 
         Route::prefix('{commercial}')->whereUuid('commercial')->group(function () {
+            Route::get('/modifier', [SalesAgentFormController::class, 'edit'])->name('edit');
+            Route::patch('/', [SalesAgentFormController::class, 'update'])->name('update');
+            Route::post('/documents', [SalesAgentFormController::class, 'storeDocument'])->name('documents.store');
+            Route::post('/documents/{document}/validation', [SalesAgentAccessController::class, 'approveDocument'])->whereUuid('document')->name('documents.approve');
+            Route::post('/documents/{document}/rejet', [SalesAgentAccessController::class, 'rejectDocument'])->whereUuid('document')->name('documents.reject');
+            Route::post('/lien-acces', [SalesAgentAccessController::class, 'sendLink'])->name('link.send');
+            Route::delete('/lien-acces', [SalesAgentAccessController::class, 'revokeLink'])->name('link.revoke');
+            Route::delete('/sessions/{session?}', [SalesAgentAccessController::class, 'revokeSessions'])->whereUuid('session')->name('sessions.revoke');
             Route::post('/suspension', [SalesAgentAccessController::class, 'suspend'])->name('suspend');
             Route::post('/reactivation', [SalesAgentAccessController::class, 'reactivate'])->name('reactivate');
             Route::post('/fin-de-contrat', [SalesAgentAccessController::class, 'terminate'])->name('terminate');
-            Route::get('/{tab?}', [SalesAgentController::class, 'show'])->where('tab', 'profil')->name('show');
+            Route::get('/{tab?}', [SalesAgentController::class, 'show'])->where('tab', 'profil-documents|acces-securite')->name('show');
         });
 
         Route::get('/{commercial}/{rest?}', [SalesAgentController::class, 'legacy'])->where('rest', '.*')->name('legacy');

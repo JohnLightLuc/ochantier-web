@@ -262,7 +262,7 @@ class WorkerPresenter
      * @param  array<string, mixed>|null  $d
      * @return array<string, mixed>
      */
-    private static function document(?array $d, string $key, string $label, bool $required, string $state): array
+    public static function document(?array $d, string $key, string $label, bool $required, string $state): array
     {
         [$stateLabel, $tone] = self::DOCUMENT_STATES[$state] ?? [$state, 'n'];
 

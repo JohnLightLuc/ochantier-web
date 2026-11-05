@@ -72,9 +72,10 @@ export default function SalesAgentsIndex({ agents, filters, filterOptions, kpis,
         <>
             <Head title="Commerciaux" />
 
-            {can.export && (
+            {(can.export || can.create) && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 'var(--space-2_5)', marginTop: -6 }}>
-                    <Button label="Exporter" icon="download" variant="secondary" onClick={() => (window.location.href = exportUrl())} />
+                    {can.export && <Button label="Exporter" icon="download" variant="secondary" onClick={() => (window.location.href = exportUrl())} />}
+                    {can.create && <Button label="Ajouter un commercial" icon="add" variant="primary" onClick={() => router.visit('/commerciaux/nouveau')} />}
                 </div>
             )}
 
@@ -157,7 +158,7 @@ export default function SalesAgentsIndex({ agents, filters, filterOptions, kpis,
                                         <TextCell muted={!c.lastActivityOn}>{c.lastActivityOn ? formatDate(c.lastActivityOn) : '—'}</TextCell>
                                     </td>
                                     <RowActions
-                                        actions={[{ icon: 'visibility', label: 'Voir la fiche', onClick: open }]}
+                                        actions={[{ icon: 'visibility', label: 'Voir la fiche', onClick: open }, ...(can.update && c.status.value !== 'termine' ? [{ icon: 'edit', label: 'Modifier', onClick: () => router.visit(`/commerciaux/${c.id}/modifier`) }] : [])]}
                                         menu={rowMenu(c).length ? rowMenu(c) : undefined}
                                         menuOpen={menuFor === c.id}
                                         onToggleMenu={() => setMenuFor(menuFor === c.id ? null : c.id)}
@@ -176,7 +177,7 @@ export default function SalesAgentsIndex({ agents, filters, filterOptions, kpis,
                         </div>
                     ) : (
                         <div style={{ paddingTop: 'var(--space-4)' }}>
-                            <StateBlock kind="nodata" icon="badge" title="Aucun commercial enregistré" text="Les commerciaux créés apparaîtront ici." />
+                            <StateBlock kind="nodata" icon="badge" title="Aucun commercial enregistré" text="Les commerciaux créés apparaîtront ici." {...(can.create ? { actionLabel: 'Ajouter un commercial', onAction: () => router.visit('/commerciaux/nouveau') } : {})} />
                         </div>
                     ))}
 

@@ -9,7 +9,8 @@ type Props =
     | { step: 'forgot' }
     | { step: 'sent'; sentTo: string }
     | { step: 'reset'; token: string; email: string }
-    | { step: 'change' };
+    | { step: 'change' }
+    | { step: 'activation'; token: string; firstName: string | null; phone: string | null; done: boolean };
 
 const HERO = 'https://images.unsplash.com/photo-1694521787193-9293daeddbaa?fm=jpg&q=70&w=1600&auto=format&fit=crop';
 
@@ -19,7 +20,7 @@ const FEATURES = [
     { icon: 'groups', label: 'Accès\ncontrôlé' },
 ];
 
-const TITLES = { login: 'Connexion', otp: 'Vérification en deux étapes', forgot: 'Mot de passe oublié', sent: 'Lien envoyé', reset: 'Nouveau mot de passe', change: 'Nouveau mot de passe' };
+const TITLES = { login: 'Connexion', otp: 'Vérification en deux étapes', forgot: 'Mot de passe oublié', sent: 'Lien envoyé', reset: 'Nouveau mot de passe', change: 'Nouveau mot de passe', activation: 'Activation du compte commercial' };
 
 const PASSWORD_HINT = 'Au moins 12 caractères, avec une majuscule, une minuscule, un chiffre et un symbole.';
 
@@ -43,6 +44,7 @@ export default function Login(props: Props) {
                             {props.step === 'sent' && <SentNotice email={props.sentTo} />}
                             {props.step === 'reset' && <ResetForm token={props.token} email={props.email} />}
                             {props.step === 'change' && <ChangeForm />}
+                            {props.step === 'activation' && <ActivationForm token={props.token} firstName={props.firstName} phone={props.phone} done={props.done} />}
                             <p style={{ margin: 'var(--space-6) 0 0', textAlign: 'center', fontSize: 'var(--fs-base)', color: 'var(--c-muted)' }}>
                                 Besoin d’aide ? <a href="mailto:support@ochantier.ci" style={{ fontWeight: 'var(--fw-semibold)' }}>Contacter le support</a>
                             </p>
@@ -372,6 +374,46 @@ function PasswordField({ id, label, value, onChange, invalid, autoComplete, auto
 
 function PasswordHint() {
     return <p style={{ margin: 'var(--space-2) 0 var(--space-6)', fontSize: 'var(--fs-sm)', color: 'var(--c-muted)' }}>{PASSWORD_HINT}</p>;
+}
+
+function ActivationForm({ token, firstName, phone, done }: { token: string; firstName: string | null; phone: string | null; done: boolean }) {
+    const form = useForm({ token, password: '', password_confirmation: '' });
+
+    const submit = (e: FormEvent) => {
+        e.preventDefault();
+        form.post('/activation-commercial', { onFinish: () => form.reset('password', 'password_confirmation') });
+    };
+
+    if (done) {
+        return (
+            <CardHeader icon="check_circle" title="Mot de passe enregistré">
+                Ouvrez l’application O’CHANTIER Commercial et connectez-vous avec votre numéro de téléphone et ce mot de passe. Un code vous sera envoyé par SMS.
+            </CardHeader>
+        );
+    }
+
+    if (!firstName) {
+        return (
+            <CardHeader icon="link_off" title="Lien non valide">
+                Ce lien a expiré ou n’est plus valide. Demandez-en un nouveau à votre responsable O’CHANTIER.
+            </CardHeader>
+        );
+    }
+
+    return (
+        <form onSubmit={submit} noValidate>
+            <CardHeader icon="lock_reset" title={`Bonjour ${firstName}`}>
+                Choisissez votre mot de passe pour l’application O’CHANTIER Commercial{phone ? ` (compte ${phone})` : ''}.
+            </CardHeader>
+            <ErrorAlert message={form.errors.token ?? form.errors.password ?? form.errors.password_confirmation} />
+
+            <PasswordField id="password" label="Mot de passe" value={form.data.password} onChange={(v) => form.setData('password', v)} invalid={!!form.errors.password} autoComplete="new-password" />
+            <PasswordField id="password_confirmation" label="Confirmez le mot de passe" value={form.data.password_confirmation} onChange={(v) => form.setData('password_confirmation', v)} invalid={!!form.errors.password_confirmation} autoComplete="new-password" />
+            <p style={{ margin: '0 0 var(--space-5)', fontSize: 'var(--fs-sm)', color: 'var(--c-muted)' }}>Au moins 8 caractères, avec un chiffre.</p>
+
+            <Button type="submit" label="Enregistrer le mot de passe" iconRight="arrow_forward" variant="primary" size="lg" full disabled={form.processing} />
+        </form>
+    );
 }
 
 function ResetForm({ token, email }: { token: string; email: string }) {

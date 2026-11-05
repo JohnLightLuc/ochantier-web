@@ -26,7 +26,7 @@ class SalesAgentController extends Controller
     /**
      * Onglets de la fiche : segment d’URL => libellé.
      */
-    public const TABS = ['' => 'Vue d’ensemble', 'profil' => 'Profil'];
+    public const TABS = ['' => 'Vue d’ensemble', 'profil-documents' => 'Profil et documents', 'acces-securite' => 'Accès et sécurité'];
 
     /**
      * Clé d’URL => paramètre de l’API.
@@ -97,10 +97,15 @@ class SalesAgentController extends Controller
         $data = $this->api->get("commercials/{$commercial}")->json('data');
         $agent = CommercialPresenter::agent($data);
         $base = "/commerciaux/{$commercial}";
+        $documents = CommercialPresenter::documents($data);
 
         return Inertia::render('SalesAgents/Show', [
             'agent' => $agent,
             'tab' => $tab,
+            'documents' => $documents,
+            'tabCounts' => ['profil-documents' => count(array_filter($documents, fn (array $d) => $d['canDecide']))],
+            'access' => $tab === 'acces-securite' ? CommercialPresenter::access($this->api->get("commercials/{$commercial}/access")->json('data')) : null,
+            'documentTypes' => Inertia::optional(fn () => app(SalesAgentFormController::class)->documentTypes()),
             'kpis' => CommercialPresenter::kpis($data),
             'banner' => CommercialPresenter::banner($data),
             'can' => $this->can($request),
@@ -120,7 +125,7 @@ class SalesAgentController extends Controller
             return to_route('sales-agents.show', $commercial);
         }
 
-        if (in_array($commercial, ['nouveau', 'classement'], true)) {
+        if ($commercial === 'classement') {
             Inertia::flash('toast', 'Cette page n’est pas encore disponible.');
 
             return to_route('sales-agents.index');
@@ -133,11 +138,11 @@ class SalesAgentController extends Controller
     }
 
     /**
-     * @return array{update: bool, terminate: bool, export: bool}
+     * @return array{create: bool, update: bool, terminate: bool, export: bool, documents: bool}
      */
     private function can(Request $request): array
     {
-        return ['update' => $this->allowed($request, 'commercials.update'), 'terminate' => $this->allowed($request, 'commercials.delete'), 'export' => $this->allowed($request, 'commercials.export')];
+        return ['create' => $this->allowed($request, 'commercials.create'), 'update' => $this->allowed($request, 'commercials.update'), 'terminate' => $this->allowed($request, 'commercials.delete'), 'export' => $this->allowed($request, 'commercials.export'), 'documents' => $this->allowed($request, 'documents.validate')];
     }
 
     /**

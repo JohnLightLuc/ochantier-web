@@ -6,6 +6,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import { useAdminUi } from '@/contexts/AdminUiContext';
 import { formatDate } from '@/lib/format';
 import type { SalesShowProps } from '@/types/sales';
+import { router } from '@inertiajs/react';
 import { useState } from 'react';
 import type { SalesActions } from './useSalesActions';
 
@@ -34,6 +35,7 @@ export default function SalesAgentHeader({ agent: a, banner, can, actions }: Pro
                 ui.toast(`Matricule ${a.code} copié.`);
             },
         },
+        ...(can.update && a.can.send_link && a.status.value === 'actif' ? [{ icon: 'lock_reset', label: 'Réinitialiser l’accès', onClick: () => actions.sendLink(a) }] : []),
         ...(can.terminate && a.can.terminate ? [{ icon: 'person_off', label: 'Mettre fin au contrat', danger: true, onClick: () => actions.terminate(a) }] : []),
     ];
 
@@ -59,6 +61,8 @@ export default function SalesAgentHeader({ agent: a, banner, can, actions }: Pro
                     </div>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', alignItems: 'center', position: 'relative' }}>
+                    {can.update && a.can.edit && <Button label="Modifier" icon="edit" variant="secondary" onClick={() => router.visit(`/commerciaux/${a.id}/modifier`)} />}
+                    {can.update && a.can.send_link && a.status.value === 'en_attente_activation' && <Button label="Envoyer le lien" icon="forward_to_inbox" variant="primary" onClick={() => actions.sendLink(a)} />}
                     {can.update && a.can.suspend && <Button label="Suspendre" icon="block" variant="danger-soft" onClick={() => actions.suspend(a)} />}
                     {can.update && a.can.reactivate && <Button label="Réactiver" icon="settings_backup_restore" variant="primary" onClick={() => actions.reactivate(a)} />}
                     <Button icon="more_horiz" variant="secondary" aria-label="Plus d’actions" aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)} />
