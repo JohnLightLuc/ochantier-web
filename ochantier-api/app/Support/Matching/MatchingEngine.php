@@ -8,6 +8,7 @@ use App\Enums\SuggestionStatus;
 use App\Enums\WorkerReservationStatus;
 use App\Enums\WorkerVerificationStatus;
 use App\Models\Document;
+use App\Models\MatchingDerogation;
 use App\Models\MatchingWeightSet;
 use App\Models\Need;
 use App\Models\Setting;
@@ -52,9 +53,10 @@ class MatchingEngine
         $requested = $need->requestedWorkers->pluck('worker_id')->flip();
         $rules = $weights->exclusion_rules ?? [];
         $levels = $this->levels();
+        $derogations = MatchingDerogation::query()->where('need_id', $need->getKey())->whereNotNull('approved_at')->whereNull('revoked_at')->get()->groupBy('worker_id');
 
         return $workers
-            ->map(fn (Worker $worker) => $this->score($need, $worker, $weights, $rules, $levels, $busy->has($worker->id), $refused->has($worker->id), $requested->has($worker->id)))
+            ->map(fn (Worker $worker) => $this->score($need, $worker, $weights, $rules, $levels, $busy->has($worker->id), $refused->has($worker->id), $requested->has($worker->id), $derogations->get($worker->id, collect())))
             ->sortBy([
                 fn (array $a, array $b) => $b['eligible'] <=> $a['eligible'],
                 fn (array $a, array $b) => $b['requested'] <=> $a['requested'],
@@ -99,9 +101,10 @@ class MatchingEngine
     /**
      * @param  array<string, mixed>  $rules
      * @param  array<string, int>  $levels
+     * @param  Collection<int, MatchingDerogation>  $derogations  Dérogations accordées à cet ouvrier sur ce besoin.
      * @return array<string, mixed>
      */
-    private function score(Need $need, Worker $worker, MatchingWeightSet $weights, array $rules, array $levels, bool $busy, bool $refused, bool $requested): array
+    private function score(Need $need, Worker $worker, MatchingWeightSet $weights, array $rules, array $levels, bool $busy, bool $refused, bool $requested, Collection $derogations): array
     {
         /** @var WorkerTrade $trade */
         $trade = $worker->workerTrades->firstWhere('trade_id', $need->trade_id);
@@ -117,7 +120,15 @@ class MatchingEngine
         $exclusions = [];
         $warnings = [];
 
-        $exclude = function (string $criterion, string $expected, string $found, bool $absolute = false) use (&$exclusions): void {
+        $exclude = function (string $criterion, string $expected, string $found, bool $absolute = false) use (&$exclusions, &$warnings, $derogations): void {
+            $derogation = $absolute ? null : $derogations->firstWhere('criterion', $criterion);
+
+            if ($derogation) {
+                $warnings[] = "Dérogation accordée ({$expected}) : {$derogation->justification}";
+
+                return;
+            }
+
             $exclusions[] = compact('criterion', 'expected', 'found', 'absolute');
         };
 

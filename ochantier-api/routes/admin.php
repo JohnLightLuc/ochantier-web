@@ -134,6 +134,12 @@ Route::middleware('auth:admin')->group(function () {
             Route::post('offers/{offerId}/send', 'send')->whereUuid('offerId')->middleware('admin.can:matching.update')->name('offers.send');
             Route::post('suggestions/{suggestionId}/contact', 'contact')->whereUuid('suggestionId')->middleware('admin.can:matching.update')->name('suggestions.contact');
             Route::post('suggestions/{suggestionId}/response', 'respond')->whereUuid('suggestionId')->middleware('admin.can:matching.update')->name('suggestions.response');
+            Route::post('suggestions/{suggestionId}/exclusion', 'exclude')->whereUuid('suggestionId')->middleware('admin.can:matching.update')->name('suggestions.exclude');
+            Route::delete('exclusions/{exclusionId}', 'lift')->whereUuid('exclusionId')->middleware('admin.can:matching.update')->name('exclusions.lift');
+            Route::post('exclusions/{exclusionId}/derogation', 'requestDerogation')->whereUuid('exclusionId')->middleware('admin.can:matching.update')->name('exclusions.derogation');
+            Route::get('derogations', 'derogations')->middleware('admin.can:matching.read')->name('derogations');
+            Route::post('derogations/{derogationId}/approve', 'approveDerogation')->whereUuid('derogationId')->middleware('admin.can:matching.approve')->name('derogations.approve');
+            Route::delete('derogations/{derogationId}', 'revokeDerogation')->whereUuid('derogationId')->middleware('admin.can:matching.approve')->name('derogations.revoke');
         });
 
         // Besoins (offres des promoteurs) : liste, export, fiche, onglets et décisions.

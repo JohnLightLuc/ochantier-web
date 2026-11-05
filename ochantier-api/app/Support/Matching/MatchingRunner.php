@@ -12,6 +12,7 @@ use App\Enums\ProposalStatus;
 use App\Enums\SiteStatus;
 use App\Enums\SuggestionStatus;
 use App\Models\Admin;
+use App\Models\MatchingDerogation;
 use App\Models\MatchingExclusion;
 use App\Models\MatchingRun;
 use App\Models\MatchingWeightSet;
@@ -125,17 +126,17 @@ class MatchingRunner
         }
 
         foreach ($excluded as $evaluation) {
-            $first = $evaluation['exclusions'][0];
-
-            MatchingExclusion::query()->create([
-                'need_id' => $need->getKey(),
-                'worker_id' => $evaluation['worker']->getKey(),
-                'matching_run_id' => $run->getKey(),
-                'nature' => collect($evaluation['exclusions'])->contains('absolute', true) ? MatchingExclusionNature::Reglementaire : MatchingExclusionNature::Operationnelle,
-                'criterion' => $first['criterion'],
-                'comment' => collect($evaluation['exclusions'])->map(fn (array $item) => $item['expected'].' : '.$item['found'])->implode(' ; '),
-                'decided_by_type' => ExclusionDecider::Systeme,
-            ]);
+            foreach ($evaluation['exclusions'] as $item) {
+                MatchingExclusion::query()->create([
+                    'need_id' => $need->getKey(),
+                    'worker_id' => $evaluation['worker']->getKey(),
+                    'matching_run_id' => $run->getKey(),
+                    'nature' => $item['absolute'] ? MatchingExclusionNature::Reglementaire : MatchingExclusionNature::Operationnelle,
+                    'criterion' => $item['criterion'],
+                    'comment' => $item['expected'].' : '.$item['found'],
+                    'decided_by_type' => ExclusionDecider::Systeme,
+                ]);
+            }
         }
 
         if ($need->status !== NeedStatus::Matching) {
@@ -151,11 +152,11 @@ class MatchingRunner
      *
      * @return list<array<string, mixed>>
      */
-    public function results(Offer $offer): array
+    public function results(Offer $offer, Admin $admin): array
     {
         $staleAfter = (int) (Setting::query()->whereKey('matching.obsolete_after_days')->value('value') ?? 3);
 
-        return $offer->needs()->with(['trade', 'specialty'])->orderBy('reference')->get()->map(function (Need $need) use ($staleAfter) {
+        return $offer->needs()->with(['trade', 'specialty'])->orderBy('reference')->get()->map(function (Need $need) use ($staleAfter, $admin) {
             $run = $need->matchingRuns()->with('triggeredByAdmin')->latest('executed_at')->latest('id')->first();
 
             return [
@@ -168,16 +169,60 @@ class MatchingRunner
                 'daily_budget' => $need->indicative_daily_budget,
                 'status' => ['value' => $need->status->value, 'label' => $need->status->label()],
                 'last_run' => $run ? ['at' => $run->executed_at?->toIso8601String(), 'by' => $run->triggeredByAdmin?->fullName(), 'type' => $run->run_type?->value, 'stale' => $run->executed_at?->lt(now()->subDays($staleAfter)) ?? false] : null,
-                'suggestions' => $need->suggestions()->whereNotIn('status', [SuggestionStatus::Expire])->with(['worker.workerTrades.trade', 'worker.residenceCommune', 'workerOfferContacts', 'workerResponses', 'need'])->orderBy('rank')->orderByDesc('score')->get()->map(fn (Suggestion $suggestion) => $this->suggestion($suggestion))->values()->all(),
-                'exclusions' => $run ? MatchingExclusion::query()->where('matching_run_id', $run->getKey())->with('worker')->get()->map(fn (MatchingExclusion $exclusion) => [
+                'suggestions' => $need->suggestions()->whereNotIn('status', [SuggestionStatus::Expire, SuggestionStatus::Ecarte])->with(['worker.workerTrades.trade', 'worker.residenceCommune', 'workerOfferContacts', 'workerResponses', 'need'])->orderBy('rank')->orderByDesc('score')->get()->map(fn (Suggestion $suggestion) => $this->suggestion($suggestion))->values()->all(),
+                'exclusions' => $run ? $this->exclusions($need, $run, $admin) : [],
+            ];
+        })->all();
+    }
+
+    /**
+     * Exclusions du dernier calcul et écarts manuels du besoin, avec leur dérogation.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function exclusions(Need $need, MatchingRun $run, Admin $admin): array
+    {
+        $exclusions = MatchingExclusion::query()
+            ->where('need_id', $need->getKey())
+            ->where(fn ($query) => $query->where('matching_run_id', $run->getKey())->orWhere('nature', MatchingExclusionNature::Manuelle))
+            ->with('worker')->oldest()->oldest('id')->get();
+        $manual = $exclusions->where('nature', MatchingExclusionNature::Manuelle)->pluck('worker_id')->flip();
+        $blocked = $exclusions->where('nature', MatchingExclusionNature::Reglementaire)->pluck('worker_id')->flip();
+        $derogations = MatchingDerogation::query()->where('need_id', $need->getKey())->whereNull('revoked_at')->with(['requestedByAdmin', 'approvedByAdmin'])->get();
+
+        return $exclusions
+            // Un écart manuel remplace le motif « a refusé ou a été écarté » que le calcul suivant déduit de lui.
+            ->reject(fn (MatchingExclusion $exclusion) => $exclusion->nature !== MatchingExclusionNature::Manuelle && $manual->has($exclusion->worker_id))
+            ->map(function (MatchingExclusion $exclusion) use ($derogations, $blocked, $admin) {
+                $derogation = $derogations->first(fn (MatchingDerogation $item) => $item->worker_id === $exclusion->worker_id && $item->criterion === $exclusion->criterion);
+
+                return [
                     'id' => $exclusion->id,
                     'worker' => ['id' => $exclusion->worker_id, 'full_name' => trim($exclusion->worker->first_name.' '.$exclusion->worker->last_name), 'reference' => $exclusion->worker->reference],
                     'nature' => ['value' => $exclusion->nature->value, 'label' => $exclusion->nature->label()],
                     'criterion' => $exclusion->criterion,
                     'comment' => $exclusion->comment,
-                ])->values()->all() : [],
-            ];
-        })->all();
+                    'can_request_derogation' => $exclusion->nature === MatchingExclusionNature::Operationnelle && ! $blocked->has($exclusion->worker_id) && $derogation === null,
+                    'can_lift' => $exclusion->nature === MatchingExclusionNature::Manuelle,
+                    'derogation' => $derogation ? $this->derogation($derogation, $admin) : null,
+                ];
+            })->values()->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function derogation(MatchingDerogation $derogation, Admin $admin): array
+    {
+        return [
+            'id' => $derogation->id,
+            'criterion' => $derogation->criterion,
+            'justification' => $derogation->justification,
+            'state' => $derogation->approved_at ? 'approuvee' : 'en_attente',
+            'requested_by' => $derogation->requestedByAdmin?->fullName(),
+            'approved_by' => $derogation->approvedByAdmin?->fullName(),
+            'can_decide' => $derogation->approved_at === null && $derogation->requested_by_admin_id !== $admin->getKey(),
+        ];
     }
 
     /**

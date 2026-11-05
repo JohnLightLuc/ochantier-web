@@ -10,6 +10,7 @@ use App\Enums\SuggestionStatus;
 use App\Models\Admin;
 use App\Models\Assignment;
 use App\Models\AuditLog;
+use App\Models\MatchingDerogation;
 use App\Models\MatchingExclusion;
 use App\Models\MatchingWeightSet;
 use App\Models\Notification;
@@ -252,6 +253,89 @@ class MatchingAdminTest extends PromoterTestCase
 
         $this->assertSame(ProposalStatus::Expiree, $proposal->fresh()->status);
         $this->assertSame(SiteStatus::Recherche, $this->site->fresh()->status);
+    }
+
+    public function test_a_worker_can_be_set_aside_then_brought_back(): void
+    {
+        $offer = $this->openOffer();
+        $this->asAdmin()->postJson($this->url($offer, '/run'))->assertOk();
+        $first = $this->suggestions($offer)[0];
+
+        $response = $this->postJson("/api/v1/admin/matching/suggestions/{$first['id']}/exclusion", ['reason' => 'Mauvais retour du dernier chantier.'])->assertOk();
+        $exclusion = collect($response->json('data.needs'))->flatMap(fn (array $need) => $need['exclusions'])->firstWhere('worker.id', $first['worker']['id']);
+        $this->assertSame('manuelle', $exclusion['nature']['value']);
+        $this->assertTrue($exclusion['can_lift']);
+        $this->assertFalse($exclusion['can_request_derogation']);
+
+        $this->postJson($this->url($offer, '/run'))->assertOk();
+        $this->assertNull(collect($this->suggestions($offer))->firstWhere('worker.id', $first['worker']['id']));
+
+        $this->deleteJson("/api/v1/admin/matching/exclusions/{$exclusion['id']}")->assertOk();
+        $this->postJson($this->url($offer, '/run'))->assertOk();
+        $this->assertNotNull(collect($this->suggestions($offer))->where('status.value', 'suggere')->firstWhere('worker.id', $first['worker']['id']));
+    }
+
+    public function test_a_derogation_needs_a_second_person_and_takes_effect_at_the_next_run(): void
+    {
+        $offer = $this->openOffer();
+        $worker = Worker::query()->where('first_name', 'Kouamé')->firstOrFail();
+        $worker->update(['estimated_daily_rate' => 50000]);
+        $requester = Admin::factory()->role('operations')->create();
+        $approver = Admin::factory()->role('direction')->create();
+
+        $response = $this->asAdmin($requester)->postJson($this->url($offer, '/run'))->assertOk();
+        $exclusion = collect($response->json('data.needs'))->flatMap(fn (array $need) => $need['exclusions'])->firstWhere('worker.id', $worker->id);
+        $this->assertTrue($exclusion['can_request_derogation']);
+
+        $this->postJson("/api/v1/admin/matching/exclusions/{$exclusion['id']}/derogation", ['justification' => 'court'])->assertJsonValidationErrors(['justification']);
+        $this->postJson("/api/v1/admin/matching/exclusions/{$exclusion['id']}/derogation", ['justification' => 'Seul maçon disponible à Cocody ce mois-ci.'])->assertOk();
+        $this->postJson("/api/v1/admin/matching/exclusions/{$exclusion['id']}/derogation", ['justification' => 'Seul maçon disponible à Cocody ce mois-ci.'])->assertJsonValidationErrors(['offer']);
+
+        $derogation = MatchingDerogation::query()->sole();
+        $this->postJson("/api/v1/admin/matching/derogations/{$derogation->id}/approve")->assertForbidden();
+
+        $this->postJson($this->url($offer, '/run'))->assertOk();
+        $this->assertNull(collect($this->suggestions($offer))->firstWhere('worker.id', $worker->id));
+
+        $this->asAdmin($approver)->getJson('/api/v1/admin/matching/derogations')->assertOk()->assertJsonPath('data.0.can_decide', true)->assertJsonPath('data.0.worker', 'Kouamé Koffi');
+        $this->postJson("/api/v1/admin/matching/derogations/{$derogation->id}/approve")->assertOk();
+        $this->assertSame($approver->id, $derogation->fresh()->approved_by_admin_id);
+
+        $this->asAdmin($requester)->postJson($this->url($offer, '/run'))->assertOk();
+        $row = collect($this->suggestions($offer))->firstWhere('worker.id', $worker->id);
+        $this->assertStringContainsString('Dérogation accordée', implode(' ', $row['warnings']));
+
+        $this->asAdmin($approver)->deleteJson("/api/v1/admin/matching/derogations/{$derogation->id}")->assertOk();
+        $this->asAdmin($requester)->postJson($this->url($offer, '/run'))->assertOk();
+        $this->assertNull(collect($this->suggestions($offer))->where('status.value', 'suggere')->firstWhere('worker.id', $worker->id));
+    }
+
+    public function test_the_author_cannot_approve_their_own_derogation(): void
+    {
+        $offer = $this->openOffer();
+        Worker::query()->where('first_name', 'Kouamé')->firstOrFail()->update(['estimated_daily_rate' => 50000]);
+        $author = Admin::factory()->role('super_admin')->create();
+
+        $response = $this->asAdmin($author)->postJson($this->url($offer, '/run'))->assertOk();
+        $exclusion = collect($response->json('data.needs'))->flatMap(fn (array $need) => $need['exclusions'])->first();
+        $this->postJson("/api/v1/admin/matching/exclusions/{$exclusion['id']}/derogation", ['justification' => 'Justification assez longue.'])->assertOk();
+        $derogation = MatchingDerogation::query()->sole();
+
+        $this->getJson('/api/v1/admin/matching/derogations')->assertJsonPath('data.0.can_decide', false);
+        $this->postJson("/api/v1/admin/matching/derogations/{$derogation->id}/approve")->assertJsonValidationErrors(['offer']);
+    }
+
+    public function test_a_regulatory_exclusion_refuses_any_derogation(): void
+    {
+        $offer = $this->openOffer();
+        Worker::query()->where('first_name', 'Kouamé')->firstOrFail()->update(['estimated_daily_rate' => 50000, 'verification_status' => 'suspendu']);
+
+        $response = $this->asAdmin()->postJson($this->url($offer, '/run'))->assertOk();
+        $rows = collect($response->json('data.needs'))->flatMap(fn (array $need) => $need['exclusions']);
+        $this->assertTrue($rows->every(fn (array $row) => $row['can_request_derogation'] === false));
+
+        $this->postJson("/api/v1/admin/matching/exclusions/{$rows->firstWhere('criterion', 'cout')['id']}/derogation", ['justification' => 'Justification assez longue.'])->assertJsonValidationErrors(['offer']);
+        $this->postJson("/api/v1/admin/matching/exclusions/{$rows->firstWhere('criterion', 'statut')['id']}/derogation", ['justification' => 'Justification assez longue.'])->assertJsonValidationErrors(['offer']);
     }
 
     public function test_the_routes_need_their_permissions(): void

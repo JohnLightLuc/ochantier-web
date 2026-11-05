@@ -10,9 +10,12 @@ use App\Http\Controllers\Api\V1\Admin\Offer\OfferController;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Admin\Offer\OfferIndexRequest;
 use App\Http\Resources\V1\Admin\OfferListResource;
+use App\Models\MatchingDerogation;
+use App\Models\MatchingExclusion;
 use App\Models\Suggestion;
 use App\Support\Admin\OfferDirectory;
 use App\Support\ApiResponse;
+use App\Support\Matching\MatchingDecisions;
 use App\Support\Matching\MatchingRunner;
 use App\Support\Matching\WorkerConsent;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +27,7 @@ use Illuminate\Validation\Rule;
  */
 class MatchingController extends Controller
 {
-    public function __construct(private OfferDirectory $directory, private MatchingRunner $runner, private WorkerConsent $consent) {}
+    public function __construct(private OfferDirectory $directory, private MatchingRunner $runner, private WorkerConsent $consent, private MatchingDecisions $decisions) {}
 
     /**
      * Besoins ouverts à la recherche (hors offres contractuelles), avec la date du dernier calcul.
@@ -84,6 +87,61 @@ class MatchingController extends Controller
         return ApiResponse::success($this->payload($request, $offer), 'Proposition envoyée au promoteur.');
     }
 
+    public function exclude(Request $request, string $suggestion): JsonResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'min:5', 'max:1000']], ['reason.required' => 'Indiquez le motif.', 'reason.min' => 'Le motif est trop court.']);
+        $model = $this->suggestion($suggestion);
+        $this->decisions->exclude($model, trim($data['reason']), $request->user(), $request);
+
+        return ApiResponse::success($this->payload($request, $model->need->offer_id), 'Ouvrier écarté de ce besoin.');
+    }
+
+    public function lift(Request $request, string $exclusion): JsonResponse
+    {
+        $model = MatchingExclusion::query()->with('need')->findOrFail($exclusion);
+        $this->decisions->lift($model, $request->user(), $request);
+
+        return ApiResponse::success($this->payload($request, $model->need->offer_id), 'Écart annulé : relancez le matching.');
+    }
+
+    public function requestDerogation(Request $request, string $exclusion): JsonResponse
+    {
+        $data = $request->validate(['justification' => ['required', 'string', 'min:10', 'max:1000']], ['justification.required' => 'Justifiez la demande.', 'justification.min' => 'La justification est trop courte.']);
+        $model = MatchingExclusion::query()->with('need')->findOrFail($exclusion);
+        $this->decisions->request($model, trim($data['justification']), $request->user(), $request);
+
+        return ApiResponse::success($this->payload($request, $model->need->offer_id), 'Dérogation demandée : une autre personne doit l’approuver.');
+    }
+
+    /**
+     * Dérogations en attente d’approbation.
+     */
+    public function derogations(Request $request): JsonResponse
+    {
+        return ApiResponse::success(MatchingDerogation::query()->whereNull('approved_at')->whereNull('revoked_at')->with(['need.offer', 'need.trade', 'worker', 'requestedByAdmin'])->oldest()->get()->map(fn (MatchingDerogation $derogation) => [
+            ...$this->runner->derogation($derogation, $request->user()),
+            'offer' => ['id' => $derogation->need->offer_id, 'reference' => $derogation->need->offer->reference],
+            'trade' => $derogation->need->trade?->label,
+            'worker' => trim($derogation->worker->first_name.' '.$derogation->worker->last_name),
+        ])->values()->all());
+    }
+
+    public function approveDerogation(Request $request, string $derogation): JsonResponse
+    {
+        $model = MatchingDerogation::query()->with('need')->findOrFail($derogation);
+        $this->decisions->approve($model, $request->user(), $request);
+
+        return ApiResponse::success($this->payload($request, $model->need->offer_id), 'Dérogation approuvée : relancez le matching.');
+    }
+
+    public function revokeDerogation(Request $request, string $derogation): JsonResponse
+    {
+        $model = MatchingDerogation::query()->with('need')->findOrFail($derogation);
+        $this->decisions->revoke($model, $request->user(), $request);
+
+        return ApiResponse::success($this->payload($request, $model->need->offer_id), 'Dérogation retirée.');
+    }
+
     private function suggestion(string $id): Suggestion
     {
         return Suggestion::query()->with(['need', 'worker'])->findOrFail($id);
@@ -100,7 +158,7 @@ class MatchingController extends Controller
             'offer' => OfferListResource::make($offer)->resolve($request),
             'run_refusal' => $this->runner->refusal($offer),
             'retained' => $this->consent->retained($offer)->count(),
-            'needs' => $this->runner->results($offer),
+            'needs' => $this->runner->results($offer, $request->user()),
         ];
     }
 }
