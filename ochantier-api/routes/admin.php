@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterRelationController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterReviewController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteDecisionController;
+use App\Http\Controllers\Api\V1\Admin\Site\SiteRelationController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerAccountController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerRelationController;
@@ -135,6 +136,17 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('cancellation', [SiteDecisionController::class, 'cancel'])->middleware('admin.can:sites.validate')->name('cancel');
                 Route::post('closure', [SiteDecisionController::class, 'close'])->middleware('admin.can:sites.validate')->name('close');
                 Route::post('archive', [SiteDecisionController::class, 'archive'])->middleware('admin.can:sites.validate')->name('archive');
+                Route::middleware('admin.can:sites.read')->controller(SiteRelationController::class)->group(function () {
+                    Route::get('team', 'team')->name('team');
+                    Route::get('incidents', 'incidents')->name('incidents');
+                    Route::get('documents', 'documents')->name('documents');
+                    Route::get('history', 'history')->name('history');
+                });
+                Route::middleware('admin.can:sites.update')->controller(SiteRelationController::class)->group(function () {
+                    Route::post('incidents', 'declareIncident')->name('incidents.store');
+                    Route::post('incidents/{incident}/start', 'startIncident')->whereUuid('incident')->name('incidents.start');
+                    Route::post('incidents/{incident}/resolve', 'resolveIncident')->whereUuid('incident')->name('incidents.resolve');
+                });
             });
         });
 

@@ -165,6 +165,61 @@ class SiteAdminTest extends PromoterTestCase
         $this->getJson($this->url())->assertOk();
     }
 
+    public function test_the_team_tab_shows_the_members_and_the_attendance(): void
+    {
+        $this->confirmSite();
+        $this->onWorkDay();
+        $this->point($this->assignmentOf('Kouamé Koffi'))->assertCreated();
+
+        $this->asAdmin()->getJson($this->url('/team'))->assertOk()
+            ->assertJsonCount(3, 'data.members')
+            ->assertJsonPath('data.members.0.trade.label', 'Maçon')
+            ->assertJsonPath('data.today.stats.total', 3)
+            ->assertJsonPath('data.today.stats.present', 1)
+            ->assertJsonPath('data.days', []);
+    }
+
+    public function test_an_incident_is_declared_taken_over_and_resolved(): void
+    {
+        $this->confirmSite();
+        $promoter = $this->promoter;
+        $form = ['incident_type' => 'securite', 'severity' => 'grave', 'occurred_at' => now()->subHour()->toIso8601String(), 'description' => 'Chute d’échafaudage.'];
+
+        $this->asAdmin()->postJson($this->url('/incidents'), [...$form, 'description' => ''])->assertJsonValidationErrors(['description']);
+        $this->postJson($this->url('/incidents'), $form)->assertCreated();
+        $this->postJson($this->url('/incidents'), [...$form, 'severity' => 'mineure'])->assertCreated();
+
+        $this->assertSame(1, Notification::query()->where('event_code', 'site.incident')->where('recipient_id', $promoter->id)->count());
+        $list = $this->getJson($this->url('/incidents'))->assertOk()->assertJsonPath('meta.types.0.value', 'accident')->assertJsonPath('meta.severities.2.value', 'grave');
+        $this->assertMatchesRegularExpression('/^INC-\d{4}-\d{5}$/', $list->json('data.0.reference'));
+        $this->getJson('/api/v1/admin/sites')->assertJsonPath('data.0.open_incidents_count', 2)->assertJsonPath('meta.counts.todo.incidents', 1);
+
+        $id = collect($list->json('data'))->firstWhere('severity.value', 'grave')['id'];
+        $this->postJson($this->url("/incidents/{$id}/start"))->assertOk();
+        $this->postJson($this->url("/incidents/{$id}/start"))->assertJsonValidationErrors(['site']);
+        $this->getJson('/api/v1/admin/sites')->assertJsonPath('data.0.open_incidents_count', 2);
+
+        $this->postJson($this->url("/incidents/{$id}/resolve"), ['resolution' => 'Échafaudage remplacé.'])->assertOk();
+        $this->postJson($this->url("/incidents/{$id}/resolve"), ['resolution' => 'Une seconde fois.'])->assertJsonValidationErrors(['site']);
+        $this->getJson('/api/v1/admin/sites')->assertJsonPath('data.0.open_incidents_count', 1);
+        $this->assertTrue(Notification::query()->where('event_code', 'site.incident_resolved')->where('recipient_id', $promoter->id)->exists());
+    }
+
+    public function test_the_documents_and_the_history_of_a_site(): void
+    {
+        $this->confirmSite();
+
+        $this->asAdmin()->getJson($this->url('/documents'))->assertOk();
+        $this->postJson($this->url('/suspension'), ['reason' => 'Arrêt de sécurité.'])->assertOk();
+
+        $response = $this->getJson($this->url('/history'))->assertOk()
+            ->assertJsonPath('data.0.origin', 'admin')
+            ->assertJsonPath('data.0.what', 'a suspendu le chantier')
+            ->assertJsonPath('data.0.detail', 'Arrêt de sécurité.');
+        $this->assertGreaterThan(1, $response->json('meta.total'));
+        $this->assertSame(1, collect($response->json('data'))->where('what', 'a suspendu le chantier')->count());
+    }
+
     public function test_the_routes_need_their_permissions(): void
     {
         $this->confirmSite();
@@ -175,5 +230,7 @@ class SiteAdminTest extends PromoterTestCase
         $this->postJson($this->url('/suspension'), ['reason' => 'Non autorisé.'])->assertForbidden();
         $this->postJson($this->url('/closure'))->assertForbidden();
         $this->get('/api/v1/admin/sites/export')->assertForbidden();
+        $this->getJson($this->url('/team'))->assertOk();
+        $this->postJson($this->url('/incidents'), [])->assertForbidden();
     }
 }

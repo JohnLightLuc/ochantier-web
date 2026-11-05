@@ -152,7 +152,7 @@ class SiteDirectory
             ->groupBy('missions.site_id')
             ->selectRaw('missions.site_id, count(*) as total');
 
-        $incidents = DB::table('site_incidents')->where('status', SiteIncidentStatus::Ouvert->value)->groupBy('site_id')->selectRaw('site_id, count(*) as total');
+        $incidents = DB::table('site_incidents')->whereIn('status', [SiteIncidentStatus::Ouvert->value, SiteIncidentStatus::EnTraitement->value])->groupBy('site_id')->selectRaw('site_id, count(*) as total');
 
         $days = DB::table('work_days')
             ->join('missions', 'missions.id', '=', 'work_days.mission_id')
