@@ -235,6 +235,8 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
     Route::prefix('affectations')->name('assignments.')->group(function () {
         Route::get('/', [AssignmentController::class, 'index'])->name('index');
         Route::get('/export', [AssignmentController::class, 'export'])->name('export');
+        Route::post('/remplacements/{replacement}/recherche', [AssignmentController::class, 'searchReplacement'])->whereUuid('replacement')->name('replacement.search');
+        Route::post('/remplacements/{replacement}/envoi', [AssignmentController::class, 'sendReplacement'])->whereUuid('replacement')->name('replacement.send');
         Route::post('/{assignment}/indisponibilite', [AssignmentController::class, 'declareUnavailability'])->whereUuid('assignment')->name('unavailability');
         Route::get('/{assignment}', [AssignmentController::class, 'show'])->whereUuid('assignment')->name('show');
         Route::get('/{rest}', [AssignmentController::class, 'legacy'])->where('rest', '.*')->name('legacy');

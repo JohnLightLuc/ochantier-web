@@ -14,7 +14,8 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Affectations : liste et fiche, lues dans l’API (api/v1/admin/assignments), une ligne par ouvrier affecté.
+ * Affectations : liste et fiche, lues dans l’API (api/v1/admin/assignments), une ligne par ouvrier affecté, et
+ * recherche d’un remplaçant depuis la fiche. Le contact et la réponse de l’ouvrier passent par le Matching.
  *
  * Les paramètres d’URL de la liste restent en français et sont traduits pour l’API.
  */
@@ -79,6 +80,7 @@ class AssignmentController extends Controller
                 'days' => $a['days'],
                 'unavailabilities' => array_map(fn (array $u) => ['id' => $u['id'], 'status' => $u['status']['label'], 'declaredBy' => $u['declared_by']['label'], 'reason' => $u['reason'], 'comment' => $u['comment'], 'date' => $this->day($u['effective_at'])], $a['unavailabilities']),
                 'replacements' => array_map(fn (array $r) => ['id' => $r['id'], 'status' => $r['status']['label'], 'replacedBy' => $r['replaced_by'], 'date' => $this->day($r['created_at'])], $a['replacements']),
+                'search' => $this->search($a['search']),
                 'can' => $a['can'],
             ],
             'reasons' => array_map(fn (array $r) => ['value' => $r['code'], 'label' => $r['label']], $response->json('meta.reasons')),
@@ -89,10 +91,28 @@ class AssignmentController extends Controller
 
     public function declareUnavailability(Request $request, string $assignment): RedirectResponse
     {
+        return $this->send("assignments/{$assignment}/unavailability", ['reason' => $request->input('reason') ?: null, 'comment' => trim((string) $request->input('comment')) ?: null]);
+    }
+
+    public function searchReplacement(string $replacement): RedirectResponse
+    {
+        return $this->send("assignments/replacements/{$replacement}/search");
+    }
+
+    public function sendReplacement(string $replacement): RedirectResponse
+    {
+        return $this->send("assignments/replacements/{$replacement}/send");
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function send(string $uri, array $data = []): RedirectResponse
+    {
         try {
-            $response = $this->api->post("assignments/{$assignment}/unavailability", ['reason' => $request->input('reason') ?: null, 'comment' => trim((string) $request->input('comment')) ?: null]);
+            $response = $this->api->post($uri, $data);
         } catch (ValidationException $e) {
-            $refusal = array_intersect_key($e->errors(), array_flip(['assignment', 'api']));
+            $refusal = array_intersect_key($e->errors(), array_flip(['assignment', 'replacement', 'api']));
 
             if ($refusal === []) {
                 throw $e;
@@ -146,14 +166,33 @@ class AssignmentController extends Controller
     }
 
     /**
-     * @return array{update: bool, export: bool}
+     * @param  array<string, mixed>|null  $search
+     * @return array<string, mixed>|null
+     */
+    private function search(?array $search): ?array
+    {
+        return $search ? [
+            'id' => $search['id'],
+            'refusal' => $search['refusal'],
+            'canRun' => $search['can_run'],
+            'canSend' => $search['can_send'],
+            'promoterRefusal' => $search['promoter_refusal'],
+            'ceiling' => $search['max_promoter_daily_rate'],
+            'fromDate' => $search['from_date'],
+            'lastRun' => $search['last_run'] ? ['at' => $this->day($search['last_run']['at']), 'by' => $search['last_run']['by'], 'excluded' => $search['last_run']['excluded']] : null,
+            'suggestions' => array_map(fn (array $s) => ['id' => $s['id'], 'rank' => $s['rank'], 'score' => (int) round($s['score']), 'status' => ['value' => $s['status']['value'], 'label' => $s['status']['label'], 'tone' => MatchingController::SUGGESTION_TONES[$s['status']['value']] ?? 'n'], 'workerId' => $s['worker']['id'], 'name' => $s['worker']['full_name'], 'code' => $s['worker']['reference'], 'phone' => $s['worker']['phone'], 'commune' => $s['worker']['commune'], 'distance' => $s['distance_km'], 'rate' => $s['worker_daily_rate'], 'warnings' => $s['warnings']], $search['suggestions']),
+        ] : null;
+    }
+
+    /**
+     * @return array{update: bool, export: bool, contact: bool}
      */
     private function can(Request $request): array
     {
         $user = $request->user();
         $allowed = fn (string $permission): bool => $user instanceof AdminUser && $user->hasPermission($permission);
 
-        return ['update' => $allowed('missions.update'), 'export' => $allowed('missions.export')];
+        return ['update' => $allowed('missions.update'), 'export' => $allowed('missions.export'), 'contact' => $allowed('matching.update')];
     }
 
     /**

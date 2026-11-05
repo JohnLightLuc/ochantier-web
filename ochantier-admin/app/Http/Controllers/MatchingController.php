@@ -23,7 +23,7 @@ class MatchingController extends Controller
 
     private const LEVELS = ['excellent' => ['Excellent', 'g'], 'tres_bon' => ['Très bon', 'g'], 'bon' => ['Bon', 'b'], 'acceptable' => ['Acceptable', 'a'], 'faible' => ['Faible', 'o'], 'non_recommande' => ['Non recommandé', 'r']];
 
-    private const SUGGESTION_TONES = ['suggere' => 'b', 'contacte' => 'a', 'accepte' => 'g', 'refuse' => 'r', 'indisponible' => 'r', 'propose_promoteur' => 'p', 'selectionne' => 'g', 'ecarte' => 'n'];
+    public const SUGGESTION_TONES = ['suggere' => 'b', 'contacte' => 'a', 'accepte' => 'g', 'refuse' => 'r', 'indisponible' => 'r', 'propose_promoteur' => 'p', 'selectionne' => 'g', 'ecarte' => 'n'];
 
     private const CRITERIA = ['disponibilite' => 'Disponibilité', 'distance' => 'Distance', 'cout' => 'Coût', 'identite' => 'Pièce d’identité'];
 
