@@ -27,7 +27,7 @@ class MatchingTest extends TestCase
         config(['services.ochantier_api.url' => self::API]);
         $this->withSession([]);
         $this->startSession();
-        app(ApiTokens::class)->store(['access_token' => 'access-1', 'refresh_token' => 'refresh-1', 'expires_in' => 900, 'session_id' => '9a0e0000-0000-4000-8000-000000000001', 'admin' => ['id' => '1', 'full_name' => 'Awa Koné', 'email' => 'a.kone@ochantier.ci', 'roles' => [], 'permissions' => ['matching.read', 'matching.create', 'matching.update'], 'must_change_password' => false]]);
+        app(ApiTokens::class)->store(['access_token' => 'access-1', 'refresh_token' => 'refresh-1', 'expires_in' => 900, 'session_id' => '9a0e0000-0000-4000-8000-000000000001', 'admin' => ['id' => '1', 'full_name' => 'Awa Koné', 'email' => 'a.kone@ochantier.ci', 'roles' => [], 'permissions' => ['matching.read', 'matching.create', 'matching.update', 'matching.approve'], 'must_change_password' => false]]);
     }
 
     /**
@@ -42,9 +42,9 @@ class MatchingTest extends TestCase
 
     public function test_the_queue_shows_the_open_offers(): void
     {
-        Http::fake([self::API.'/matching/queue*' => Http::response(['data' => [[...$this->offer(), 'last_run_at' => '2026-11-04T10:00:00+00:00']], 'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 20, 'total' => 1, 'counts' => ['todo' => ['a_matcher' => 2, 'proposition' => 1, 'acompte' => 0, 'incomplet' => 0, 'expires' => 0]], 'trades' => [['id' => 't1', 'label' => 'Maçon']], 'communes' => []]])]);
+        Http::fake([self::API.'/matching/derogations' => Http::response(['data' => [['id' => 'd1', 'criterion' => 'cout', 'justification' => 'Seul maçon disponible.', 'state' => 'en_attente', 'requested_by' => 'Awa Koné', 'approved_by' => null, 'can_decide' => true, 'offer' => ['id' => self::ID, 'reference' => 'OFF-1'], 'trade' => 'Maçon', 'worker' => 'Jean Kouassi']]]), self::API.'/matching/queue*' => Http::response(['data' => [[...$this->offer(), 'last_run_at' => '2026-11-04T10:00:00+00:00']], 'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 20, 'total' => 1, 'counts' => ['todo' => ['a_matcher' => 2, 'proposition' => 1, 'acompte' => 0, 'incomplet' => 0, 'expires' => 0]], 'trades' => [['id' => 't1', 'label' => 'Maçon']], 'communes' => []]])]);
 
-        $this->get('/matching?q=palmiers&metier=t1')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Matching/Index')->where('offers.data.0.lastRunAt', '2026-11-04')->where('kpis.toMatch', 2));
+        $this->get('/matching?q=palmiers&metier=t1')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Matching/Index')->where('offers.data.0.lastRunAt', '2026-11-04')->where('kpis.toMatch', 2)->where('derogations.0.criterion', 'Coût')->where('derogations.0.canDecide', true));
         Http::assertSent(fn (ClientRequest $r) => str_contains($r->url(), 'search=palmiers') && str_contains($r->url(), 'trade_id=t1'));
     }
 
@@ -56,12 +56,12 @@ class MatchingTest extends TestCase
                 'id' => 'n1', 'reference' => 'BES-1', 'trade' => 'Maçon', 'specialty' => null, 'headcount' => 2, 'min_experience_years' => 3, 'daily_budget' => 25000, 'status' => ['value' => 'matching', 'label' => 'Matching'],
                 'last_run' => ['at' => '2026-11-04T10:00:00+00:00', 'by' => 'Awa Koné', 'type' => 'initial', 'stale' => false],
                 'suggestions' => [['id' => 's1', 'rank' => 1, 'score' => 87.5, 'level' => 'excellent', 'requested' => true, 'status' => ['value' => 'suggere', 'label' => 'Suggéré'], 'contact' => null, 'response' => null, 'worker' => ['id' => 'w1', 'reference' => 'OUV-1', 'full_name' => 'Jean Kouassi', 'phone' => '+225 07', 'commune' => 'Cocody', 'rating' => 4.7, 'experience_years' => 5], 'distance_km' => 3.2, 'worker_daily_rate' => 22000, 'promoter_daily_rate' => 24200, 'criteria' => [['key' => 'metier', 'label' => 'Métier', 'weight' => 25, 'value' => 100, 'contribution' => 25, 'detail' => 'Métier principal']], 'warnings' => []]],
-                'exclusions' => [['id' => 'e1', 'worker' => ['id' => 'w2', 'full_name' => 'Ali Touré', 'reference' => 'OUV-2'], 'nature' => ['value' => 'reglementaire', 'label' => 'Réglementaire'], 'criterion' => 'planning', 'comment' => 'Libre sur la période : Déjà engagé sur ces dates']],
+                'exclusions' => [['id' => 'e1', 'worker' => ['id' => 'w2', 'full_name' => 'Ali Touré', 'reference' => 'OUV-2'], 'nature' => ['value' => 'reglementaire', 'label' => 'Réglementaire'], 'criterion' => 'planning', 'comment' => 'Libre sur la période : Déjà engagé sur ces dates', 'can_request_derogation' => false, 'can_lift' => false, 'derogation' => ['id' => 'd1', 'state' => 'en_attente', 'justification' => 'Urgence.', 'requested_by' => 'Awa Koné', 'approved_by' => null, 'can_decide' => true]]],
             ]]]]),
         ]);
         $page = '/matching/besoins/'.self::ID;
 
-        $this->get($page)->assertOk()->assertInertia(fn (Assert $p) => $p->component('Matching/Offer')->where('needs.0.suggestions.0.level.label', 'Excellent')->where('needs.0.suggestions.0.status.tone', 'b')->where('needs.0.exclusions.0.absolute', true)->where('can.run', true));
+        $this->get($page)->assertOk()->assertInertia(fn (Assert $p) => $p->component('Matching/Offer')->where('needs.0.suggestions.0.level.label', 'Excellent')->where('needs.0.suggestions.0.status.tone', 'b')->where('needs.0.exclusions.0.absolute', true)->where('needs.0.exclusions.0.derogation.canDecide', true)->where('can.run', true));
 
         $this->get($page)->assertInertia(fn (Assert $p) => $p->where('retained', 1)->where('can.update', true)->where('needs.0.suggestions.0.phone', '+225 07'));
         $this->from($page)->post("{$page}/lancement")->assertSessionHas('inertia.flash_data.toast', 'Matching terminé.');
@@ -86,6 +86,27 @@ class MatchingTest extends TestCase
 
         $this->from($page)->post("{$page}/envoi")->assertSessionHas('inertia.flash_data.toast', 'Proposition envoyée au promoteur.');
         $this->from($page)->post("{$page}/envoi")->assertSessionHas('inertia.flash_data.toastError', 'Aucun ouvrier n’a encore donné son accord.');
+    }
+
+    public function test_exclusions_and_derogations_reach_the_api(): void
+    {
+        $id = '01a16ab6-0000-7000-8000-0000000000e3';
+
+        Http::fake([
+            self::API.'/matching/suggestions/'.$id.'/exclusion' => Http::response(['message' => 'Ouvrier écarté de ce besoin.']),
+            self::API.'/matching/exclusions/'.$id.'/derogation' => Http::response(['message' => 'Dérogation demandée : une autre personne doit l’approuver.']),
+            self::API.'/matching/exclusions/'.$id => Http::response(['message' => 'Écart annulé : relancez le matching.']),
+            self::API.'/matching/derogations/'.$id.'/approve' => Http::response(['message' => 'Refus.', 'errors' => ['offer' => ['Une autre personne doit approuver cette dérogation.']]], 422),
+            self::API.'/matching/derogations/'.$id => Http::response(['message' => 'Dérogation retirée.']),
+        ]);
+        $page = '/matching/besoins/'.self::ID;
+
+        $this->from($page)->post("/matching/suggestions/{$id}/ecart", ['category' => 'Mauvais retour', 'reason' => 'Retards répétés.'])->assertSessionHas('inertia.flash_data.toast', 'Ouvrier écarté de ce besoin.');
+        Http::assertSent(fn (ClientRequest $r) => str_ends_with($r->url(), '/exclusion') && $r['reason'] === 'Mauvais retour · Retards répétés.');
+        $this->from($page)->delete("/matching/exclusions/{$id}")->assertSessionHas('inertia.flash_data.toast', 'Écart annulé : relancez le matching.');
+        $this->from($page)->post("/matching/exclusions/{$id}/derogation", ['justification' => 'Seul maçon disponible.'])->assertSessionHas('inertia.flash_data.toast');
+        $this->from($page)->post("/matching/derogations/{$id}/approbation")->assertSessionHas('inertia.flash_data.toastError', 'Une autre personne doit approuver cette dérogation.');
+        $this->from($page)->delete("/matching/derogations/{$id}")->assertSessionHas('inertia.flash_data.toast', 'Dérogation retirée.');
     }
 
     public function test_old_addresses_lead_to_the_queue(): void

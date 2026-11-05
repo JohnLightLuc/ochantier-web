@@ -1,6 +1,8 @@
 import { FilterSelect, SearchInput } from '@/components/list/ListToolbar';
 import Pagination from '@/components/list/Pagination';
 import { LocationCell, RowActions, StackCell, TableFrame, TextCell, tdStyle, thStyle } from '@/components/list/Table';
+import { RelationTable } from '@/components/promoters/RelationTabs';
+import { Block } from '@/components/workers/blocks';
 import Icon from '@/components/ui/Icon';
 import type { Option } from '@/components/ui/Field';
 import StatCard from '@/components/ui/StatCard';
@@ -17,12 +19,14 @@ type Props = {
     filters: Filters;
     filterOptions: Record<'metier' | 'localisation', Option[]>;
     kpis: { toMatch: number; proposals: number; deposits: number; partial: number };
+    derogations: { id: string; offerId: string; reference: string; trade: string | null; worker: string; criterion: string; justification: string; requestedBy: string | null; canDecide: boolean }[];
+    can: { approve: boolean };
 };
 
 const COLUMNS = ['Besoin', 'Chantier', 'Localisation', 'Métiers', 'Pourvus', 'Démarrage', 'Dernier calcul', 'Statut'];
 
 /** File du matching : les besoins ouverts, à calculer ou à reprendre. */
-export default function MatchingIndex({ offers, filters, filterOptions, kpis }: Props) {
+export default function MatchingIndex({ offers, filters, filterOptions, kpis, derogations, can }: Props) {
     const apply = (changes: Filters, keepPage = false) => {
         const next: Filters = { ...filters, ...changes, ...(keepPage ? {} : { page: undefined }) };
         router.get('/matching', Object.fromEntries(Object.entries(next).filter(([, v]) => v)), { preserveState: true, preserveScroll: true, replace: true });
@@ -37,6 +41,24 @@ export default function MatchingIndex({ offers, filters, filterOptions, kpis }: 
                 <StatCard label="Acomptes attendus" value={String(kpis.deposits)} icon="payments" tone="a" />
                 <StatCard label="Partiellement pourvus" value={String(kpis.partial)} icon="group_remove" tone="g" />
             </div>
+
+            {derogations.length > 0 && (
+                <Block icon="gavel" title="Dérogations à traiter" count={String(derogations.length)}>
+                    <RelationTable
+                        columns={['Besoin', 'Ouvrier', 'Critère', 'Justification', 'Demandée par']}
+                        empty={{ icon: 'gavel', title: '', text: '' }}
+                        rows={derogations.map((d) => ({
+                            key: d.id,
+                            cells: [<StackCell main={d.reference} sub={d.trade ?? undefined} strong />, <TextCell>{d.worker}</TextCell>, <TextCell>{d.criterion}</TextCell>, <TextCell>{d.justification}</TextCell>, <TextCell>{d.requestedBy ?? '—'}</TextCell>],
+                            actions: [
+                                ...(can.approve && d.canDecide ? [{ icon: 'check_circle', label: 'Approuver', onClick: () => router.post(`/matching/derogations/${d.id}/approbation`, {}, { preserveScroll: true }) }] : []),
+                                ...(can.approve ? [{ icon: 'cancel', label: 'Refuser', onClick: () => router.delete(`/matching/derogations/${d.id}`, { preserveScroll: true }) }] : []),
+                                { icon: 'join_inner', label: 'Ouvrir le matching', onClick: () => router.visit(`/matching/besoins/${d.offerId}`) },
+                            ],
+                        }))}
+                    />
+                </Block>
+            )}
 
             <section data-component="ListPanel" style={{ background: 'var(--c-surface)', border: '1px solid var(--c-line)', borderRadius: 'var(--radius-2xl)', padding: 'var(--space-5) var(--space-5) var(--space-4)', minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>

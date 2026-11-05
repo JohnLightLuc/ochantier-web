@@ -230,6 +230,11 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::post('/besoins/{offer}/envoi', [MatchingController::class, 'dispatch'])->whereUuid('offer')->name('dispatch');
         Route::post('/suggestions/{suggestion}/contact', [MatchingController::class, 'contact'])->whereUuid('suggestion')->name('contact');
         Route::post('/suggestions/{suggestion}/reponse', [MatchingController::class, 'respond'])->whereUuid('suggestion')->name('respond');
+        Route::post('/suggestions/{suggestion}/ecart', [MatchingController::class, 'exclude'])->whereUuid('suggestion')->name('exclude');
+        Route::delete('/exclusions/{exclusion}', [MatchingController::class, 'lift'])->whereUuid('exclusion')->name('lift');
+        Route::post('/exclusions/{exclusion}/derogation', [MatchingController::class, 'requestDerogation'])->whereUuid('exclusion')->name('derogation');
+        Route::post('/derogations/{derogation}/approbation', [MatchingController::class, 'approveDerogation'])->whereUuid('derogation')->name('derogation.approve');
+        Route::delete('/derogations/{derogation}', [MatchingController::class, 'revokeDerogation'])->whereUuid('derogation')->name('derogation.revoke');
         Route::get('/besoins/{offer}', [MatchingController::class, 'show'])->whereUuid('offer')->name('show');
         Route::get('/{rest}', [MatchingController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });

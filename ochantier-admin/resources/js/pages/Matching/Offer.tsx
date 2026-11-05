@@ -46,10 +46,21 @@ type Need = {
     status: string;
     lastRun: { at: string; by: string | null; stale: boolean } | null;
     suggestions: Suggestion[];
-    exclusions: { id: string; workerId: string; name: string; code: string; nature: string; absolute: boolean; reason: string | null }[];
+    exclusions: {
+        id: string;
+        workerId: string;
+        name: string;
+        code: string;
+        nature: string;
+        absolute: boolean;
+        reason: string | null;
+        canRequest: boolean;
+        canLift: boolean;
+        derogation: { id: string; state: string; justification: string; requestedBy: string | null; approvedBy: string | null; canDecide: boolean } | null;
+    }[];
 };
 
-type Props = { offer: OfferRow; runRefusal: string | null; retained: number; needs: Need[]; can: { run: boolean; update: boolean } };
+type Props = { offer: OfferRow; runRefusal: string | null; retained: number; needs: Need[]; can: { run: boolean; update: boolean; approve: boolean } };
 
 const CHANNELS = [
     { value: 'appel', label: 'Appel' },
@@ -90,6 +101,26 @@ export default function MatchingOffer({ offer: o, runRefusal, retained, needs, c
                 ]}
             />,
         );
+
+    const exclude = (s: Suggestion) =>
+        setDialog(
+            <FormDialog
+                title={`Écarter ${s.name} de ce besoin ?`}
+                body="L’ouvrier ne sera plus proposé sur ce besoin. Vous pourrez annuler cet écart."
+                icon="person_remove"
+                tone="danger"
+                okLabel="Écarter"
+                url={`/matching/suggestions/${s.id}/ecart`}
+                onClose={close}
+                fields={[
+                    { name: 'category', label: 'Motif', type: 'select', required: true, full: true, options: ['Mauvais retour', 'Demande du promoteur', 'Doute sur le dossier', 'Autre'] },
+                    { name: 'reason', label: 'Précisions', type: 'textarea', required: true },
+                ]}
+            />,
+        );
+
+    const askDerogation = (e: Need['exclusions'][number]) =>
+        setDialog(<FormDialog title={`Demander une dérogation pour ${e.name}`} body={`${e.reason ?? ''} Une autre personne devra l’approuver, puis il faudra relancer le matching.`} icon="gavel" tone="warning" okLabel="Demander" url={`/matching/exclusions/${e.id}/derogation`} onClose={close} fields={[{ name: 'justification', label: 'Justification', type: 'textarea', required: true }]} />);
 
     const send = () =>
         ui.confirm({
@@ -161,6 +192,7 @@ export default function MatchingOffer({ offer: o, runRefusal, retained, needs, c
                                             ? [
                                                   ...(s.status.value === 'suggere' ? [{ icon: 'call', label: 'Noter le contact', onClick: () => contact(s) }] : []),
                                                   { icon: 'how_to_reg', label: 'Enregistrer la réponse', onClick: () => respond(s) },
+                                                  ...(['suggere', 'contacte', 'accepte'].includes(s.status.value) ? [{ icon: 'person_remove', label: 'Écarter', onClick: () => exclude(s) }] : []),
                                               ]
                                             : []),
                                         { icon: 'analytics', label: 'Détail du score', onClick: () => explain(s) },
@@ -177,8 +209,14 @@ export default function MatchingOffer({ offer: o, runRefusal, retained, needs, c
                                             empty={{ icon: 'block', title: '', text: '' }}
                                             rows={n.exclusions.map((e) => ({
                                                 key: e.id,
-                                                cells: [<StackCell main={e.name} sub={e.code} strong />, <StatusBadge label={e.nature} tone={e.absolute ? 'r' : 'a'} />, <TextCell>{e.reason ?? '—'}</TextCell>],
-                                                actions: [{ icon: 'visibility', label: 'Voir la fiche', onClick: () => router.visit(`/ouvriers/${e.workerId}`) }],
+                                                cells: [<StackCell main={e.name} sub={e.code} strong />, <StatusBadge label={e.nature} tone={e.absolute ? 'r' : 'a'} />, <TextCell>{e.reason ?? '—'}</TextCell>, e.derogation ? <StackCell main={e.derogation.state === 'approuvee' ? 'Approuvée' : 'En attente'} sub={e.derogation.state === 'approuvee' ? `Par ${e.derogation.approvedBy}` : `Demandée par ${e.derogation.requestedBy}`} /> : <TextCell muted>—</TextCell>],
+                                                actions: [
+                                                    ...(can.update && e.canRequest ? [{ icon: 'gavel', label: 'Demander une dérogation', onClick: () => askDerogation(e) }] : []),
+                                                    ...(can.update && e.canLift ? [{ icon: 'undo', label: 'Annuler l’écart', onClick: () => router.delete(`/matching/exclusions/${e.id}`, { preserveScroll: true }) }] : []),
+                                                    ...(can.approve && e.derogation?.canDecide ? [{ icon: 'check_circle', label: 'Approuver la dérogation', onClick: () => router.post(`/matching/derogations/${e.derogation?.id}/approbation`, {}, { preserveScroll: true }) }] : []),
+                                                    ...(can.approve && e.derogation ? [{ icon: 'cancel', label: e.derogation.state === 'approuvee' ? 'Retirer la dérogation' : 'Refuser la dérogation', onClick: () => router.delete(`/matching/derogations/${e.derogation?.id}`, { preserveScroll: true }) }] : []),
+                                                    { icon: 'visibility', label: 'Voir la fiche', onClick: () => router.visit(`/ouvriers/${e.workerId}`) },
+                                                ],
                                             }))}
                                         />
                                     </div>

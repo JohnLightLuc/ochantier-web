@@ -25,6 +25,8 @@ class MatchingController extends Controller
 
     private const SUGGESTION_TONES = ['suggere' => 'b', 'contacte' => 'a', 'accepte' => 'g', 'refuse' => 'r', 'indisponible' => 'r', 'propose_promoteur' => 'p', 'selectionne' => 'g', 'ecarte' => 'n'];
 
+    private const CRITERIA = ['disponibilite' => 'Disponibilité', 'distance' => 'Distance', 'cout' => 'Coût', 'identite' => 'Pièce d’identité'];
+
     public function __construct(private AdminApi $api) {}
 
     public function index(Request $request): Response
@@ -49,6 +51,8 @@ class MatchingController extends Controller
                 'metier' => array_map(fn (array $t): array => $option($t['id'], $t['label']), $meta['trades']),
                 'localisation' => array_map(fn (array $c): array => $option($c['id'], $c['name']), $meta['communes']),
             ],
+            'derogations' => array_map(fn (array $d) => ['id' => $d['id'], 'offerId' => $d['offer']['id'], 'reference' => $d['offer']['reference'], 'trade' => $d['trade'], 'worker' => $d['worker'], 'criterion' => self::CRITERIA[$d['criterion']] ?? $d['criterion'], 'justification' => $d['justification'], 'requestedBy' => $d['requested_by'], 'canDecide' => $d['can_decide']], $this->api->get('matching/derogations')->json('data')),
+            'can' => ['approve' => $this->allowed($request, 'matching.approve')],
             'kpis' => ['toMatch' => $meta['counts']['todo']['a_matcher'], 'proposals' => $meta['counts']['todo']['proposition'], 'deposits' => $meta['counts']['todo']['acompte'], 'partial' => $meta['counts']['todo']['incomplet']],
         ]);
     }
@@ -63,7 +67,7 @@ class MatchingController extends Controller
             'runRefusal' => $data['run_refusal'],
             'retained' => $data['retained'],
             'needs' => array_map($this->need(...), $data['needs']),
-            'can' => ['run' => $this->allowed($request, 'matching.create'), 'update' => $this->allowed($request, 'matching.update')],
+            'can' => ['run' => $this->allowed($request, 'matching.create'), 'update' => $this->allowed($request, 'matching.update'), 'approve' => $this->allowed($request, 'matching.approve')],
             'header' => $this->header('Matching', $view['title'], [['Matching', '/matching'], [$view['reference']]]),
         ]);
     }
@@ -88,13 +92,46 @@ class MatchingController extends Controller
         return $this->send("matching/suggestions/{$suggestion}/response", ['channel' => $request->input('channel'), 'decision' => $request->input('decision'), 'conditions' => trim((string) $request->input('conditions')) ?: null]);
     }
 
+    public function exclude(Request $request, string $suggestion): RedirectResponse
+    {
+        return $this->send("matching/suggestions/{$suggestion}/exclusion", ['reason' => $this->reason($request)]);
+    }
+
+    public function lift(string $exclusion): RedirectResponse
+    {
+        return $this->send("matching/exclusions/{$exclusion}", method: 'delete');
+    }
+
+    public function requestDerogation(Request $request, string $exclusion): RedirectResponse
+    {
+        return $this->send("matching/exclusions/{$exclusion}/derogation", ['justification' => trim((string) $request->input('justification')) ?: null]);
+    }
+
+    public function approveDerogation(string $derogation): RedirectResponse
+    {
+        return $this->send("matching/derogations/{$derogation}/approve");
+    }
+
+    public function revokeDerogation(string $derogation): RedirectResponse
+    {
+        return $this->send("matching/derogations/{$derogation}", method: 'delete');
+    }
+
+    private function reason(Request $request): string
+    {
+        $reason = trim((string) $request->input('reason'));
+        $category = trim((string) $request->input('category'));
+
+        return $category && $reason && $category !== 'Autre' ? "{$category} · {$reason}" : $reason;
+    }
+
     /**
      * @param  array<string, mixed>  $data
      */
-    private function send(string $uri, array $data = []): RedirectResponse
+    private function send(string $uri, array $data = [], string $method = 'post'): RedirectResponse
     {
         try {
-            $response = $this->api->post($uri, $data);
+            $response = $method === 'delete' ? $this->api->delete($uri) : $this->api->post($uri, $data);
         } catch (ValidationException $e) {
             $refusal = array_intersect_key($e->errors(), array_flip(['offer', 'api']));
 
@@ -148,7 +185,8 @@ class MatchingController extends Controller
                     'distance' => $s['distance_km'], 'rate' => $s['worker_daily_rate'], 'promoterRate' => $s['promoter_daily_rate'], 'criteria' => $s['criteria'], 'warnings' => $s['warnings'],
                 ];
             }, $n['suggestions']),
-            'exclusions' => array_map(fn (array $e) => ['id' => $e['id'], 'workerId' => $e['worker']['id'], 'name' => $e['worker']['full_name'], 'code' => $e['worker']['reference'], 'nature' => $e['nature']['label'], 'absolute' => $e['nature']['value'] === 'reglementaire', 'reason' => $e['comment']], $n['exclusions']),
+            'exclusions' => array_map(fn (array $e) => ['id' => $e['id'], 'workerId' => $e['worker']['id'], 'name' => $e['worker']['full_name'], 'code' => $e['worker']['reference'], 'nature' => $e['nature']['label'], 'absolute' => $e['nature']['value'] === 'reglementaire', 'reason' => $e['comment'], 'canRequest' => $e['can_request_derogation'], 'canLift' => $e['can_lift'],
+                'derogation' => $e['derogation'] ? ['id' => $e['derogation']['id'], 'state' => $e['derogation']['state'], 'justification' => $e['derogation']['justification'], 'requestedBy' => $e['derogation']['requested_by'], 'approvedBy' => $e['derogation']['approved_by'], 'canDecide' => $e['derogation']['can_decide']] : null], $n['exclusions']),
         ];
     }
 
