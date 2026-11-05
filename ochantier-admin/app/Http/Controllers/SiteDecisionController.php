@@ -11,8 +11,8 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 /**
- * Décisions sur un chantier, envoyées à l’API : suspension, reprise, annulation, clôture et archivage. Le message de
- * l’API est affiché ; un refus sur le chantier devient une notification d’erreur.
+ * Décisions sur un chantier, envoyées à l’API : suspension, reprise, annulation, clôture, archivage et incidents. Le
+ * message de l’API est affiché ; un refus sur le chantier devient une notification d’erreur.
  */
 class SiteDecisionController extends Controller
 {
@@ -41,6 +41,21 @@ class SiteDecisionController extends Controller
     public function archive(string $site): RedirectResponse
     {
         return $this->send(fn () => $this->api->post("sites/{$site}/archive"));
+    }
+
+    public function declareIncident(Request $request, string $site): RedirectResponse
+    {
+        return $this->send(fn () => $this->api->post("sites/{$site}/incidents", ['incident_type' => $request->input('incident_type'), 'severity' => $request->input('severity'), 'occurred_at' => $request->input('occurred_at') ?: null, 'description' => trim((string) $request->input('description')) ?: null]));
+    }
+
+    public function startIncident(string $site, string $incident): RedirectResponse
+    {
+        return $this->send(fn () => $this->api->post("sites/{$site}/incidents/{$incident}/start"));
+    }
+
+    public function resolveIncident(Request $request, string $site, string $incident): RedirectResponse
+    {
+        return $this->send(fn () => $this->api->post("sites/{$site}/incidents/{$incident}/resolve", ['resolution' => trim((string) $request->input('resolution')) ?: null]));
     }
 
     private function reason(Request $request): string

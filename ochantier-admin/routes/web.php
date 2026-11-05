@@ -196,7 +196,10 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::post('/annulation', [SiteDecisionController::class, 'cancel'])->name('cancel');
             Route::post('/cloture', [SiteDecisionController::class, 'close'])->name('close');
             Route::post('/archivage', [SiteDecisionController::class, 'archive'])->name('archive');
-            Route::get('/', [SiteController::class, 'show'])->name('show');
+            Route::post('/incidents', [SiteDecisionController::class, 'declareIncident'])->name('incidents.store');
+            Route::post('/incidents/{incident}/prise-en-charge', [SiteDecisionController::class, 'startIncident'])->whereUuid('incident')->name('incidents.start');
+            Route::post('/incidents/{incident}/resolution', [SiteDecisionController::class, 'resolveIncident'])->whereUuid('incident')->name('incidents.resolve');
+            Route::get('/{tab?}', [SiteController::class, 'show'])->where('tab', 'equipe|incidents|documents|historique')->name('show');
         });
 
         Route::get('/{site}/{rest?}', [SiteController::class, 'legacy'])->where('rest', '.*')->name('legacy');

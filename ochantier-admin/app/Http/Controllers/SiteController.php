@@ -6,6 +6,7 @@ use App\Models\Site;
 use App\Support\Api\AdminApi;
 use App\Support\Api\AdminUser;
 use App\Support\SitePresenter;
+use App\Support\SiteTabs;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -71,28 +72,32 @@ class SiteController extends Controller
         ]);
     }
 
-    public function show(Request $request, string $site): Response
+    public function show(Request $request, string $site, ?string $tab = null): Response
     {
+        $tab ??= '';
         $data = $this->api->get("sites/{$site}")->json('data');
         $view = SitePresenter::site($data);
+        $base = "/chantiers/{$site}";
 
         return Inertia::render('Sites/Show', [
             'site' => $view,
+            'tab' => $tab,
+            'relations' => isset(SiteTabs::LABELS[$tab]) ? app(SiteTabs::class)->load($site, $tab, $request) : null,
+            'tabCounts' => ['incidents' => $data['open_incidents_count']],
             'kpis' => SitePresenter::kpis($data),
             'banner' => SitePresenter::banner($data),
             'can' => $this->can($request),
-            'header' => $this->header('Fiche du chantier', '', [['Chantiers', '/chantiers'], [$view['name']]]),
+            'header' => $this->header('Fiche du chantier', '', [['Chantiers', '/chantiers'], [$view['name'], $tab ? $base : null], ...($tab ? [[SiteTabs::LABELS[$tab]]] : [])]),
         ]);
     }
 
     /**
-     * Anciennes adresses (slug local, onglet pas encore disponible) : une fiche de l’API rouvre sa vue d’ensemble ; un
-     * ancien slug lance la recherche du chantier dans la liste.
+     * Anciennes adresses (slug local, onglet retiré) : une fiche de l’API rouvre sa vue d’ensemble ; un ancien slug lance la recherche du chantier dans la liste.
      */
     public function legacy(string $site): RedirectResponse
     {
         if (Str::isUuid($site)) {
-            Inertia::flash('toast', 'Cet onglet n’est pas encore disponible : voici la fiche du chantier.');
+            Inertia::flash('toast', 'Cet onglet n’existe plus : voici la fiche du chantier.');
 
             return to_route('sites.show', $site);
         }
