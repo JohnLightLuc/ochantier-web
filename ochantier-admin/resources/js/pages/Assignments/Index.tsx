@@ -1,255 +1,189 @@
-import { fcfa, useAssignmentActions } from '@/components/assignments/useAssignmentActions';
-import { SearchInput } from '@/components/list/ListToolbar';
-import { TableFrame, tdStyle, thStyle } from '@/components/list/Table';
-import Dialog from '@/components/overlays/Dialog';
+import ActionStrip from '@/components/list/ActionStrip';
+import { FilterChip, FilterSelect, SearchInput } from '@/components/list/ListToolbar';
+import Pagination from '@/components/list/Pagination';
+import { LocationCell, RowActions, SortableTh, StackCell, TableFrame, TextCell, tdStyle, thStyle, type SortDirection } from '@/components/list/Table';
 import Button from '@/components/ui/Button';
-import Field, { SelectInput } from '@/components/ui/Field';
+import type { Option } from '@/components/ui/Field';
 import Icon from '@/components/ui/Icon';
 import StatCard from '@/components/ui/StatCard';
 import StateBlock from '@/components/ui/StateBlock';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { useAdminUi } from '@/contexts/AdminUiContext';
-import { formatDate } from '@/lib/format';
-import type { AnyTone } from '@/types';
-import type { AssignmentsIndexProps, PromoterOfferRow } from '@/types/assignments';
+import { formatDate, formatNumber } from '@/lib/format';
 import { Head, router } from '@inertiajs/react';
-import { useState, type ReactNode } from 'react';
 
-/** Puce de filtre avec compteur. */
-function Chip({ label, count, on, onClick }: { label: string; count: number; on: boolean; onClick: () => void }) {
-    return (
-        <button
-            type="button"
-            aria-pressed={on}
-            onClick={onClick}
-            className="och-hover-line"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1_5)', height: 'var(--control-sm)', padding: '0 var(--space-2) 0 var(--space-3)', border: `1px solid ${on ? 'var(--c-primary-400)' : 'var(--c-line-strong)'}`, borderRadius: 'var(--radius-pill)', background: on ? 'var(--c-primary-50)' : 'var(--c-surface)', color: on ? 'var(--c-primary)' : 'var(--c-ink-2)', fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-sm)', cursor: 'pointer' }}
-        >
-            {label}
-            <span style={{ minWidth: 22, height: 20, padding: '0 6px', borderRadius: 'var(--radius-pill)', background: on ? 'var(--c-primary)' : 'var(--c-neutral-bg)', color: on ? 'var(--c-on-dark)' : 'var(--c-neutral-fg)', display: 'inline-grid', placeItems: 'center', fontSize: 'var(--fs-xs)' }}>{count}</span>
-        </button>
-    );
-}
+type Filters = Partial<Record<'q' | 'statut' | 'metier' | 'localisation' | 'rapide' | 'chantier' | 'tri' | 'sens' | 'page', string>>;
 
-/** Barre de progression fine. */
-function Bar({ percent }: { percent: number }) {
-    return (
-        <span style={{ flex: 1, minWidth: 60, height: 6, borderRadius: 'var(--radius-pill)', background: 'var(--c-line-soft)', overflow: 'hidden' }}>
-            <span style={{ display: 'block', height: '100%', width: `${Math.min(100, percent)}%`, background: percent >= 100 ? 'var(--c-primary-500)' : 'var(--c-accent-600)' }} />
-        </span>
-    );
-}
+type Row = {
+    id: string;
+    status: { value: string; label: string; tone: string };
+    worker: { id: string; reference: string; full_name: string; phone: string | null };
+    site: { id: string; reference: string; label: string; commune: string | null };
+    promoter: { name: string };
+    trade: string | null;
+    lead: boolean;
+    startsOn: string | null;
+    endsOn: string | null;
+    promoterRate: number | null;
+    netRate: number | null;
+    replacement: { id: string; status: { label: string } } | null;
+};
 
-type SectionProps = { component: string; icon: string; title: string; text: string; count: string; chips: ReactNode; search: ReactNode; children: ReactNode };
+type Props = {
+    assignments: { data: Row[]; currentPage: number; lastPage: number; total: number; from: number; to: number };
+    filters: Filters;
+    filterOptions: Record<'statut' | 'metier' | 'localisation', Option[]>;
+    kpis: { active: number; confirmed: number; replacements: number; finished: number };
+    todo: { remplacements: number; demarrage: number; fin: number };
+    can: { update: boolean; export: boolean };
+};
 
-/** Section de liste : titre, explication, puces de filtre et recherche. */
-function Section({ component, icon, title, text, count, chips, search, children }: SectionProps) {
-    return (
-        <section data-component={component} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', padding: 'var(--space-5)', background: 'var(--c-surface)', border: '1px solid var(--c-line)', borderRadius: 'var(--radius-2xl)', minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-                <Icon name={icon} size="var(--icon-md)" color="var(--c-primary)" />
-                <div style={{ flex: 1, minWidth: 220 }}>
-                    <h2 style={{ margin: 0, fontSize: 'var(--fs-lg)', fontWeight: 'var(--fw-bold)' }}>{title}</h2>
-                    <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--fs-sm)', color: 'var(--c-muted)' }}>{text}</p>
-                </div>
-                <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 'var(--fw-semibold)', color: 'var(--c-ink-2)' }}>{count}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-                <div role="group" aria-label={`Filtrer : ${title}`} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', flex: '3 1 420px' }}>
-                    {chips}
-                </div>
-                {search}
-            </div>
-            {children}
-        </section>
-    );
-}
+const COLUMNS: [string, string | null][] = [
+    ['Ouvrier', 'ouvrier'],
+    ['Chantier', null],
+    ['Localisation', null],
+    ['Métier', null],
+    ['Début', 'debut'],
+    ['Fin', 'fin'],
+    ['Tarif net', null],
+    ['Statut', 'statut'],
+];
 
-/** Choix d’un poste ouvert avant d’ajouter un ouvrier à l’affectation. */
-function CreateDialog({ posts, onClose }: { posts: AssignmentsIndexProps['openPosts']; onClose: () => void }) {
-    const [value, setValue] = useState(posts[0]?.value ?? '');
+const FILTERS: ['statut' | 'metier' | 'localisation', string][] = [
+    ['statut', 'Statut'],
+    ['metier', 'Métier'],
+    ['localisation', 'Localisation'],
+];
 
-    return (
-        <Dialog title="Créer une affectation" body="Choisissez le besoin et le poste à pourvoir, puis l’ouvrier à affecter." icon="add_circle" okLabel="Continuer" onClose={onClose} onSubmit={() => value && router.visit(`/affectations/besoins/${value.split(':')[0]}?ajout=${encodeURIComponent(value)}`)}>
-            <Field label="Poste à pourvoir" required>
-                <SelectInput value={value} onChange={(e) => setValue(e.target.value)} placeholder="" options={posts} />
-            </Field>
-        </Dialog>
-    );
-}
+const QUICK_LABELS: Record<string, string> = { remplacements: 'Remplacement en cours', demarrage: 'Démarrent sous 7 jours', fin: 'Terminent sous 7 jours' };
 
-/** Affectations & Offres : besoins en cours d’affectation et offres des promoteurs, filtrés et recherchés sur place. */
-export default function AssignmentsIndex({ kpis, needs, offers, needFilters, offerFilters, filters, options, openPosts, refreshedAt }: AssignmentsIndexProps) {
-    const ui = useAdminUi();
-    const actions = useAssignmentActions(options);
-    const [needFilter, setNeedFilter] = useState(filters.besoins);
-    const [needQuery, setNeedQuery] = useState(filters.q);
-    const [offerFilter, setOfferFilter] = useState(filters.offres);
-    const [offerQuery, setOfferQuery] = useState(filters.qo);
-    const [creating, setCreating] = useState(false);
-
-    const needMatches = (label: string) => needs.filter((n) => label === 'Tous' || n.filters.includes(label));
-    const needRows = needMatches(needFilter).filter((n) => !needQuery.trim() || n.search.includes(needQuery.trim().toLowerCase()));
-    const offerMatches = (label: string) => offers.filter((o) => label === 'Toutes' || o.status.label === label);
-    const offerRows = offerMatches(offerFilter).filter((o) => !offerQuery.trim() || o.search.includes(offerQuery.trim().toLowerCase()));
-    const toContact = needs.reduce((n, r) => n + r.toContact, 0);
-
-    const followNeed = (slug: string) => router.visit(`/affectations/besoins/${slug}`);
-    const openOffer = (slug: string) => router.visit(`/affectations/offres/${slug}`);
-    const pay = (o: PromoterOfferRow) => actions.payDeposit(`/affectations/offres/${o.slug}/acompte`, `${o.promoter} · acompte de ${fcfa(o.deposit.deposit)} (${o.deposit.rate} % · Paramètres) sur un coût global de ${fcfa(o.deposit.total)}. La demande du promoteur sera validée.`);
-    const create = () => (openPosts.length ? setCreating(true) : ui.toast('Aucun poste ouvert à pourvoir.', { tone: 'error' }));
-
-    const actionButton = (label: string, onClick: () => void, primary = false, icon = 'arrow_forward') => (
-        <Button label={label} {...(primary ? { icon } : { iconRight: icon })} size="sm" variant={primary ? 'primary' : 'secondary'} onClick={onClick} />
-    );
+/** Liste des affectations : une ligne par ouvrier affecté à une mission. */
+export default function AssignmentsIndex({ assignments, filters, filterOptions, kpis, todo, can }: Props) {
+    const rows = assignments.data;
+    const apply = (changes: Filters, keepPage = false) => {
+        const next: Filters = { ...filters, ...changes, ...(keepPage ? {} : { page: undefined }) };
+        router.get('/affectations', Object.fromEntries(Object.entries(next).filter(([, v]) => v)), { preserveState: true, preserveScroll: true, replace: true });
+    };
+    const applyQuick = (key: string | null) => apply({ rapide: key ?? undefined });
+    const filtered = Object.entries(filters).some(([k, v]) => !['tri', 'sens', 'page'].includes(k) && v);
+    const exportUrl = `/affectations/export?${new URLSearchParams(Object.entries(filters).filter(([k, v]) => v && k !== 'page') as [string, string][]).toString()}`;
 
     return (
         <>
-            <Head title="Affectations & Offres" />
+            <Head title="Affectations" />
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', flexWrap: 'wrap', marginTop: -6 }}>
-                <Button label="Exporter" icon="download" variant="secondary" onClick={() => (window.location.href = '/affectations/export')} />
-                <Button label="Créer une affectation" icon="add_circle" variant="primary" onClick={create} />
-            </div>
+            {can.export && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -6 }}>
+                    <Button label="Exporter" icon="download" variant="secondary" onClick={() => (window.location.href = exportUrl)} />
+                </div>
+            )}
 
             <div data-component="StatGrid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 'var(--space-4)' }}>
-                {kpis.map((k) => (
-                    <StatCard key={k.label} label={k.label} value={k.value} icon={k.icon} tone={k.tone as AnyTone} hint={k.hint} highlight={k.highlight} />
-                ))}
+                <StatCard label="Affectations actives" value={String(kpis.active)} icon="engineering" tone="g" />
+                <StatCard label="Confirmées, à démarrer" value={String(kpis.confirmed)} icon="event_available" tone="b" />
+                <StatCard label="Remplacements en cours" value={String(kpis.replacements)} icon="swap_horiz" tone="a" />
+                <StatCard label="Terminées" value={String(kpis.finished)} icon="task_alt" tone="g" />
             </div>
 
-            <Section
-                component="BesoinsAffectation"
-                icon="event_available"
-                title="Besoins en cours d’affectation"
-                text={`Ouvriers trouvés par le matching, ajoutés manuellement ou retenus parmi les candidatures · actualisé à ${refreshedAt}. Besoins dont des ouvriers ont été validés depuis le Matching : contactez et validez-les au fur et à mesure que le besoin se comble.`}
-                count={`${needRows.length} besoin(s) · ${toContact} ouvrier(s) à contacter`}
-                chips={needFilters.map((label) => (
-                    <Chip key={label} label={label} count={needMatches(label).length} on={needFilter === label} onClick={() => setNeedFilter(label)} />
-                ))}
-                search={<SearchInput value={needQuery} placeholder="Référence, chantier, promoteur, métier, ouvrier" onChange={setNeedQuery} debounce={150} />}
-            >
-                {needRows.length ? (
-                    <TableFrame minWidth={1200}>
-                        <thead>
-                            <tr style={{ background: 'var(--c-surface-3)' }}>
-                                {['Besoin', 'Chantier', 'Promoteur', 'Métiers', 'Sélectionnés / recherchés', 'Suivi des ouvriers', 'Début', 'Étape', 'Paiement', ''].map((c, i) => (
-                                    <th key={i} style={thStyle}>
-                                        {c}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {needRows.map((n) => (
-                                <tr key={n.slug} onClick={() => followNeed(n.slug)} className="och-hover-soft" style={{ cursor: 'pointer', background: 'var(--c-surface)' }}>
-                                    <td style={{ ...tdStyle, fontWeight: 'var(--fw-bold)', whiteSpace: 'nowrap' }}>{n.reference}</td>
-                                    <td style={tdStyle}>
-                                        <div style={{ fontWeight: 'var(--fw-semibold)' }}>{n.site}</div>
-                                        <div style={{ color: 'var(--c-muted)', fontSize: 'var(--fs-sm)' }}>{n.location}</div>
-                                    </td>
-                                    <td style={{ ...tdStyle, color: 'var(--c-ink-2)' }}>{n.promoter}</td>
-                                    <td style={{ ...tdStyle, color: 'var(--c-ink-2)' }}>{n.trades}</td>
-                                    <td style={{ ...tdStyle, minWidth: 160 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                                            <b>
-                                                {n.selected} / {n.need}
-                                            </b>
-                                            <Bar percent={n.percent} />
-                                        </div>
-                                        <div style={{ fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-sm)', color: n.rest ? 'var(--c-warning-fg)' : 'var(--c-success-fg)' }}>{n.rest ? `${n.rest} manquant(s)` : 'Complet'}</div>
-                                    </td>
-                                    <td style={{ ...tdStyle, color: 'var(--c-ink-2)' }}>{n.steps}</td>
-                                    <td style={{ ...tdStyle, whiteSpace: 'nowrap', color: 'var(--c-ink-2)' }}>{formatDate(n.startsOn)}</td>
-                                    <td style={tdStyle}>
-                                        <StatusBadge label={n.status.label} tone={n.status.tone} />
-                                    </td>
-                                    <td style={{ ...tdStyle, color: 'var(--c-ink-2)', whiteSpace: 'nowrap' }}>{n.payment}</td>
-                                    <td style={{ ...tdStyle, textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                                        {actionButton('Suivre', () => followNeed(n.slug))}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </TableFrame>
-                ) : (
-                    <StateBlock kind="empty" title="Aucun besoin" text="Aucun besoin ne correspond à ce filtre ou à cette recherche." />
-                )}
-            </Section>
+            <section data-component="ListPanel" style={{ background: 'var(--c-surface)', border: '1px solid var(--c-line)', borderRadius: 'var(--radius-2xl)', padding: 'var(--space-5) var(--space-5) var(--space-4)', minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap', marginBottom: 'var(--space-3)' }}>
+                    <Icon name="assignment_ind" size="var(--icon-md)" color="var(--c-primary)" />
+                    <h2 style={{ margin: 0, fontSize: 'var(--fs-2xl)', fontWeight: 'var(--fw-bold)', flex: 1 }}>Liste des affectations</h2>
+                    {filters.rapide && <FilterChip label={QUICK_LABELS[filters.rapide] ?? filters.rapide} onClear={() => applyQuick(null)} />}
+                    <span style={{ fontSize: 'var(--fs-base)', color: 'var(--c-ink-2)' }}>
+                        <b style={{ color: 'var(--c-ink)' }}>{assignments.total}</b> {assignments.total > 1 ? 'affectations' : 'affectation'}
+                    </span>
+                </div>
 
-            <Section
-                component="OffresPromoteurs"
-                icon="local_offer"
-                title="Offres des promoteurs"
-                text="Demandes où le promoteur a déjà choisi ses ouvriers : contactez chaque ouvrier, validez ou invalidez-le, remplacez les désistements par matching, le promoteur est ensuite notifié automatiquement pour le paiement de l’acompte."
-                count={`${offerRows.length} offre(s) · ${offerMatches('À traiter').length} à traiter`}
-                chips={offerFilters.map((label) => (
-                    <Chip key={label} label={label} count={offerMatches(label).length} on={offerFilter === label} onClick={() => setOfferFilter(label)} />
-                ))}
-                search={<SearchInput value={offerQuery} placeholder="Référence, promoteur, chantier, métier, ouvrier" onChange={setOfferQuery} debounce={150} />}
-            >
-                {offerRows.length ? (
-                    <TableFrame minWidth={1080}>
-                        <thead>
-                            <tr style={{ background: 'var(--c-surface-3)' }}>
-                                {['Offre', 'Chantier', 'Poste demandé', 'Traitement des ouvriers', 'Urgence', 'Statut', ''].map((c, i) => (
-                                    <th key={i} style={thStyle}>
-                                        {c}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {offerRows.map((o) => (
-                                <tr key={o.slug} onClick={() => openOffer(o.slug)} className="och-hover-soft" style={{ cursor: 'pointer', background: 'var(--c-surface)', verticalAlign: 'top' }}>
-                                    <td style={{ ...tdStyle, minWidth: 170 }}>
-                                        <div style={{ fontWeight: 'var(--fw-bold)', whiteSpace: 'nowrap' }}>{o.reference}</div>
-                                        <div style={{ color: 'var(--c-ink-2)', marginTop: 2 }}>{o.promoter}</div>
-                                        <div style={{ color: 'var(--c-muted)', fontSize: 'var(--fs-xs)', marginTop: 2 }}>Reçue le {formatDate(o.sentOn)}</div>
-                                    </td>
-                                    <td style={{ ...tdStyle, minWidth: 190 }}>
-                                        <div style={{ fontWeight: 'var(--fw-semibold)' }}>{o.site}</div>
-                                        <div style={{ color: 'var(--c-muted)', marginTop: 2, fontSize: 'var(--fs-sm)' }}>{o.location}</div>
-                                    </td>
-                                    <td style={{ ...tdStyle, minWidth: 170 }}>
-                                        <div style={{ fontWeight: 'var(--fw-semibold)' }}>{o.trade}</div>
-                                        <div style={{ color: 'var(--c-muted)', marginTop: 2, fontSize: 'var(--fs-sm)' }}>{o.post}</div>
-                                    </td>
-                                    <td style={{ ...tdStyle, minWidth: 240, maxWidth: 320 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                                            <Bar percent={o.percent} />
-                                            <b style={{ whiteSpace: 'nowrap' }}>
-                                                {o.accepted} / {o.total} validé{o.accepted > 1 ? 's' : ''}
-                                            </b>
-                                        </div>
-                                        <div style={{ color: o.refused ? 'var(--c-danger-fg)' : 'var(--c-muted)', fontWeight: 'var(--fw-semibold)', marginTop: 4, fontSize: 'var(--fs-sm)' }}>{o.progress}</div>
-                                        <div title={o.profiles} style={{ color: 'var(--c-muted)', fontSize: 'var(--fs-xs)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {o.profiles}
-                                        </div>
-                                    </td>
-                                    <td style={tdStyle}>
-                                        <StatusBadge label={o.urgency.label} tone={o.urgency.tone} />
-                                    </td>
-                                    <td style={tdStyle}>
-                                        <StatusBadge label={o.status.label} tone={o.status.tone} />
-                                    </td>
-                                    <td style={{ ...tdStyle, textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 'var(--space-2)' }}>
-                                            {actionButton('Traiter', () => openOffer(o.slug))}
-                                            {o.canPay && actionButton('Valider l’acompte', () => pay(o), true, 'payments')}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </TableFrame>
-                ) : (
-                    <StateBlock kind="empty" title="Aucune offre" text="Aucune offre ne correspond à ce filtre ou à cette recherche." />
-                )}
-            </Section>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2_5)', marginBottom: 'var(--space-3)' }}>
+                    <SearchInput value={filters.q ?? ''} placeholder="Rechercher par ouvrier, chantier ou mission" onChange={(q) => apply({ q })} />
+                    {FILTERS.map(([key, label]) => (
+                        <FilterSelect key={key} label={label} value={filters[key] ?? ''} options={filterOptions[key]} onChange={(value) => apply({ [key]: value })} />
+                    ))}
+                </div>
 
-            {creating && <CreateDialog posts={openPosts} onClose={() => setCreating(false)} />}
-            {actions.dialog}
+                <TableFrame minWidth={1100}>
+                    <thead>
+                        <tr style={{ background: 'var(--c-surface-3)' }}>
+                            {COLUMNS.map(([label, key]) =>
+                                key ? (
+                                    <SortableTh key={label} label={label} sortKey={key} current={{ key: filters.tri, direction: filters.sens as SortDirection }} onSort={(tri, sens) => apply({ tri: tri ?? undefined, sens: tri ? sens : undefined }, true)} />
+                                ) : (
+                                    <th key={label} style={thStyle}>
+                                        {label}
+                                    </th>
+                                ),
+                            )}
+                            <th style={{ ...thStyle, textAlign: 'center' }}>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map((a) => {
+                            const open = () => router.visit(`/affectations/${a.id}`);
+                            return (
+                                <tr key={a.id} onClick={open} className="och-hover-soft" style={{ cursor: 'pointer', background: 'var(--c-surface)' }}>
+                                    <td style={tdStyle}>
+                                        <StackCell main={a.worker.full_name} sub={[a.worker.reference, a.worker.phone].filter(Boolean).join(' · ')} strong />
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <StackCell main={a.site.label} sub={a.promoter.name} />
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <LocationCell value={a.site.commune ?? '—'} />
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <TextCell>{a.lead ? `${a.trade ?? '—'} · chef d’équipe` : (a.trade ?? '—')}</TextCell>
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <TextCell muted={!a.startsOn}>{a.startsOn ? formatDate(a.startsOn) : '—'}</TextCell>
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <TextCell muted={!a.endsOn}>{a.endsOn ? formatDate(a.endsOn) : '—'}</TextCell>
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <TextCell muted={a.netRate == null}>{a.netRate != null ? `${formatNumber(a.netRate)} FCFA` : '—'}</TextCell>
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)' }}>
+                                            <StatusBadge label={a.status.label} tone={a.status.tone as never} />
+                                            {a.replacement && <StatusBadge label="Remplacement" tone="a" />}
+                                        </div>
+                                    </td>
+                                    <RowActions actions={[{ icon: 'visibility', label: 'Voir la fiche', onClick: open }]} />
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </TableFrame>
+
+                {rows.length === 0 &&
+                    (filtered ? (
+                        <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--c-muted)' }}>
+                            <Icon name="search_off" size="var(--icon-xl)" color="var(--c-subtle)" style={{ display: 'block', marginBottom: 'var(--space-1_5)' }} />
+                            Aucun résultat pour ces critères.
+                        </div>
+                    ) : (
+                        <div style={{ paddingTop: 'var(--space-4)' }}>
+                            <StateBlock kind="nodata" icon="assignment_ind" title="Aucune affectation" text="Les affectations apparaissent après le paiement de l’acompte par le promoteur." />
+                        </div>
+                    ))}
+
+                <Pagination page={assignments.currentPage} lastPage={assignments.lastPage} from={assignments.from} to={assignments.to} total={assignments.total} onPage={(page) => apply({ page: String(page) }, true)} />
+            </section>
+
+            <ActionStrip
+                title="Suivi des affectations"
+                icon="schedule"
+                active={filters.rapide ?? null}
+                activeLabel={filters.rapide ? QUICK_LABELS[filters.rapide] : undefined}
+                ctaLabel="Afficher toutes les affectations"
+                onCta={() => applyQuick(null)}
+                onSelect={applyQuick}
+                items={[
+                    { key: 'remplacements', count: todo.remplacements, label: 'remplacements en cours', icon: 'swap_horiz', tone: 'a' },
+                    { key: 'demarrage', count: todo.demarrage, label: 'démarrent sous 7 jours', icon: 'event_available', tone: 'b' },
+                    { key: 'fin', count: todo.fin, label: 'terminent sous 7 jours', icon: 'event_busy', tone: 'o' },
+                ]}
+            />
         </>
     );
 }

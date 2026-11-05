@@ -2,9 +2,7 @@
 
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AnalyticsController;
-use App\Http\Controllers\AssignmentComplementController;
 use App\Http\Controllers\AssignmentController;
-use App\Http\Controllers\AssignmentNeedController;
 use App\Http\Controllers\AttendanceActionController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AttendanceEntityController;
@@ -26,12 +24,10 @@ use App\Http\Controllers\IntegrationController;
 use App\Http\Controllers\MatchingController;
 use App\Http\Controllers\NeedController;
 use App\Http\Controllers\NeedDecisionController;
-use App\Http\Controllers\NeedRefreshController;
 use App\Http\Controllers\PaymentActionController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PromoterController;
 use App\Http\Controllers\PromoterFormController;
-use App\Http\Controllers\PromoterOfferController;
 use App\Http\Controllers\PromoterReviewController;
 use App\Http\Controllers\QualityController;
 use App\Http\Controllers\ReviewActionController;
@@ -216,10 +212,6 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::get('/{tab?}', [NeedController::class, 'show'])->where('tab', 'ouvriers|documents|historique')->name('show');
         });
 
-        // Actualisation sur les données locales, tant que le module Affectations n’utilise pas l’API.
-        Route::post('/{need}/actualisation', [NeedRefreshController::class, 'refreshAll'])->name('refresh');
-        Route::post('/{need}/offres/{offer}/actualisation', [NeedRefreshController::class, 'refreshOffer'])->name('offers.refresh');
-
         Route::get('/{need}/{rest?}', [NeedController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
@@ -239,37 +231,13 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('/{rest}', [MatchingController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
+    // Affectations : données de l’API (api/v1/admin/assignments). Liste, fiche et indisponibilité.
     Route::prefix('affectations')->name('assignments.')->group(function () {
         Route::get('/', [AssignmentController::class, 'index'])->name('index');
         Route::get('/export', [AssignmentController::class, 'export'])->name('export');
-
-        Route::prefix('besoins/{need}')->name('needs.')->scopeBindings()->group(function () {
-            Route::get('/', [AssignmentController::class, 'need'])->name('show');
-            Route::post('/contact', [AssignmentNeedController::class, 'contact'])->name('contact');
-            Route::post('/validation', [AssignmentNeedController::class, 'validateWorkers'])->name('validate');
-            Route::post('/propositions', [AssignmentNeedController::class, 'addProposals'])->name('proposals');
-            Route::post('/ouvriers', [AssignmentNeedController::class, 'addManual'])->name('manual');
-            Route::post('/acompte', [AssignmentNeedController::class, 'payDeposit'])->name('deposit');
-            Route::post('/relance', [AssignmentNeedController::class, 'remind'])->name('remind');
-            Route::post('/complement', [AssignmentComplementController::class, 'forNeed'])->name('complement');
-            Route::post('/ouvriers/{assignment}/invalidation', [AssignmentNeedController::class, 'decline'])->name('decline');
-            Route::post('/ouvriers/{assignment}/annulation-validation', [AssignmentNeedController::class, 'cancelValidation'])->name('cancel-validation');
-            Route::post('/ouvriers/{assignment}/demande-remplacement', [AssignmentNeedController::class, 'requestReplacement'])->name('replacement-request');
-            Route::post('/ouvriers/{assignment}/remplacant', [AssignmentNeedController::class, 'propose'])->name('propose');
-        });
-
-        Route::prefix('offres/{promoterOffer}')->name('offers.')->scopeBindings()->group(function () {
-            Route::get('/', [AssignmentController::class, 'offer'])->name('show');
-            Route::post('/contact', [PromoterOfferController::class, 'contact'])->name('contact');
-            Route::post('/validation', [PromoterOfferController::class, 'accept'])->name('accept');
-            Route::post('/notification', [PromoterOfferController::class, 'notify'])->name('notify');
-            Route::post('/acompte', [PromoterOfferController::class, 'payDeposit'])->name('deposit');
-            Route::post('/annulation', [PromoterOfferController::class, 'cancel'])->name('cancel');
-            Route::post('/complement', [AssignmentComplementController::class, 'forOffer'])->name('complement');
-            Route::post('/profils/{profile}/refus', [PromoterOfferController::class, 'refuse'])->name('refuse');
-            Route::post('/profils/{profile}/demande-remplacement', [PromoterOfferController::class, 'requestReplacement'])->name('replacement-request');
-            Route::post('/profils/{profile}/remplacant', [PromoterOfferController::class, 'propose'])->name('propose');
-        });
+        Route::post('/{assignment}/indisponibilite', [AssignmentController::class, 'declareUnavailability'])->whereUuid('assignment')->name('unavailability');
+        Route::get('/{assignment}', [AssignmentController::class, 'show'])->whereUuid('assignment')->name('show');
+        Route::get('/{rest}', [AssignmentController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
     Route::prefix('pointages')->name('attendances.')->group(function () {
