@@ -151,7 +151,7 @@ class CommercialAdminTest extends CommercialTestCase
             ->assertJsonPath('data.months.5.validated', 1)
             ->assertJsonPath('data.trades.0.count', 1)
             ->assertJsonPath('data.suspension', null)
-            ->assertJsonPath('data.can', ['suspend' => true, 'reactivate' => false, 'terminate' => true]);
+            ->assertJsonPath('data.can', ['suspend' => true, 'reactivate' => false, 'terminate' => true, 'edit' => true, 'send_link' => true]);
 
         $this->getJson('/api/v1/admin/commercials/00000000-0000-4000-8000-000000000000')->assertNotFound();
     }
@@ -167,7 +167,7 @@ class CommercialAdminTest extends CommercialTestCase
             ->assertJsonPath('data.suspension.reason', 'Profils dupliqués.')
             ->assertJsonPath('data.suspension.by', 'Awa Koné')
             ->assertJsonPath('data.ranking', null)
-            ->assertJsonPath('data.can', ['suspend' => false, 'reactivate' => true, 'terminate' => true]);
+            ->assertJsonPath('data.can', ['suspend' => false, 'reactivate' => true, 'terminate' => true, 'edit' => true, 'send_link' => false]);
 
         $this->assertSame(CommercialProfileStatus::Suspendu, $this->profile->fresh()->status);
         $this->assertSame(UserStatus::Suspendu, $this->commercial->fresh()->status);
@@ -194,7 +194,7 @@ class CommercialAdminTest extends CommercialTestCase
             ->assertJsonPath('data.status.value', 'termine')
             ->assertJsonPath('data.ended_at', today()->toDateString())
             ->assertJsonPath('data.termination_reason', 'Fin de contrat · échéance.')
-            ->assertJsonPath('data.can', ['suspend' => false, 'reactivate' => true, 'terminate' => false]);
+            ->assertJsonPath('data.can', ['suspend' => false, 'reactivate' => true, 'terminate' => false, 'edit' => false, 'send_link' => false]);
 
         $this->assertSame(UserStatus::Desactive, $this->commercial->fresh()->status);
         $this->assertSame($this->profile->id, $worker->fresh()->current_commercial_id);
@@ -212,6 +212,28 @@ class CommercialAdminTest extends CommercialTestCase
 
         $this->asAdmin()->postJson($this->url('/suspension'), ['reason' => 'Motif assez long.'])->assertUnprocessable();
         $this->postJson($this->url('/termination'), ['reason' => 'Compte créé par erreur.'])->assertOk();
+    }
+
+    public function test_workers_registered_by_the_back_office_do_not_count_in_the_commercial_results(): void
+    {
+        $recruited = $this->submit('0700000095');
+        $recruited->update(['verification_status' => WorkerVerificationStatus::Valide, 'validated_at' => now()]);
+        $referred = $this->submit('0700000096');
+        $referred->update(['verification_status' => WorkerVerificationStatus::Valide, 'validated_at' => now(), 'acquisition_channel' => Worker::BACK_OFFICE_CHANNEL]);
+        $this->profile->commercialObjectives()->create(['period_start' => now()->startOfMonth(), 'period_end' => now()->endOfMonth(), 'indicator' => CommercialObjectiveIndicator::OuvriersValides, 'target_value' => 2]);
+
+        $this->asAdmin()->getJson($this->url())
+            ->assertOk()
+            ->assertJsonPath('data.workers.total', 1)
+            ->assertJsonPath('data.workers.month_validated', 1)
+            ->assertJsonPath('data.objective.achieved', 1)
+            ->assertJsonPath('data.months.5.registered', 1)
+            ->assertJsonPath('data.months.5.validated', 1)
+            ->assertJsonPath('data.trades.0.count', 1);
+
+        $this->actingAsCommercial($this->commercial);
+        $this->getJson('/api/v1/commercial/objectives')->assertJsonPath('data.current.achieved', 1);
+        $this->getJson('/api/v1/commercial/ranking')->assertJsonPath('data.validated', 1);
     }
 
     public function test_the_routes_need_their_permissions(): void

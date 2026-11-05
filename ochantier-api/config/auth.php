@@ -96,6 +96,11 @@ return [
         'reset_minutes' => (int) env('ADMIN_PASSWORD_RESET_MINUTES', 30),
     ],
 
+    // Page publique du Back Office où un commercial choisit son mot de passe depuis le lien reçu.
+    'commercial' => [
+        'activation_url' => env('COMMERCIAL_ACTIVATION_URL', 'http://localhost:8000/activation-commercial'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | User Providers

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Auth\CommercialActivationController;
 use App\Http\Controllers\Api\V1\Auth\CommercialLoginController;
 use App\Http\Controllers\Api\V1\Auth\DeviceController;
 use App\Http\Controllers\Api\V1\Auth\PasswordController;
@@ -71,6 +72,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::prefix('commercial')->name('commercial.')->group(function () {
             Route::post('login', [CommercialLoginController::class, 'store'])->middleware('throttle:login')->name('login');
             Route::post('login/verify', [CommercialLoginController::class, 'verify'])->middleware('throttle:10,1')->name('login.verify');
+            Route::get('activation', [CommercialActivationController::class, 'show'])->middleware('throttle:10,1')->name('activation.show');
+            Route::post('activation', [CommercialActivationController::class, 'store'])->middleware('throttle:10,1')->name('activation.store');
         });
 
         Route::post('password/forgot', [PasswordController::class, 'forgot'])->middleware('throttle:otp')->name('password.forgot');

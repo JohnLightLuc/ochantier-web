@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\Admin\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Admin\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Admin\Auth\SessionController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialAccessController;
+use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialAccountController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterAccountController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterController;
@@ -115,12 +116,22 @@ Route::middleware('auth:admin')->group(function () {
         Route::prefix('commercials')->name('commercials.')->group(function () {
             Route::get('/', [CommercialController::class, 'index'])->middleware('admin.can:commercials.read')->name('index');
             Route::get('export', [CommercialController::class, 'export'])->middleware('admin.can:commercials.export')->name('export');
+            Route::get('form-options', [CommercialAccountController::class, 'formOptions'])->middleware('admin.can:commercials.read')->name('form-options');
+            Route::post('/', [CommercialAccountController::class, 'store'])->middleware('admin.can:commercials.create')->name('store');
 
             Route::prefix('{commercial}')->whereUuid('commercial')->group(function () {
                 Route::get('/', [CommercialController::class, 'show'])->middleware('admin.can:commercials.read')->name('show');
                 Route::post('suspension', [CommercialAccessController::class, 'suspend'])->middleware('admin.can:commercials.update')->name('suspend');
                 Route::post('reactivation', [CommercialAccessController::class, 'reactivate'])->middleware('admin.can:commercials.update')->name('reactivate');
                 Route::post('termination', [CommercialAccessController::class, 'terminate'])->middleware('admin.can:commercials.delete')->name('terminate');
+                Route::patch('/', [CommercialAccountController::class, 'update'])->middleware('admin.can:commercials.update')->name('update');
+                Route::post('documents', [CommercialAccountController::class, 'storeDocument'])->middleware('admin.can:documents.validate')->name('documents.store');
+                Route::post('documents/{document}/approve', [CommercialAccountController::class, 'approveDocument'])->whereUuid('document')->middleware('admin.can:documents.validate')->name('documents.approve');
+                Route::post('documents/{document}/reject', [CommercialAccountController::class, 'rejectDocument'])->whereUuid('document')->middleware('admin.can:documents.validate')->name('documents.reject');
+                Route::post('access-link', [CommercialAccountController::class, 'sendLink'])->middleware('admin.can:commercials.update')->name('access-link.send');
+                Route::delete('access-link', [CommercialAccountController::class, 'revokeLink'])->middleware('admin.can:commercials.update')->name('access-link.revoke');
+                Route::get('access', [CommercialAccountController::class, 'access'])->middleware('admin.can:commercials.read')->name('access');
+                Route::delete('sessions/{session?}', [CommercialAccountController::class, 'revokeSessions'])->whereUuid('session')->middleware('admin.can:commercials.update')->name('sessions.revoke');
             });
         });
     });

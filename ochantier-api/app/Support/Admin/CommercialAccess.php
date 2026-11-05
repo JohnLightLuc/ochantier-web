@@ -18,7 +18,7 @@ use Illuminate\Validation\ValidationException;
  */
 class CommercialAccess
 {
-    public function __construct(private AuthSessions $sessions, private CommercialNotifier $notifier) {}
+    public function __construct(private AuthSessions $sessions, private CommercialNotifier $notifier, private CommercialActivation $activation) {}
 
     public function suspend(CommercialProfile $commercial, string $status, Admin $admin, string $reason, Request $request): void
     {
@@ -32,6 +32,7 @@ class CommercialAccess
             $commercial->update(['status' => CommercialProfileStatus::Suspendu]);
             $user->forceFill(['status' => UserStatus::Suspendu, 'suspended_at' => now(), 'suspended_by_admin_id' => $admin->getKey(), 'suspended_reason' => $reason])->save();
             $this->sessions->revokeAll($user, 'suspended_by_admin');
+            $this->activation->expire($user);
         });
 
         AdminAudit::record($admin, 'commercials', 'commercial.suspended', $request, $commercial, ['status' => $status], ['status' => 'suspendu', 'reason' => $reason]);
@@ -46,7 +47,9 @@ class CommercialAccess
 
         DB::transaction(function () use ($commercial): void {
             $commercial->update(['status' => CommercialProfileStatus::Actif, 'ended_at' => null]);
-            $commercial->user->forceFill(['status' => UserStatus::Actif, 'suspended_at' => null, 'suspended_by_admin_id' => null, 'suspended_reason' => null])->save();
+            $user = $commercial->user;
+            // Sans mot de passe, le compte attend toujours son activation.
+            $user->forceFill(['status' => $user->password_hash ? UserStatus::Actif : UserStatus::EnAttenteActivation, 'suspended_at' => null, 'suspended_by_admin_id' => null, 'suspended_reason' => null])->save();
         });
 
         AdminAudit::record($admin, 'commercials', 'commercial.reactivated', $request, $commercial, ['status' => $status], ['status' => 'actif']);
@@ -68,6 +71,7 @@ class CommercialAccess
             $commercial->update(['status' => CommercialProfileStatus::Termine, 'ended_at' => today()]);
             $user->forceFill(['status' => UserStatus::Desactive, 'suspended_at' => null, 'suspended_by_admin_id' => null, 'suspended_reason' => null])->save();
             $this->sessions->revokeAll($user, 'contract_ended');
+            $this->activation->expire($user);
         });
 
         AdminAudit::record($admin, 'commercials', 'commercial.terminated', $request, $commercial, ['status' => $status], ['status' => 'termine', 'reason' => $reason]);

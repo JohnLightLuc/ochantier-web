@@ -27,6 +27,11 @@ class Worker extends Model
     public const BACK_OFFICE_CHANNEL = 'back_office';
 
     /**
+     * Condition SQL : ouvrier recruté par un commercial (ceux du Back Office ne comptent pas dans ses résultats).
+     */
+    public const RECRUITED_SQL = "workers.acquisition_channel is distinct from 'back_office'";
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>

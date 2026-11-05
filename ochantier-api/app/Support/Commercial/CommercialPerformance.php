@@ -15,7 +15,8 @@ use Illuminate\Support\Collection;
 
 /**
  * Activité du commercial : indicateurs de la semaine, objectif du mois (fixé par O’CHANTIER) et classement parmi les
- * commerciaux actifs, calculé en direct sur les ouvriers validés du mois.
+ * commerciaux actifs, calculé en direct sur les ouvriers validés du mois. Les ouvriers enregistrés par le Back Office
+ * ne comptent pas dans ces résultats.
  */
 class CommercialPerformance
 {
@@ -32,7 +33,7 @@ class CommercialPerformance
     public function week(CommercialProfile $commercial): array
     {
         $start = CarbonImmutable::today()->startOfWeek();
-        $workers = Worker::query()->where('origin_commercial_id', $commercial->getKey());
+        $workers = Worker::query()->where('origin_commercial_id', $commercial->getKey())->whereRaw(Worker::RECRUITED_SQL);
 
         return [
             ['key' => 'prospects', 'label' => 'Prospects', 'count' => $commercial->prospects()->where('created_at', '>=', $start)->where('status', '!=', ProspectStatus::Abandonne)->count()],
@@ -146,6 +147,7 @@ class CommercialPerformance
     {
         return Worker::query()
             ->where('origin_commercial_id', $commercial->getKey())
+            ->whereRaw(Worker::RECRUITED_SQL)
             ->where('verification_status', WorkerVerificationStatus::Valide)
             ->whereBetween('validated_at', [$from, $to])
             ->count();
@@ -167,6 +169,7 @@ class CommercialPerformance
             ->where('verification_status', WorkerVerificationStatus::Valide)
             ->whereBetween('validated_at', [$month->startOfMonth(), $month->endOfMonth()])
             ->whereNotNull('origin_commercial_id')
+            ->whereRaw(Worker::RECRUITED_SQL)
             ->groupBy('origin_commercial_id')
             ->selectRaw('origin_commercial_id, count(*) as validated')
             ->pluck('validated', 'origin_commercial_id');

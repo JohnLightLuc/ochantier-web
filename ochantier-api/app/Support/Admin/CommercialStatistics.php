@@ -41,7 +41,7 @@ class CommercialStatistics
     public function months(CommercialProfile $commercial, int $count = 6): array
     {
         $first = CarbonImmutable::today()->startOfMonth()->subMonths($count - 1);
-        $workers = Worker::query()->where('origin_commercial_id', $commercial->getKey())->toBase();
+        $workers = Worker::query()->where('origin_commercial_id', $commercial->getKey())->whereRaw(Worker::RECRUITED_SQL)->toBase();
 
         $registered = (clone $workers)->where('verification_status', '!=', WorkerVerificationStatus::Brouillon->value)->where('submitted_at', '>=', $first)
             ->selectRaw("to_char(submitted_at, 'YYYY-MM') as month, count(*) as total")->groupByRaw('1')->pluck('total', 'month');
@@ -68,6 +68,7 @@ class CommercialStatistics
             ->join('trades', 'trades.id', '=', 'worker_trades.trade_id')
             ->whereNull('workers.deleted_at')
             ->where('workers.origin_commercial_id', $commercial->getKey())
+            ->whereRaw(Worker::RECRUITED_SQL)
             ->where('workers.verification_status', '!=', WorkerVerificationStatus::Brouillon->value)
             ->groupBy('trades.label')
             ->selectRaw('trades.label, count(*) as total')

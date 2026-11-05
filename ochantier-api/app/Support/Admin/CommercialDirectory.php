@@ -8,6 +8,7 @@ use App\Enums\WorkerVerificationStatus;
 use App\Models\CommercialProfile;
 use App\Models\CommercialZone;
 use App\Models\Commune;
+use App\Models\Worker;
 use App\Support\Commercial\CommercialEarnings;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -177,7 +178,7 @@ class CommercialDirectory
         $draft = WorkerVerificationStatus::Brouillon->value;
 
         $workers = DB::table('workers')
-            ->whereNull('deleted_at')->whereNotNull('origin_commercial_id')
+            ->whereNull('deleted_at')->whereNotNull('origin_commercial_id')->whereRaw(Worker::RECRUITED_SQL)
             ->groupBy('origin_commercial_id')
             ->select('origin_commercial_id')
             ->selectRaw("count(*) filter (where verification_status <> '{$draft}') as total")
@@ -197,6 +198,7 @@ class CommercialDirectory
             ->selectSub(fn (QueryBuilder $query) => $query->selectRaw('count(*)')->from('workers')
                 ->whereNull('workers.deleted_at')
                 ->whereColumn('workers.origin_commercial_id', 'objective.commercial_id')
+                ->whereRaw(Worker::RECRUITED_SQL)
                 ->where('workers.verification_status', $valid)
                 ->whereRaw('workers.validated_at >= objective.period_start')
                 ->whereRaw("workers.validated_at < objective.period_end + interval '1 day'"), 'achieved')
