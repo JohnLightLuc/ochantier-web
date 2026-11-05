@@ -216,11 +216,13 @@ class SalesAgentsTest extends TestCase
     public function test_the_activation_page_explains_an_invalid_link_and_saves_the_password(): void
     {
         $this->app['auth']->forgetGuards();
-        Http::fake(fn (ClientRequest $request) => match (true) {
-            str_contains($request->url(), 'token=perime') => Http::response(['message' => 'Lien expiré.', 'errors' => ['token' => ['Lien expiré.']]], 422),
-            $request->method() === 'GET' => Http::response(['data' => ['first_name' => 'Fatou', 'phone' => '+225 05 •• •• 77', 'expires_at' => '2026-11-08T08:00:00+00:00']]),
-            default => Http::response(['message' => 'Mot de passe enregistré.']),
-        });
+        // Adresse exacte de l’API : le Back Office n’appelle que sous api/v1/admin.
+        Http::fake([
+            self::API.'/auth/commercial-activation?token=perime' => Http::response(['message' => 'Lien expiré.', 'errors' => ['token' => ['Lien expiré.']]], 422),
+            self::API.'/auth/commercial-activation?token=bon' => Http::response(['data' => ['first_name' => 'Fatou', 'phone' => '+225 05 •• •• 77', 'expires_at' => '2026-11-08T08:00:00+00:00']]),
+            self::API.'/auth/commercial-activation' => Http::response(['message' => 'Mot de passe enregistré.']),
+            '*' => Http::response(['message' => 'Introuvable'], 404),
+        ]);
 
         $this->get('/activation-commercial?token=perime')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Auth/Login')->where('step', 'activation')->where('firstName', null));
         $this->get('/activation-commercial?token=bon')->assertOk()->assertInertia(fn (Assert $page) => $page->where('firstName', 'Fatou'));

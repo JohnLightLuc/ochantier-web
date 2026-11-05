@@ -21,7 +21,7 @@ class CommercialActivationController extends ApiAuthController
 
         if ($token !== '') {
             try {
-                $data = $this->failAs('token', fn () => $this->api->guest('GET', 'auth/commercial/activation', ['token' => $token]))->json('data');
+                $data = $this->failAs('token', fn () => $this->api->guest('GET', 'auth/commercial-activation', ['token' => $token]))->json('data');
             } catch (ValidationException) {
                 // Lien expiré, révoqué ou déjà utilisé : la page l’explique.
             }
@@ -38,7 +38,7 @@ class CommercialActivationController extends ApiAuthController
             'password.confirmed' => 'Les deux mots de passe ne correspondent pas.',
         ]);
 
-        $this->failAs('password', fn () => $this->api->guest('POST', 'auth/commercial/activation', [...$validated, 'password_confirmation' => $request->input('password_confirmation')]));
+        $this->failAs('password', fn () => $this->api->guest('POST', 'auth/commercial-activation', [...$validated, 'password_confirmation' => $request->input('password_confirmation')]));
 
         return to_route('commercial-activation')->with('activated', true);
     }
