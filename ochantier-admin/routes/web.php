@@ -227,6 +227,9 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
     Route::prefix('matching')->name('matching.')->group(function () {
         Route::get('/', [MatchingController::class, 'index'])->name('index');
         Route::post('/besoins/{offer}/lancement', [MatchingController::class, 'run'])->whereUuid('offer')->name('run');
+        Route::post('/besoins/{offer}/envoi', [MatchingController::class, 'dispatch'])->whereUuid('offer')->name('dispatch');
+        Route::post('/suggestions/{suggestion}/contact', [MatchingController::class, 'contact'])->whereUuid('suggestion')->name('contact');
+        Route::post('/suggestions/{suggestion}/reponse', [MatchingController::class, 'respond'])->whereUuid('suggestion')->name('respond');
         Route::get('/besoins/{offer}', [MatchingController::class, 'show'])->whereUuid('offer')->name('show');
         Route::get('/{rest}', [MatchingController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });

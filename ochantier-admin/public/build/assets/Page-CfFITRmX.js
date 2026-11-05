@@ -1,0 +1,1 @@
+import{u as e}from"./dist-DWLDHotl.js";import{t}from"./useBlockActions-R3t47mQX.js";import{t as n}from"./BlockPage-8ks4GS8x.js";var r=e();function i(e){let{run:i,dialog:a}=t(e.sheets);return(0,r.jsx)(n,{...e,module:`Avis & litiges`,run:i,dialog:a})}export{i as default};

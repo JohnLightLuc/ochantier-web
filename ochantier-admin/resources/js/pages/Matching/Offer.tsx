@@ -2,11 +2,13 @@ import { stack, RelationTable } from '@/components/promoters/RelationTabs';
 import { StackCell, TextCell } from '@/components/list/Table';
 import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/ui/StatusBadge';
+import FormDialog from '@/components/overlays/FormDialog';
 import { Block } from '@/components/workers/blocks';
 import { useAdminUi } from '@/contexts/AdminUiContext';
 import { formatDate, formatNumber } from '@/lib/format';
 import type { OfferRow } from '@/types/offers';
 import { Head, router } from '@inertiajs/react';
+import { useState, type ReactNode } from 'react';
 
 type Criterion = { key: string; label: string; weight: number; value: number; contribution: number; detail: string };
 
@@ -20,6 +22,9 @@ type Suggestion = {
     workerId: string;
     name: string;
     code: string;
+    phone: string | null;
+    contact: { channel: string; at: string | null } | null;
+    response: { decision: { value: string; label: string }; conditions: string | null; net_daily_rate: number | null; at: string | null } | null;
     commune: string | null;
     rating: number | null;
     experience: number | null;
@@ -44,15 +49,56 @@ type Need = {
     exclusions: { id: string; workerId: string; name: string; code: string; nature: string; absolute: boolean; reason: string | null }[];
 };
 
-type Props = { offer: OfferRow; runRefusal: string | null; needs: Need[]; can: { run: boolean } };
+type Props = { offer: OfferRow; runRefusal: string | null; retained: number; needs: Need[]; can: { run: boolean; update: boolean } };
+
+const CHANNELS = [
+    { value: 'appel', label: 'Appel' },
+    { value: 'whatsapp', label: 'WhatsApp' },
+    { value: 'sms', label: 'SMS' },
+    { value: 'visite', label: 'Visite' },
+];
+
+/** Un ouvrier ne se traite plus une fois proposé. */
+const OPEN = ['suggere', 'contacte', 'accepte', 'refuse', 'indisponible'];
 
 const fcfa = (n: number | null) => (n != null ? `${formatNumber(n)} FCFA` : '—');
 const decimal = (n: number) => String(n).replace('.', ',');
 
 /** Résultats du matching d’un besoin : classement expliqué par métier, et ouvriers exclus. */
-export default function MatchingOffer({ offer: o, runRefusal, needs, can }: Props) {
+export default function MatchingOffer({ offer: o, runRefusal, retained, needs, can }: Props) {
     const ui = useAdminUi();
+    const [dialog, setDialog] = useState<ReactNode>(null);
+    const close = () => setDialog(null);
     const hasRun = needs.some((n) => n.lastRun);
+    const required = needs.reduce((sum, n) => sum + n.headcount, 0);
+
+    const contact = (s: Suggestion) => setDialog(<FormDialog title={`Contact de ${s.name}`} body={`${s.phone ?? 'Numéro inconnu'} · en attente de sa réponse.`} icon="call" okLabel="Enregistrer" url={`/matching/suggestions/${s.id}/contact`} onClose={close} fields={[{ name: 'channel', label: 'Canal', type: 'select', required: true, full: true, options: CHANNELS }]} />);
+
+    const respond = (s: Suggestion) =>
+        setDialog(
+            <FormDialog
+                title={`Réponse de ${s.name}`}
+                body={`${s.phone ?? 'Numéro inconnu'} · tarif net annoncé : ${fcfa(s.rate)} par jour. La date, l’auteur et le tarif sont enregistrés.`}
+                icon="how_to_reg"
+                okLabel="Enregistrer la réponse"
+                url={`/matching/suggestions/${s.id}/reponse`}
+                onClose={close}
+                fields={[
+                    { name: 'decision', label: 'Réponse', type: 'select', required: true, options: [{ value: 'accepte', label: 'D’accord' }, { value: 'refuse', label: 'Refuse' }, { value: 'indisponible', label: 'Indisponible' }] },
+                    { name: 'channel', label: 'Canal', type: 'select', required: true, options: CHANNELS },
+                    { name: 'conditions', label: 'Conditions ou commentaire', type: 'textarea' },
+                ]}
+            />,
+        );
+
+    const send = () =>
+        ui.confirm({
+            icon: 'send',
+            title: 'Envoyer la proposition au promoteur ?',
+            body: `${retained} ouvrier(s) d’accord sur ${required} poste(s). L’offre sera publiée et le promoteur notifié.${retained < required ? ' La proposition sera partielle.' : ''}`,
+            ok: 'Envoyer',
+            onConfirm: () => router.post(`/matching/besoins/${o.id}/envoi`, {}, { preserveScroll: true }),
+        });
 
     const explain = (s: Suggestion) =>
         ui.openPanel({
@@ -84,7 +130,8 @@ export default function MatchingOffer({ offer: o, runRefusal, needs, can }: Prop
                     {runRefusal && <div style={{ marginTop: 'var(--space-1_5)', fontSize: 'var(--fs-md)', color: 'var(--c-muted)' }}>{runRefusal}</div>}
                 </div>
                 <Button label="Voir le besoin" icon="assignment" variant="secondary" onClick={() => router.visit(`/besoins/${o.id}`)} />
-                {can.run && !runRefusal && <Button label={hasRun ? 'Relancer le matching' : 'Lancer le matching'} icon="join_inner" variant="primary" onClick={() => router.post(`/matching/besoins/${o.id}/lancement`, {}, { preserveScroll: true })} />}
+                {can.update && !runRefusal && retained > 0 && <Button label={`Envoyer au promoteur (${retained})`} icon="send" variant="primary" onClick={send} />}
+                {can.run && !runRefusal && <Button label={hasRun ? 'Relancer le matching' : 'Lancer le matching'} icon="join_inner" variant="secondary" onClick={() => router.post(`/matching/besoins/${o.id}/lancement`, {}, { preserveScroll: true })} />}
             </div>
 
             <div style={stack}>
@@ -101,7 +148,7 @@ export default function MatchingOffer({ offer: o, runRefusal, needs, can }: Prop
                                     key: s.id,
                                     cells: [
                                         <TextCell strong>{s.rank ?? '—'}</TextCell>,
-                                        <StackCell main={s.name} sub={[s.code, s.commune].filter(Boolean).join(' · ')} strong />,
+                                        <StackCell main={s.name} sub={[s.code, s.phone, s.commune].filter(Boolean).join(' · ')} strong />,
                                         <TextCell strong>{decimal(s.score)}</TextCell>,
                                         <StatusBadge label={s.level.label} tone={s.level.tone as never} />,
                                         <TextCell muted={s.distance == null}>{s.distance != null ? `${decimal(s.distance)} km` : '—'}</TextCell>,
@@ -110,6 +157,12 @@ export default function MatchingOffer({ offer: o, runRefusal, needs, can }: Prop
                                         <StatusBadge label={s.requested ? `${s.status.label} · demandé` : s.status.label} tone={s.status.tone as never} />,
                                     ],
                                     actions: [
+                                        ...(can.update && !runRefusal && OPEN.includes(s.status.value)
+                                            ? [
+                                                  ...(s.status.value === 'suggere' ? [{ icon: 'call', label: 'Noter le contact', onClick: () => contact(s) }] : []),
+                                                  { icon: 'how_to_reg', label: 'Enregistrer la réponse', onClick: () => respond(s) },
+                                              ]
+                                            : []),
                                         { icon: 'analytics', label: 'Détail du score', onClick: () => explain(s) },
                                         { icon: 'visibility', label: 'Voir la fiche', onClick: () => router.visit(`/ouvriers/${s.workerId}`) },
                                     ],
@@ -135,6 +188,8 @@ export default function MatchingOffer({ offer: o, runRefusal, needs, can }: Prop
                     </Block>
                 ))}
             </div>
+
+            {dialog}
         </>
     );
 }

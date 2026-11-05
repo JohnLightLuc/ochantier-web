@@ -12,7 +12,8 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Matching : file des besoins et résultats, lus dans l’API (api/v1/admin/matching).
+ * Matching : file des besoins, résultats, accord des ouvriers et envoi de la proposition, par l’API
+ * (api/v1/admin/matching).
  */
 class MatchingController extends Controller
 {
@@ -60,18 +61,48 @@ class MatchingController extends Controller
         return Inertia::render('Matching/Offer', [
             'offer' => $view,
             'runRefusal' => $data['run_refusal'],
+            'retained' => $data['retained'],
             'needs' => array_map($this->need(...), $data['needs']),
-            'can' => ['run' => $this->allowed($request, 'matching.create')],
+            'can' => ['run' => $this->allowed($request, 'matching.create'), 'update' => $this->allowed($request, 'matching.update')],
             'header' => $this->header('Matching', $view['title'], [['Matching', '/matching'], [$view['reference']]]),
         ]);
     }
 
     public function run(string $offer): RedirectResponse
     {
+        return $this->send("matching/offers/{$offer}/run");
+    }
+
+    public function dispatch(string $offer): RedirectResponse
+    {
+        return $this->send("matching/offers/{$offer}/send");
+    }
+
+    public function contact(Request $request, string $suggestion): RedirectResponse
+    {
+        return $this->send("matching/suggestions/{$suggestion}/contact", ['channel' => $request->input('channel')]);
+    }
+
+    public function respond(Request $request, string $suggestion): RedirectResponse
+    {
+        return $this->send("matching/suggestions/{$suggestion}/response", ['channel' => $request->input('channel'), 'decision' => $request->input('decision'), 'conditions' => trim((string) $request->input('conditions')) ?: null]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function send(string $uri, array $data = []): RedirectResponse
+    {
         try {
-            $response = $this->api->post("matching/offers/{$offer}/run");
+            $response = $this->api->post($uri, $data);
         } catch (ValidationException $e) {
-            Inertia::flash('toastError', collect($e->errors())->flatten()->first());
+            $refusal = array_intersect_key($e->errors(), array_flip(['offer', 'api']));
+
+            if ($refusal === []) {
+                throw $e;
+            }
+
+            Inertia::flash('toastError', collect($refusal)->flatten()->first());
 
             return back();
         }
@@ -113,7 +144,7 @@ class MatchingController extends Controller
                 return [
                     'id' => $s['id'], 'rank' => $s['rank'], 'score' => $s['score'], 'level' => compact('label', 'tone'), 'requested' => $s['requested'],
                     'status' => ['value' => $s['status']['value'], 'label' => $s['status']['label'], 'tone' => self::SUGGESTION_TONES[$s['status']['value']] ?? 'n'],
-                    'workerId' => $s['worker']['id'], 'name' => $s['worker']['full_name'], 'code' => $s['worker']['reference'], 'commune' => $s['worker']['commune'], 'rating' => $s['worker']['rating'], 'experience' => $s['worker']['experience_years'],
+                    'workerId' => $s['worker']['id'], 'name' => $s['worker']['full_name'], 'code' => $s['worker']['reference'], 'phone' => $s['worker']['phone'], 'contact' => $s['contact'], 'response' => $s['response'], 'commune' => $s['worker']['commune'], 'rating' => $s['worker']['rating'], 'experience' => $s['worker']['experience_years'],
                     'distance' => $s['distance_km'], 'rate' => $s['worker_daily_rate'], 'promoterRate' => $s['promoter_daily_rate'], 'criteria' => $s['criteria'], 'warnings' => $s['warnings'],
                 ];
             }, $n['suggestions']),

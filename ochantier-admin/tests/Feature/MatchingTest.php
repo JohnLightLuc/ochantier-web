@@ -27,7 +27,7 @@ class MatchingTest extends TestCase
         config(['services.ochantier_api.url' => self::API]);
         $this->withSession([]);
         $this->startSession();
-        app(ApiTokens::class)->store(['access_token' => 'access-1', 'refresh_token' => 'refresh-1', 'expires_in' => 900, 'session_id' => '9a0e0000-0000-4000-8000-000000000001', 'admin' => ['id' => '1', 'full_name' => 'Awa Koné', 'email' => 'a.kone@ochantier.ci', 'roles' => [], 'permissions' => ['matching.read', 'matching.create'], 'must_change_password' => false]]);
+        app(ApiTokens::class)->store(['access_token' => 'access-1', 'refresh_token' => 'refresh-1', 'expires_in' => 900, 'session_id' => '9a0e0000-0000-4000-8000-000000000001', 'admin' => ['id' => '1', 'full_name' => 'Awa Koné', 'email' => 'a.kone@ochantier.ci', 'roles' => [], 'permissions' => ['matching.read', 'matching.create', 'matching.update'], 'must_change_password' => false]]);
     }
 
     /**
@@ -52,10 +52,10 @@ class MatchingTest extends TestCase
     {
         Http::fake([
             self::API.'/matching/offers/'.self::ID.'/run' => Http::sequence()->push(['message' => 'Matching terminé.'])->push(['message' => 'Refus.', 'errors' => ['offer' => ['Une proposition attend la décision du promoteur.']]], 422),
-            self::API.'/matching/offers/'.self::ID => Http::response(['data' => ['offer' => $this->offer(), 'run_refusal' => null, 'needs' => [[
+            self::API.'/matching/offers/'.self::ID => Http::response(['data' => ['offer' => $this->offer(), 'run_refusal' => null, 'retained' => 1, 'needs' => [[
                 'id' => 'n1', 'reference' => 'BES-1', 'trade' => 'Maçon', 'specialty' => null, 'headcount' => 2, 'min_experience_years' => 3, 'daily_budget' => 25000, 'status' => ['value' => 'matching', 'label' => 'Matching'],
                 'last_run' => ['at' => '2026-11-04T10:00:00+00:00', 'by' => 'Awa Koné', 'type' => 'initial', 'stale' => false],
-                'suggestions' => [['id' => 's1', 'rank' => 1, 'score' => 87.5, 'level' => 'excellent', 'requested' => true, 'status' => ['value' => 'suggere', 'label' => 'Suggéré'], 'worker' => ['id' => 'w1', 'reference' => 'OUV-1', 'full_name' => 'Jean Kouassi', 'commune' => 'Cocody', 'rating' => 4.7, 'experience_years' => 5], 'distance_km' => 3.2, 'worker_daily_rate' => 22000, 'promoter_daily_rate' => 24200, 'criteria' => [['key' => 'metier', 'label' => 'Métier', 'weight' => 25, 'value' => 100, 'contribution' => 25, 'detail' => 'Métier principal']], 'warnings' => []]],
+                'suggestions' => [['id' => 's1', 'rank' => 1, 'score' => 87.5, 'level' => 'excellent', 'requested' => true, 'status' => ['value' => 'suggere', 'label' => 'Suggéré'], 'contact' => null, 'response' => null, 'worker' => ['id' => 'w1', 'reference' => 'OUV-1', 'full_name' => 'Jean Kouassi', 'phone' => '+225 07', 'commune' => 'Cocody', 'rating' => 4.7, 'experience_years' => 5], 'distance_km' => 3.2, 'worker_daily_rate' => 22000, 'promoter_daily_rate' => 24200, 'criteria' => [['key' => 'metier', 'label' => 'Métier', 'weight' => 25, 'value' => 100, 'contribution' => 25, 'detail' => 'Métier principal']], 'warnings' => []]],
                 'exclusions' => [['id' => 'e1', 'worker' => ['id' => 'w2', 'full_name' => 'Ali Touré', 'reference' => 'OUV-2'], 'nature' => ['value' => 'reglementaire', 'label' => 'Réglementaire'], 'criterion' => 'planning', 'comment' => 'Libre sur la période : Déjà engagé sur ces dates']],
             ]]]]),
         ]);
@@ -63,8 +63,29 @@ class MatchingTest extends TestCase
 
         $this->get($page)->assertOk()->assertInertia(fn (Assert $p) => $p->component('Matching/Offer')->where('needs.0.suggestions.0.level.label', 'Excellent')->where('needs.0.suggestions.0.status.tone', 'b')->where('needs.0.exclusions.0.absolute', true)->where('can.run', true));
 
+        $this->get($page)->assertInertia(fn (Assert $p) => $p->where('retained', 1)->where('can.update', true)->where('needs.0.suggestions.0.phone', '+225 07'));
         $this->from($page)->post("{$page}/lancement")->assertSessionHas('inertia.flash_data.toast', 'Matching terminé.');
         $this->from($page)->post("{$page}/lancement")->assertSessionHas('inertia.flash_data.toastError', 'Une proposition attend la décision du promoteur.');
+    }
+
+    public function test_the_consent_and_the_proposal_reach_the_api(): void
+    {
+        $suggestion = '01a16ab6-0000-7000-8000-0000000000e2';
+
+        Http::fake([
+            self::API.'/matching/suggestions/'.$suggestion.'/contact' => Http::response(['message' => 'Contact enregistré.']),
+            self::API.'/matching/suggestions/'.$suggestion.'/response' => Http::sequence()->push(['message' => 'Réponse enregistrée.'])->push(['message' => 'Refus.', 'errors' => ['decision' => ['Indiquez la réponse de l’ouvrier.']]], 422),
+            self::API.'/matching/offers/'.self::ID.'/send' => Http::sequence()->push(['message' => 'Proposition envoyée au promoteur.'])->push(['message' => 'Refus.', 'errors' => ['offer' => ['Aucun ouvrier n’a encore donné son accord.']]], 422),
+        ]);
+        $page = '/matching/besoins/'.self::ID;
+
+        $this->from($page)->post("/matching/suggestions/{$suggestion}/contact", ['channel' => 'appel'])->assertSessionHas('inertia.flash_data.toast', 'Contact enregistré.');
+        $this->from($page)->post("/matching/suggestions/{$suggestion}/reponse", ['channel' => 'appel', 'decision' => 'accepte', 'conditions' => ' '])->assertSessionHas('inertia.flash_data.toast', 'Réponse enregistrée.');
+        Http::assertSent(fn (ClientRequest $r) => str_ends_with($r->url(), '/response') && $r['decision'] === 'accepte' && $r['conditions'] === null);
+        $this->from($page)->post("/matching/suggestions/{$suggestion}/reponse", [])->assertSessionHasErrors(['decision']);
+
+        $this->from($page)->post("{$page}/envoi")->assertSessionHas('inertia.flash_data.toast', 'Proposition envoyée au promoteur.');
+        $this->from($page)->post("{$page}/envoi")->assertSessionHas('inertia.flash_data.toastError', 'Aucun ouvrier n’a encore donné son accord.');
     }
 
     public function test_old_addresses_lead_to_the_queue(): void
