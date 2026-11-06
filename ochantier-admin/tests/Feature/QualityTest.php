@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\DisputeController;
-use App\Http\Controllers\ReviewController;
 use App\Models\Claim;
 use App\Models\Dispute;
 use App\Models\QualityActivity;
@@ -74,14 +73,10 @@ class QualityTest extends TestCase
         $this->get('/avis-litiges')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Quality/Page')->has('kpis', 8)->has('tabs', 3)->has('tiles', 6)->has('charts', 3)->has('sheets.avg'));
         $this->get('/avis-litiges?vue=litiges')->assertOk()->assertInertia(fn (Assert $page) => $page->has('tiles', 12)->has('flow.steps', 5));
         $this->get('/avis-litiges?vue=expo')->assertOk()->assertInertia(fn (Assert $page) => $page->has('flow.steps', 4));
-        foreach (['avis', 'moderation', 'signalements', 'reclamations', 'litiges', 'litiges/nouveau', 'mediations', 'recours', 'rapports', 'notifications', 'audit'] as $path) {
+        foreach (['reclamations', 'litiges', 'litiges/nouveau', 'mediations', 'recours', 'rapports', 'notifications', 'audit'] as $path) {
             $this->get("/avis-litiges/{$path}")->assertOk()->assertInertia(fn (Assert $page) => $page->component('Quality/Page')->where('missing', null));
         }
 
-        $review = Review::query()->where('status', 'Signalé')->firstOrFail();
-        foreach (array_keys(ReviewController::TABS) as $tab) {
-            $this->get("/avis-litiges/avis/{$review->reference}".($tab ? "/{$tab}" : ''))->assertOk()->assertInertia(fn (Assert $page) => $page->has('profile')->has('tabs', 8));
-        }
         $dispute = $this->dispute('Médiation en cours');
         foreach (array_keys(DisputeController::TABS) as $tab) {
             $this->get("/avis-litiges/litiges/{$dispute->reference}".($tab ? "/{$tab}" : ''))->assertOk()->assertInertia(fn (Assert $page) => $page->has('profile')->has('tabs', 12));
@@ -98,38 +93,6 @@ class QualityTest extends TestCase
         $this->assertTrue($ins->disputesScoped->every(fn (Dispute $d): bool => $d->site->name === $site));
         $this->assertTrue($ins->reviewsScoped->every(fn (Review $r): bool => $r->site->name === $site));
         $this->get('/avis-litiges/litiges?chantier='.urlencode($site))->assertInertia(fn (Assert $page) => $page->where('alerts.0.title', 'Filtres appliqués (1)'));
-    }
-
-    public function test_moderation_decisions_are_human_and_traced(): void
-    {
-        $suspect = Review::query()->get()->first(fn (Review $r): bool => collect($r->detections)->contains('level', 'Critique'));
-        $this->post("/avis-litiges/avis/{$suspect->reference}/moderation", ['decision' => 'Publié', 'motif' => 'Contenu conforme', 'rule' => 'MOD-01 · Conformité', 'comment' => 'Vérification effectuée'])->assertSessionHasErrors('decision');
-
-        $this->post("/avis-litiges/avis/{$suspect->reference}/detections/0", ['status' => 'Confirmée', 'reason' => 'Numéro de compte présent'])->assertRedirect();
-        $this->post("/avis-litiges/avis/{$suspect->reference}/moderation", ['decision' => 'Masqué temporairement', 'motif' => 'Données personnelles', 'rule' => 'MOD-03 · Données personnelles ou bancaires', 'comment' => 'Données bancaires à retirer'])->assertRedirect();
-        $suspect->refresh();
-        $this->assertSame('Masqué temporairement', $suspect->status);
-        $this->assertSame('Non public', $suspect->visibility);
-        $this->assertSame('Données personnelles', $suspect->moderation['motif']);
-        $this->assertDatabaseHas('quality_activities', ['subject_reference' => $suspect->reference, 'action' => 'a pris une décision de modération']);
-
-        $published = Review::query()->where('status', 'Publié')->where('is_test', false)->firstOrFail();
-        $this->post("/avis-litiges/avis/{$published->reference}/signalements", ['author' => 'Modération O’CHANTIER', 'motif' => 'Faux avis', 'comment' => 'Relation non vérifiée sur le chantier'])->assertRedirect();
-        $this->assertSame('Signalé', $published->fresh()->status);
-        $report = $published->fresh()->reports[0]['id'];
-        $this->post("/avis-litiges/avis/{$published->reference}/signalements/{$report}", ['decision' => 'Transmis en réclamation', 'comment' => 'Contestation à instruire'])->assertRedirect();
-        $this->assertDatabaseHas('claims', ['review_reference' => $published->reference, 'category' => 'Avis contesté']);
-    }
-
-    public function test_eligibility_blocks_invalid_reviews_and_submits_valid_ones(): void
-    {
-        $p = QualityInsights::prestations()->first(fn (array $x): bool => $x['to'] >= QualityInsights::today()->subDays(20)->format('Y-m-d') && ! Review::query()->where('operation_reference', $x['opRef'])->exists());
-        $this->post('/avis-litiges/avis/eligibilite', ['prestation' => $p['opRef'], 'author' => 'Ouvrier évalué (autoévaluation)', 'kind' => 'Ouvrier individuel'])->assertSessionHasErrors('author');
-        $count = Review::query()->count();
-
-        $this->post('/avis-litiges/avis/eligibilite', ['prestation' => $p['opRef'], 'author' => 'Promoteur de la prestation (authentifié)', 'kind' => 'Ouvrier individuel'])->assertRedirect();
-        $this->assertSame($count + 1, Review::query()->count());
-        $this->assertSame('Soumis', Review::query()->latest('id')->first()->status);
     }
 
     public function test_claim_can_be_transformed_into_a_dispute(): void
@@ -222,11 +185,8 @@ class QualityTest extends TestCase
     public function test_restricted_role_cannot_moderate_or_decide(): void
     {
         config(['admin.quality.role' => 'Lecture seule']);
-        $review = Review::query()->where('status', 'Publié')->firstOrFail();
         $d = $this->dispute('Décision en préparation');
 
-        $this->get('/avis-litiges/moderation')->assertInertia(fn (Assert $page) => $page->where('missing.title', 'Accès non autorisé'));
-        $this->post("/avis-litiges/avis/{$review->reference}/moderation", ['decision' => 'Rejeté', 'motif' => 'Spam', 'rule' => 'MOD-05 · Spam et duplication', 'comment' => 'Contenu publicitaire'])->assertForbidden();
         $this->post("/avis-litiges/litiges/{$d->reference}/decision/rendu")->assertForbidden();
         $this->get("/avis-litiges/litiges/{$d->reference}")->assertOk()->assertInertia(fn (Assert $page) => $page->where('profile.buttons.0.action.type', 'error'));
     }

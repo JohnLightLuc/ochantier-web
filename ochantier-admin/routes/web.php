@@ -28,8 +28,7 @@ use App\Http\Controllers\PromoterController;
 use App\Http\Controllers\PromoterFormController;
 use App\Http\Controllers\PromoterReviewController;
 use App\Http\Controllers\QualityController;
-use App\Http\Controllers\ReviewActionController;
-use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\RatingController;
 use App\Http\Controllers\SalesAgentAccessController;
 use App\Http\Controllers\SalesAgentController;
 use App\Http\Controllers\SalesAgentFormController;
@@ -376,8 +375,8 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
 
     Route::prefix('avis-litiges')->group(function () {
         Route::get('/', [QualityController::class, 'index'])->name('quality.index');
-        Route::get('/moderation', [QualityController::class, 'moderation'])->name('quality.moderation');
-        Route::get('/signalements', [QualityController::class, 'reports'])->name('quality.reports');
+        Route::get('/moderation', [RatingController::class, 'moderationQueue'])->name('quality.moderation');
+        Route::get('/signalements', [RatingController::class, 'moderationQueue'])->name('quality.reports');
         Route::get('/mediations', [QualityController::class, 'mediations'])->name('quality.mediations');
         Route::get('/recours', [QualityController::class, 'appeals'])->name('quality.appeals');
         Route::get('/rapports', [QualityController::class, 'reportsCatalog'])->name('quality.catalog');
@@ -386,21 +385,20 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('/audit', [QualityController::class, 'audit'])->name('quality.audit');
         Route::post('/messages', [DisputeActionController::class, 'message'])->name('quality.message');
 
-        Route::prefix('avis')->name('reviews.')->group(function () {
-            Route::get('/', [ReviewController::class, 'index'])->name('index');
-            Route::post('/eligibilite', [ReviewActionController::class, 'eligibility'])->name('eligibility');
-            Route::prefix('{review}')->group(function () {
-                Route::post('/moderation', [ReviewActionController::class, 'moderate'])->name('moderate');
-                Route::post('/correction', [ReviewActionController::class, 'askChange'])->name('ask-change');
-                Route::post('/signalements', [ReviewActionController::class, 'report'])->name('report');
-                Route::post('/signalements/{report}', [ReviewActionController::class, 'decideReport'])->name('decide-report');
-                Route::post('/detections/{index}', [ReviewActionController::class, 'decideDetection'])->whereNumber('index')->name('decide-detection');
-                Route::post('/reponse', [ReviewActionController::class, 'moderateReply'])->name('moderate-reply');
-                Route::post('/reponse/notification', [ReviewActionController::class, 'notifyReply'])->name('notify-reply');
-                Route::post('/reponse/depot', [ReviewActionController::class, 'submitReply'])->name('submit-reply');
-                Route::post('/litige', [ReviewActionController::class, 'link'])->name('link');
-                Route::get('/{tab?}', [ReviewController::class, 'show'])->where('tab', 'notes|commentaire|preuves|reponse|signalements|moderation|historique')->name('show');
+        // Avis : données de l’API (api/v1/admin/ratings). Liste, fiche et modération.
+        Route::prefix('avis')->name('reviews.')->controller(RatingController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+
+            Route::prefix('{rating}')->whereUuid('rating')->group(function () {
+                Route::get('/', 'show')->name('show');
+                Route::post('/signalement', 'report')->name('report');
+                Route::post('/suspicion', 'suspect')->name('suspect');
+                Route::post('/maintien', 'keep')->name('keep');
+                Route::post('/masquage', 'hide')->name('hide');
+                Route::post('/retablissement', 'restore')->name('restore');
             });
+
+            Route::get('/{rest}', 'legacy')->where('rest', '.*')->name('legacy');
         });
 
         Route::prefix('reclamations')->name('claims.')->group(function () {
