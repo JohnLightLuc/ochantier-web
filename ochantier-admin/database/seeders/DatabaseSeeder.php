@@ -20,6 +20,6 @@ class DatabaseSeeder extends Seeder
             'email' => 'n.yao@ochantier.ci',
         ]);
 
-        $this->call([PromoterSeeder::class, WorkerSeeder::class, SalesAgentSeeder::class, SiteSeeder::class, NeedSeeder::class, PromoterOfferSeeder::class, MatchingSeeder::class, AttendanceSeeder::class, PaymentSeeder::class, FinanceSeeder::class, QualitySeeder::class, AnalyticsSeeder::class, SubscriptionSeeder::class, SettingsSeeder::class]);
+        $this->call([PromoterSeeder::class, WorkerSeeder::class, SalesAgentSeeder::class, SiteSeeder::class, NeedSeeder::class, PromoterOfferSeeder::class, MatchingSeeder::class, AttendanceSeeder::class, PaymentSeeder::class, FinanceSeeder::class, QualitySeeder::class, AnalyticsSeeder::class, SettingsSeeder::class]);
     }
 }

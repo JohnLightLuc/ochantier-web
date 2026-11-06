@@ -37,9 +37,7 @@ use App\Http\Controllers\SalesRankingController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SiteController;
 use App\Http\Controllers\SiteDecisionController;
-use App\Http\Controllers\SubscriptionActionController;
 use App\Http\Controllers\SubscriptionController;
-use App\Http\Controllers\SubscriptionPlanController;
 use App\Http\Controllers\WorkerController;
 use App\Http\Controllers\WorkerFormController;
 use App\Http\Controllers\WorkerStatusController;
@@ -318,27 +316,30 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('/{rest}', 'legacy')->where('rest', '.*')->name('legacy');
     });
 
-    Route::prefix('abonnements')->name('subscriptions.')->group(function () {
-        Route::get('/', [SubscriptionController::class, 'index'])->name('index');
-        Route::get('/export', [SubscriptionController::class, 'export'])->name('export');
-        Route::post('/formules', [SubscriptionPlanController::class, 'store'])->name('plans.store');
-        Route::put('/formules/{plan:key}', [SubscriptionPlanController::class, 'update'])->name('plans.update');
-        Route::delete('/formules/{plan:key}', [SubscriptionPlanController::class, 'destroy'])->name('plans.destroy');
+    // Abonnements : données de l’API (api/v1/admin/subscriptions et subscription-plans).
+    Route::prefix('abonnements')->name('subscriptions.')->controller(SubscriptionController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/export', 'export')->name('export');
+        Route::post('/formules', 'storePlan')->name('plans.store');
 
-        Route::prefix('{promoter}')->group(function () {
-            Route::get('/', [SubscriptionController::class, 'show'])->name('show');
-            Route::post('/formule', [SubscriptionActionController::class, 'changePlan'])->name('change-plan');
-            Route::delete('/formule-programmee', [SubscriptionActionController::class, 'cancelPending'])->name('cancel-pending');
-            Route::post('/relance', [SubscriptionActionController::class, 'remind'])->name('remind');
-            Route::post('/paiement', [SubscriptionActionController::class, 'markPaid'])->name('mark-paid');
-            Route::post('/essai', [SubscriptionActionController::class, 'extendTrial'])->name('extend-trial');
-            Route::post('/suspension', [SubscriptionActionController::class, 'suspend'])->name('suspend');
-            Route::post('/reactivation', [SubscriptionActionController::class, 'reactivate'])->name('reactivate');
-            Route::post('/resiliation', [SubscriptionActionController::class, 'terminate'])->name('terminate');
-            Route::post('/restauration', [SubscriptionActionController::class, 'restore'])->name('restore');
-            Route::post('/utilisateurs', [SubscriptionActionController::class, 'invite'])->name('users.store');
-            Route::delete('/utilisateurs/{user}', [SubscriptionActionController::class, 'removeUser'])->name('users.destroy');
+        Route::prefix('formules/{plan}')->whereUuid('plan')->name('plans.')->group(function () {
+            Route::put('/', 'updatePlan')->name('update');
+            Route::post('/retrait', 'retirePlan')->name('retire');
+            Route::post('/remise', 'restorePlan')->name('restore');
         });
+
+        Route::prefix('{subscription}')->whereUuid('subscription')->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::post('/relance', 'remind')->name('remind');
+            Route::post('/formule', 'schedulePlan')->name('schedule-plan');
+            Route::delete('/formule', 'cancelPlanChange')->name('cancel-plan');
+            Route::post('/suspension', 'suspend')->name('suspend');
+            Route::post('/reactivation', 'reactivate')->name('reactivate');
+            Route::post('/resiliation', 'terminate')->name('terminate');
+            Route::delete('/resiliation', 'resume')->name('resume');
+        });
+
+        Route::get('/{rest}', 'legacy')->where('rest', '.*')->name('legacy');
     });
 
     Route::prefix('finance-reporting')->name('finance.')->group(function () {

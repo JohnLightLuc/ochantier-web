@@ -2,159 +2,285 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Promoter;
-use App\Models\Subscription;
-use App\Models\SubscriptionActivity;
-use App\Models\SubscriptionInvoice;
-use App\Models\SubscriptionPlan;
-use App\Models\SubscriptionUser;
-use Illuminate\Database\Eloquent\Collection;
+use App\Support\Api\AdminApi;
+use App\Support\Api\AdminUser;
+use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
+use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Abonnements des promoteurs : liste des abonnés, formules proposées et fiche d’un abonnement.
+ * Abonnements des promoteurs, lus dans l’API (api/v1/admin/subscriptions et subscription-plans). Le promoteur paie
+ * dans l’application : ici, on relance, on programme une formule, on suspend, on résilie et on gère le catalogue.
  */
 class SubscriptionController extends Controller
 {
-    private const PER_PAGE = 8;
+    private const PER_PAGE = 20;
 
-    /**
-     * @return Collection<int, Subscription>
-     */
-    public static function subscriptions(): Collection
+    private const STATUS_LABELS = ['essai' => 'Essai', 'active' => 'Active', 'en_retard' => 'En retard', 'suspendue' => 'Suspendue', 'resiliee' => 'Résiliée', 'expiree' => 'Expirée'];
+
+    private const STATUS_TONES = ['essai' => 'b', 'active' => 'g', 'en_retard' => 'r', 'suspendue' => 'o', 'resiliee' => 'n', 'expiree' => 'n'];
+
+    private const INVOICE_TONES = ['a_payer' => 'a', 'payee' => 'g', 'en_retard' => 'r', 'annulee' => 'n', 'remboursee' => 'o'];
+
+    private const QUERY = ['q' => 'search', 'formule' => 'plan', 'statut' => 'status', 'page' => 'page'];
+
+    public function __construct(private AdminApi $api) {}
+
+    public function index(Request $request): Response
     {
-        return Subscription::with('promoter', 'plan', 'pendingPlan', 'users')->get()->sortBy(fn (Subscription $s): string => Str::ascii($s->promoter->name))->values();
+        $filters = array_filter($request->only(array_keys(self::QUERY)), fn ($value) => is_string($value) && $value !== '');
+        $response = $this->api->get('subscriptions', [...$this->query($filters), 'per_page' => self::PER_PAGE]);
+        $meta = $response->json('meta');
+        $rows = array_map($this->row(...), $response->json('data'));
+        $from = $meta['total'] ? ($meta['current_page'] - 1) * $meta['per_page'] + 1 : 0;
+        $plans = array_map($this->plan(...), $this->api->get('subscription-plans')->json('data'));
+
+        return Inertia::render('Subscriptions/Index', [
+            'tab' => $request->query('onglet') === 'formules' ? 'formules' : 'abonnes',
+            'subscriptions' => ['data' => $rows, 'currentPage' => $meta['current_page'], 'lastPage' => $meta['last_page'], 'total' => $meta['total'], 'from' => $from, 'to' => $from ? $from + count($rows) - 1 : 0],
+            'filters' => $filters,
+            'filterOptions' => [
+                'formule' => array_map(fn (array $plan): array => ['value' => $plan['code'], 'label' => $plan['name']], $meta['plans']),
+                'statut' => array_map(fn (string $value, string $label): array => compact('value', 'label'), array_keys(self::STATUS_LABELS), self::STATUS_LABELS),
+            ],
+            'kpis' => [
+                'paying' => $meta['counts']['paying'],
+                'promoters' => $meta['counts']['promoters'],
+                'revenue' => $meta['counts']['monthly_revenue'],
+                'late' => $meta['counts']['statuses']['en_retard'],
+                'suspended' => $meta['counts']['statuses']['suspendue'],
+            ],
+            'plans' => $plans,
+            'can' => $this->can($request),
+        ]);
+    }
+
+    public function export(Request $request): HttpResponse
+    {
+        $filters = array_filter($request->only(['q', 'formule', 'statut']), fn ($value) => is_string($value) && $value !== '');
+        $response = $this->api->get('subscriptions/export', $this->query($filters));
+
+        return response($response->body(), 200, ['Content-Type' => 'text/csv; charset=UTF-8', 'Content-Disposition' => 'attachment; filename="abonnements.csv"']);
+    }
+
+    public function show(Request $request, string $subscription): Response
+    {
+        $s = $this->api->get("subscriptions/{$subscription}")->json('data');
+        $plans = array_map($this->plan(...), $this->api->get('subscription-plans')->json('data'));
+
+        return Inertia::render('Subscriptions/Show', [
+            'subscription' => [
+                ...$this->row($s),
+                'phone' => $s['contact']['phone'],
+                'email' => $s['contact']['email'],
+                'periodStart' => $s['period_start'],
+                'previousPlan' => $s['previous_plan'],
+                'cancelledAt' => $this->moment($s['cancelled_at']),
+                'cancellationReason' => $s['cancellation_reason'],
+                'operator' => $s['payment_operator'],
+                'users' => $s['users'],
+                'invoices' => array_map(fn (array $i): array => [
+                    'id' => $i['id'],
+                    'reference' => $i['reference'],
+                    'label' => $i['label'],
+                    'amount' => $i['amount'],
+                    'date' => $i['date_label'],
+                    'status' => [...$i['status'], 'tone' => self::INVOICE_TONES[$i['status']['value']] ?? 'n'],
+                    'receiptUrl' => $i['receipt_url'],
+                ], $s['invoices']),
+                'history' => array_map(fn (array $h): array => [...$h, 'date' => $this->moment($h['date'])], $s['history']),
+                'actions' => [
+                    'remind' => $s['can']['remind'],
+                    'changePlan' => $s['can']['change_plan'],
+                    'cancelPlanChange' => $s['can']['cancel_plan_change'],
+                    'suspend' => $s['can']['suspend'],
+                    'reactivate' => $s['can']['reactivate'],
+                    'terminate' => $s['can']['terminate'],
+                    'resume' => $s['can']['resume'],
+                ],
+            ],
+            'plans' => array_values(array_filter($plans, fn (array $plan): bool => $plan['active'] && ! $plan['free'] && $plan['code'] !== $s['plan']['code'])),
+            'can' => $this->can($request),
+            'header' => $this->header($s['promoter']['name'], '', [['Abonnements', '/abonnements'], [$s['reference']]]),
+        ]);
+    }
+
+    public function remind(string $subscription): RedirectResponse
+    {
+        return $this->act(fn () => $this->api->post("subscriptions/{$subscription}/remind"));
+    }
+
+    public function schedulePlan(Request $request, string $subscription): RedirectResponse
+    {
+        return $this->act(fn () => $this->api->post("subscriptions/{$subscription}/plan-change", $request->only('plan_code')));
+    }
+
+    public function cancelPlanChange(string $subscription): RedirectResponse
+    {
+        return $this->act(fn () => $this->api->delete("subscriptions/{$subscription}/plan-change"));
+    }
+
+    public function suspend(Request $request, string $subscription): RedirectResponse
+    {
+        return $this->act(fn () => $this->api->post("subscriptions/{$subscription}/suspension", $request->only('reason')));
+    }
+
+    public function reactivate(string $subscription): RedirectResponse
+    {
+        return $this->act(fn () => $this->api->post("subscriptions/{$subscription}/reactivation"));
+    }
+
+    public function terminate(Request $request, string $subscription): RedirectResponse
+    {
+        return $this->act(fn () => $this->api->post("subscriptions/{$subscription}/termination", $request->only('reason')));
+    }
+
+    public function resume(string $subscription): RedirectResponse
+    {
+        return $this->act(fn () => $this->api->delete("subscriptions/{$subscription}/termination"));
+    }
+
+    public function storePlan(Request $request): RedirectResponse
+    {
+        return $this->act(fn () => $this->api->post('subscription-plans', $this->planData($request)));
+    }
+
+    public function updatePlan(Request $request, string $plan): RedirectResponse
+    {
+        return $this->act(fn () => $this->api->patch("subscription-plans/{$plan}", $this->planData($request)));
+    }
+
+    public function retirePlan(string $plan): RedirectResponse
+    {
+        return $this->act(fn () => $this->api->post("subscription-plans/{$plan}/retire"));
+    }
+
+    public function restorePlan(string $plan): RedirectResponse
+    {
+        return $this->act(fn () => $this->api->post("subscription-plans/{$plan}/restore"));
     }
 
     /**
-     * @return Collection<int, SubscriptionPlan>
+     * Les anciens liens (par promoteur) ne correspondent plus à une fiche.
      */
-    public static function plans(): Collection
+    public function legacy(): RedirectResponse
     {
-        return SubscriptionPlan::query()->orderBy('position')->orderBy('id')->get();
+        Inertia::flash('toast', 'Cette page a été remplacée : voici les abonnements.');
+
+        return to_route('subscriptions.index');
     }
 
     /**
-     * Indicateurs de l’en-tête : abonnés payants, revenu mensuel récurrent, conversion, impayés.
+     * Un refus métier s’affiche en message ; une erreur de champ reste sous le champ du formulaire.
+     */
+    private function act(callable $call): RedirectResponse
+    {
+        try {
+            $response = $call();
+        } catch (ValidationException $e) {
+            $refusal = array_intersect_key($e->errors(), array_flip(['subscription', 'plan', 'api']));
+
+            if ($refusal === []) {
+                throw $e;
+            }
+
+            Inertia::flash('toastError', collect($refusal)->flatten()->first());
+
+            return back();
+        }
+
+        Inertia::flash('toast', $response->json('message'));
+
+        return back();
+    }
+
+    /**
+     * Le formulaire saisit un avantage par ligne.
      *
-     * @param  Collection<int, Subscription>  $all
-     * @return array<int, array<string, mixed>>
+     * @return array<string, mixed>
      */
-    private function kpis(Collection $all): array
+    private function planData(Request $request): array
     {
-        $paid = $all->filter(fn (Subscription $s): bool => $s->plan_key !== SubscriptionPlan::SOLO && in_array($s->status, ['Actif', 'Impayé'], true));
-        $mrr = (int) $paid->where('status', 'Actif')->sum(fn (Subscription $s): int => $s->plan->price);
-        $unpaid = $all->where('status', 'Impayé')->count();
+        $features = preg_split('/\R/', (string) $request->input('features'));
 
+        return [...$request->only('name', 'price_amount', 'max_users', 'is_featured'), 'features' => array_values(array_filter(array_map('trim', $features)))];
+    }
+
+    /**
+     * @param  array<string, mixed>  $s
+     * @return array<string, mixed>
+     */
+    private function row(array $s): array
+    {
         return [
-            ['label' => 'Abonnés payants', 'value' => (string) $paid->count(), 'unit' => "sur {$all->count()}", 'icon' => 'workspace_premium', 'tone' => 'g'],
-            ['label' => 'Revenu mensuel récurrent', 'value' => number_format($mrr, 0, ',', ' '), 'unit' => 'FCFA', 'icon' => 'payments', 'tone' => 'b'],
-            ['label' => 'Taux de conversion', 'value' => (int) round($paid->count() / max(1, $all->count()) * 100).' %', 'icon' => 'trending_up', 'tone' => 'a', 'hint' => 'Promoteurs passés d’une formule Solo à une formule payante'],
-            ['label' => 'Impayés', 'value' => (string) $unpaid, 'icon' => 'error', 'tone' => 'r', 'highlight' => $unpaid > 0],
+            'id' => $s['id'],
+            'reference' => $s['reference'],
+            'promoter' => $s['promoter'],
+            'plan' => ['code' => $s['plan']['code'], 'name' => $s['plan']['name'], 'price' => $s['plan']['price'], 'maxUsers' => $s['plan']['max_users']],
+            'pending' => $s['pending_plan'] ? ['name' => $s['pending_plan']['name'], 'at' => $s['pending_plan']['effective_at']] : null,
+            'status' => [...$s['status'], 'tone' => self::STATUS_TONES[$s['status']['value']] ?? 'n'],
+            'seats' => $s['seats_used'],
+            'since' => $s['started_at'],
+            'periodEnd' => $s['period_end'],
+            'nextDue' => $s['next_due_date'],
+            'autoRenew' => $s['auto_renew'],
         ];
     }
 
     /**
+     * @param  array<string, mixed>  $p
      * @return array<string, mixed>
      */
-    public static function planData(SubscriptionPlan $p, ?Collection $subscriptions = null): array
+    private function plan(array $p): array
     {
-        $data = ['key' => $p->key, 'name' => $p->name, 'subtitle' => $p->subtitle, 'description' => $p->description, 'price' => $p->price, 'priceLabel' => $p->priceLabel(), 'period' => $p->period, 'maxUsers' => $p->max_users, 'features' => $p->features, 'popular' => $p->popular, 'solo' => $p->isSolo()];
-        if ($subscriptions) {
-            $live = $subscriptions->filter(fn (Subscription $s): bool => $s->plan_key === $p->key && $s->isLive());
-            $data += [
-                'subscribers' => $live->count(),
-                'mrr' => $p->price ? $live->where('status', 'Actif')->count() * $p->price : null,
-                'averageUsers' => str_replace('.', ',', (string) round($live->sum(fn (Subscription $s): int => $s->users->count()) / max(1, $live->count()), 1)),
-            ];
-        }
-
-        return $data;
-    }
-
-    public function index(Request $request): Response
-    {
-        $all = self::subscriptions();
-        $plans = self::plans();
-        $q = Str::lower(trim((string) $request->query('q', '')));
-        $plan = (string) $request->query('formule', '');
-        $status = (string) $request->query('statut', '');
-        $rows = $all->filter(fn (Subscription $s): bool => (! $plan || $s->plan_key === $plan) && (! $status || $s->status === $status) && (! $q || str_contains(Str::lower($s->promoter->name.' '.$s->users->firstWhere('owner', true)?->name), $q)))->values();
-        $last = max(1, (int) ceil($rows->count() / self::PER_PAGE));
-        $page = min(max(1, (int) $request->query('page', 1)), $last);
-        $today = Subscription::referenceDate();
-
-        return Inertia::render('Subscriptions/Index', [
-            'tab' => $request->query('onglet') === 'formules' ? 'formules' : 'abonnes',
-            'kpis' => $this->kpis($all),
-            'filters' => array_filter(['q' => $request->query('q'), 'formule' => $plan, 'statut' => $status]),
-            'statuses' => Subscription::STATUSES,
-            'plans' => $plans->map(fn (SubscriptionPlan $p): array => self::planData($p, $all))->all(),
-            'counts' => ['subscriptions' => $all->count(), 'plans' => $plans->count()],
-            'subscriptions' => [
-                'data' => $rows->forPage($page, self::PER_PAGE)->values()->map(function (Subscription $s) use ($today): array {
-                    $users = $s->users->count();
-
-                    return [
-                        'slug' => $s->promoter->slug, 'promoter' => $s->promoter->name, 'owner' => $s->users->firstWhere('owner', true)?->name ?? $s->promoter->name,
-                        'plan' => ['key' => $s->plan_key, 'name' => $s->plan->name], 'users' => $users, 'maxUsers' => $s->plan->max_users,
-                        'amount' => $s->plan->priceLabel(), 'period' => $s->plan->period, 'status' => ['label' => $s->status, 'tone' => Subscription::STATUSES[$s->status]],
-                        'nextDue' => $s->next_due?->format('Y-m-d'),
-                        'note' => match (true) {
-                            (bool) $s->pendingPlan => "Passage à {$s->pendingPlan->name} prévu",
-                            $s->status === 'Impayé' && $s->next_due => 'En retard de '.(int) $s->next_due->diffInDays($today).' j',
-                            $s->status === 'Essai' => 'Fin de l’essai',
-                            default => null,
-                        },
-                    ];
-                })->all(),
-                'page' => $page, 'lastPage' => $last, 'total' => $rows->count(), 'from' => $rows->isEmpty() ? 0 : ($page - 1) * self::PER_PAGE + 1, 'to' => min($rows->count(), $page * self::PER_PAGE),
-            ],
-        ]);
+        return [
+            'id' => $p['id'],
+            'code' => $p['code'],
+            'name' => $p['name'],
+            'subtitle' => $p['subtitle'],
+            'price' => $p['price'],
+            'maxUsers' => $p['max_users'],
+            'features' => $p['features'],
+            'popular' => $p['is_featured'],
+            'active' => $p['is_active'],
+            'free' => $p['is_free'],
+            'subscribers' => $p['subscribers'],
+            'revenue' => $p['monthly_revenue'],
+        ];
     }
 
     /**
-     * Export de la liste des abonnements (CSV lisible dans Excel).
+     * @param  array<string, string>  $filters
+     * @return array<string, string>
      */
-    public function export(): StreamedResponse
+    private function query(array $filters): array
     {
-        $all = self::subscriptions();
+        $query = [];
 
-        return response()->streamDownload(function () use ($all): void {
-            $out = fopen('php://output', 'w');
-            fwrite($out, "\u{FEFF}");
-            fputcsv($out, ['Promoteur', 'Responsable', 'Formule', 'Utilisateurs', 'Montant', 'Statut', 'Abonné depuis', 'Prochaine échéance', 'Moyen de paiement'], ';');
-            foreach ($all as $s) {
-                fputcsv($out, [$s->promoter->name, $s->users->firstWhere('owner', true)?->name, $s->plan->name, "{$s->users->count()} / {$s->plan->max_users}", $s->plan->priceLabel(), $s->status, $s->since->format('d/m/Y'), $s->next_due?->format('d/m/Y') ?? '—', $s->payment_method ?? '—'], ';');
-            }
-            fclose($out);
-        }, 'abonnements-'.Subscription::referenceDate()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        foreach ($filters as $key => $value) {
+            $query[self::QUERY[$key]] = $value;
+        }
+
+        return $query;
     }
 
-    public function show(Promoter $promoter): Response
+    /**
+     * @return array<string, bool>
+     */
+    private function can(Request $request): array
     {
-        $s = Subscription::with('plan', 'pendingPlan', 'users', 'invoices', 'activities')->where('promoter_id', $promoter->id)->first();
-        abort_unless($s, 404, 'Abonnement introuvable.');
-        $owner = $s->users->firstWhere('owner', true);
+        $user = $request->user();
+        $allowed = fn (string $permission): bool => $user instanceof AdminUser && $user->hasPermission($permission);
 
-        return Inertia::render('Subscriptions/Show', [
-            'subscription' => [
-                'slug' => $promoter->slug, 'promoter' => $promoter->name, 'owner' => $owner?->name ?? $promoter->name, 'phone' => $promoter->phone ?? '—', 'email' => $promoter->email ?? '—',
-                'status' => ['label' => $s->status, 'tone' => Subscription::STATUSES[$s->status]], 'statusLabel' => $s->status, 'locked' => $s->isLocked(),
-                'plan' => self::planData($s->plan), 'previousPlan' => $s->previous_plan_key,
-                'since' => $s->since->format('Y-m-d'), 'nextDue' => $s->next_due?->format('Y-m-d'), 'paymentMethod' => $s->payment_method,
-                'pending' => $s->pendingPlan ? ['name' => $s->pendingPlan->name, 'at' => $s->pending_at?->format('Y-m-d')] : null,
-            ],
-            'plans' => self::plans()->map(fn (SubscriptionPlan $p): array => self::planData($p))->all(),
-            'users' => $s->users->map(fn (SubscriptionUser $u): array => $u->only(['id', 'name', 'role', 'via', 'status', 'owner']))->all(),
-            'invoices' => $s->invoices->map(fn (SubscriptionInvoice $i): array => ['id' => $i->id, 'reference' => $i->reference, 'date' => $i->date->format('Y-m-d'), 'label' => $i->label, 'amount' => $i->amount, 'status' => $i->status])->all(),
-            'activities' => $s->activities->take(8)->map(fn (SubscriptionActivity $a): array => ['id' => $a->id, 'date' => $a->date->format('Y-m-d'), 'text' => $a->text])->values()->all(),
-            'roles' => Subscription::ROLES,
-            'header' => $this->header($promoter->name, "Abonnement {$s->plan->name} · ".($owner?->name ?? $promoter->name), [['Abonnements', '/abonnements'], [$promoter->name]]),
-        ]);
+        return ['update' => $allowed('subscriptions.update'), 'export' => $allowed('subscriptions.export')];
+    }
+
+    private function moment(?string $date): ?string
+    {
+        return $date ? Carbon::parse($date)->setTimezone(config('app.timezone'))->format('Y-m-d H:i') : null;
     }
 }
