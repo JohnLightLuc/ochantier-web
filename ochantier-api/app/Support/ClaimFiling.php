@@ -75,7 +75,7 @@ class ClaimFiling
         ]));
     }
 
-    private function otherParty(Model $claimant, ?Assignment $assignment, ?Site $site): ?Model
+    public function otherParty(Model $claimant, ?Assignment $assignment, ?Site $site): ?Model
     {
         return match (true) {
             $claimant instanceof PromoterProfile => $assignment?->worker,

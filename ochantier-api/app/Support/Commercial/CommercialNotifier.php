@@ -43,6 +43,7 @@ class CommercialNotifier
         'zone.refused' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => ''],
         'ranking.published' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir le classement'],
         'adjustment.approved' => ['tab' => 'paiements', 'alert' => 'paiements', 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir mes gains'],
+        'dispute.updated' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Haute, 'sms' => false, 'cta' => ''],
         'claim.updated' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => ''],
         'objective.set' => ['tab' => 'infos', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => ''],
     ];

@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\V1\Admin\Claim;
 use App\Enums\ClaimCategory;
 use App\Enums\ClaimStatus;
 use App\Enums\Priority;
-use App\Enums\UserType;
+use App\Http\Controllers\Api\V1\Admin\Dispute\DisputeController;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Admin\Claim\StoreClaimRequest;
 use App\Http\Requests\V1\Admin\Promoter\PromoterReasonRequest;
@@ -13,14 +13,12 @@ use App\Http\Resources\V1\Admin\ClaimDetailResource;
 use App\Http\Resources\V1\Admin\ClaimResource;
 use App\Models\Claim;
 use App\Models\Site;
-use App\Models\User;
-use App\Models\Worker;
 use App\Support\Admin\AdminAudit;
 use App\Support\Admin\ClaimDirectory;
 use App\Support\Admin\ClaimOperations;
+use App\Support\Admin\DisputeOperations;
 use App\Support\ApiResponse;
 use App\Support\ClaimFiling;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +30,7 @@ use Illuminate\Validation\ValidationException;
  */
 class ClaimController extends Controller
 {
-    public function __construct(private ClaimDirectory $directory, private ClaimOperations $operations, private ClaimFiling $filing) {}
+    public function __construct(private ClaimDirectory $directory, private ClaimOperations $operations, private ClaimFiling $filing, private DisputeOperations $disputes) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -60,7 +58,7 @@ class ClaimController extends Controller
     public function store(StoreClaimRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $claimant = $this->claimant($data['claimant_type'], $request);
+        $claimant = $this->directory->findParty($data['claimant_type'], $request->phoneNumber());
         $site = null;
 
         if (! empty($data['site_reference'])) {
@@ -114,29 +112,23 @@ class ClaimController extends Controller
         return $this->fiche($request, $claimId, 'Réclamation rejetée.');
     }
 
+    /**
+     * Passe en litige : les paiements de la mission rattachée sont bloqués jusqu’à la décision.
+     */
+    public function escalate(Request $request, string $claimId): JsonResponse
+    {
+        $data = $request->validate(['urgency' => ['required', Rule::enum(Priority::class)], 'mission_reference' => ['nullable', 'string', 'max:25']]);
+        $dispute = $this->disputes->fromClaim($this->find($claimId), DisputeController::mission($data['mission_reference'] ?? null), Priority::from($data['urgency']), $request->user(), $request);
+        $this->operations->notifyClaimant($this->find($claimId), 'Réclamation transmise en litige', 'Votre réclamation est transmise en litige : '.$dispute->reference.'.');
+
+        return $this->fiche($request, $claimId, 'Litige '.$dispute->reference.' ouvert.');
+    }
+
     public function close(Request $request, string $claimId): JsonResponse
     {
         $this->operations->close($this->find($claimId), $request->user(), $request);
 
         return $this->fiche($request, $claimId, 'Réclamation close.');
-    }
-
-    private function claimant(string $type, StoreClaimRequest $request): Model
-    {
-        $phone = $request->phoneNumber();
-
-        $claimant = match ($type) {
-            'worker' => Worker::query()->where('dial_code', $phone->dialCode)->where('phone_number', $phone->number)->first(),
-            'promoter_profile' => $this->user(UserType::Promoter, $phone->dialCode, $phone->number)?->promoterProfile,
-            default => $this->user(UserType::Commercial, $phone->dialCode, $phone->number)?->commercialProfile,
-        };
-
-        return $claimant ?? throw ValidationException::withMessages(['phone_number' => 'Aucun '.mb_strtolower(ClaimDirectory::CLAIMANT_TYPES[$type]).' avec ce numéro.']);
-    }
-
-    private function user(UserType $type, string $dialCode, string $number): ?User
-    {
-        return User::query()->where('user_type', $type)->where('dial_code', $dialCode)->where('phone_number', $number)->first();
     }
 
     private function find(string $id): Claim

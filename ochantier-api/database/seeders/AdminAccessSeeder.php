@@ -63,7 +63,7 @@ class AdminAccessSeeder extends Seeder
         'super_admin' => ['Super administrateur', 'Accès complet, y compris la gestion des administrateurs.', ['*' => ['*']]],
         'direction' => ['Direction', 'Pilotage : consultation et export de tous les modules, approbations financières et paramètres.', [
             '*' => ['read', 'export'],
-            'payments' => ['approve'], 'payouts' => ['approve'], 'finance' => ['approve'], 'commercial_earnings' => ['approve'], 'settings' => ['approve'], 'matching' => ['approve'],
+            'payments' => ['approve'], 'payouts' => ['approve'], 'finance' => ['approve'], 'commercial_earnings' => ['approve'], 'settings' => ['approve'], 'matching' => ['approve'], 'disputes' => ['validate', 'approve'],
         ]],
         'operations' => ['Opérations', 'Contrôle des profils, chantiers, matching, affectations et pointages.', [
             'dashboard' => ['*'], 'promoters' => ['read', 'create', 'update', 'validate', 'export'], 'organizations' => ['read', 'update', 'validate'], 'commercials' => ['*'], 'prospects' => ['*'],

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Admin\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Admin\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Admin\Auth\SessionController;
 use App\Http\Controllers\Api\V1\Admin\Claim\ClaimController;
+use App\Http\Controllers\Api\V1\Admin\Dispute\DisputeController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialAccessController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialAccountController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialCompensationController;
@@ -218,7 +219,28 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('priority', 'prioritize')->middleware('admin.can:disputes.update')->name('priority');
                 Route::post('resolve', 'resolve')->middleware('admin.can:disputes.update')->name('resolve');
                 Route::post('reject', 'reject')->middleware('admin.can:disputes.update')->name('reject');
+                Route::post('escalate', 'escalate')->middleware('admin.can:disputes.update')->name('escalate');
                 Route::post('close', 'close')->middleware('admin.can:disputes.update')->name('close');
+            });
+        });
+
+        // Litiges : la décision et le recours reviennent chacun à une autre personne que l’instructeur.
+        Route::prefix('disputes')->name('disputes.')->controller(DisputeController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:disputes.read')->name('index');
+            Route::post('/', 'store')->middleware('admin.can:disputes.update')->name('store');
+
+            Route::prefix('{disputeId}')->whereUuid('disputeId')->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:disputes.read')->name('show');
+                Route::post('take', 'take')->middleware('admin.can:disputes.update')->name('take');
+                Route::post('urgency', 'urgency')->middleware('admin.can:disputes.update')->name('urgency');
+                Route::post('mission', 'linkMission')->middleware('admin.can:disputes.update')->name('mission');
+                Route::post('messages', 'message')->middleware('admin.can:disputes.update')->name('messages');
+                Route::post('proofs', 'proof')->middleware('admin.can:disputes.update')->name('proofs');
+                Route::post('appeal', 'appeal')->middleware('admin.can:disputes.update')->name('appeal');
+                Route::post('close', 'close')->middleware('admin.can:disputes.update')->name('close');
+                Route::post('decision', 'decide')->middleware('admin.can:disputes.validate')->name('decision');
+                Route::post('refund', 'requestRefund')->middleware('admin.can:disputes.validate')->name('refund');
+                Route::post('appeal-decision', 'decideAppeal')->middleware('admin.can:disputes.approve')->name('appeal-decision');
             });
         });
 

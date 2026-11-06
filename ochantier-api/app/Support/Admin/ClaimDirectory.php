@@ -3,14 +3,18 @@
 namespace App\Support\Admin;
 
 use App\Enums\ClaimStatus;
+use App\Enums\UserType;
 use App\Models\Claim;
 use App\Models\CommercialProfile;
 use App\Models\PromoterProfile;
+use App\Models\User;
 use App\Models\Worker;
 use App\Support\ClaimFiling;
+use App\Support\PhoneNumber;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Réclamations du Back Office : une ligne par réclamation, les plus urgentes en tête.
@@ -56,6 +60,25 @@ class ClaimDirectory
             'statuses' => collect(ClaimStatus::cases())->mapWithKeys(fn (ClaimStatus $status) => [$status->value => (int) $statuses->get($status->value, 0)])->all(),
             'overdue' => Claim::query()->whereIn('status', ClaimFiling::OPEN)->where('due_at', '<', now())->count(),
         ];
+    }
+
+    /**
+     * Demandeur retrouvé par son numéro.
+     */
+    public function findParty(string $type, PhoneNumber $phone): Model
+    {
+        $party = match ($type) {
+            'worker' => Worker::query()->where('dial_code', $phone->dialCode)->where('phone_number', $phone->number)->first(),
+            'promoter_profile' => $this->user(UserType::Promoter, $phone)?->promoterProfile,
+            default => $this->user(UserType::Commercial, $phone)?->commercialProfile,
+        };
+
+        return $party ?? throw ValidationException::withMessages(['phone_number' => 'Aucun '.mb_strtolower(self::CLAIMANT_TYPES[$type]).' avec ce numéro.']);
+    }
+
+    private function user(UserType $type, PhoneNumber $phone): ?User
+    {
+        return User::query()->where('user_type', $type)->where('dial_code', $phone->dialCode)->where('phone_number', $phone->number)->first();
     }
 
     public function partyName(?Model $party): ?string

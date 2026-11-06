@@ -24,7 +24,7 @@ class ClaimOperations
     public function __construct(private PromoterNotifier $promoters, private CommercialNotifier $commercials) {}
 
     /**
-     * @return array{take: bool, priority: bool, resolve: bool, reject: bool, close: bool}
+     * @return array{take: bool, priority: bool, resolve: bool, reject: bool, escalate: bool, close: bool}
      */
     public function actions(Claim $claim): array
     {
@@ -35,6 +35,7 @@ class ClaimOperations
             'priority' => $open,
             'resolve' => $open,
             'reject' => $open,
+            'escalate' => $open,
             'close' => in_array($claim->status, [ClaimStatus::Resolue, ClaimStatus::Rejetee], true),
         ];
     }

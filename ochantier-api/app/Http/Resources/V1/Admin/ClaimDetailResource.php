@@ -28,6 +28,7 @@ class ClaimDetailResource extends ClaimResource
             'description' => $this->description,
             'other_party' => $other ? ['type' => $this->other_party_type, 'type_label' => ClaimDirectory::CLAIMANT_TYPES[$this->other_party_type] ?? $this->other_party_type, 'id' => $this->other_party_id, 'name' => app(ClaimDirectory::class)->partyName($other)] : null,
             'resolution' => $this->resolution,
+            'dispute' => $this->dispute ? ['id' => $this->dispute->id, 'reference' => $this->dispute->reference] : null,
             'history' => AuditLog::query()
                 ->where('subject_type', $this->resource->getMorphClass())
                 ->where('subject_id', $this->id)

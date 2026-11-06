@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\V1\Promoter\PaymentController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileController as PromoterProfileController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileDocumentController;
 use App\Http\Controllers\Api\V1\Promoter\ClaimController;
+use App\Http\Controllers\Api\V1\Promoter\DisputeController;
 use App\Http\Controllers\Api\V1\Promoter\RatingController;
 use App\Http\Controllers\Api\V1\Promoter\ReferralController;
 use App\Http\Controllers\Api\V1\Promoter\ReplacementController;
@@ -164,6 +165,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
                     Route::get('claims', [ClaimController::class, 'index'])->name('claims.index');
                     Route::post('claims', [ClaimController::class, 'store'])->name('claims.store');
                     Route::get('claims/{claimId}', [ClaimController::class, 'show'])->name('claims.show');
+                    Route::get('disputes', [DisputeController::class, 'index'])->name('disputes.index');
+                    Route::get('disputes/{disputeId}', [DisputeController::class, 'show'])->name('disputes.show');
+                    Route::post('disputes/{disputeId}/messages', [DisputeController::class, 'message'])->name('disputes.messages');
+                    Route::post('disputes/{disputeId}/proofs', [DisputeController::class, 'proof'])->name('disputes.proofs');
+                    Route::post('disputes/{disputeId}/appeal', [DisputeController::class, 'appeal'])->name('disputes.appeal');
                 });
                 Route::middleware('promoter.can:ratings.manage')->group(function () {
                     Route::post('sites/{site}/ratings', [RatingController::class, 'store'])->name('sites.ratings.store');

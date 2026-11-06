@@ -2,6 +2,7 @@
 
 namespace App\Support\Admin;
 
+use App\Enums\DisputeStatus;
 use App\Enums\MissionStatus;
 use App\Enums\OfferType;
 use App\Enums\PaymentMethodStatus;
@@ -13,6 +14,7 @@ use App\Enums\PaymentTransactionStatus;
 use App\Enums\RefundOrigin;
 use App\Enums\RefundStatus;
 use App\Models\Admin;
+use App\Models\Dispute;
 use App\Models\Mission;
 use App\Models\PaymentMethod;
 use App\Models\PaymentOperator;
@@ -70,6 +72,20 @@ class Refunds
 
             return $this->create($mission, $amount, $reason, RefundOrigin::Manuel, $admin, $request);
         });
+    }
+
+    /**
+     * Remboursement décidé par un litige, avec le même plafond et les mêmes validations.
+     */
+    public function fromDispute(Dispute $dispute, int $amount, Admin $admin, Request $request): Refund
+    {
+        $mission = Mission::query()->whereKey($dispute->mission_id)->lockForUpdate()->firstOrFail();
+
+        if ($amount > $this->refundable($mission)) {
+            throw ValidationException::withMessages(['refund_amount' => 'Ce montant dépasse ce qui peut encore être remboursé ('.$this->refundable($mission).' FCFA).']);
+        }
+
+        return tap($this->create($mission, $amount, 'Décision du litige '.$dispute->reference.'.', RefundOrigin::Litige, $admin, $request), fn (Refund $refund) => $refund->update(['dispute_id' => $dispute->getKey()]));
     }
 
     /**
@@ -159,6 +175,7 @@ class Refunds
         $ready = DB::transaction(function () use ($refund, $admin, $request): bool {
             $refund = $this->lock($refund, RefundStatus::Demande);
             $this->requireOtherPerson($refund, $admin);
+            $this->requireNoAppeal($refund);
 
             if ($refund->approved_by_admin_id === $admin->getKey()) {
                 throw ValidationException::withMessages(['refund' => 'Une troisième personne doit valider ce remboursement.']);
@@ -179,6 +196,7 @@ class Refunds
         DB::transaction(function () use ($refund, $admin, $request): void {
             $refund = $this->lock($refund, RefundStatus::Echoue);
             $this->requireOtherPerson($refund, $admin);
+            $this->requireNoAppeal($refund);
             AdminAudit::record($admin, 'payments', 'payments.refund_retried', $request, $refund);
         });
 
@@ -192,6 +210,16 @@ class Refunds
             $refund->update(['status' => RefundStatus::Refuse, 'refusal_reason' => $reason]);
             AdminAudit::record($admin, 'payments', 'payments.refund_refused', $request, $refund, null, ['reason' => $reason]);
         });
+    }
+
+    /**
+     * Un recours peut annuler la décision : l’argent ne part pas avant son issue.
+     */
+    private function requireNoAppeal(Refund $refund): void
+    {
+        if ($refund->dispute_id && Dispute::query()->whereKey($refund->dispute_id)->where('status', DisputeStatus::EnRecours)->exists()) {
+            throw ValidationException::withMessages(['refund' => 'Un recours est en cours sur le litige à l’origine de ce remboursement.']);
+        }
     }
 
     private function create(Mission $mission, int $amount, string $reason, RefundOrigin $origin, Admin $admin, Request $request): Refund
