@@ -221,6 +221,20 @@ class PromoterNotifier
     }
 
     /**
+     * Relance du Back Office pour une échéance à régler. Renvoie le nombre de destinataires notifiés.
+     */
+    public function scheduleReminder(PaymentSchedule $schedule, int $amount): int
+    {
+        $site = $schedule->mission->site;
+        $due = CarbonImmutable::parse($schedule->effective_due ?? $schedule->due_date);
+        $late = $due->lessThan(CarbonImmutable::today());
+
+        return $this->notify($site->promoterProfile, $late ? 'payment.late' : 'payment.due', ($late ? 'Paiement en retard · ' : 'Paiement à régler · ').$site->label,
+            $this->payments->money($amount).($late ? ' en retard depuis le ' : ' à régler pour le ').$this->date($due).'.', $site, ['type' => 'payments', 'id' => null], $site,
+            'payment.reminder:'.$schedule->id.':'.today()->toDateString());
+    }
+
+    /**
      * Centre de notifications de l’utilisateur : groupes Aujourd’hui / Cette semaine / Plus anciennes.
      *
      * @return array{data: list<array<string, mixed>>, meta: array<string, mixed>}

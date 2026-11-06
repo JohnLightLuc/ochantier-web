@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialRankingController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialTerritoryController;
 use App\Http\Controllers\Api\V1\Admin\Matching\MatchingController;
 use App\Http\Controllers\Api\V1\Admin\Offer\OfferController;
+use App\Http\Controllers\Api\V1\Admin\Payment\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterAccountController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterRelationController;
@@ -128,6 +129,17 @@ Route::middleware('auth:admin')->group(function () {
                 Route::delete('suspension', [WorkerReviewController::class, 'reactivate'])->middleware('admin.can:workers.update')->name('reactivate');
                 Route::post('exclusion', [WorkerReviewController::class, 'exclude'])->middleware('admin.can:workers.validate')->name('exclude');
             });
+        });
+
+        // Paiements : encaissements des promoteurs, échéances et relance.
+        Route::prefix('payments')->name('payments.')->controller(AdminPaymentController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:payments.read')->name('index');
+            Route::get('export', 'export')->middleware('admin.can:payments.export')->name('export');
+            Route::get('schedules', 'schedules')->middleware('admin.can:payments.read')->name('schedules');
+            Route::get('schedules/export', 'exportSchedules')->middleware('admin.can:payments.export')->name('schedules.export');
+            Route::get('schedules/{scheduleId}', 'schedule')->whereUuid('scheduleId')->middleware('admin.can:payments.read')->name('schedules.show');
+            Route::post('schedules/{scheduleId}/remind', 'remind')->whereUuid('scheduleId')->middleware('admin.can:payments.update')->name('schedules.remind');
+            Route::get('{transactionId}', 'show')->whereUuid('transactionId')->middleware('admin.can:payments.read')->name('show');
         });
 
         // Pointages : liste, export, fiche d’une journée, relance du promoteur, anomalies et corrections.
