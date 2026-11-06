@@ -73,8 +73,9 @@ class ClaimTest extends TestCase
             'description' => 'Débité deux fois.',
             'other_party' => null,
             'resolution' => null,
+            'dispute' => null,
             'history' => [['id' => '1', 'action' => 'claims.created', 'reason' => null, 'by' => 'Awa Support', 'date' => '2026-11-06T10:00:00+00:00']],
-            'can' => ['take' => true, 'priority' => true, 'resolve' => true, 'reject' => true, 'close' => false],
+            'can' => ['take' => true, 'priority' => true, 'resolve' => true, 'reject' => true, 'escalate' => true, 'close' => false],
         ]])]);
 
         $this->get('/avis-litiges/reclamations/'.self::CLAIM)

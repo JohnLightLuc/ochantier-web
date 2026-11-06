@@ -15,7 +15,7 @@ const party = (p: ClaimDetail['claimant'] | null) => (p ? <Link href={`${PARTY_L
 
 /** Fiche d’une réclamation : demande, réponse au demandeur et journal. */
 export default function QualityClaim({ claim: c, can }: { claim: ClaimDetail; can: { update: boolean } }) {
-    const [dialog, setDialog] = useState<'priority' | 'resolve' | 'reject' | null>(null);
+    const [dialog, setDialog] = useState<'priority' | 'resolve' | 'reject' | 'escalate' | null>(null);
     const base = `/avis-litiges/reclamations/${c.id}`;
     const close = () => setDialog(null);
     const post = (path: string) => router.post(`${base}/${path}`, {}, { preserveScroll: true });
@@ -29,6 +29,7 @@ export default function QualityClaim({ claim: c, can }: { claim: ClaimDetail; ca
             <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: -6 }}>
                 <QualityNav current="" />
                 {can.update && a.reject && <Button label="Rejeter" icon="cancel" variant="danger-soft" onClick={() => setDialog('reject')} />}
+                {can.update && a.escalate && <Button label="Passer en litige" icon="gavel" variant="secondary" onClick={() => setDialog('escalate')} />}
                 {can.update && a.priority && <Button label="Changer la priorité" icon="flag" variant="secondary" onClick={() => setDialog('priority')} />}
                 {can.update && a.take && <Button label={c.owner ? 'Reprendre le dossier' : 'Prendre en charge'} icon="assignment_ind" variant="secondary" onClick={() => post('prise-en-charge')} />}
                 {can.update && a.resolve && <Button label="Résoudre" icon="check_circle" onClick={() => setDialog('resolve')} />}
@@ -51,6 +52,7 @@ export default function QualityClaim({ claim: c, can }: { claim: ClaimDetail; ca
                             ['Déposée le', c.createdAt],
                             ['Réponse attendue', c.dueAt],
                             ['Réponse au demandeur', c.resolution],
+                            ['Litige', c.dispute ? <Link href={`/avis-litiges/litiges/${c.dispute.id}`}>{c.dispute.reference}</Link> : null],
                         ]}
                     />
                 </Block>
@@ -60,6 +62,22 @@ export default function QualityClaim({ claim: c, can }: { claim: ClaimDetail; ca
                 </Block>
             </div>
 
+            {dialog === 'escalate' && (
+                <FormDialog
+                    title="Passer en litige ?"
+                    body="Un dossier reprend cette demande. Les paiements de la mission rattachée sont bloqués jusqu’à la décision."
+                    icon="gavel"
+                    tone="warning"
+                    okLabel="Ouvrir le litige"
+                    url={`${base}/litige`}
+                    initial={{ urgency: c.priority.value }}
+                    onClose={close}
+                    fields={[
+                        { name: 'urgency', label: 'Urgence', type: 'select', required: true, options: PRIORITIES },
+                        { name: 'mission_reference', label: 'Référence de la mission', hint: 'Sans mission, le litige ne bloque aucun paiement.' },
+                    ]}
+                />
+            )}
             {dialog === 'priority' && <FormDialog title="Changer la priorité" icon="flag" okLabel="Enregistrer" url={`${base}/priorite`} initial={{ priority: c.priority.value }} onClose={close} fields={[{ name: 'priority', label: 'Priorité', type: 'select', required: true, full: true, options: PRIORITIES }]} />}
             {dialog === 'resolve' && <FormDialog title="Résoudre la réclamation" body={silent ? 'Un ouvrier n’a pas d’application : prévenez-le vous-même de cette réponse.' : 'Le demandeur reçoit cette réponse.'} icon="check_circle" okLabel="Résoudre" url={`${base}/resolution`} onClose={close} fields={[{ name: 'reason', label: 'Réponse au demandeur', type: 'textarea', required: true }]} />}
             {dialog === 'reject' && <FormDialog title="Rejeter la réclamation ?" body={silent ? 'Un ouvrier n’a pas d’application : prévenez-le vous-même de ce motif.' : 'Le demandeur reçoit ce motif.'} icon="cancel" tone="danger" okLabel="Rejeter" url={`${base}/rejet`} onClose={close} fields={[{ name: 'reason', label: 'Motif', type: 'textarea', required: true }]} />}

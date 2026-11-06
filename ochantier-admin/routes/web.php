@@ -12,7 +12,6 @@ use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\ClaimController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\DisputeActionController;
 use App\Http\Controllers\DisputeController;
 use App\Http\Controllers\FinanceActionController;
 use App\Http\Controllers\FinanceController;
@@ -26,7 +25,6 @@ use App\Http\Controllers\RefundController;
 use App\Http\Controllers\PromoterController;
 use App\Http\Controllers\PromoterFormController;
 use App\Http\Controllers\PromoterReviewController;
-use App\Http\Controllers\QualityController;
 use App\Http\Controllers\RatingController;
 use App\Http\Controllers\SalesAgentAccessController;
 use App\Http\Controllers\SalesAgentController;
@@ -373,16 +371,12 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
     });
 
     Route::prefix('avis-litiges')->group(function () {
-        Route::get('/', [QualityController::class, 'index'])->name('quality.index');
+        Route::get('/', [DisputeController::class, 'overview'])->name('quality.index');
         Route::get('/moderation', [RatingController::class, 'moderationQueue'])->name('quality.moderation');
         Route::get('/signalements', [RatingController::class, 'moderationQueue'])->name('quality.reports');
-        Route::get('/mediations', [QualityController::class, 'mediations'])->name('quality.mediations');
-        Route::get('/recours', [QualityController::class, 'appeals'])->name('quality.appeals');
-        Route::get('/rapports', [QualityController::class, 'reportsCatalog'])->name('quality.catalog');
-        Route::get('/rapports/generer', [QualityController::class, 'generate'])->name('quality.generate');
-        Route::get('/notifications', [QualityController::class, 'notifications'])->name('quality.notifications');
-        Route::get('/audit', [QualityController::class, 'audit'])->name('quality.audit');
-        Route::post('/messages', [DisputeActionController::class, 'message'])->name('quality.message');
+        Route::redirect('/recours', '/avis-litiges/litiges?statut=en_recours');
+        Route::get('/{page}', [DisputeController::class, 'legacyOverview'])->whereIn('page', ['mediations', 'rapports', 'notifications', 'audit']);
+        Route::get('/rapports/{rest}', [DisputeController::class, 'legacyOverview'])->where('rest', '.*');
 
         // Avis : données de l’API (api/v1/admin/ratings). Liste, fiche et modération.
         Route::prefix('avis')->name('reviews.')->controller(RatingController::class)->group(function () {
@@ -411,56 +405,33 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
                 Route::post('/priorite', 'prioritize')->name('priority');
                 Route::post('/resolution', 'resolve')->name('resolve');
                 Route::post('/rejet', 'reject')->name('reject');
+                Route::post('/litige', 'escalate')->name('escalate');
                 Route::post('/cloture', 'close')->name('close');
             });
 
             Route::get('/{rest}', 'legacy')->where('rest', '.*')->name('legacy');
         });
 
-        Route::prefix('litiges')->name('disputes.')->group(function () {
-            Route::get('/', [DisputeController::class, 'index'])->name('index');
-            Route::post('/', [DisputeActionController::class, 'store'])->name('store');
-            Route::get('/nouveau', [DisputeController::class, 'create'])->name('create');
-            Route::post('/affectation', [DisputeActionController::class, 'bulkAssign'])->name('bulk-assign');
-            Route::prefix('{dispute}')->group(function () {
-                Route::post('/recevabilite', [DisputeActionController::class, 'qualify'])->name('qualify');
-                Route::post('/affectation', [DisputeActionController::class, 'assign'])->name('assign');
-                Route::post('/priorite', [DisputeActionController::class, 'priority'])->name('priority');
-                Route::post('/informations', [DisputeActionController::class, 'requestInfo'])->name('info');
-                Route::post('/informations/recues', [DisputeActionController::class, 'infoReceived'])->name('info-received');
-                Route::post('/preuves', [DisputeActionController::class, 'addProof'])->name('proofs.store');
-                Route::post('/preuves/{proof}/statut', [DisputeActionController::class, 'proofStatus'])->name('proofs.status');
-                Route::post('/preuves/{proof}/version', [DisputeActionController::class, 'proofVersion'])->name('proofs.version');
-                Route::post('/preuves/{proof}/consultation', [DisputeActionController::class, 'proofView'])->name('proofs.view');
-                Route::post('/declarations', [DisputeActionController::class, 'declare'])->name('declarations.store');
-                Route::post('/declarations/{declaration}/version', [DisputeActionController::class, 'declarationVersion'])->name('declarations.version');
-                Route::post('/reponse', [DisputeActionController::class, 'response'])->name('response');
-                Route::post('/notes', [DisputeActionController::class, 'note'])->name('note');
-                Route::post('/mediation', [DisputeActionController::class, 'proposeMediation'])->name('mediation.propose');
-                Route::post('/mediation/acceptation', [DisputeActionController::class, 'mediationAnswer'])->name('mediation.answer');
-                Route::post('/mediation/echange', [DisputeActionController::class, 'mediationExchange'])->name('mediation.exchange');
-                Route::post('/mediation/proposition', [DisputeActionController::class, 'mediationProposal'])->name('mediation.proposal');
-                Route::post('/mediation/accord', [DisputeActionController::class, 'mediationAgreement'])->name('mediation.agreement');
-                Route::post('/mediation/validation', [DisputeActionController::class, 'mediationValidate'])->name('mediation.validate');
-                Route::post('/mediation/echec', [DisputeActionController::class, 'mediationFail'])->name('mediation.fail');
-                Route::post('/mediation/cloture', [DisputeActionController::class, 'mediationClose'])->name('mediation.close');
-                Route::post('/demandes-financieres', [DisputeActionController::class, 'financial'])->name('financial');
-                Route::post('/remplacements', [DisputeActionController::class, 'replacement'])->name('replacement');
-                Route::post('/corrections-pointage', [DisputeActionController::class, 'attendance'])->name('attendance');
-                Route::post('/demandes/{kind}/{ref}/synchronisation', [DisputeActionController::class, 'syncRequest'])->whereIn('kind', ['fin', 'rempl', 'ptc'])->name('requests.sync');
-                Route::post('/decision', [DisputeActionController::class, 'prepareDecision'])->name('decision.prepare');
-                Route::post('/decision/rendu', [DisputeActionController::class, 'renderDecision'])->name('decision.render');
-                Route::post('/execution', [DisputeActionController::class, 'executed'])->name('executed');
-                Route::post('/recours', [DisputeActionController::class, 'openAppeal'])->name('appeals.store');
-                Route::post('/recours/{index}/recevable', [DisputeActionController::class, 'appealAdmissible'])->whereNumber('index')->name('appeals.admissible');
-                Route::post('/recours/{index}/non-recevable', [DisputeActionController::class, 'appealInadmissible'])->whereNumber('index')->name('appeals.inadmissible');
-                Route::post('/recours/{index}/decision', [DisputeActionController::class, 'appealDecision'])->whereNumber('index')->name('appeals.decision');
-                Route::post('/cloture', [DisputeActionController::class, 'close'])->name('close');
-                Route::post('/reouverture', [DisputeActionController::class, 'reopen'])->name('reopen');
-                Route::post('/annulation', [DisputeActionController::class, 'cancel'])->name('cancel');
-                Route::post('/archivage', [DisputeActionController::class, 'archive'])->name('archive');
-                Route::get('/{tab?}', [DisputeController::class, 'show'])->where('tab', 'parties|chronologie|declarations|preuves|pointages|paiements|mediation|decision|execution|recours|historique')->name('show');
+        // Litiges : données de l’API (api/v1/admin/disputes). Liste, ouverture, instruction, décision et recours.
+        Route::prefix('litiges')->name('disputes.')->controller(DisputeController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->name('store');
+
+            Route::prefix('{dispute}')->whereUuid('dispute')->group(function () {
+                Route::get('/', 'show')->name('show');
+                Route::post('/prise-en-charge', 'take')->name('take');
+                Route::post('/urgence', 'urgency')->name('urgency');
+                Route::post('/mission', 'linkMission')->name('mission');
+                Route::post('/messages', 'message')->name('messages');
+                Route::post('/preuves', 'proof')->name('proofs');
+                Route::post('/decision', 'decide')->name('decide');
+                Route::post('/recours', 'appeal')->name('appeal');
+                Route::post('/recours/decision', 'decideAppeal')->name('appeal-decision');
+                Route::post('/cloture', 'close')->name('close');
+                Route::post('/remboursement', 'requestRefund')->name('refund');
             });
+
+            Route::get('/{rest}', 'legacy')->where('rest', '.*')->name('legacy');
         });
     });
 

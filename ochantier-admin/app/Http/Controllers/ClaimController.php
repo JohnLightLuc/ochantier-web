@@ -31,6 +31,7 @@ class ClaimController extends Controller
         'claims.prioritized' => 'Priorité modifiée',
         'claims.resolved' => 'Résolue',
         'claims.rejected' => 'Rejetée',
+        'claims.escalated' => 'Passée en litige',
         'claims.closed' => 'Close',
     ];
 
@@ -70,6 +71,7 @@ class ClaimController extends Controller
                 'description' => $c['description'],
                 'otherParty' => $c['other_party'],
                 'resolution' => $c['resolution'],
+                'dispute' => $c['dispute'],
                 'history' => array_map(fn (array $h): array => [...$h, 'label' => self::ACTION_LABELS[$h['action']] ?? $h['action'], 'date' => $this->moment($h['date'])], $c['history']),
                 'actions' => $c['can'],
             ],
@@ -101,6 +103,11 @@ class ClaimController extends Controller
     public function reject(Request $request, string $claim): RedirectResponse
     {
         return $this->act("claims/{$claim}/reject", $request->only('reason'));
+    }
+
+    public function escalate(Request $request, string $claim): RedirectResponse
+    {
+        return $this->act("claims/{$claim}/escalate", $request->only('urgency', 'mission_reference'));
     }
 
     public function close(string $claim): RedirectResponse

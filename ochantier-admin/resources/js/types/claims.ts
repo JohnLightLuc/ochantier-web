@@ -21,6 +21,7 @@ export type ClaimDetail = ClaimRow & {
     description: string;
     otherParty: Party | null;
     resolution: string | null;
+    dispute: { id: string; reference: string } | null;
     history: { id: string; label: string; reason: string | null; by: string | null; date: string | null }[];
-    actions: { take: boolean; priority: boolean; resolve: boolean; reject: boolean; close: boolean };
+    actions: { take: boolean; priority: boolean; resolve: boolean; reject: boolean; escalate: boolean; close: boolean };
 };
