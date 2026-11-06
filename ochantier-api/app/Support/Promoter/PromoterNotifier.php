@@ -14,6 +14,7 @@ use App\Models\PaymentSchedule;
 use App\Models\PaymentTransaction;
 use App\Models\PromoterProfile;
 use App\Models\Proposal;
+use App\Models\Rating;
 use App\Models\Referral;
 use App\Models\Refund;
 use App\Models\Replacement;
@@ -49,6 +50,7 @@ class PromoterNotifier
         'payment.late' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'payments.manage', 'priority' => Priority::Haute, 'sms' => true],
         'payment.regularisation' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'payments.manage', 'priority' => Priority::Haute, 'sms' => false],
         'payment.refunded' => ['tab' => 'paiements', 'alert' => null, 'ability' => 'payments.manage', 'priority' => Priority::Normale, 'sms' => false],
+        'rating.moderated' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'ratings.manage', 'priority' => Priority::Normale, 'sms' => false],
         'subscription.invoice' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'account.manage', 'priority' => Priority::Haute, 'sms' => false],
         'subscription.reminder' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'account.manage', 'priority' => Priority::Haute, 'sms' => false],
         'subscription.updated' => ['tab' => 'paiements', 'alert' => null, 'ability' => 'account.manage', 'priority' => Priority::Haute, 'sms' => false],
@@ -167,6 +169,16 @@ class PromoterNotifier
         return $this->notify($invoice->subscription->promoterProfile, 'subscription.reminder', 'Abonnement à régler',
             $invoice->label.' : '.$this->payments->money($invoice->amount).' à régler.',
             null, ['type' => 'subscription_invoice', 'id' => $invoice->id], $invoice, 'subscription.reminder:'.$invoice->id.':'.today()->toDateString());
+    }
+
+    /**
+     * Décision de modération sur un avis du promoteur.
+     */
+    public function ratingModerated(Rating $rating, string $title, string $body): void
+    {
+        if ($rating->site) {
+            $this->notify($rating->site->promoterProfile, 'rating.moderated', $title, $body, $rating->site, ['type' => 'rating', 'id' => $rating->id], $rating);
+        }
     }
 
     /**

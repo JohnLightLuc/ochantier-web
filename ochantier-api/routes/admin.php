@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterAccountController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterRelationController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterReviewController;
+use App\Http\Controllers\Api\V1\Admin\Rating\RatingController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteDecisionController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteRelationController;
@@ -202,6 +203,20 @@ Route::middleware('auth:admin')->group(function () {
                 Route::get('/', 'show')->middleware('admin.can:payments.read')->name('show');
                 Route::post('/', 'store')->middleware('admin.can:payments.update')->name('store');
                 Route::post('refunds', 'refund')->middleware('admin.can:payments.update')->name('refund');
+            });
+        });
+
+        // Avis : la note et le texte ne changent jamais, chaque décision de modération est motivée.
+        Route::prefix('ratings')->name('ratings.')->controller(RatingController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:ratings.read')->name('index');
+
+            Route::prefix('{ratingId}')->whereUuid('ratingId')->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:ratings.read')->name('show');
+                Route::post('report', 'report')->middleware('admin.can:ratings.update')->name('report');
+                Route::post('suspicion', 'suspect')->middleware('admin.can:ratings.update')->name('suspect');
+                Route::post('keep', 'keep')->middleware('admin.can:ratings.validate')->name('keep');
+                Route::post('hide', 'hide')->middleware('admin.can:ratings.validate')->name('hide');
+                Route::post('restore', 'restore')->middleware('admin.can:ratings.validate')->name('restore');
             });
         });
 

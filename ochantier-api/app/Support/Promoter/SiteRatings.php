@@ -403,6 +403,32 @@ class SiteRatings
     }
 
     /**
+     * Retire une note de la moyenne de l’ouvrier (avis masqué). La moyenne peut reposer sur des notes antérieures sans
+     * avis en base : on ajuste, on ne recalcule pas tout.
+     */
+    public function removeFromWorkerAverage(string $workerId, int $score): void
+    {
+        $worker = Worker::query()->whereKey($workerId)->lockForUpdate()->firstOrFail();
+        $count = (int) $worker->rating_count;
+
+        if ($count <= 1) {
+            $worker->update(['rating_avg' => null, 'rating_count' => 0]);
+
+            return;
+        }
+
+        $worker->update(['rating_avg' => round(min(5, max(1, ((float) $worker->rating_avg * $count - $score) / ($count - 1))), 2), 'rating_count' => $count - 1]);
+    }
+
+    /**
+     * Remet une note dans la moyenne de l’ouvrier (avis rétabli).
+     */
+    public function addToWorkerAverage(string $workerId, int $score): void
+    {
+        $this->adjustWorkerAverage($workerId, $score);
+    }
+
+    /**
      * @param  Collection<string, int>  $teamCounts
      * @return array<string, mixed>
      */
