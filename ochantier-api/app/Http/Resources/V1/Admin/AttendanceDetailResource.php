@@ -3,10 +3,9 @@
 namespace App\Http\Resources\V1\Admin;
 
 use App\Enums\WorkDayStatus;
-use App\Models\AttendanceAnomaly;
-use App\Models\AttendanceCorrection;
 use App\Models\AttendanceEvent;
 use App\Models\WorkDay;
+use App\Support\Admin\AttendanceCorrections;
 use App\Support\Media\MediaStore;
 use Illuminate\Http\Request;
 
@@ -32,22 +31,9 @@ class AttendanceDetailResource extends AttendanceListResource
                 'arrival' => $this->proof($this->arrivalEvent),
                 'departure' => $this->proof($this->departureEvent),
             ],
-            'anomalies' => $this->attendanceAnomalies()->oldest()->get()->map(fn (AttendanceAnomaly $anomaly) => [
-                'id' => $anomaly->id,
-                'type' => $this->status($anomaly->anomaly_type),
-                'status' => $this->status($anomaly->status),
-                'detected_by' => $this->status($anomaly->detected_by),
-                'comment' => $anomaly->comment,
-                'resolution' => $anomaly->resolution,
-                'occurred_at' => $anomaly->occurred_at?->toIso8601String(),
-            ])->all(),
-            'corrections' => $this->attendanceCorrections()->latest()->get()->map(fn (AttendanceCorrection $correction) => [
-                'id' => $correction->id,
-                'status' => $this->status($correction->status),
-                'reason' => $correction->reason,
-                'created_at' => $correction->created_at?->toIso8601String(),
-            ])->all(),
-            'can' => ['remind' => $this->status === WorkDayStatus::AValider],
+            'anomalies' => AttendanceAnomalyResource::collection($this->attendanceAnomalies()->with(['assignment.worker', 'assignment.mission.site', 'workDay', 'resolvedByAdmin'])->oldest()->get())->resolve($request),
+            'corrections' => AttendanceCorrectionResource::collection($this->attendanceCorrections()->with(['workDay.worker', 'workDay.mission.site', 'requestedBy', 'decidedByAdmin'])->latest()->get())->resolve($request),
+            'can' => ['remind' => $this->status === WorkDayStatus::AValider, 'correct' => app(AttendanceCorrections::class)->options($this->resource)],
         ];
     }
 

@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Admin\Assignment\AssignmentController;
+use App\Http\Controllers\Api\V1\Admin\Attendance\AnomalyController;
 use App\Http\Controllers\Api\V1\Admin\Attendance\AttendanceController;
+use App\Http\Controllers\Api\V1\Admin\Attendance\CorrectionController;
 use App\Http\Controllers\Api\V1\Admin\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Admin\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Admin\Auth\SessionController;
@@ -128,10 +130,18 @@ Route::middleware('auth:admin')->group(function () {
             });
         });
 
-        // Pointages : liste, export, fiche d’une journée et relance du promoteur.
+        // Pointages : liste, export, fiche d’une journée, relance du promoteur, anomalies et corrections.
         Route::prefix('attendance')->name('attendance.')->controller(AttendanceController::class)->group(function () {
             Route::get('/', 'index')->middleware('admin.can:attendance.read')->name('index');
             Route::get('export', 'export')->middleware('admin.can:attendance.export')->name('export');
+            Route::get('anomalies', [AnomalyController::class, 'index'])->middleware('admin.can:attendance.read')->name('anomalies');
+            Route::post('anomalies/{anomalyId}/start', [AnomalyController::class, 'start'])->whereUuid('anomalyId')->middleware('admin.can:attendance.update')->name('anomalies.start');
+            Route::post('anomalies/{anomalyId}/close', [AnomalyController::class, 'close'])->whereUuid('anomalyId')->middleware('admin.can:attendance.update')->name('anomalies.close');
+            Route::get('corrections', [CorrectionController::class, 'index'])->middleware('admin.can:attendance.read')->name('corrections');
+            Route::post('corrections/{correctionId}/approve', [CorrectionController::class, 'approve'])->whereUuid('correctionId')->middleware('admin.can:attendance.validate')->name('corrections.approve');
+            Route::post('corrections/{correctionId}/refuse', [CorrectionController::class, 'refuse'])->whereUuid('correctionId')->middleware('admin.can:attendance.validate')->name('corrections.refuse');
+            Route::post('{workDayId}/corrections', [CorrectionController::class, 'store'])->whereUuid('workDayId')->middleware('admin.can:attendance.update')->name('corrections.store');
+            Route::post('{workDayId}/anomalies', [AnomalyController::class, 'report'])->whereUuid('workDayId')->middleware('admin.can:attendance.update')->name('anomalies.report');
             Route::get('{workDayId}', 'show')->whereUuid('workDayId')->middleware('admin.can:attendance.read')->name('show');
             Route::post('{workDayId}/remind', 'remind')->whereUuid('workDayId')->middleware('admin.can:attendance.update')->name('remind');
         });

@@ -370,15 +370,23 @@ class SiteAttendance
 
             foreach ($assignments->pluck('mission')->unique('id') as $mission) {
                 /** @var Mission $mission */
-                $validated = WorkDay::query()->where('mission_id', $mission->getKey())->where('status', WorkDayStatus::Valide)->distinct()->count('work_date');
-                $mission->forceFill([
-                    'validated_days' => $validated,
-                    'calendar_progress' => min(100, round($validated / max(1, $mission->planned_days) * 100, 2)),
-                ])->save();
+                $this->refreshProgress($mission);
             }
         });
 
         return $this->day($site, $date);
+    }
+
+    /**
+     * Jours validés et progression calendaire de la mission.
+     */
+    public function refreshProgress(Mission $mission): void
+    {
+        $validated = WorkDay::query()->where('mission_id', $mission->getKey())->where('status', WorkDayStatus::Valide)->distinct()->count('work_date');
+        $mission->forceFill([
+            'validated_days' => $validated,
+            'calendar_progress' => min(100, round($validated / max(1, $mission->planned_days) * 100, 2)),
+        ])->save();
     }
 
     /**
