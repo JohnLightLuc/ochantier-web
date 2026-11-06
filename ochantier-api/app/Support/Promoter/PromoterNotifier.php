@@ -7,6 +7,7 @@ use App\Enums\PaymentInstallmentStatus;
 use App\Enums\PaymentScheduleStatus;
 use App\Enums\Priority;
 use App\Enums\ProposalStatus;
+use App\Models\Claim;
 use App\Models\Notification;
 use App\Models\OrganizationMember;
 use App\Models\PaymentInstallment;
@@ -50,6 +51,7 @@ class PromoterNotifier
         'payment.late' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'payments.manage', 'priority' => Priority::Haute, 'sms' => true],
         'payment.regularisation' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'payments.manage', 'priority' => Priority::Haute, 'sms' => false],
         'payment.refunded' => ['tab' => 'paiements', 'alert' => null, 'ability' => 'payments.manage', 'priority' => Priority::Normale, 'sms' => false],
+        'claim.updated' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'claims.manage', 'priority' => Priority::Normale, 'sms' => false],
         'rating.moderated' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'ratings.manage', 'priority' => Priority::Normale, 'sms' => false],
         'subscription.invoice' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'account.manage', 'priority' => Priority::Haute, 'sms' => false],
         'subscription.reminder' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'account.manage', 'priority' => Priority::Haute, 'sms' => false],
@@ -169,6 +171,14 @@ class PromoterNotifier
         return $this->notify($invoice->subscription->promoterProfile, 'subscription.reminder', 'Abonnement à régler',
             $invoice->label.' : '.$this->payments->money($invoice->amount).' à régler.',
             null, ['type' => 'subscription_invoice', 'id' => $invoice->id], $invoice, 'subscription.reminder:'.$invoice->id.':'.today()->toDateString());
+    }
+
+    /**
+     * Avancement d’une réclamation du compte.
+     */
+    public function claimUpdated(PromoterProfile $profile, Claim $claim, string $title, string $body): void
+    {
+        $this->notify($profile, 'claim.updated', $title, $body, null, ['type' => 'claim', 'id' => $claim->id], $claim);
     }
 
     /**

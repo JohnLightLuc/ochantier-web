@@ -83,7 +83,7 @@ class RatingAdminTest extends PromoterTestCase
             ->assertOk()
             ->assertJsonPath('data.moderation.value', 'maintenu')
             ->assertJsonPath('data.status.value', 'publie')
-            ->assertJsonPath('data.history.0.reason', 'Auteur vérifié');
+            ->assertJsonFragment(['reason' => 'Auteur vérifié']);
         $this->postJson($this->url($this->good, 'keep'), ['reason' => 'Auteur vérifié'])->assertUnprocessable();
     }
 

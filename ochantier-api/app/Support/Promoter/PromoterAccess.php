@@ -50,6 +50,7 @@ class PromoterAccess
         'ratings.manage' => [self::OWNER, 'administrateur', 'chef_projet'],
         'payments.manage' => [self::OWNER, 'administrateur', 'responsable_financier'],
         'finance.view' => [self::OWNER, 'administrateur', 'chef_projet', 'responsable_financier', 'lecteur'],
+        'claims.manage' => [self::OWNER, 'administrateur', 'chef_projet', 'responsable_financier'],
         'team.manage' => [self::OWNER, 'administrateur'],
         'activity.view' => [self::OWNER, 'administrateur'],
         'account.manage' => [self::OWNER],

@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\V1\Promoter\NotificationController;
 use App\Http\Controllers\Api\V1\Promoter\PaymentController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileController as PromoterProfileController;
 use App\Http\Controllers\Api\V1\Promoter\ProfileDocumentController;
+use App\Http\Controllers\Api\V1\Promoter\ClaimController;
 use App\Http\Controllers\Api\V1\Promoter\RatingController;
 use App\Http\Controllers\Api\V1\Promoter\ReferralController;
 use App\Http\Controllers\Api\V1\Promoter\ReplacementController;
@@ -158,6 +159,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
                     Route::post('assignments/{assignment}/replacement', [ReplacementController::class, 'store'])->name('assignments.replacement.store');
                     Route::post('replacements/{replacement}/accept', [ReplacementController::class, 'accept'])->name('replacements.accept');
                     Route::post('replacements/{replacement}/refuse', [ReplacementController::class, 'refuse'])->name('replacements.refuse');
+                });
+                Route::middleware('promoter.can:claims.manage')->group(function () {
+                    Route::get('claims', [ClaimController::class, 'index'])->name('claims.index');
+                    Route::post('claims', [ClaimController::class, 'store'])->name('claims.store');
+                    Route::get('claims/{claimId}', [ClaimController::class, 'show'])->name('claims.show');
                 });
                 Route::middleware('promoter.can:ratings.manage')->group(function () {
                     Route::post('sites/{site}/ratings', [RatingController::class, 'store'])->name('sites.ratings.store');

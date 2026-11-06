@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\Admin\Attendance\CorrectionController;
 use App\Http\Controllers\Api\V1\Admin\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Admin\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Admin\Auth\SessionController;
+use App\Http\Controllers\Api\V1\Admin\Claim\ClaimController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialAccessController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialAccountController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialCompensationController;
@@ -203,6 +204,21 @@ Route::middleware('auth:admin')->group(function () {
                 Route::get('/', 'show')->middleware('admin.can:payments.read')->name('show');
                 Route::post('/', 'store')->middleware('admin.can:payments.update')->name('store');
                 Route::post('refunds', 'refund')->middleware('admin.can:payments.update')->name('refund');
+            });
+        });
+
+        // Réclamations : déposées dans l’application Promoteur ou saisies ici au nom du demandeur.
+        Route::prefix('claims')->name('claims.')->controller(ClaimController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:disputes.read')->name('index');
+            Route::post('/', 'store')->middleware('admin.can:disputes.update')->name('store');
+
+            Route::prefix('{claimId}')->whereUuid('claimId')->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:disputes.read')->name('show');
+                Route::post('take', 'take')->middleware('admin.can:disputes.update')->name('take');
+                Route::post('priority', 'prioritize')->middleware('admin.can:disputes.update')->name('priority');
+                Route::post('resolve', 'resolve')->middleware('admin.can:disputes.update')->name('resolve');
+                Route::post('reject', 'reject')->middleware('admin.can:disputes.update')->name('reject');
+                Route::post('close', 'close')->middleware('admin.can:disputes.update')->name('close');
             });
         });
 
