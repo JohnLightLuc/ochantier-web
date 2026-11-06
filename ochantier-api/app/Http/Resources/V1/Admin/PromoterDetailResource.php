@@ -28,7 +28,7 @@ class PromoterDetailResource extends Resource
         $verification = app(PromoterVerification::class);
         $user = $this->user;
         $reviews = $this->verificationReviews()->with(['assignedAdmin', 'decidedByAdmin', 'verificationCorrections.document.documentType'])->orderByDesc('submission_number')->get();
-        $subscription = app(PromoterSubscriptions::class)->current($this->resource);
+        $subscription = app(PromoterSubscriptions::class)->live($this->resource);
         $refusal = $verification->approvalRefusal($this->resource);
 
         return [

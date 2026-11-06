@@ -59,6 +59,7 @@ class NotificationTest extends PromoterTestCase
 
     public function test_notifications_reach_the_collaborators_whose_role_concerns_them(): void
     {
+        $this->subscribeOwner();
         $organization = $this->promoter->ownedOrganizations()->create(['legal_name' => 'ADJEMIN']);
         $members = collect([OrganizationRole::ChefProjet, OrganizationRole::ResponsableFinancier, OrganizationRole::ResponsableChantier, OrganizationRole::Lecteur])
             ->mapWithKeys(function (OrganizationRole $role) use ($organization): array {

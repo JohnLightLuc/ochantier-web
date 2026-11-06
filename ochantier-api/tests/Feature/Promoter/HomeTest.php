@@ -45,6 +45,7 @@ class HomeTest extends PromoterTestCase
     public function test_a_technician_does_not_see_payments_on_the_home(): void
     {
         $this->confirmSite();
+        $this->subscribeOwner();
         $user = User::factory()->create(['user_type' => 'promoter', 'first_name' => 'Awa']);
         $this->promoter->ownedOrganizations()->create(['legal_name' => 'ADJEMIN'])->members()->create(['user_id' => $user->id, 'role' => OrganizationRole::ResponsableChantier, 'status' => OrganizationMemberStatus::Actif, 'joined_at' => now()]);
         $this->actingAsPromoter($user);

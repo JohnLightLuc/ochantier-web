@@ -2,9 +2,12 @@
 
 namespace Tests\Feature\Promoter;
 
+use App\Enums\SubscriptionStatus;
 use App\Models\Assignment;
 use App\Models\Proposal;
 use App\Models\Site;
+use App\Models\Subscription;
+use App\Models\SubscriptionPlan;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AdminAccessSeeder;
 use Database\Seeders\CommercialOfferSeeder;
@@ -114,5 +117,23 @@ trait ConfirmedSite
     protected function point(Assignment $assignment, string $type = 'arrivee', array $overrides = []): TestResponse
     {
         return $this->post("/api/v1/promoter/sites/{$this->site->id}/attendance/events", $this->proof($assignment, $type, $overrides), ['Accept' => 'application/json']);
+    }
+
+    /**
+     * Les collaborateurs n’accèdent au compte que sous un abonnement en vigueur.
+     */
+    private function subscribeOwner(): void
+    {
+        $this->seed(CommercialOfferSeeder::class);
+
+        Subscription::query()->create([
+            'reference' => 'ABO-TEST-0001',
+            'promoter_profile_id' => $this->promoter->promoterProfile->id,
+            'plan_id' => SubscriptionPlan::query()->where('code', 'pro')->value('id'),
+            'status' => SubscriptionStatus::Active,
+            'started_at' => today(),
+            'current_period_start' => today(),
+            'current_period_end' => today()->addMonth()->subDay(),
+        ]);
     }
 }

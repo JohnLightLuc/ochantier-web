@@ -56,7 +56,7 @@ class CommercialOfferSeeder extends Seeder
         $order = 0;
 
         foreach (self::PLANS as $code => [$name, $subtitle, $description, $price, $seats, $features, $featured]) {
-            SubscriptionPlan::query()->updateOrCreate(['code' => $code], [
+            SubscriptionPlan::query()->firstOrCreate(['code' => $code], [
                 'name' => $name,
                 'subtitle' => $subtitle,
                 'description' => $description,

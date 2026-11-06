@@ -6,6 +6,7 @@ use App\Enums\OrganizationMemberStatus;
 use App\Enums\PaymentTransactionStatus;
 use App\Enums\SubscriptionInvoiceStatus;
 use App\Enums\SubscriptionStatus;
+use App\Models\Admin;
 use App\Models\PaymentTransaction;
 use App\Models\PromoterProfile;
 use App\Models\Subscription;
@@ -35,6 +36,11 @@ class PromoterSubscriptions
      */
     public const CURRENT = [SubscriptionStatus::Essai, SubscriptionStatus::Active, SubscriptionStatus::EnRetard];
 
+    /**
+     * Abonnements qui occupent la place du compte : une suspension interdit d’en ouvrir un autre.
+     */
+    public const LIVE = [...self::CURRENT, SubscriptionStatus::Suspendue];
+
     public const FREE_PLAN = 'solo';
 
     public const GRACE_DAYS = 7;
@@ -44,6 +50,16 @@ class PromoterSubscriptions
     public function current(PromoterProfile $profile): ?Subscription
     {
         return $profile->subscriptions()->whereIn('status', self::CURRENT)->with('plan')->latest('started_at')->latest()->first();
+    }
+
+    public function live(PromoterProfile $profile): ?Subscription
+    {
+        return $profile->subscriptions()->whereIn('status', self::LIVE)->with('plan')->latest('started_at')->latest()->first();
+    }
+
+    public function isSuspended(PromoterProfile $profile): bool
+    {
+        return $profile->subscriptions()->where('status', SubscriptionStatus::Suspendue)->exists();
     }
 
     public function isSubscribed(PromoterProfile $profile): bool
@@ -80,6 +96,7 @@ class PromoterSubscriptions
     public function summary(PromoterProfile $profile): array
     {
         $subscription = $this->current($profile);
+        $suspended = $subscription === null && $this->isSuspended($profile);
         $plans = $this->plans();
         $current = $subscription?->plan ?? $plans->firstWhere('code', self::FREE_PLAN);
         $seats = $this->seatsUsed($profile);
@@ -95,7 +112,7 @@ class PromoterSubscriptions
 
         return [
             'active' => $subscription !== null,
-            'status' => $this->statusOf($subscription),
+            'status' => $suspended ? ['value' => 'suspendu', 'label' => 'Abonnement suspendu'] : $this->statusOf($subscription),
             'plan' => $current ? $this->plan($current) : null,
             'subtitle' => match (true) {
                 $subscription === null => 'Compte à utilisateur unique · propriétaire',
@@ -117,12 +134,19 @@ class PromoterSubscriptions
             'auto_renew' => (bool) $subscription?->auto_renew,
             'next_due_date' => $subscription?->auto_renew ? $renewal?->toDateString() : null,
             'next_due_label' => $subscription?->auto_renew ? $this->date($renewal) : null,
+            'pending_change' => $subscription?->pendingPlan ? [
+                'plan' => $subscription->pendingPlan->name,
+                'price' => $subscription->pendingPlan->price_amount,
+                'effective_at' => $subscription->pending_effective_at->toDateString(),
+                'label' => 'Passage à '.$subscription->pendingPlan->name.' le '.$this->date($subscription->pending_effective_at),
+            ] : null,
             'method' => $lastPayment?->operator?->name,
             'open_invoice' => $openInvoice ? $this->invoice($openInvoice) : null,
             'plans' => $plans->map(fn (SubscriptionPlan $plan) => [
                 ...$this->plan($plan),
                 'current' => $plan->is($current),
                 ...$this->choice($plan, $subscription, $current, $seats),
+                ...($suspended ? ['can_choose' => false, 'hint' => 'Abonnement suspendu : contactez O’Chantier.'] : []),
             ])->values()->all(),
             'invoices' => $subscription
                 ? SubscriptionInvoice::query()
@@ -147,6 +171,10 @@ class PromoterSubscriptions
      */
     public function payable(PromoterProfile $profile, array $target): array
     {
+        if ($this->isSuspended($profile)) {
+            throw ValidationException::withMessages(['subscription' => 'Votre abonnement est suspendu : contactez O’Chantier.']);
+        }
+
         $subscription = $this->current($profile);
 
         if (isset($target['subscription_invoice_id'])) {
@@ -194,6 +222,7 @@ class PromoterSubscriptions
             $subscription = $invoice->subscription;
             $invoice->update(['status' => SubscriptionInvoiceStatus::Payee, 'paid_at' => now()]);
             $this->move($subscription, SubscriptionStatus::Active, 'Facture de renouvellement réglée', $user);
+            $this->applyInvoicePlan($subscription, $invoice, $user);
             $subscription->update([
                 'current_period_start' => $invoice->period_start,
                 'current_period_end' => $invoice->period_end,
@@ -216,6 +245,8 @@ class PromoterSubscriptions
                 'auto_renew' => true,
                 'cancelled_at' => null,
                 'cancellation_reason' => null,
+                'pending_plan_id' => null,
+                'pending_effective_at' => null,
             ]);
         } else {
             $subscription = $profile->subscriptions()->create([
@@ -256,11 +287,19 @@ class PromoterSubscriptions
             throw ValidationException::withMessages(['subscription' => $refusal]);
         }
 
-        $subscription->update(['auto_renew' => false, 'cancelled_at' => now(), 'cancellation_reason' => $reason]);
+        return $this->stopRenewal($subscription, $reason, $user);
+    }
+
+    /**
+     * Coupe le renouvellement : sans période en cours à honorer (retard, suspension), la résiliation est immédiate.
+     */
+    public function stopRenewal(Subscription $subscription, ?string $reason, User|Admin $actor): Subscription
+    {
+        $subscription->update(['auto_renew' => false, 'cancelled_at' => now(), 'cancellation_reason' => $reason, 'pending_plan_id' => null, 'pending_effective_at' => null]);
         $subscription->invoices()->whereIn('status', [SubscriptionInvoiceStatus::APayer, SubscriptionInvoiceStatus::EnRetard])->update(['status' => SubscriptionInvoiceStatus::Annulee]);
 
-        if ($subscription->status === SubscriptionStatus::EnRetard) {
-            $this->move($subscription, SubscriptionStatus::Resiliee, 'Résiliation pendant un retard de paiement', $user);
+        if (in_array($subscription->status, [SubscriptionStatus::EnRetard, SubscriptionStatus::Suspendue], true)) {
+            $this->move($subscription, SubscriptionStatus::Resiliee, $subscription->status === SubscriptionStatus::EnRetard ? 'Résiliation pendant un retard de paiement' : 'Résiliation d’un abonnement suspendu', $actor);
         }
 
         return $subscription->refresh();
@@ -279,17 +318,18 @@ class PromoterSubscriptions
         Subscription::query()
             ->whereIn('status', [SubscriptionStatus::Active, SubscriptionStatus::Essai, SubscriptionStatus::EnRetard])
             ->whereDate('current_period_end', '<', $today)
-            ->with('plan')
+            ->with(['plan', 'pendingPlan'])
             ->each(function (Subscription $subscription) use ($today, &$counts): void {
                 DB::transaction(function () use ($subscription, $today, &$counts): void {
                     if (! $subscription->auto_renew) {
+                        $subscription->update(['pending_plan_id' => null, 'pending_effective_at' => null]);
                         $this->move($subscription, SubscriptionStatus::Resiliee, 'Fin de la période après résiliation');
                         $counts['ended']++;
 
                         return;
                     }
 
-                    $invoice = $this->openInvoice($subscription) ?? $this->issueRenewal($subscription, $counts);
+                    $invoice = $this->openInvoice($subscription) ?? $this->issueRenewal($subscription, $today, $counts);
 
                     if ($subscription->status !== SubscriptionStatus::EnRetard) {
                         $this->move($subscription, SubscriptionStatus::EnRetard, 'Facture de renouvellement non réglée');
@@ -299,6 +339,7 @@ class PromoterSubscriptions
 
                     if ($invoice->due_date->copy()->addDays(self::GRACE_DAYS)->lessThan($today)) {
                         $invoice->update(['status' => SubscriptionInvoiceStatus::Annulee]);
+                        $subscription->update(['pending_plan_id' => null, 'pending_effective_at' => null]);
                         $this->move($subscription, SubscriptionStatus::Expiree, 'Facture impayée après '.self::GRACE_DAYS.' jours');
                         $counts['expired']++;
                     }
@@ -440,24 +481,61 @@ class PromoterSubscriptions
     /**
      * @param  array{invoiced: int, late: int, expired: int, ended: int}  $counts
      */
-    private function issueRenewal(Subscription $subscription, array &$counts): SubscriptionInvoice
+    private function issueRenewal(Subscription $subscription, CarbonImmutable $today, array &$counts): SubscriptionInvoice
     {
         $start = CarbonImmutable::parse($subscription->current_period_end)->addDay();
+        $plan = $this->renewalPlan($subscription);
         $counts['invoiced']++;
 
         return tap($subscription->invoices()->create([
             'reference' => $this->invoiceReference(),
-            'plan_id' => $subscription->plan_id,
-            'label' => 'Abonnement '.$subscription->plan->name.' · '.$this->month($start),
+            'plan_id' => $plan->getKey(),
+            'label' => 'Abonnement '.$plan->name.' · '.$this->month($start),
             'period_start' => $start,
             'period_end' => $start->addMonthNoOverflow()->subDay(),
-            'amount' => $subscription->plan->price_amount,
-            'due_date' => $start,
+            'amount' => $plan->price_amount,
+            'due_date' => $start->max($today),
             'status' => SubscriptionInvoiceStatus::APayer,
         ]), fn (SubscriptionInvoice $invoice) => app(PromoterNotifier::class)->invoiceIssued($invoice));
     }
 
-    private function openInvoice(Subscription $subscription): ?SubscriptionInvoice
+    /**
+     * Formule de la prochaine période : le changement programmé, sauf si l’équipe a grandi entre-temps.
+     */
+    private function renewalPlan(Subscription $subscription): SubscriptionPlan
+    {
+        $pending = $subscription->pendingPlan;
+
+        if (! $pending) {
+            return $subscription->plan;
+        }
+
+        if ($this->seatsUsed($subscription->promoterProfile) <= $pending->max_users) {
+            return $pending;
+        }
+
+        $subscription->statusHistories()->create(['from_status' => $subscription->status->value, 'to_status' => $subscription->status->value, 'to_plan_id' => $pending->getKey(), 'reason' => 'Passage à '.$pending->name.' annulé : équipe trop grande pour cette formule', 'actor_type' => 'systeme']);
+        $subscription->update(['pending_plan_id' => null, 'pending_effective_at' => null]);
+
+        return $subscription->plan;
+    }
+
+    /**
+     * La facture réglée porte la formule de la période qu’elle ouvre.
+     */
+    private function applyInvoicePlan(Subscription $subscription, SubscriptionInvoice $invoice, User $user): void
+    {
+        if ($invoice->plan_id !== $subscription->plan_id) {
+            $subscription->statusHistories()->create(['from_status' => $subscription->status->value, 'to_status' => $subscription->status->value, 'from_plan_id' => $subscription->plan_id, 'to_plan_id' => $invoice->plan_id, 'reason' => 'Changement de formule programmé', 'actor_type' => $user->getMorphClass(), 'actor_id' => $user->getKey()]);
+            $subscription->update(['previous_plan_id' => $subscription->plan_id, 'plan_id' => $invoice->plan_id]);
+        }
+
+        if ($subscription->pending_plan_id === $invoice->plan_id) {
+            $subscription->update(['pending_plan_id' => null, 'pending_effective_at' => null]);
+        }
+    }
+
+    public function openInvoice(Subscription $subscription): ?SubscriptionInvoice
     {
         return $subscription->invoices()
             ->whereIn('status', [SubscriptionInvoiceStatus::APayer, SubscriptionInvoiceStatus::EnRetard])
@@ -466,7 +544,7 @@ class PromoterSubscriptions
             ->first();
     }
 
-    private function move(Subscription $subscription, SubscriptionStatus $status, string $reason, ?User $user = null): void
+    public function move(Subscription $subscription, SubscriptionStatus $status, string $reason, User|Admin|null $user = null): void
     {
         if ($subscription->status === $status) {
             return;

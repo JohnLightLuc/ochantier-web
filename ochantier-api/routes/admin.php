@@ -30,6 +30,8 @@ use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterReviewController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteDecisionController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteRelationController;
+use App\Http\Controllers\Api\V1\Admin\Subscription\SubscriptionController;
+use App\Http\Controllers\Api\V1\Admin\Subscription\SubscriptionPlanController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerAccountController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerRelationController;
@@ -200,6 +202,34 @@ Route::middleware('auth:admin')->group(function () {
                 Route::get('/', 'show')->middleware('admin.can:payments.read')->name('show');
                 Route::post('/', 'store')->middleware('admin.can:payments.update')->name('store');
                 Route::post('refunds', 'refund')->middleware('admin.can:payments.update')->name('refund');
+            });
+        });
+
+        // Abonnements : le promoteur paie dans l’application, le Back Office relance et décide du reste.
+        Route::prefix('subscriptions')->name('subscriptions.')->controller(SubscriptionController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:subscriptions.read')->name('index');
+            Route::get('export', 'export')->middleware('admin.can:subscriptions.export')->name('export');
+
+            Route::prefix('{subscriptionId}')->whereUuid('subscriptionId')->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:subscriptions.read')->name('show');
+                Route::post('remind', 'remind')->middleware('admin.can:subscriptions.update')->name('remind');
+                Route::post('plan-change', 'schedulePlan')->middleware('admin.can:subscriptions.update')->name('plan-change');
+                Route::delete('plan-change', 'cancelPlanChange')->middleware('admin.can:subscriptions.update')->name('plan-change.cancel');
+                Route::post('suspension', 'suspend')->middleware('admin.can:subscriptions.update')->name('suspend');
+                Route::post('reactivation', 'reactivate')->middleware('admin.can:subscriptions.update')->name('reactivate');
+                Route::post('termination', 'terminate')->middleware('admin.can:subscriptions.update')->name('terminate');
+                Route::delete('termination', 'resume')->middleware('admin.can:subscriptions.update')->name('resume');
+            });
+        });
+
+        Route::prefix('subscription-plans')->name('subscription-plans.')->controller(SubscriptionPlanController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:subscriptions.read')->name('index');
+            Route::post('/', 'store')->middleware('admin.can:subscriptions.update')->name('store');
+
+            Route::prefix('{planId}')->whereUuid('planId')->group(function () {
+                Route::patch('/', 'update')->middleware('admin.can:subscriptions.update')->name('update');
+                Route::post('retire', 'retire')->middleware('admin.can:subscriptions.update')->name('retire');
+                Route::post('restore', 'restore')->middleware('admin.can:subscriptions.update')->name('restore');
             });
         });
 

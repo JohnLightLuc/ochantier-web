@@ -18,6 +18,7 @@ use App\Models\Referral;
 use App\Models\Refund;
 use App\Models\Replacement;
 use App\Models\Site;
+use App\Models\Subscription;
 use App\Models\SubscriptionInvoice;
 use App\Models\User;
 use App\Models\WorkDay;
@@ -49,6 +50,8 @@ class PromoterNotifier
         'payment.regularisation' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'payments.manage', 'priority' => Priority::Haute, 'sms' => false],
         'payment.refunded' => ['tab' => 'paiements', 'alert' => null, 'ability' => 'payments.manage', 'priority' => Priority::Normale, 'sms' => false],
         'subscription.invoice' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'account.manage', 'priority' => Priority::Haute, 'sms' => false],
+        'subscription.reminder' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'account.manage', 'priority' => Priority::Haute, 'sms' => false],
+        'subscription.updated' => ['tab' => 'paiements', 'alert' => null, 'ability' => 'account.manage', 'priority' => Priority::Haute, 'sms' => false],
         'site.confirmed' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'sites.view', 'priority' => Priority::Normale, 'sms' => false],
         'site.started' => ['tab' => 'chantiers', 'alert' => 'pointages', 'ability' => 'sites.view', 'priority' => Priority::Normale, 'sms' => false],
         'site.ended' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'sites.view', 'priority' => Priority::Normale, 'sms' => false],
@@ -154,6 +157,24 @@ class PromoterNotifier
         $this->notify($invoice->subscription->promoterProfile, 'subscription.invoice', 'Renouvellement de votre abonnement',
             $invoice->label.' : '.$this->payments->money($invoice->amount).' à régler.',
             null, ['type' => 'subscription_invoice', 'id' => $invoice->id], $invoice, 'subscription.invoice:'.$invoice->id);
+    }
+
+    /**
+     * Relance d’une facture d’abonnement, une fois par jour : 0 si elle est déjà partie aujourd’hui.
+     */
+    public function invoiceReminder(SubscriptionInvoice $invoice): int
+    {
+        return $this->notify($invoice->subscription->promoterProfile, 'subscription.reminder', 'Abonnement à régler',
+            $invoice->label.' : '.$this->payments->money($invoice->amount).' à régler.',
+            null, ['type' => 'subscription_invoice', 'id' => $invoice->id], $invoice, 'subscription.reminder:'.$invoice->id.':'.today()->toDateString());
+    }
+
+    /**
+     * Décision du Back Office sur l’abonnement : formule, prix, suspension, résiliation.
+     */
+    public function subscriptionUpdated(Subscription $subscription, string $title, string $body): void
+    {
+        $this->notify($subscription->promoterProfile, 'subscription.updated', $title, $body, null, ['type' => 'subscription', 'id' => $subscription->id], $subscription);
     }
 
     public function referralRegistered(Referral $referral): void
@@ -301,12 +322,17 @@ class PromoterNotifier
     }
 
     /**
-     * Propriétaire et collaborateurs actifs qui ont le droit ; le technicien seulement pour ses chantiers.
+     * Propriétaire et collaborateurs actifs qui ont le droit ; le technicien seulement pour ses chantiers. Sans
+     * abonnement en vigueur, les collaborateurs n’ont plus accès au compte.
      *
      * @return Collection<int, User>
      */
     private function recipients(PromoterProfile $profile, string $ability, ?Site $site): Collection
     {
+        if (! $profile->subscriptions()->whereIn('status', PromoterSubscriptions::CURRENT)->exists()) {
+            return collect([$profile->user]);
+        }
+
         $roles = PromoterAccess::ABILITIES[$ability];
         $members = OrganizationMember::query()
             ->whereHas('organization', fn ($query) => $query->where('owner_user_id', $profile->user_id))

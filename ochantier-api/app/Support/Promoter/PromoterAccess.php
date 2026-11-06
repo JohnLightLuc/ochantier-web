@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 /**
  * Compte promoteur de l’utilisateur connecté et droits de son rôle. Le compte est le profil du propriétaire : celui
  * de l’utilisateur lui-même, ou celui du propriétaire de l’organisation dont il est collaborateur actif. Un
- * utilisateur appartient à un seul compte.
+ * utilisateur appartient à un seul compte. Sans abonnement en vigueur, seul le propriétaire accède au compte.
  *
  * Résolu une fois par requête HTTP (cache rattaché à la requête en cours).
  */
@@ -164,7 +164,7 @@ class PromoterAccess
             $member = OrganizationMember::query()
                 ->where('user_id', $user->getKey())
                 ->where('status', OrganizationMemberStatus::Actif)
-                ->whereHas('organization.ownerUser.promoterProfile')
+                ->whereHas('organization.ownerUser.promoterProfile.subscriptions', fn (Builder $query) => $query->whereIn('status', PromoterSubscriptions::CURRENT))
                 ->with('organization.ownerUser.promoterProfile')
                 ->latest('joined_at')
                 ->first();
