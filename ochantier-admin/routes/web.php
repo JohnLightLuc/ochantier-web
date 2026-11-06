@@ -23,6 +23,7 @@ use App\Http\Controllers\NeedController;
 use App\Http\Controllers\NeedDecisionController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PayoutController;
+use App\Http\Controllers\RefundController;
 use App\Http\Controllers\PromoterController;
 use App\Http\Controllers\PromoterFormController;
 use App\Http\Controllers\PromoterReviewController;
@@ -275,9 +276,35 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::post('/lots/{batch}/annulation', 'cancelBatch')->whereUuid('batch')->name('batches.cancel');
         Route::post('/lots/{batch}/reprise', 'resume')->whereUuid('batch')->name('batches.resume');
         Route::get('/numeros', 'methods')->name('methods');
-        Route::post('/ouvriers/{worker}/numero', 'storeMethod')->whereUuid('worker')->name('methods.store');
-        Route::post('/ouvriers/{worker}/numero/{method}/confirmation', 'approveMethod')->whereUuid(['worker', 'method'])->name('methods.approve');
-        Route::post('/ouvriers/{worker}/numero/{method}/refus', 'rejectMethod')->whereUuid(['worker', 'method'])->name('methods.reject');
+        Route::get('/commerciaux', 'commercialPayable')->name('commercials.payable');
+        Route::post('/commerciaux/versements', 'prepareCommercial')->name('commercials.prepare');
+        Route::get('/commerciaux/versements', 'commercialPayouts')->name('commercials.index');
+        Route::get('/commerciaux/versements/export', 'exportCommercial')->name('commercials.export');
+        Route::get('/commerciaux/versements/{payout}', 'commercialPayout')->whereUuid('payout')->name('commercials.show');
+        Route::post('/commerciaux/versements/{payout}/validation', 'approveCommercial')->whereUuid('payout')->name('commercials.approve');
+        Route::post('/commerciaux/versements/{payout}/renvoi', 'retryCommercial')->whereUuid('payout')->name('commercials.retry');
+        Route::post('/commerciaux/versements/{payout}/annulation', 'cancelCommercial')->whereUuid('payout')->name('commercials.cancel');
+
+        foreach (['ouvriers' => 'workers', 'commerciaux' => 'commercials'] as $segment => $owner) {
+            Route::post("/{$segment}/{id}/numero", 'storeMethod')->whereUuid('id')->defaults('owner', $owner)->name("methods.{$owner}.store");
+            Route::post("/{$segment}/{id}/numero/{method}/confirmation", 'approveMethod')->whereUuid(['id', 'method'])->defaults('owner', $owner)->name("methods.{$owner}.approve");
+            Route::post("/{$segment}/{id}/numero/{method}/refus", 'rejectMethod')->whereUuid(['id', 'method'])->defaults('owner', $owner)->name("methods.{$owner}.reject");
+        }
+    });
+
+    Route::prefix('paiements')->name('refunds.')->controller(RefundController::class)->group(function () {
+        Route::get('/regularisations', 'regularisations')->name('regularisations');
+        Route::get('/regularisations/{mission}', 'regularisation')->whereUuid('mission')->name('regularisations.show');
+        Route::post('/regularisations/{mission}/calcul', 'run')->whereUuid('mission')->name('regularisations.run');
+        Route::post('/regularisations/{mission}/remboursement', 'requestRefund')->whereUuid('mission')->name('regularisations.refund');
+        Route::get('/remboursements', 'index')->name('index');
+        Route::get('/remboursements/export', 'export')->name('export');
+        Route::get('/remboursements/{refund}', 'show')->whereUuid('refund')->name('show');
+        Route::post('/remboursements/{refund}/numero-enregistre', 'chooseNumber')->whereUuid('refund')->name('method');
+        Route::post('/remboursements/{refund}/numero', 'enterNumber')->whereUuid('refund')->name('number');
+        Route::post('/remboursements/{refund}/validation', 'approve')->whereUuid('refund')->name('approve');
+        Route::post('/remboursements/{refund}/renvoi', 'retry')->whereUuid('refund')->name('retry');
+        Route::post('/remboursements/{refund}/refus', 'refuse')->whereUuid('refund')->name('refuse');
     });
 
     Route::prefix('paiements')->name('payments.')->controller(PaymentController::class)->group(function () {

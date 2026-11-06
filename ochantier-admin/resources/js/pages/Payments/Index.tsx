@@ -35,7 +35,7 @@ type Props = {
     filters: Filters;
     filterOptions: Record<FilterKey, Option[]>;
     kpis: { collected: number; month: number; fees: number; failed: number };
-    can: { update: boolean; export: boolean; payouts: boolean };
+    can: { update: boolean; export: boolean; payouts: boolean; commercials: boolean };
 };
 
 const COLUMNS: [string, string | null][] = [
@@ -70,7 +70,7 @@ export default function PaymentsIndex({ transactions, filters, filterOptions, kp
             <Head title="Paiements" />
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', marginTop: -6 }}>
-                <PaymentNav current="/paiements" payouts={can.payouts} />
+                <PaymentNav current="/paiements" can={can} />
                 {can.export && <Button label="Exporter" icon="download" variant="secondary" onClick={() => (window.location.href = exportUrl)} />}
             </div>
 

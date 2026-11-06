@@ -14,8 +14,8 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Reversements aux ouvriers, lus et pilotés dans l’API (api/v1/admin/payouts) : ce qui est à reverser, les
- * reversements, les lots et les numéros Mobile Money à confirmer.
+ * Reversements aux ouvriers (api/v1/admin/payouts) et versements aux commerciaux (api/v1/admin/commercial-payouts),
+ * lus et pilotés dans l’API, avec les numéros Mobile Money à confirmer.
  *
  * Les paramètres d’URL des listes restent en français et sont traduits pour l’API.
  */
@@ -34,6 +34,12 @@ class PayoutController extends Controller
     private const ADJUSTMENT_TONES = ['proposee' => 'a', 'approuvee' => 'g', 'refusee' => 'r', 'annulee' => 'n'];
 
     private const TRANSACTION_TONES = ['initiee' => 'b', 'en_attente' => 'a', 'reussie' => 'g', 'echouee' => 'r', 'expiree' => 'n', 'annulee' => 'n'];
+
+    private const COMMERCIAL_TONES = ['a_payer' => 'a', 'en_traitement' => 'b', 'paye' => 'g', 'rejete' => 'r', 'annule' => 'n'];
+
+    private const COMMERCIAL_LABELS = ['a_payer' => 'À payer', 'en_traitement' => 'En traitement', 'paye' => 'Payé', 'rejete' => 'Rejeté', 'annule' => 'Annulé'];
+
+    private const COMMERCIAL_QUERY = ['q' => 'search', 'statut' => 'status', 'page' => 'page'];
 
     private const STATES = ['payable' => 'Prêt à reverser', 'blocked' => 'Bloqué'];
 
@@ -211,19 +217,99 @@ class PayoutController extends Controller
         ]);
     }
 
-    public function storeMethod(Request $request, string $worker): RedirectResponse
+    public function storeMethod(Request $request, string $id): RedirectResponse
     {
-        return $this->act("workers/{$worker}/payment-method", $request->only(['operator_id', 'dial_code', 'phone_number']));
+        return $this->act("{$request->route('owner')}/{$id}/payment-method", $request->only(['operator_id', 'dial_code', 'phone_number']));
     }
 
-    public function approveMethod(string $worker, string $method): RedirectResponse
+    public function approveMethod(Request $request, string $id, string $method): RedirectResponse
     {
-        return $this->act("workers/{$worker}/payment-method/{$method}/approve");
+        return $this->act("{$request->route('owner')}/{$id}/payment-method/{$method}/approve");
     }
 
-    public function rejectMethod(Request $request, string $worker, string $method): RedirectResponse
+    public function rejectMethod(Request $request, string $id, string $method): RedirectResponse
     {
-        return $this->act("workers/{$worker}/payment-method/{$method}/reject", ['reason' => $request->input('reason')]);
+        return $this->act("{$request->route('owner')}/{$id}/payment-method/{$method}/reject", ['reason' => $request->input('reason')]);
+    }
+
+    public function commercialPayable(Request $request): Response
+    {
+        $month = $this->filters($request, ['mois' => 'month'])['mois'] ?? null;
+        $response = $this->api->get('commercial-payouts/payable', array_filter(['month' => $month]));
+        $meta = $response->json('meta');
+
+        return Inertia::render('Payments/CommercialPayable', [
+            'rows' => $response->json('data'),
+            'month' => $meta['month'],
+            'monthFinished' => $meta['month_finished'],
+            'kpis' => $meta['counts'],
+            'can' => $this->can($request),
+            'header' => $this->header('Commerciaux à payer', 'Commissions, primes et retenues dues à la fin du mois.', [['Paiements', '/paiements'], ['Commerciaux à payer']]),
+        ]);
+    }
+
+    public function prepareCommercial(Request $request): RedirectResponse
+    {
+        $response = $this->attempt(fn (): ApiResponse => $this->api->post('commercial-payouts', $request->only(['commercial_id', 'month'])));
+
+        return $response ? redirect("/paiements/commerciaux/versements/{$response->json('data.id')}") : back();
+    }
+
+    public function commercialPayouts(Request $request): Response
+    {
+        $filters = $this->filters($request, self::COMMERCIAL_QUERY);
+        $response = $this->api->get('commercial-payouts', [...$this->query($filters, self::COMMERCIAL_QUERY), 'per_page' => self::PER_PAGE]);
+        $meta = $response->json('meta');
+
+        return Inertia::render('Payments/CommercialPayouts', [
+            'payouts' => $this->page($response->json('data'), $meta, $this->commercialRow(...)),
+            'filters' => $filters,
+            'filterOptions' => ['statut' => $this->options(self::COMMERCIAL_LABELS)],
+            'kpis' => ['paid' => $meta['counts']['paid_amount'], 'toApprove' => $meta['counts']['statuses']['a_payer'], 'rejected' => $meta['counts']['statuses']['rejete']],
+            'can' => $this->can($request),
+            'header' => $this->header('Versements aux commerciaux', '', [['Paiements', '/paiements'], ['Versements aux commerciaux']]),
+        ]);
+    }
+
+    public function exportCommercial(Request $request): HttpResponse
+    {
+        $response = $this->api->get('commercial-payouts/export', $this->query($this->filters($request, self::COMMERCIAL_QUERY), self::COMMERCIAL_QUERY));
+
+        return response($response->body(), 200, ['Content-Type' => 'text/csv; charset=UTF-8', 'Content-Disposition' => $response->header('Content-Disposition') ?: 'attachment; filename="versements-commerciaux.csv"']);
+    }
+
+    public function commercialPayout(Request $request, string $payout): Response
+    {
+        $p = $this->api->get("commercial-payouts/{$payout}")->json('data');
+
+        return Inertia::render('Payments/CommercialPayout', [
+            'payout' => [
+                ...$this->commercialRow($p),
+                'earnings' => array_map(fn (array $e): array => [...$e, 'date' => $this->moment($e['date'])], $p['earnings']),
+                'adjustments' => $p['adjustments'],
+                'transactions' => array_map(fn (array $t): array => [...$t, 'status' => $this->toned($t['status'], self::TRANSACTION_TONES), 'date' => $this->moment($t['initiated_at'])], $p['transactions']),
+                'canApprove' => $p['can_approve'],
+                'canRetry' => $p['can_retry'],
+                'canCancel' => $p['can_cancel'],
+            ],
+            'can' => $this->can($request),
+            'header' => $this->header('Fiche du versement', '', [['Paiements', '/paiements'], ['Versements aux commerciaux', '/paiements/commerciaux/versements'], [$p['reference']]]),
+        ]);
+    }
+
+    public function approveCommercial(string $payout): RedirectResponse
+    {
+        return $this->act("commercial-payouts/{$payout}/approve");
+    }
+
+    public function retryCommercial(string $payout): RedirectResponse
+    {
+        return $this->act("commercial-payouts/{$payout}/retry");
+    }
+
+    public function cancelCommercial(Request $request, string $payout): RedirectResponse
+    {
+        return $this->act("commercial-payouts/{$payout}/cancel", ['reason' => $request->input('reason')]);
     }
 
     /**
@@ -288,6 +374,26 @@ class PayoutController extends Controller
     }
 
     /**
+     * @param  array<string, mixed>  $p
+     * @return array<string, mixed>
+     */
+    private function commercialRow(array $p): array
+    {
+        return [
+            'id' => $p['id'],
+            'reference' => $p['reference'],
+            'commercial' => $p['commercial'],
+            'periodStart' => $p['period_start'],
+            'periodEnd' => $p['period_end'],
+            'amount' => $p['amount'],
+            'status' => $this->toned($p['status'], self::COMMERCIAL_TONES),
+            'preparedBy' => $p['prepared_by'],
+            'approvedBy' => $p['approved_by'],
+            'paidAt' => $this->moment($p['paid_at']),
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>  $b
      * @return array<string, mixed>
      */
@@ -339,7 +445,16 @@ class PayoutController extends Controller
         $user = $request->user();
         $allowed = fn (string $permission): bool => $user instanceof AdminUser && $user->hasPermission($permission);
 
-        return ['create' => $allowed('payouts.create'), 'approve' => $allowed('payouts.approve'), 'export' => $allowed('payouts.export')];
+        return [
+            'create' => $allowed('payouts.create'),
+            'approve' => $allowed('payouts.approve'),
+            'export' => $allowed('payouts.export'),
+            'payouts' => $allowed('payouts.read'),
+            'commercials' => $allowed('commercial_earnings.read'),
+            'commercialCreate' => $allowed('commercial_earnings.update'),
+            'commercialApprove' => $allowed('commercial_earnings.approve'),
+            'commercialExport' => $allowed('commercial_earnings.export'),
+        ];
     }
 
     /**

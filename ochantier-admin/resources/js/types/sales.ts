@@ -1,3 +1,4 @@
+import type { PayoutMethodData } from '@/types/payouts';
 import type { Option } from '@/components/ui/Field';
 import type { ComponentProps } from 'react';
 import type { UploadDocumentDialog } from '@/components/promoters/dialogs';
@@ -101,6 +102,7 @@ export type SalesRelations =
     | { kind: 'objectives'; rows: SalesObjective[]; currentMonth: string; appreciations: { id: string; body: string; author: string; date: string | null }[] }
     | {
           kind: 'earnings';
+          paymentMethod: PayoutMethodData | null;
           month: string;
           monthLabel: string;
           months: Option[];

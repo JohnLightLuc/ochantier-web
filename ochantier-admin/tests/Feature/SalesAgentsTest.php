@@ -292,4 +292,24 @@ class SalesAgentsTest extends TestCase
 
         $this->get('/commerciaux')->assertOk()->assertInertia(fn (Assert $page) => $page->where('can', ['create' => false, 'update' => false, 'terminate' => false, 'export' => false, 'documents' => false, 'validate' => false, 'proposeAdjustment' => false, 'approveAdjustment' => false]));
     }
+
+    public function test_the_mobile_money_number_needs_the_earnings_permission(): void
+    {
+        Http::fake([
+            self::API.'/commercials/'.self::ID => Http::response(['data' => $this->detail()]),
+            self::API.'/commercials/'.self::ID.'/earnings*' => Http::response(['data' => ['month' => '2026-10', 'month_label' => 'Octobre 2026', 'months' => [], 'confirmed' => 0, 'paid' => 0, 'pending' => 0, 'history' => [], 'adjustments' => [], 'payouts' => []]]),
+            self::API.'/commercials/'.self::ID.'/payment-method' => Http::response(['data' => ['current' => null, 'pending' => null, 'operators' => [['id' => 'o1', 'name' => 'Orange Money']], 'default_number' => ['dial_code' => '225', 'phone_number' => '0712345678']]]),
+        ]);
+
+        $this->signIn(['commercials.read']);
+        $this->get('/commerciaux/'.self::ID.'/gains')->assertOk()->assertInertia(fn (Assert $page) => $page->where('relations.paymentMethod', null));
+        Http::assertNotSent(fn (ClientRequest $request) => str_ends_with($request->url(), '/payment-method'));
+
+        $this->signIn(['commercials.read', 'commercial_earnings.read', 'commercial_earnings.approve']);
+        auth()->forgetGuards();
+        $this->get('/commerciaux/'.self::ID.'/gains')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('relations.paymentMethod.operators.0.name', 'Orange Money')
+            ->where('relations.paymentMethod.can.create', false)
+            ->where('relations.paymentMethod.can.approve', true));
+    }
 }

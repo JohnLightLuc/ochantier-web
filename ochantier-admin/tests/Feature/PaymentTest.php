@@ -126,7 +126,7 @@ class PaymentTest extends TestCase
 
     public function test_old_links_return_to_the_payments(): void
     {
-        foreach (['operations/PAY-260918-1702', 'commissions', 'rapports', 'remboursements'] as $path) {
+        foreach (['operations/PAY-260918-1702', 'commissions', 'rapports'] as $path) {
             $this->get("/paiements/{$path}")->assertRedirect('/paiements');
         }
     }

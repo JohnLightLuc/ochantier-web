@@ -8,6 +8,7 @@ import StatCard from '@/components/ui/StatCard';
 import StateBlock from '@/components/ui/StateBlock';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { fcfa, formatDate } from '@/lib/format';
+import type { PayoutCan } from '@/types/payouts';
 import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
 
@@ -35,7 +36,7 @@ type Props = {
     filters: Filters;
     filterOptions: { etat: Option[] };
     kpis: { payable: number; blocked: number; payable_amount: number; blocked_amount: number; pendingMethods: number };
-    can: { create: boolean; approve: boolean; export: boolean };
+    can: PayoutCan;
 };
 
 const COLUMNS = ['', 'Ouvrier', 'Chantier', 'Période', 'Journées', 'Brut', 'Net', 'Numéro', 'État'];
@@ -64,7 +65,7 @@ export default function PaymentPayable({ rows, filters, filterOptions, kpis, can
             <Head title="À reverser" />
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: -6 }}>
-                <PaymentNav current="/paiements/a-reverser" payouts />
+                <PaymentNav current="/paiements/a-reverser" can={can} />
             </div>
 
             <div data-component="StatGrid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 'var(--space-4)' }}>

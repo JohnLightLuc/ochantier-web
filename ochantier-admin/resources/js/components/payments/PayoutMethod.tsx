@@ -1,22 +1,21 @@
 import FormDialog from '@/components/overlays/FormDialog';
 import Button from '@/components/ui/Button';
-import type { WorkerPaymentMethodData } from '@/types/workers';
+import { Block, KeyValues } from '@/components/workers/blocks';
+import type { PayoutMethodData } from '@/types/payouts';
 import { router } from '@inertiajs/react';
 import { useState } from 'react';
-import { Block, KeyValues } from './blocks';
 
 /** Numéro qui reçoit les reversements : saisi par une personne, confirmé par une autre. */
-export default function WorkerPaymentMethod({ worker, method }: { worker: string; method: WorkerPaymentMethodData }) {
+export default function PayoutMethod({ base, method, empty }: { base: string; method: PayoutMethodData; empty: string }) {
     const [dialog, setDialog] = useState<'propose' | 'reject' | null>(null);
     const { current, pending, can } = method;
-    const base = `/paiements/ouvriers/${worker}/numero`;
     const approve = () => pending && router.post(`${base}/${pending.id}/confirmation`, {}, { preserveScroll: true });
 
     return (
         <Block icon="phone_iphone" title="Numéro Mobile Money">
             <KeyValues
                 items={[
-                    ['Numéro confirmé', current ? `${current.operator ?? '—'} · ${current.number}` : 'Aucun : cet ouvrier ne peut pas recevoir de reversement.'],
+                    ['Numéro confirmé', current ? `${current.operator ?? '—'} · ${current.number}` : empty],
                     ['En attente de confirmation', pending ? `${pending.operator ?? '—'} · ${pending.number}${pending.proposed_by ? ` (saisi par ${pending.proposed_by})` : ''}` : null],
                 ]}
             />

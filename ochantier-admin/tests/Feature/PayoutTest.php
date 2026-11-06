@@ -33,7 +33,7 @@ class PayoutTest extends TestCase
         config(['services.ochantier_api.url' => self::API]);
         $this->withSession([]);
         $this->startSession();
-        app(ApiTokens::class)->store(['access_token' => 'access-1', 'refresh_token' => 'refresh-1', 'expires_in' => 900, 'session_id' => '9a0e0000-0000-4000-8000-000000000001', 'admin' => ['id' => '1', 'full_name' => 'Awa Koné', 'email' => 'a.kone@ochantier.ci', 'roles' => [], 'permissions' => ['payouts.read', 'payouts.create', 'payouts.approve', 'payouts.export'], 'must_change_password' => false]]);
+        app(ApiTokens::class)->store(['access_token' => 'access-1', 'refresh_token' => 'refresh-1', 'expires_in' => 900, 'session_id' => '9a0e0000-0000-4000-8000-000000000001', 'admin' => ['id' => '1', 'full_name' => 'Awa Koné', 'email' => 'a.kone@ochantier.ci', 'roles' => [], 'permissions' => ['payouts.read', 'payouts.create', 'payouts.approve', 'payouts.export', 'commercial_earnings.read', 'commercial_earnings.update', 'commercial_earnings.approve', 'commercial_earnings.export'], 'must_change_password' => false]]);
     }
 
     /**
@@ -98,7 +98,7 @@ class PayoutTest extends TestCase
         Http::fake([
             self::API.'/payouts/batches?*' => Http::response(['data' => [$this->batch()], 'meta' => [...self::META, 'counts' => ['brouillon' => 0, 'a_valider' => 1, 'partiel' => 0, 'echoue' => 0]]]),
             self::API.'/payouts/batches/'.self::BATCH => Http::response(['data' => [...$this->batch(), 'pending_adjustments' => 0, 'payouts' => [$this->payout()], 'can_submit' => false, 'can_cancel' => true, 'can_approve' => true, 'can_resume' => false]]),
-            self::API.'/payouts/payment-methods/pending*' => Http::response(['data' => [['id' => 'p', 'operator' => 'Orange Money', 'number' => '07', 'proposed_by' => 'Awa', 'proposed_at' => '2026-11-06T10:00:00+00:00', 'can_decide' => true, 'worker' => ['id' => self::WORKER, 'reference' => 'OUV-1', 'full_name' => 'Kouamé']]], 'meta' => self::META]),
+            self::API.'/payouts/payment-methods/pending*' => Http::response(['data' => [['id' => 'p', 'operator' => 'Orange Money', 'number' => '07', 'proposed_by' => 'Awa', 'proposed_at' => '2026-11-06T10:00:00+00:00', 'can_decide' => true, 'owner' => ['type' => 'commercial', 'id' => self::WORKER, 'reference' => 'COM-1', 'full_name' => 'Adama']]], 'meta' => self::META]),
             self::API.'/payouts?*' => Http::response(['data' => [$this->payout()], 'meta' => [...self::META, 'counts' => ['statuses' => ['rejete' => 1, 'confirme' => 0], 'paid_amount' => 0]]]),
             self::API.'/payouts/export*' => Http::response('a;b', 200, ['Content-Disposition' => 'attachment; filename="reversements.csv"']),
         ]);
@@ -128,12 +128,44 @@ class PayoutTest extends TestCase
             ['/paiements/ouvriers/'.self::WORKER.'/numero', ['operator_id' => 'o', 'dial_code' => '225', 'phone_number' => '0712345678'], 'workers/'.self::WORKER.'/payment-method'],
             ['/paiements/ouvriers/'.self::WORKER.'/numero/'.self::ID.'/confirmation', [], 'workers/'.self::WORKER.'/payment-method/'.self::ID.'/approve'],
             ['/paiements/ouvriers/'.self::WORKER.'/numero/'.self::ID.'/refus', ['reason' => 'Non vérifié.'], 'workers/'.self::WORKER.'/payment-method/'.self::ID.'/reject'],
+            ['/paiements/commerciaux/'.self::WORKER.'/numero', ['operator_id' => 'o', 'dial_code' => '225', 'phone_number' => '0712345678'], 'commercials/'.self::WORKER.'/payment-method'],
+            ['/paiements/commerciaux/'.self::WORKER.'/numero/'.self::ID.'/confirmation', [], 'commercials/'.self::WORKER.'/payment-method/'.self::ID.'/approve'],
+            ['/paiements/commerciaux/'.self::WORKER.'/numero/'.self::ID.'/refus', ['reason' => 'Non vérifié.'], 'commercials/'.self::WORKER.'/payment-method/'.self::ID.'/reject'],
+            ['/paiements/commerciaux/versements/'.self::ID.'/validation', [], 'commercial-payouts/'.self::ID.'/approve'],
+            ['/paiements/commerciaux/versements/'.self::ID.'/renvoi', [], 'commercial-payouts/'.self::ID.'/retry'],
+            ['/paiements/commerciaux/versements/'.self::ID.'/annulation', ['reason' => 'À revoir.'], 'commercial-payouts/'.self::ID.'/cancel'],
         ];
 
         foreach ($calls as [$url, $data, $api]) {
             $this->from('/paiements/lots')->post($url, $data)->assertRedirect('/paiements/lots');
             Http::assertSent(fn (ClientRequest $request) => $request->url() === self::API.'/'.$api);
         }
+    }
+
+    public function test_commercial_payouts_are_built_from_the_api(): void
+    {
+        $payout = ['id' => self::ID, 'reference' => 'VRS-202610-00001-123', 'commercial' => ['id' => self::WORKER, 'reference' => 'COM-1', 'full_name' => 'Adama'], 'period_start' => '2026-10-01', 'period_end' => '2026-10-31', 'amount' => 28000, 'status' => ['value' => 'a_payer', 'label' => 'À payer'], 'prepared_by' => 'Awa', 'approved_by' => null, 'paid_at' => null];
+
+        Http::fake([
+            self::API.'/commercial-payouts/payable*' => Http::response(['data' => [['commercial' => $payout['commercial'], 'total' => 28000, 'blockers' => []]], 'meta' => ['month' => '2026-10', 'month_finished' => true, 'counts' => ['ready' => 1, 'blocked' => 0, 'ready_amount' => 28000, 'blocked_amount' => 0]]]),
+            self::API.'/commercial-payouts/'.self::ID => Http::response(['data' => [...$payout, 'earnings' => [['id' => 'e', 'worker' => 'Kouamé', 'amount' => 25000, 'date' => '2026-10-04T10:00:00+00:00']], 'adjustments' => [], 'transactions' => [], 'can_approve' => true, 'can_retry' => false, 'can_cancel' => true]]),
+            self::API.'/commercial-payouts/export*' => Http::response('a;b'),
+            self::API.'/commercial-payouts?*' => Http::response(['data' => [$payout], 'meta' => [...self::META, 'counts' => ['statuses' => ['a_payer' => 1, 'rejete' => 0], 'paid_amount' => 0]]]),
+            self::API.'/commercial-payouts' => Http::sequence()
+                ->push(['message' => 'Préparé.', 'data' => ['id' => self::ID]], 201)
+                ->push(['message' => 'Refus', 'errors' => ['payout' => ['Rien à verser pour ce commercial.']]], 422),
+        ]);
+
+        $this->get('/paiements/commerciaux?mois=2026-10')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Payments/CommercialPayable')->where('month', '2026-10')->where('kpis.ready_amount', 28000)->where('rows.0.total', 28000));
+        Http::assertSent(fn (ClientRequest $request) => str_contains($request->url(), 'payable?month=2026-10'));
+
+        $this->get('/paiements/commerciaux/versements?statut=a_payer')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Payments/CommercialPayouts')->where('payouts.data.0.status.tone', 'a')->where('kpis.toApprove', 1));
+        $this->get('/paiements/commerciaux/versements/'.self::ID)->assertOk()->assertInertia(fn (Assert $page) => $page->component('Payments/CommercialPayout')->where('payout.canApprove', true)->where('payout.earnings.0.worker', 'Kouamé'));
+        $this->get('/paiements/commerciaux/versements/export')->assertOk();
+
+        $body = ['commercial_id' => self::WORKER, 'month' => '2026-10'];
+        $this->post('/paiements/commerciaux/versements', $body)->assertRedirect('/paiements/commerciaux/versements/'.self::ID);
+        $this->from('/paiements/commerciaux')->post('/paiements/commerciaux/versements', $body)->assertRedirect('/paiements/commerciaux');
     }
 
     public function test_a_field_error_stays_under_its_field(): void

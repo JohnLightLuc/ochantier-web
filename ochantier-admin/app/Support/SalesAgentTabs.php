@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Support\Api\AdminApi;
+use App\Support\Api\AdminUser;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -26,7 +27,7 @@ class SalesAgentTabs
 
     private const ADJUSTMENT_TONES = ['proposee' => 'a', 'approuvee' => 'g', 'refusee' => 'r', 'payee' => 'g', 'annulee' => 'n'];
 
-    private const PAYOUT_TONES = ['a_payer' => 'a', 'en_traitement' => 'b', 'paye' => 'g', 'rejete' => 'r'];
+    private const PAYOUT_TONES = ['a_payer' => 'a', 'en_traitement' => 'b', 'paye' => 'g', 'rejete' => 'r', 'annule' => 'n'];
 
     public function __construct(private AdminApi $api) {}
 
@@ -121,6 +122,23 @@ class SalesAgentTabs
     }
 
     /**
+     * @return array<string, mixed>|null
+     */
+    private function paymentMethod(string $commercial): ?array
+    {
+        $user = auth()->user();
+
+        if (! $user instanceof AdminUser || ! $user->hasPermission('commercial_earnings.read')) {
+            return null;
+        }
+
+        return [
+            ...$this->api->get("commercials/{$commercial}/payment-method")->json('data'),
+            'can' => ['create' => $user->hasPermission('commercial_earnings.update'), 'approve' => $user->hasPermission('commercial_earnings.approve')],
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function earnings(string $commercial, ?string $month): array
@@ -129,6 +147,7 @@ class SalesAgentTabs
 
         return [
             'kind' => 'earnings',
+            'paymentMethod' => $this->paymentMethod($commercial),
             'month' => $d['month'],
             'monthLabel' => $d['month_label'],
             'months' => $d['months'],

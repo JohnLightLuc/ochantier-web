@@ -23,7 +23,7 @@ type Props = {
 const COLUMNS = ['Référence', 'Préparé', 'Reversements', 'Net', 'Résultat', 'Statut'];
 
 /** Lots de reversements : une personne prépare, une autre valide, ce qui exécute le lot. */
-export default function PaymentBatches({ batches, filters, filterOptions, counts }: Props) {
+export default function PaymentBatches({ batches, filters, filterOptions, counts, can }: Props) {
     const apply = (changes: Filters) => {
         const next: Filters = { ...filters, page: undefined, ...changes };
         router.get('/paiements/lots', Object.fromEntries(Object.entries(next).filter(([, v]) => v)), { preserveState: true, preserveScroll: true, replace: true });
@@ -34,7 +34,7 @@ export default function PaymentBatches({ batches, filters, filterOptions, counts
             <Head title="Lots de reversements" />
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: -6 }}>
-                <PaymentNav current="/paiements/lots" payouts />
+                <PaymentNav current="/paiements/lots" can={can} />
             </div>
 
             <div data-component="StatGrid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 'var(--space-4)' }}>

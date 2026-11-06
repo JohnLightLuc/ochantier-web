@@ -253,7 +253,7 @@ class PaymentController extends Controller
         $user = $request->user();
         $allowed = fn (string $permission): bool => $user instanceof AdminUser && $user->hasPermission($permission);
 
-        return ['update' => $allowed('payments.update'), 'export' => $allowed('payments.export'), 'payouts' => $allowed('payouts.read')];
+        return ['update' => $allowed('payments.update'), 'export' => $allowed('payments.export'), 'payouts' => $allowed('payouts.read'), 'commercials' => $allowed('commercial_earnings.read')];
     }
 
     /**

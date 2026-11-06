@@ -1,12 +1,12 @@
 import { Bar, Pages, Pills, RelationTable, Timeline, stack, visit } from '@/components/promoters/RelationTabs';
 import { RatingCell, StackCell, TextCell } from '@/components/list/Table';
+import PayoutMethod from '@/components/payments/PayoutMethod';
 import StatCard from '@/components/ui/StatCard';
 import StateBlock from '@/components/ui/StateBlock';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { plural } from '@/lib/format';
 import type { WorkerAssignmentRow, WorkerRelations } from '@/types/workers';
 import { Block, KeyValues } from './blocks';
-import WorkerPaymentMethod from './WorkerPaymentMethod';
 
 const assignmentCells = (a: WorkerAssignmentRow) => [
     <StackCell main={a.site} sub={a.promoter} strong />,
@@ -110,7 +110,7 @@ export default function WorkerRelationTabs({ worker, relations }: { worker: stri
             return (
                 <div style={stack}>
                     <Totals items={relations.totals} />
-                    {relations.paymentMethod && <WorkerPaymentMethod worker={worker} method={relations.paymentMethod} />}
+                    {relations.paymentMethod && <PayoutMethod base={`/paiements/ouvriers/${worker}/numero`} method={relations.paymentMethod} empty="Aucun : cet ouvrier ne peut pas recevoir de reversement." />}
                     <RelationTable
                         columns={['Chantier', 'Mission', 'Période', 'Jours validés', 'Tarif net / jour', 'Gains', 'Versé', 'Restant', 'Statut']}
                         empty={{ icon: 'savings', title: 'Aucun gain', text: 'Les gains apparaissent dès qu’une journée de travail est validée par le promoteur.' }}

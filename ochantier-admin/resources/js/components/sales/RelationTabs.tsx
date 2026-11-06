@@ -1,6 +1,7 @@
 import { Bar, Pages, Pills, RelationTable, Timeline, stack, visit } from '@/components/promoters/RelationTabs';
 import { FilterSelect } from '@/components/list/ListToolbar';
 import { ProgressCell, StackCell, TextCell } from '@/components/list/Table';
+import PayoutMethod from '@/components/payments/PayoutMethod';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { Block, Chips, TileGrid } from '@/components/workers/blocks';
 import { formatDate } from '@/lib/format';
@@ -328,13 +329,14 @@ export default function SalesRelationTabs({ agent: a, relations, options, can, a
                         }))}
                     />
                 </Block>
+                {relations.paymentMethod && <PayoutMethod base={`/paiements/commerciaux/${a.id}/numero`} method={relations.paymentMethod} empty="Aucun : ce commercial ne peut pas recevoir de versement." />}
                 <Block icon="receipt_long" title="Versements">
                     <RelationTable
                         columns={['Référence', 'Période', 'Montant', 'Statut', 'Payé le']}
                         empty={{
                             icon: 'receipt_long',
                             title: 'Aucun versement',
-                            text: 'Le versement sera géré par le module Paiements.',
+                            text: 'Les versements se préparent dans Paiements, une fois le mois terminé.',
                         }}
                         rows={relations.payouts.map((p) => ({
                             key: p.id,

@@ -8,7 +8,7 @@ import StatCard from '@/components/ui/StatCard';
 import StateBlock from '@/components/ui/StateBlock';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { fcfa, formatDate } from '@/lib/format';
-import type { PayoutRow } from '@/types/payouts';
+import type { PayoutCan, PayoutRow } from '@/types/payouts';
 import { Head, router } from '@inertiajs/react';
 
 type Filters = { q?: string; statut?: string; lot?: string; page?: string };
@@ -18,7 +18,7 @@ type Props = {
     filters: Filters;
     filterOptions: { statut: Option[] };
     kpis: { paid: number; confirmed: number; rejected: number };
-    can: { create: boolean; approve: boolean; export: boolean };
+    can: PayoutCan;
 };
 
 const COLUMNS = ['Référence', 'Ouvrier', 'Chantier', 'Période', 'Journées', 'Net', 'Lot', 'Statut'];
@@ -36,7 +36,7 @@ export default function PaymentPayouts({ payouts, filters, filterOptions, kpis, 
             <Head title="Reversements" />
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: -6 }}>
-                <PaymentNav current="/paiements/reversements" payouts />
+                <PaymentNav current="/paiements/reversements" can={can} />
                 {can.export && <Button label="Exporter" icon="download" variant="secondary" onClick={() => (window.location.href = exportUrl)} />}
             </div>
 
