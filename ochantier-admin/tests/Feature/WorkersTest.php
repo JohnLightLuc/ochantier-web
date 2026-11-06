@@ -392,4 +392,24 @@ class WorkersTest extends TestCase
                 ->where('relations.rows.0.target', 'En vérification → Validé'));
         Http::assertSent(fn (ClientRequest $r) => str_contains($r->url(), '/history?') && str_contains($r->url(), 'origin=admin'));
     }
+
+    public function test_the_mobile_money_number_needs_the_payout_permission(): void
+    {
+        Http::fake([
+            self::API.'/workers/'.self::ID => Http::response(['data' => $this->detail()]),
+            self::API.'/workers/'.self::ID.'/earnings' => Http::response(['data' => [], 'meta' => ['totals' => ['earned' => 0, 'paid' => 0, 'remaining' => 0], 'payouts' => []]]),
+            self::API.'/workers/'.self::ID.'/payment-method' => Http::response(['data' => ['current' => null, 'pending' => null, 'operators' => [['id' => 'o1', 'name' => 'Orange Money']], 'default_number' => ['dial_code' => '225', 'phone_number' => '0712345678']]]),
+        ]);
+
+        $this->signIn(['workers.read']);
+        $this->get('/ouvriers/'.self::ID.'/paiements')->assertOk()->assertInertia(fn (Assert $page) => $page->where('relations.paymentMethod', null));
+        Http::assertNotSent(fn (ClientRequest $r) => str_ends_with($r->url(), '/payment-method'));
+
+        $this->signIn(['workers.read', 'payouts.read', 'payouts.create']);
+        auth()->forgetGuards();
+        $this->get('/ouvriers/'.self::ID.'/paiements')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('relations.paymentMethod.operators.0.name', 'Orange Money')
+            ->where('relations.paymentMethod.can.create', true)
+            ->where('relations.paymentMethod.can.approve', false));
+    }
 }

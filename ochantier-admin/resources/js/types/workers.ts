@@ -135,10 +135,20 @@ export type WorkerRelations =
     | { kind: 'availability'; status: ValueBadge | null; availableFrom: string | null; current: WorkerAssignmentRow | null; upcoming: WorkerAssignmentRow[]; openUnavailabilities: number; declarations: { id: string; status: ValueBadge; period: string; source: string; comment: string | null }[] }
     | { kind: 'assignments'; status: string | null; filters: StatusFilter[]; rows: WorkerAssignmentRow[]; pagination: Pagination }
     | { kind: 'attendance'; status: string | null; filters: StatusFilter[]; summary: Total[]; rows: { id: string; date: string; site: string; arrival: string; departure: string; outOfZone: boolean; duration: string; validation: string; observation: string | null; status: ValueBadge }[]; pagination: Pagination }
-    | { kind: 'earnings'; totals: Total[]; rows: { id: string; site: string; mission: string; period: string; days: number; rate: string; earned: string; paid: string; remaining: string; status: ValueBadge }[]; payouts: { id: string; reference: string; site: string; period: string; gross: string; commission: string; net: string; status: ValueBadge }[] }
+    | { kind: 'earnings'; paymentMethod: WorkerPaymentMethodData | null; totals: Total[]; rows: { id: string; site: string; mission: string; period: string; days: number; rate: string; earned: string; paid: string; remaining: string; status: ValueBadge }[]; payouts: { id: string; reference: string; site: string; period: string; gross: string; commission: string; net: string; status: ValueBadge }[] }
     | { kind: 'ratings'; average: string | null; count: number; hidden: number; distribution: { score: number; count: number; percent: number }[]; rows: { id: string; score: number; comment: string; site: string; author: string; date: string; status: Badge; moderation: string | null }[] }
     | { kind: 'replacements'; unavailabilities: { id: string; site: string; moment: string; date: string; duration: string; reason: string; urgent: boolean; replacement: string; status: ValueBadge }[]; replacedOthers: { id: string; site: string; replaced: string; handover: string; status: ValueBadge }[] }
     | { kind: 'history'; origin: string | null; origins: { value: string; label: string }[]; rows: WorkerTimelineRow[]; pagination: Pagination };
+
+export type WorkerPaymentMethodRow = { id: string; operator: string | null; number: string; holder: string; proposed_by: string | null; can_decide: boolean };
+
+export type WorkerPaymentMethodData = {
+    current: WorkerPaymentMethodRow | null;
+    pending: WorkerPaymentMethodRow | null;
+    operators: { id: string; name: string }[];
+    default_number: { dial_code: string | null; phone_number: string | null };
+    can: { create: boolean; approve: boolean };
+};
 
 export type WorkerShowProps = {
     worker: Worker;

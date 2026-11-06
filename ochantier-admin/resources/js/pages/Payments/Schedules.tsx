@@ -9,6 +9,7 @@ import StatCard from '@/components/ui/StatCard';
 import StateBlock from '@/components/ui/StateBlock';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { fcfa, formatDate } from '@/lib/format';
+import PaymentNav from '@/components/payments/PaymentNav';
 import { Head, router } from '@inertiajs/react';
 
 type FilterKey = 'etat' | 'type';
@@ -37,7 +38,7 @@ type Props = {
     filterOptions: Record<FilterKey, Option[]>;
     kpis: { open: number; late: number; lateCount: number; paid: number };
     states: Record<string, number>;
-    can: { update: boolean; export: boolean };
+    can: { update: boolean; export: boolean; payouts: boolean };
 };
 
 const COLUMNS: [string, string | null][] = [
@@ -72,7 +73,7 @@ export default function PaymentSchedules({ schedules, filters, filterOptions, kp
             <Head title="Échéances" />
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', marginTop: -6 }}>
-                <Button label="Encaissements" icon="payments" variant="secondary" onClick={() => router.visit('/paiements')} />
+                <PaymentNav current="/paiements/echeances" payouts={can.payouts} />
                 {can.export && <Button label="Exporter" icon="download" variant="secondary" onClick={() => (window.location.href = exportUrl)} />}
             </div>
 

@@ -22,6 +22,7 @@ use App\Http\Controllers\MatchingController;
 use App\Http\Controllers\NeedController;
 use App\Http\Controllers\NeedDecisionController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PayoutController;
 use App\Http\Controllers\PromoterController;
 use App\Http\Controllers\PromoterFormController;
 use App\Http\Controllers\PromoterReviewController;
@@ -253,6 +254,30 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::post('/{attendance}/relance', [AttendanceController::class, 'remind'])->whereUuid('attendance')->name('remind');
         Route::get('/{attendance}', [AttendanceController::class, 'show'])->whereUuid('attendance')->name('show');
         Route::get('/{rest}', [AttendanceController::class, 'legacy'])->where('rest', '.*')->name('legacy');
+    });
+
+    Route::prefix('paiements')->name('payouts.')->controller(PayoutController::class)->group(function () {
+        Route::get('/a-reverser', 'payable')->name('payable');
+        Route::post('/a-reverser/lot', 'prepare')->name('prepare');
+        Route::get('/reversements', 'index')->name('index');
+        Route::get('/reversements/export', 'export')->name('export');
+        Route::get('/reversements/{payout}', 'show')->whereUuid('payout')->name('show');
+        Route::post('/reversements/{payout}/retrait', 'cancel')->whereUuid('payout')->name('cancel');
+        Route::post('/reversements/{payout}/renvoi', 'retry')->whereUuid('payout')->name('retry');
+        Route::post('/reversements/{payout}/ajustements', 'propose')->whereUuid('payout')->name('adjustments.store');
+        Route::post('/reversements/{payout}/ajustements/{adjustment}/approbation', 'approveAdjustment')->whereUuid(['payout', 'adjustment'])->name('adjustments.approve');
+        Route::post('/reversements/{payout}/ajustements/{adjustment}/refus', 'refuseAdjustment')->whereUuid(['payout', 'adjustment'])->name('adjustments.refuse');
+        Route::get('/lots', 'batches')->name('batches');
+        Route::get('/lots/{batch}', 'batch')->whereUuid('batch')->name('batches.show');
+        Route::post('/lots/{batch}/soumission', 'submit')->whereUuid('batch')->name('batches.submit');
+        Route::post('/lots/{batch}/validation', 'approve')->whereUuid('batch')->name('batches.approve');
+        Route::post('/lots/{batch}/renvoi', 'reject')->whereUuid('batch')->name('batches.reject');
+        Route::post('/lots/{batch}/annulation', 'cancelBatch')->whereUuid('batch')->name('batches.cancel');
+        Route::post('/lots/{batch}/reprise', 'resume')->whereUuid('batch')->name('batches.resume');
+        Route::get('/numeros', 'methods')->name('methods');
+        Route::post('/ouvriers/{worker}/numero', 'storeMethod')->whereUuid('worker')->name('methods.store');
+        Route::post('/ouvriers/{worker}/numero/{method}/confirmation', 'approveMethod')->whereUuid(['worker', 'method'])->name('methods.approve');
+        Route::post('/ouvriers/{worker}/numero/{method}/refus', 'rejectMethod')->whereUuid(['worker', 'method'])->name('methods.reject');
     });
 
     Route::prefix('paiements')->name('payments.')->controller(PaymentController::class)->group(function () {

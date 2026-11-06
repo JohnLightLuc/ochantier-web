@@ -6,6 +6,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import { plural } from '@/lib/format';
 import type { WorkerAssignmentRow, WorkerRelations } from '@/types/workers';
 import { Block, KeyValues } from './blocks';
+import WorkerPaymentMethod from './WorkerPaymentMethod';
 
 const assignmentCells = (a: WorkerAssignmentRow) => [
     <StackCell main={a.site} sub={a.promoter} strong />,
@@ -30,7 +31,7 @@ function Totals({ items }: { items: { label: string; value: string; tone: never 
 }
 
 /** Onglets en lecture seule de la fiche ouvrier. */
-export default function WorkerRelationTabs({ relations }: { relations: WorkerRelations }) {
+export default function WorkerRelationTabs({ worker, relations }: { worker: string; relations: WorkerRelations }) {
     switch (relations.kind) {
         case 'availability':
             return (
@@ -109,6 +110,7 @@ export default function WorkerRelationTabs({ relations }: { relations: WorkerRel
             return (
                 <div style={stack}>
                     <Totals items={relations.totals} />
+                    {relations.paymentMethod && <WorkerPaymentMethod worker={worker} method={relations.paymentMethod} />}
                     <RelationTable
                         columns={['Chantier', 'Mission', 'Période', 'Jours validés', 'Tarif net / jour', 'Gains', 'Versé', 'Restant', 'Statut']}
                         empty={{ icon: 'savings', title: 'Aucun gain', text: 'Les gains apparaissent dès qu’une journée de travail est validée par le promoteur.' }}
@@ -129,7 +131,7 @@ export default function WorkerRelationTabs({ relations }: { relations: WorkerRel
                     />
                     <Block icon="account_balance_wallet" title="Reversements" count={plural(relations.payouts.length, 'reversement', 'reversements')}>
                         {relations.payouts.length === 0 ? (
-                            <span style={{ fontSize: 'var(--fs-md)', color: 'var(--c-muted)' }}>Aucun reversement enregistré : les reversements aux ouvriers seront suivis avec le module Paiements.</span>
+                            <span style={{ fontSize: 'var(--fs-md)', color: 'var(--c-muted)' }}>Aucun reversement enregistré pour cet ouvrier.</span>
                         ) : (
                             <RelationTable
                                 columns={['Référence', 'Chantier', 'Période', 'Brut', 'Commission', 'Net', 'Statut']}

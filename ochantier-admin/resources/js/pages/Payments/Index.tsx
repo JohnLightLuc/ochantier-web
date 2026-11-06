@@ -8,6 +8,7 @@ import StatCard from '@/components/ui/StatCard';
 import StateBlock from '@/components/ui/StateBlock';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { fcfa } from '@/lib/format';
+import PaymentNav from '@/components/payments/PaymentNav';
 import { Head, router } from '@inertiajs/react';
 
 type FilterKey = 'periode' | 'statut' | 'nature' | 'operateur';
@@ -34,7 +35,7 @@ type Props = {
     filters: Filters;
     filterOptions: Record<FilterKey, Option[]>;
     kpis: { collected: number; month: number; fees: number; failed: number };
-    can: { update: boolean; export: boolean };
+    can: { update: boolean; export: boolean; payouts: boolean };
 };
 
 const COLUMNS: [string, string | null][] = [
@@ -69,7 +70,7 @@ export default function PaymentsIndex({ transactions, filters, filterOptions, kp
             <Head title="Paiements" />
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', marginTop: -6 }}>
-                <Button label="Échéances" icon="event_note" variant="secondary" onClick={() => router.visit('/paiements/echeances')} />
+                <PaymentNav current="/paiements" payouts={can.payouts} />
                 {can.export && <Button label="Exporter" icon="download" variant="secondary" onClick={() => (window.location.href = exportUrl)} />}
             </div>
 

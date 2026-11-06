@@ -166,7 +166,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Anciens liens (références locales, reversements, commissions, rapports) : retour aux paiements.
+     * Anciens liens (références locales, commissions, rapports) : retour aux paiements.
      */
     public function legacy(): RedirectResponse
     {
@@ -253,7 +253,7 @@ class PaymentController extends Controller
         $user = $request->user();
         $allowed = fn (string $permission): bool => $user instanceof AdminUser && $user->hasPermission($permission);
 
-        return ['update' => $allowed('payments.update'), 'export' => $allowed('payments.export')];
+        return ['update' => $allowed('payments.update'), 'export' => $allowed('payments.export'), 'payouts' => $allowed('payouts.read')];
     }
 
     /**

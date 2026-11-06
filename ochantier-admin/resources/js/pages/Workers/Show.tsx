@@ -73,7 +73,7 @@ export default function WorkerShow(props: WorkerShowProps) {
                     {tab === '' && <OverviewTab {...tabProps} />}
                     {tab === 'identite-documents' && <IdentityTab {...tabProps} />}
                     {tab === 'metiers-competences' && <SkillsTab {...tabProps} />}
-                    {props.relations && <WorkerRelationTabs relations={props.relations} />}
+                    {props.relations && <WorkerRelationTabs worker={props.worker.id} relations={props.relations} />}
                 </section>
             </div>
 

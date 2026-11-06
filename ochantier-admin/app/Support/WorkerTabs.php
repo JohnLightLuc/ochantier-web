@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Support\Api\AdminApi;
+use App\Support\Api\AdminUser;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -137,6 +138,23 @@ class WorkerTabs
     }
 
     /**
+     * @return array<string, mixed>|null
+     */
+    private function paymentMethod(string $worker): ?array
+    {
+        $user = auth()->user();
+
+        if (! $user instanceof AdminUser || ! $user->hasPermission('payouts.read')) {
+            return null;
+        }
+
+        return [
+            ...$this->api->get("workers/{$worker}/payment-method")->json('data'),
+            'can' => ['create' => $user->hasPermission('payouts.create'), 'approve' => $user->hasPermission('payouts.approve')],
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function earnings(string $worker): array
@@ -146,6 +164,7 @@ class WorkerTabs
 
         return [
             'kind' => 'earnings',
+            'paymentMethod' => $this->paymentMethod($worker),
             'totals' => [
                 ['label' => 'Gains acquis', 'value' => $this->money($meta['totals']['earned'] ?? 0), 'tone' => 'g', 'hint' => 'Journées validées × tarif net'],
                 ['label' => 'Déjà versés', 'value' => $this->money($meta['totals']['paid'] ?? 0), 'tone' => 'b', 'hint' => 'Reversements envoyés ou confirmés'],
