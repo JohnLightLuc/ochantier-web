@@ -59,3 +59,5 @@ export function todayIso(): string {
 }
 
 export const plural = (n: number, one: string, many: string): string => `${n} ${n > 1 ? many : one}`;
+
+export const fcfa = (amount: number) => `${formatNumber(amount)} FCFA`;

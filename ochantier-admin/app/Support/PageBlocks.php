@@ -334,8 +334,12 @@ class PageBlocks
      */
     public static function paginate(Collection $items, int $page, callable $map, int $size = 10): array
     {
-        $p = PaymentInsights::paginate($items, $page, $size, $map);
+        $total = $items->count();
+        $last = max(1, (int) ceil($total / $size));
+        $page = min(max(1, $page), $last);
+        $from = $total ? ($page - 1) * $size + 1 : 0;
+        $to = min($total, $page * $size);
 
-        return ['rows' => $p['data'], 'pagination' => array_diff_key($p, ['data' => true]), 'label' => $p['total'] ? "{$p['from']}–{$p['to']} sur {$p['total']}" : '0 résultat'];
+        return ['rows' => $items->forPage($page, $size)->values()->map($map)->all(), 'pagination' => ['page' => $page, 'lastPage' => $last, 'total' => $total, 'from' => $from, 'to' => $to], 'label' => $total ? "{$from}–{$to} sur {$total}" : '0 résultat'];
     }
 }

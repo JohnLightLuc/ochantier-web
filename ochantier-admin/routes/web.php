@@ -21,7 +21,6 @@ use App\Http\Controllers\IntegrationController;
 use App\Http\Controllers\MatchingController;
 use App\Http\Controllers\NeedController;
 use App\Http\Controllers\NeedDecisionController;
-use App\Http\Controllers\PaymentActionController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PromoterController;
 use App\Http\Controllers\PromoterFormController;
@@ -256,37 +255,15 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('/{rest}', [AttendanceController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
-    Route::prefix('paiements')->name('payments.')->group(function () {
-        Route::get('/', [PaymentController::class, 'index'])->name('index');
-        Route::get('/operations', [PaymentController::class, 'operations'])->name('operations');
-        Route::get('/a-reverser', [PaymentController::class, 'operations'])->name('to-pay-out');
-        Route::get('/reversements', [PaymentController::class, 'operations'])->name('payouts');
-        Route::get('/lots', [PaymentController::class, 'batches'])->name('batches');
-        Route::get('/commissions', [PaymentController::class, 'commissions'])->name('commissions');
-        Route::get('/commissions/operations', [PaymentController::class, 'commissionOperations'])->name('commissions.operations');
-        Route::get('/remboursements', [PaymentController::class, 'refunds'])->name('refunds');
-        Route::get('/rapprochements', [PaymentController::class, 'reconciliations'])->name('reconciliations');
-        Route::get('/anomalies', [PaymentController::class, 'anomalies'])->name('anomalies');
-        Route::get('/rapports', [PaymentController::class, 'reports'])->name('reports');
-        Route::get('/rapports/commissions/{format}', [PaymentController::class, 'commissionReport'])->whereIn('format', ['pdf', 'excel'])->name('reports.commissions');
-        Route::get('/export/{view}', [PaymentController::class, 'export'])->whereIn('view', ['operations', 'a-reverser', 'reversements', 'commissions', 'commissions-operations', 'rapprochements', 'rapport-operations'])->name('export');
-        Route::post('/lots', [PaymentActionController::class, 'batch'])->name('batches.store');
-
-        Route::prefix('operations/{payment}')->scopeBindings()->group(function () {
-            Route::post('/reversement', [PaymentActionController::class, 'payout'])->name('payout');
-            Route::post('/relance', [PaymentActionController::class, 'retry'])->name('retry');
-            Route::post('/remboursements', [PaymentActionController::class, 'requestRefund'])->name('refunds.store');
-            Route::post('/remboursements/{refund}/{decision}', [PaymentActionController::class, 'decideRefund'])->whereIn('decision', ['approbation', 'rejet'])->name('refunds.decide');
-            Route::post('/elements/{kind}', [PaymentActionController::class, 'addItem'])->whereIn('kind', ['bonus', 'indemnity', 'deduction'])->name('items.store');
-            Route::post('/elements/{item}/{decision}', [PaymentActionController::class, 'decideItem'])->whereNumber('item')->whereIn('decision', ['approbation', 'rejet'])->name('items.decide');
-            Route::post('/rapprochement', [PaymentActionController::class, 'reconcile'])->name('reconcile');
-            Route::post('/anomalies', [PaymentActionController::class, 'reportAnomaly'])->name('anomalies.store');
-            Route::get('/documents/{document}', [PaymentActionController::class, 'document'])
-                ->whereIn('document', ['recu-promoteur', 'recu-reversement', 'facture', 'releve-commission', 'remboursement', 'justificatif'])->name('documents');
-            Route::get('/{tab?}', [PaymentController::class, 'show'])
-                ->where('tab', 'commission|bonus|rapprochement|calcul|paiement|reversement|remboursements|pointages|documents|historique')
-                ->name('show');
-        });
+    Route::prefix('paiements')->name('payments.')->controller(PaymentController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/export', 'export')->name('export');
+        Route::get('/echeances', 'schedules')->name('schedules');
+        Route::get('/echeances/export', 'exportSchedules')->name('schedules.export');
+        Route::get('/echeances/{schedule}', 'schedule')->whereUuid('schedule')->name('schedules.show');
+        Route::post('/echeances/{schedule}/relance', 'remind')->whereUuid('schedule')->name('schedules.remind');
+        Route::get('/{transaction}', 'show')->whereUuid('transaction')->name('show');
+        Route::get('/{rest}', 'legacy')->where('rest', '.*')->name('legacy');
     });
 
     Route::prefix('abonnements')->name('subscriptions.')->group(function () {

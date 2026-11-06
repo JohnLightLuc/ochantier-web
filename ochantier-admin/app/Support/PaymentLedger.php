@@ -103,6 +103,18 @@ class PaymentLedger
     }
 
     /**
+     * Règle de commission affichée dans Finance.
+     *
+     * @return array<string, mixed>
+     */
+    public static function rule(): array
+    {
+        $cfg = self::config();
+
+        return [...$cfg['rule'], 'y' => $cfg['y'], 'z' => $cfg['z'], 'previous' => $cfg['previous_rules'], 'refundRule' => $cfg['refund_rule']];
+    }
+
+    /**
      * Montants d’une opération.
      *
      * @return array<string, mixed>

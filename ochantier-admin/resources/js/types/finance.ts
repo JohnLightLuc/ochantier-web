@@ -1,5 +1,6 @@
 import type { BlockAction, BlockPageProps } from '@/types/blocks';
-import type { Rule } from '@/types/payments';
+
+export type Rule = { name: string; description: string; type: string; base: string; min: number; max: number; scope: string; trade: string; target: string; from: string; to: string | null; status: string; version: string; y: number; z: number; refundRule: string; previous: { name: string; version: string; from: string; to: string; status: string; type: string }[] };
 
 /** Actions propres à Finance & Reporting : règles de commission et construction d’un rapport. */
 export type FinanceAction = BlockAction | { type: 'rates' } | { type: 'export'; report: string };

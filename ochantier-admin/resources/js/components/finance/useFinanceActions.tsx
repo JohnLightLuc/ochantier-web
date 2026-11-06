@@ -6,7 +6,7 @@ import { formatDate } from '@/lib/format';
 import type { FinancePageProps } from '@/types/finance';
 import { router } from '@inertiajs/react';
 import { useState } from 'react';
-import { fcfa } from '../payments/usePaymentActions';
+import { fcfa } from '@/lib/format';
 
 const GROUPS = ['Aucun', 'Par mois', 'Par chantier', 'Par promoteur', 'Par métier', 'Par commune'];
 

@@ -91,7 +91,7 @@ class FinanceController extends Controller
             'views' => FinanceView::query()->orderBy('id')->get()->map(fn (FinanceView $v): array => ['name' => $v->name, 'href' => '/finance-reporting?'.http_build_query(array_filter([...$v->filters, 'base' => $v->basis, 'periode' => $v->period]))])->all(),
             'kpis' => [], 'chips' => [], 'alerts' => [], 'tiles' => [], 'toolbar' => [], 'flow' => null, 'charts' => [], 'panels' => [], 'tables' => [], 'timeline' => [], 'missing' => null,
             'sheets' => (object) [],
-            'rule' => [...PaymentController::rule(), 'ok' => PaymentLedger::config()['ok']],
+            'rule' => [...PaymentLedger::rule(), 'ok' => PaymentLedger::config()['ok']],
             'canParams' => Fin::can('param'),
             'reports' => FinanceReports::allowed(),
             'exportInfo' => "Période : {$ins->period['range']} · Filtres : ".($ins->filterSummary() ?: 'aucun').' · '.$ins->current->count().' ligne(s) détaillée(s) · Données sensibles incluses : '.(Fin::can('ouv') || Fin::can('marge') ? 'oui (montants ouvriers, marges)' : 'non').' · Autorisation nécessaire : Exporter ('.Fin::role().').',

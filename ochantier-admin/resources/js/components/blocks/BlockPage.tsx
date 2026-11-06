@@ -1,14 +1,26 @@
 import { PeriodBar } from '@/components/attendances/blocks';
-import { useApply } from '@/components/payments/blocks';
 import Icon from '@/components/ui/Icon';
 import StatCard from '@/components/ui/StatCard';
 import StateBlock from '@/components/ui/StateBlock';
 import { AlertList, Block, TileGrid } from '@/components/workers/blocks';
 import { HistoryList } from '@/components/workers/tabs';
 import type { BlockAlert, BlockPageProps } from '@/types/blocks';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 import { ActionBar, BarsBlock, BlockNav, BlockSelectInput, DonutBlock, FlowSteps, LinesBlock, PanelBlock, ProfileHeader, StackBar, TabBar, TableBlock, type Run } from './blocks';
+
+type Query = Partial<Record<string, string>>;
+
+/** Applique des filtres à la page courante (retour à la page 1). */
+function useApply(filters: Query) {
+    const { url } = usePage();
+    const base = url.split('?')[0];
+
+    return (changes: Query, keepPage = false) => {
+        const next: Query = { ...filters, ...changes, ...(keepPage ? {} : { page: undefined }) };
+        router.get(base, Object.fromEntries(Object.entries(next).filter(([, v]) => v)), { preserveState: true, preserveScroll: true, replace: true });
+    };
+}
 
 const grid = (min: number) => ({ display: 'grid', gridTemplateColumns: `repeat(auto-fit,minmax(min(100%,${min}px),1fr))`, gap: 'var(--space-3)' });
 
