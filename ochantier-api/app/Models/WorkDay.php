@@ -23,7 +23,7 @@ class WorkDay extends Model
     protected $fillable = [
         'assignment_id', 'mission_id', 'worker_id', 'work_date', 'arrival_event_id', 'departure_event_id',
         'worked_minutes', 'status', 'observation', 'validated_by_user_id', 'validated_at', 'is_locked',
-        'payment_schedule_id',
+        'payment_schedule_id', 'worker_payout_id',
     ];
 
     /**
@@ -95,6 +95,14 @@ class WorkDay extends Model
     public function paymentSchedule(): BelongsTo
     {
         return $this->belongsTo(PaymentSchedule::class);
+    }
+
+    /**
+     * @return BelongsTo<WorkerPayout, $this>
+     */
+    public function workerPayout(): BelongsTo
+    {
+        return $this->belongsTo(WorkerPayout::class);
     }
 
     /**

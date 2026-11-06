@@ -17,6 +17,9 @@ use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialTerritoryController;
 use App\Http\Controllers\Api\V1\Admin\Matching\MatchingController;
 use App\Http\Controllers\Api\V1\Admin\Offer\OfferController;
 use App\Http\Controllers\Api\V1\Admin\Payment\PaymentController as AdminPaymentController;
+use App\Http\Controllers\Api\V1\Admin\Payout\PayoutBatchController;
+use App\Http\Controllers\Api\V1\Admin\Payout\PayoutController;
+use App\Http\Controllers\Api\V1\Admin\Payout\WorkerPaymentMethodController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterAccountController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterRelationController;
@@ -118,6 +121,12 @@ Route::middleware('auth:admin')->group(function () {
                     Route::get('replacements', 'replacements')->name('replacements');
                     Route::get('history', 'history')->name('history');
                 });
+                Route::controller(WorkerPaymentMethodController::class)->group(function () {
+                    Route::get('payment-method', 'show')->middleware('admin.can:payouts.read')->name('payment-method.show');
+                    Route::post('payment-method', 'store')->middleware('admin.can:payouts.create')->name('payment-method.store');
+                    Route::post('payment-method/{method}/approve', 'approve')->whereUuid('method')->middleware('admin.can:payouts.approve')->name('payment-method.approve');
+                    Route::post('payment-method/{method}/reject', 'reject')->whereUuid('method')->middleware('admin.can:payouts.approve')->name('payment-method.reject');
+                });
                 Route::patch('/', [WorkerAccountController::class, 'update'])->middleware('admin.can:workers.update')->name('update');
                 Route::post('documents', [WorkerAccountController::class, 'storeDocument'])->middleware('admin.can:documents.validate')->name('documents.store');
                 Route::post('approve', [WorkerReviewController::class, 'approve'])->middleware('admin.can:workers.validate')->name('approve');
@@ -128,6 +137,40 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('suspension', [WorkerReviewController::class, 'suspend'])->middleware('admin.can:workers.update')->name('suspend');
                 Route::delete('suspension', [WorkerReviewController::class, 'reactivate'])->middleware('admin.can:workers.update')->name('reactivate');
                 Route::post('exclusion', [WorkerReviewController::class, 'exclude'])->middleware('admin.can:workers.validate')->name('exclude');
+            });
+        });
+
+        // Reversements : ce qui est à reverser, reversements, lots et numéros Mobile Money des ouvriers.
+        Route::prefix('payouts')->name('payouts.')->group(function () {
+            Route::controller(PayoutController::class)->group(function () {
+                Route::get('/', 'index')->middleware('admin.can:payouts.read')->name('index');
+                Route::get('payable', 'payable')->middleware('admin.can:payouts.read')->name('payable');
+                Route::get('export', 'export')->middleware('admin.can:payouts.export')->name('export');
+            });
+
+            Route::get('payment-methods/pending', [WorkerPaymentMethodController::class, 'pending'])->middleware('admin.can:payouts.read')->name('payment-methods.pending');
+
+            Route::prefix('batches')->name('batches.')->controller(PayoutBatchController::class)->group(function () {
+                Route::get('/', 'index')->middleware('admin.can:payouts.read')->name('index');
+                Route::post('/', 'store')->middleware('admin.can:payouts.create')->name('store');
+
+                Route::prefix('{batchId}')->whereUuid('batchId')->group(function () {
+                    Route::get('/', 'show')->middleware('admin.can:payouts.read')->name('show');
+                    Route::post('submit', 'submit')->middleware('admin.can:payouts.create')->name('submit');
+                    Route::post('cancel', 'cancel')->middleware('admin.can:payouts.create')->name('cancel');
+                    Route::post('approve', 'approve')->middleware('admin.can:payouts.approve')->name('approve');
+                    Route::post('reject', 'reject')->middleware('admin.can:payouts.approve')->name('reject');
+                    Route::post('resume', 'resume')->middleware('admin.can:payouts.approve')->name('resume');
+                });
+            });
+
+            Route::prefix('{payoutId}')->whereUuid('payoutId')->controller(PayoutController::class)->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:payouts.read')->name('show');
+                Route::post('cancel', 'cancel')->middleware('admin.can:payouts.create')->name('cancel');
+                Route::post('retry', 'retry')->middleware('admin.can:payouts.approve')->name('retry');
+                Route::post('adjustments', 'propose')->middleware('admin.can:payouts.create')->name('adjustments.store');
+                Route::post('adjustments/{adjustment}/approve', 'approveAdjustment')->whereUuid('adjustment')->middleware('admin.can:payouts.approve')->name('adjustments.approve');
+                Route::post('adjustments/{adjustment}/refuse', 'refuseAdjustment')->whereUuid('adjustment')->middleware('admin.can:payouts.approve')->name('adjustments.refuse');
             });
         });
 

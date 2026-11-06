@@ -98,6 +98,14 @@ class WorkerPayout extends Model
     }
 
     /**
+     * @return HasMany<WorkDay, $this>
+     */
+    public function workDays(): HasMany
+    {
+        return $this->hasMany(WorkDay::class);
+    }
+
+    /**
      * @return HasMany<PayoutAdjustment, $this>
      */
     public function payoutAdjustments(): HasMany
