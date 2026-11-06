@@ -7,6 +7,7 @@ use App\Enums\AttendanceCorrectionStatus;
 use App\Enums\DisputeStatus;
 use App\Enums\PaymentMethodStatus;
 use App\Enums\PaymentScheduleStatus;
+use App\Enums\PaymentScheduleType;
 use App\Enums\WorkDayStatus;
 use App\Enums\WorkerPayoutBatchStatus;
 use App\Enums\WorkerPayoutStatus;
@@ -51,6 +52,7 @@ class PayoutDirectory
             ->where('d.status', WorkDayStatus::Valide->value)
             ->where('d.is_locked', false)
             ->where('s.status', PaymentScheduleStatus::Payee->value)
+            ->whereRaw("(s.schedule_type <> '".PaymentScheduleType::Regularisation->value."' or ".self::outsidePaidWeek('d.mission_id', 'd.work_date').')')
             ->whereNotNull('a.worker_net_daily_rate')
             ->when($filters['schedule_id'] ?? null, fn (QueryBuilder $query, string $id) => $query->where('s.id', $id))
             ->when($filters['assignment_id'] ?? null, fn (QueryBuilder $query, string $id) => $query->where('a.id', $id))
@@ -77,6 +79,14 @@ class PayoutDirectory
             ->orderBy('period_start')
             ->orderBy('schedule_id')
             ->orderBy('assignment_id');
+    }
+
+    /**
+     * Une régularisation couvre toute la mission : elle ne libère que les journées qu’aucune échéance payée ne couvre.
+     */
+    public static function outsidePaidWeek(string $mission, string $day): string
+    {
+        return "not exists (select 1 from payment_schedules w where w.mission_id = {$mission} and w.schedule_type <> '".PaymentScheduleType::Regularisation->value."' and w.status = '".PaymentScheduleStatus::Payee->value."' and {$day} between w.period_start and w.period_end)";
     }
 
     /**

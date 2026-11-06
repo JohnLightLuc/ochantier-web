@@ -153,7 +153,7 @@ class PayoutAdminTest extends PromoterTestCase
         $this->postJson($url, ['operator_id' => $operator->id, 'dial_code' => '225', 'phone_number' => '0712345679'])->assertJsonValidationErrors(['payout']);
         $this->postJson("{$url}/{$id}/approve")->assertJsonValidationErrors(['payout']);
 
-        $this->as($this->approver)->getJson('/api/v1/admin/payouts/payment-methods/pending')->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.can_decide', true)->assertJsonPath('data.0.worker.id', $worker->id);
+        $this->as($this->approver)->getJson('/api/v1/admin/payouts/payment-methods/pending')->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.can_decide', true)->assertJsonPath('data.0.owner.id', $worker->id)->assertJsonPath('data.0.owner.type', 'worker');
         $this->postJson("{$url}/{$id}/approve")->assertOk()->assertJsonPath('data.current.id', $id)->assertJsonPath('data.pending', null);
         $this->postJson("{$url}/{$id}/approve")->assertJsonValidationErrors(['payout']);
 

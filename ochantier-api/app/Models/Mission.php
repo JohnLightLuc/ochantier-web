@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\MissionStatus;
+use App\Enums\PaymentScheduleType;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -167,6 +168,27 @@ class Mission extends Model
     public function workerPayouts(): HasMany
     {
         return $this->hasMany(WorkerPayout::class);
+    }
+
+    /**
+     * Ce que doit le promoteur : le prix convenu, puis le coût réel une fois la mission régularisée.
+     */
+    public function billedAmount(): int
+    {
+        return (int) ($this->regularisationDetails()['total'] ?? $this->pricingSnapshot->total_promoter_amount);
+    }
+
+    public function billedCommission(): int
+    {
+        return (int) ($this->regularisationDetails()['commission_amount'] ?? $this->pricingSnapshot->promoter_commission_amount);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function regularisationDetails(): ?array
+    {
+        return $this->paymentSchedules->firstWhere('schedule_type', PaymentScheduleType::Regularisation)?->calculation_details;
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Promoter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Promoter\PaymentRequest;
 use App\Http\Resources\V1\Promoter\PaymentTransactionResource;
+use App\Models\Admin;
 use App\Models\PaymentMethod;
 use App\Models\PaymentOperator;
 use App\Models\PaymentSchedule;
@@ -96,7 +97,7 @@ class PaymentController extends Controller
                 'fee_percent' => (float) $operator->collection_fee_percent,
                 'number_pattern' => $operator->number_pattern,
             ])->values(),
-            'saved_numbers' => $profile->paymentMethods()->where('status', 'actif')->with('operator')->orderByDesc('is_default')->get()->map(fn (PaymentMethod $method) => [
+            'saved_numbers' => $profile->paymentMethods()->where('status', 'actif')->whereRaw('created_by_type is distinct from ?', [(new Admin)->getMorphClass()])->with('operator')->orderByDesc('is_default')->get()->map(fn (PaymentMethod $method) => [
                 'id' => $method->id,
                 'operator_code' => $method->operator?->code,
                 'phone' => $method->account_number_masked,

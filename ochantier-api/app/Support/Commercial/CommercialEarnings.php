@@ -17,6 +17,7 @@ use App\Models\CommercialProfile;
 use App\Models\Worker;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -104,33 +105,80 @@ class CommercialEarnings
     }
 
     /**
-     * Versement des commissions confirmées du mois, non encore versées. Renvoie null s’il n’y a rien à verser.
+     * Ce qui reste dû jusqu’à la fin du mois : commissions confirmées, primes et retenues approuvées, pas encore
+     * rattachées à un versement. Une retenue trop forte se reporte donc sur le versement suivant.
+     *
+     * @return array{earnings: Collection<int, CommercialEarning>, adjustments: Collection<int, CommercialAdjustment>, commissions: int, bonuses: int, deductions: int, total: int}
+     */
+    public function due(CommercialProfile $commercial, CarbonImmutable $month, bool $lock = false): array
+    {
+        $end = $month->endOfMonth();
+        $earnings = $commercial->commercialEarnings()
+            ->whereIn('status', [CommercialEarningStatus::Acquis, CommercialEarningStatus::Approuve])
+            ->whereNull('commercial_payout_id')
+            ->where('event_at', '<=', $end)
+            ->when($lock, fn ($query) => $query->lockForUpdate())
+            ->get();
+        $adjustments = $commercial->commercialAdjustments()
+            ->where('status', CommercialAdjustmentStatus::Approuvee)
+            ->whereNull('commercial_payout_id')
+            ->where('granted_on', '<=', $end->toDateString())
+            ->when($lock, fn ($query) => $query->lockForUpdate())
+            ->get();
+        $commissions = (int) $earnings->sum('amount');
+        $bonuses = (int) $adjustments->where('kind', CommercialAdjustmentKind::Prime)->sum('amount');
+        $deductions = (int) $adjustments->where('kind', CommercialAdjustmentKind::Retenue)->sum('amount');
+
+        return ['earnings' => $earnings, 'adjustments' => $adjustments, 'commissions' => $commissions, 'bonuses' => $bonuses, 'deductions' => $deductions, 'total' => $commissions + $bonuses - $deductions];
+    }
+
+    /**
+     * Crée le versement du mois et lui rattache ce qui est dû. Renvoie null s’il n’y a rien à verser.
+     */
+    public function attach(CommercialProfile $commercial, CarbonImmutable $month, CommercialPayoutStatus $status, ?string $adminId = null): ?CommercialPayout
+    {
+        $due = $this->due($commercial, $month, true);
+
+        if ($due['total'] <= 0) {
+            return null;
+        }
+
+        $payout = $commercial->commercialPayouts()->create([
+            'reference' => sprintf('VRS-%s-%s', $month->format('Ym'), mb_strtoupper(substr(str_replace('-', '', (string) $commercial->employee_number), -5))).'-'.random_int(100, 999),
+            'period_start' => $month->startOfMonth()->toDateString(),
+            'period_end' => $month->endOfMonth()->toDateString(),
+            'total_amount' => $due['total'],
+            'status' => $status,
+            'created_by_admin_id' => $adminId,
+        ]);
+
+        CommercialEarning::query()->whereKey($due['earnings']->modelKeys())->update(['commercial_payout_id' => $payout->getKey()]);
+        CommercialAdjustment::query()->whereKey($due['adjustments']->modelKeys())->update(['commercial_payout_id' => $payout->getKey()]);
+
+        return $payout;
+    }
+
+    /**
+     * Versement réussi : commissions et ajustements rattachés passent à « payé ».
+     */
+    public function settle(CommercialPayout $payout): void
+    {
+        $payout->forceFill(['status' => CommercialPayoutStatus::Paye, 'paid_at' => now()])->save();
+        $payout->commercialEarnings()->update(['status' => CommercialEarningStatus::Paye]);
+        $payout->commercialAdjustments()->update(['status' => CommercialAdjustmentStatus::Payee]);
+    }
+
+    /**
+     * Versement simulé hors production, sans passer par le Back Office.
      */
     public function pay(CommercialProfile $commercial, CarbonImmutable $month, ?string $adminId = null): ?CommercialPayout
     {
         return DB::transaction(function () use ($commercial, $month, $adminId): ?CommercialPayout {
-            $earnings = $commercial->commercialEarnings()
-                ->whereIn('status', [CommercialEarningStatus::Acquis, CommercialEarningStatus::Approuve])
-                ->whereNull('commercial_payout_id')
-                ->whereBetween('event_at', [$month->startOfMonth(), $month->endOfMonth()])
-                ->lockForUpdate()
-                ->get();
+            $payout = $this->attach($commercial, $month, CommercialPayoutStatus::EnTraitement, $adminId);
 
-            if ($earnings->isEmpty()) {
-                return null;
+            if ($payout) {
+                $this->settle($payout);
             }
-
-            $payout = $commercial->commercialPayouts()->create([
-                'reference' => sprintf('VRS-%s-%s', $month->format('Ym'), mb_strtoupper(substr(str_replace('-', '', (string) $commercial->employee_number), -5))).'-'.random_int(100, 999),
-                'period_start' => $month->startOfMonth()->toDateString(),
-                'period_end' => $month->endOfMonth()->toDateString(),
-                'total_amount' => (int) $earnings->sum('amount'),
-                'status' => CommercialPayoutStatus::Paye,
-                'created_by_admin_id' => $adminId,
-                'paid_at' => now(),
-            ]);
-
-            CommercialEarning::query()->whereKey($earnings->modelKeys())->update(['status' => CommercialEarningStatus::Paye, 'commercial_payout_id' => $payout->getKey()]);
 
             return $payout;
         });

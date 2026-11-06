@@ -1,0 +1,20 @@
+<?php
+
+namespace App\Enums;
+
+/**
+ * Valeurs de `origin` pour un remboursement.
+ */
+enum RefundOrigin: string
+{
+    case Regularisation = 'regularisation';
+    case Manuel = 'manuel';
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::Regularisation => 'Fin de mission',
+            self::Manuel => 'Manuel',
+        };
+    }
+}

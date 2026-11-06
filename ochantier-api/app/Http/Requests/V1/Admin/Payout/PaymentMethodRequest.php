@@ -9,7 +9,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 /**
- * Numéro Mobile Money proposé pour les reversements d’un ouvrier.
+ * Numéro Mobile Money proposé pour les reversements d’un ouvrier ou d’un commercial.
  */
 class PaymentMethodRequest extends FormRequest
 {

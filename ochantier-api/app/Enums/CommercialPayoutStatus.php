@@ -11,6 +11,7 @@ enum CommercialPayoutStatus: string
     case EnTraitement = 'en_traitement';
     case Paye = 'paye';
     case Rejete = 'rejete';
+    case Annule = 'annule';
 
     public function label(): string
     {
@@ -19,6 +20,7 @@ enum CommercialPayoutStatus: string
             self::EnTraitement => 'En traitement',
             self::Paye => 'Payé',
             self::Rejete => 'Rejeté',
+            self::Annule => 'Annulé',
         };
     }
 }

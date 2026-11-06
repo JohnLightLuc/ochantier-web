@@ -17,9 +17,12 @@ use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialTerritoryController;
 use App\Http\Controllers\Api\V1\Admin\Matching\MatchingController;
 use App\Http\Controllers\Api\V1\Admin\Offer\OfferController;
 use App\Http\Controllers\Api\V1\Admin\Payment\PaymentController as AdminPaymentController;
+use App\Http\Controllers\Api\V1\Admin\Payment\RefundController;
+use App\Http\Controllers\Api\V1\Admin\Payment\RegularisationController;
+use App\Http\Controllers\Api\V1\Admin\Payout\CommercialPayoutController;
 use App\Http\Controllers\Api\V1\Admin\Payout\PayoutBatchController;
 use App\Http\Controllers\Api\V1\Admin\Payout\PayoutController;
-use App\Http\Controllers\Api\V1\Admin\Payout\WorkerPaymentMethodController;
+use App\Http\Controllers\Api\V1\Admin\Payout\PayoutMethodController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterAccountController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterRelationController;
@@ -121,7 +124,7 @@ Route::middleware('auth:admin')->group(function () {
                     Route::get('replacements', 'replacements')->name('replacements');
                     Route::get('history', 'history')->name('history');
                 });
-                Route::controller(WorkerPaymentMethodController::class)->group(function () {
+                Route::controller(PayoutMethodController::class)->group(function () {
                     Route::get('payment-method', 'show')->middleware('admin.can:payouts.read')->name('payment-method.show');
                     Route::post('payment-method', 'store')->middleware('admin.can:payouts.create')->name('payment-method.store');
                     Route::post('payment-method/{method}/approve', 'approve')->whereUuid('method')->middleware('admin.can:payouts.approve')->name('payment-method.approve');
@@ -148,7 +151,7 @@ Route::middleware('auth:admin')->group(function () {
                 Route::get('export', 'export')->middleware('admin.can:payouts.export')->name('export');
             });
 
-            Route::get('payment-methods/pending', [WorkerPaymentMethodController::class, 'pending'])->middleware('admin.can:payouts.read')->name('payment-methods.pending');
+            Route::get('payment-methods/pending', [PayoutMethodController::class, 'pending'])->middleware('admin.can:payouts.read')->name('payment-methods.pending');
 
             Route::prefix('batches')->name('batches.')->controller(PayoutBatchController::class)->group(function () {
                 Route::get('/', 'index')->middleware('admin.can:payouts.read')->name('index');
@@ -171,6 +174,47 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('adjustments', 'propose')->middleware('admin.can:payouts.create')->name('adjustments.store');
                 Route::post('adjustments/{adjustment}/approve', 'approveAdjustment')->whereUuid('adjustment')->middleware('admin.can:payouts.approve')->name('adjustments.approve');
                 Route::post('adjustments/{adjustment}/refuse', 'refuseAdjustment')->whereUuid('adjustment')->middleware('admin.can:payouts.approve')->name('adjustments.refuse');
+            });
+        });
+
+        // Versements aux commerciaux : ce qui est dû par mois, préparation par une personne, validation par une autre.
+        Route::prefix('commercial-payouts')->name('commercial-payouts.')->controller(CommercialPayoutController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:commercial_earnings.read')->name('index');
+            Route::post('/', 'store')->middleware('admin.can:commercial_earnings.update')->name('store');
+            Route::get('payable', 'payable')->middleware('admin.can:commercial_earnings.read')->name('payable');
+            Route::get('export', 'export')->middleware('admin.can:commercial_earnings.export')->name('export');
+
+            Route::prefix('{payoutId}')->whereUuid('payoutId')->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:commercial_earnings.read')->name('show');
+                Route::post('approve', 'approve')->middleware('admin.can:commercial_earnings.approve')->name('approve');
+                Route::post('retry', 'retry')->middleware('admin.can:commercial_earnings.approve')->name('retry');
+                Route::post('cancel', 'cancel')->middleware('admin.can:commercial_earnings.update')->name('cancel');
+            });
+        });
+
+        // Fin de mission : écart entre le coût réel et ce qui a été réglé.
+        Route::prefix('regularisations')->name('regularisations.')->controller(RegularisationController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:payments.read')->name('index');
+
+            Route::prefix('{missionId}')->whereUuid('missionId')->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:payments.read')->name('show');
+                Route::post('/', 'store')->middleware('admin.can:payments.update')->name('store');
+                Route::post('refunds', 'refund')->middleware('admin.can:payments.update')->name('refund');
+            });
+        });
+
+        // Remboursements : une personne demande, une autre valide, une troisième à partir du seuil.
+        Route::prefix('refunds')->name('refunds.')->controller(RefundController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:payments.read')->name('index');
+            Route::get('export', 'export')->middleware('admin.can:payments.export')->name('export');
+
+            Route::prefix('{refundId}')->whereUuid('refundId')->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:payments.read')->name('show');
+                Route::post('method', 'chooseNumber')->middleware('admin.can:payments.update')->name('method');
+                Route::post('number', 'enterNumber')->middleware('admin.can:payments.update')->name('number');
+                Route::post('approve', 'approve')->middleware('admin.can:payments.approve')->name('approve');
+                Route::post('retry', 'retry')->middleware('admin.can:payments.approve')->name('retry');
+                Route::post('refuse', 'refuse')->middleware('admin.can:payments.approve')->name('refuse');
             });
         });
 
@@ -307,6 +351,12 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('zone-requests/{zoneRequest}/refuse', [CommercialTerritoryController::class, 'refuseRequest'])->whereUuid('zoneRequest')->middleware('admin.can:commercials.validate')->name('zone-requests.refuse');
                 Route::get('objectives', [CommercialTerritoryController::class, 'objectives'])->middleware('admin.can:commercials.read')->name('objectives');
                 Route::post('objectives', [CommercialTerritoryController::class, 'saveObjective'])->middleware('admin.can:commercials.update')->name('objectives.save');
+                Route::controller(PayoutMethodController::class)->group(function () {
+                    Route::get('payment-method', 'showCommercial')->middleware('admin.can:commercial_earnings.read')->name('payment-method.show');
+                    Route::post('payment-method', 'storeCommercial')->middleware('admin.can:commercial_earnings.update')->name('payment-method.store');
+                    Route::post('payment-method/{method}/approve', 'approveCommercial')->whereUuid('method')->middleware('admin.can:commercial_earnings.approve')->name('payment-method.approve');
+                    Route::post('payment-method/{method}/reject', 'rejectCommercial')->whereUuid('method')->middleware('admin.can:commercial_earnings.approve')->name('payment-method.reject');
+                });
                 Route::get('earnings', [CommercialCompensationController::class, 'earnings'])->middleware('admin.can:commercials.read')->name('earnings');
                 Route::post('adjustments', [CommercialCompensationController::class, 'propose'])->middleware('admin.can:commercial_earnings.update')->name('adjustments.store');
                 Route::post('adjustments/{adjustment}/approve', [CommercialCompensationController::class, 'approve'])->whereUuid('adjustment')->middleware('admin.can:commercial_earnings.approve')->name('adjustments.approve');

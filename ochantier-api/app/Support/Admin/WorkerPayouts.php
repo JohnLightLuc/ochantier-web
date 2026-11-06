@@ -2,25 +2,20 @@
 
 namespace App\Support\Admin;
 
-use App\Enums\PaymentMethodStatus;
-use App\Enums\PaymentTransactionDirection;
+use App\Enums\PaymentScheduleType;
 use App\Enums\PaymentTransactionPurpose;
-use App\Enums\PaymentTransactionStatus;
 use App\Enums\PayoutAdjustmentKind;
 use App\Enums\PayoutAdjustmentStatus;
-use App\Enums\TransactionStatusSource;
 use App\Enums\WorkDayStatus;
 use App\Enums\WorkerPayoutBatchStatus;
 use App\Enums\WorkerPayoutStatus;
 use App\Models\Admin;
-use App\Models\PaymentMethod;
 use App\Models\PaymentSchedule;
-use App\Models\PaymentTransaction;
 use App\Models\PayoutAdjustment;
 use App\Models\WorkDay;
+use App\Models\Worker;
 use App\Models\WorkerPayout;
 use App\Models\WorkerPayoutBatch;
-use App\Support\Payments\PaymentGateway;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -31,7 +26,7 @@ use Illuminate\Validation\ValidationException;
  */
 class WorkerPayouts
 {
-    public function __construct(private PayoutDirectory $directory, private PaymentGateway $gateway) {}
+    public function __construct(private PayoutDirectory $directory, private PayoutMethods $methods, private Disbursements $disbursements) {}
 
     /**
      * Prépare un lot avec les lignes choisies dans « À reverser ».
@@ -238,6 +233,7 @@ class WorkerPayouts
             ->where('is_locked', false)
             ->whereDate('work_date', '>=', $schedule->period_start)
             ->whereDate('work_date', '<=', $schedule->period_end)
+            ->when($schedule->schedule_type === PaymentScheduleType::Regularisation, fn ($query) => $query->whereRaw(PayoutDirectory::outsidePaidWeek('work_days.mission_id', 'work_days.work_date')))
             ->lockForUpdate()
             ->get();
 
@@ -292,52 +288,19 @@ class WorkerPayouts
      */
     private function send(WorkerPayout $payout, Admin $admin): void
     {
-        $method = PaymentMethod::query()
-            ->where('owner_type', 'worker')
-            ->where('owner_id', $payout->worker_id)
-            ->where('is_default', true)
-            ->where('status', PaymentMethodStatus::Actif)
-            ->whereNotNull('verified_at')
-            ->with('operator')
-            ->firstOrFail();
-        $previous = $payout->paymentTransactions()->latest('initiated_at')->latest('id')->first();
+        $method = $this->methods->current(Worker::query()->findOrFail($payout->worker_id)) ?? throw ValidationException::withMessages(['payout' => 'Cet ouvrier n’a plus de numéro confirmé.']);
 
-        $transaction = DB::transaction(function () use ($payout, $method, $previous, $admin): PaymentTransaction {
-            $transaction = PaymentTransaction::query()->create([
-                'reference' => sprintf('PAY-%s-%06d', now()->format('Y'), DB::scalar("SELECT nextval('payment_transaction_reference_seq')")),
-                'direction' => PaymentTransactionDirection::Decaissement,
-                'purpose' => PaymentTransactionPurpose::ReversementOuvrier,
-                'payer_type' => 'plateforme',
-                'payee_type' => 'worker',
-                'payee_id' => $payout->worker_id,
-                'payment_schedule_id' => $payout->payment_schedule_id,
-                'worker_payout_id' => $payout->getKey(),
-                'payment_method_id' => $method->getKey(),
-                'operator_id' => $method->operator_id,
-                'provider' => $method->operator->provider,
-                'idempotency_key' => sprintf('reversement:%s:%d', $payout->getKey(), $payout->paymentTransactions()->count() + 1),
-                'amount' => $payout->net_amount,
-                'status' => PaymentTransactionStatus::Initiee,
-                'retry_of_transaction_id' => $previous?->getKey(),
-                'initiated_by_type' => $admin->getMorphClass(),
-                'initiated_by_id' => $admin->getKey(),
-                'metadata' => ['label' => 'Reversement '.$payout->reference, 'phone' => $method->account_number_masked],
-            ]);
-            $this->history($transaction, null, PaymentTransactionStatus::Initiee, $admin);
-            $payout->update(['status' => WorkerPayoutStatus::Envoye, 'payment_method_id' => $method->getKey()]);
-
-            return $transaction;
-        });
-
-        $result = $this->gateway->disburse($method, $payout->net_amount, $transaction->reference);
-        $succeeded = $result->status === PaymentTransactionStatus::Reussie->value;
-        $status = $succeeded ? PaymentTransactionStatus::Reussie : PaymentTransactionStatus::Echouee;
-
-        DB::transaction(function () use ($transaction, $payout, $result, $status, $succeeded, $admin): void {
-            $transaction->forceFill(['status' => $status, 'provider_reference' => $result->providerReference, 'failure_code' => $result->failureCode, 'failure_message' => $result->failureMessage, 'completed_at' => now()])->save();
-            $this->history($transaction, PaymentTransactionStatus::Initiee, $status, $admin);
-            $payout->update(['status' => $succeeded ? WorkerPayoutStatus::Confirme : WorkerPayoutStatus::Rejete]);
-        });
+        $this->disbursements->send(
+            $method,
+            $payout->net_amount,
+            $payout->paymentTransactions(),
+            ['purpose' => PaymentTransactionPurpose::ReversementOuvrier, 'payee_type' => 'worker', 'payee_id' => $payout->worker_id, 'payment_schedule_id' => $payout->payment_schedule_id, 'worker_payout_id' => $payout->getKey()],
+            'Reversement '.$payout->reference,
+            'reversement:'.$payout->getKey(),
+            $admin,
+            fn () => $payout->update(['status' => WorkerPayoutStatus::Envoye, 'payment_method_id' => $method->getKey()]),
+            fn (bool $succeeded) => $payout->update(['status' => $succeeded ? WorkerPayoutStatus::Confirme : WorkerPayoutStatus::Rejete]),
+        );
     }
 
     /**
@@ -464,10 +427,5 @@ class WorkerPayouts
         }
 
         return $locked;
-    }
-
-    private function history(PaymentTransaction $transaction, ?PaymentTransactionStatus $from, PaymentTransactionStatus $to, Admin $admin): void
-    {
-        $transaction->statusHistories()->create(['from_status' => $from, 'to_status' => $to, 'source' => TransactionStatusSource::Admin, 'actor_id' => $admin->getKey()]);
     }
 }

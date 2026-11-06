@@ -5,6 +5,7 @@ namespace App\Support\Admin;
 use App\Enums\PaymentMethodStatus;
 use App\Enums\PaymentMethodType;
 use App\Models\Admin;
+use App\Models\CommercialProfile;
 use App\Models\PaymentMethod;
 use App\Models\PaymentOperator;
 use App\Models\Worker;
@@ -16,23 +17,24 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Numéro Mobile Money qui reçoit les reversements d’un ouvrier. Saisi au Back Office, il n’est utilisable qu’une fois
- * confirmé par une autre personne : c’est le point sensible d’un détournement de reversement.
+ * Numéro Mobile Money qui reçoit les reversements d’un ouvrier ou d’un commercial. Saisi au Back Office, il n’est
+ * utilisable qu’une fois confirmé par une autre personne : c’est le point sensible d’un détournement de reversement.
  */
-class WorkerPaymentMethods
+class PayoutMethods
 {
     /**
      * @return array<string, mixed>
      */
-    public function overview(Worker $worker, Admin $admin): array
+    public function overview(Worker|CommercialProfile $owner, Admin $admin): array
     {
-        $methods = $this->methods($worker)->with('operator')->get();
+        $methods = $this->methods($owner)->with('operator')->get();
+        $contact = $owner instanceof Worker ? $owner : $owner->user;
 
         return [
             'current' => ($current = $methods->first(fn (PaymentMethod $method) => $method->is_default)) ? $this->row($current, $admin) : null,
             'pending' => ($pending = $methods->first(fn (PaymentMethod $method) => $method->verified_at === null)) ? $this->row($pending, $admin) : null,
             'operators' => $this->operators(),
-            'default_number' => ['dial_code' => $worker->dial_code, 'phone_number' => $worker->phone_number],
+            'default_number' => ['dial_code' => $contact->dial_code, 'phone_number' => $contact->phone_number],
         ];
     }
 
@@ -42,13 +44,21 @@ class WorkerPaymentMethods
     public function pending(int $perPage): LengthAwarePaginator
     {
         return PaymentMethod::query()
-            ->where('owner_type', (new Worker)->getMorphClass())
+            ->whereIn('owner_type', [(new Worker)->getMorphClass(), (new CommercialProfile)->getMorphClass()])
             ->where('status', PaymentMethodStatus::Actif)
             ->whereNull('verified_at')
             ->with(['operator', 'owner'])
             ->orderBy('created_at')
             ->orderBy('id')
             ->paginate($perPage);
+    }
+
+    /**
+     * Moyen confirmé qui reçoit les reversements, ou null.
+     */
+    public function current(Worker|CommercialProfile $owner): ?PaymentMethod
+    {
+        return $this->methods($owner)->where('is_default', true)->whereNotNull('verified_at')->with('operator')->first();
     }
 
     /**
@@ -70,24 +80,24 @@ class WorkerPaymentMethods
         ];
     }
 
-    public function propose(Worker $worker, PaymentOperator $operator, PhoneNumber $phone, Admin $admin, Request $request): PaymentMethod
+    public function propose(Worker|CommercialProfile $owner, PaymentOperator $operator, PhoneNumber $phone, Admin $admin, Request $request): PaymentMethod
     {
-        return DB::transaction(function () use ($worker, $operator, $phone, $admin, $request): PaymentMethod {
-            Worker::query()->whereKey($worker->getKey())->lockForUpdate()->first();
-            $methods = $this->methods($worker)->get();
+        return DB::transaction(function () use ($owner, $operator, $phone, $admin, $request): PaymentMethod {
+            $owner::query()->whereKey($owner->getKey())->lockForUpdate()->first();
+            $methods = $this->methods($owner)->get();
 
             if ($methods->contains(fn (PaymentMethod $method) => $method->verified_at === null)) {
-                throw ValidationException::withMessages(['payout' => 'Un numéro attend déjà sa confirmation pour cet ouvrier.']);
+                throw ValidationException::withMessages(['payout' => 'Un numéro attend déjà sa confirmation.']);
             }
 
             if ($methods->contains(fn (PaymentMethod $method) => $method->operator_id === $operator->getKey() && $method->account_number_encrypted === $phone->e164())) {
-                throw ValidationException::withMessages(['payout' => 'Ce numéro est déjà celui de cet ouvrier.']);
+                throw ValidationException::withMessages(['payout' => 'Ce numéro est déjà enregistré.']);
             }
 
-            $method = $worker->paymentMethods()->create([
+            $method = $owner->paymentMethods()->create([
                 'method_type' => PaymentMethodType::MobileMoney,
                 'operator_id' => $operator->getKey(),
-                'account_holder_name' => trim($worker->first_name.' '.$worker->last_name),
+                'account_holder_name' => $this->holder($owner),
                 'account_number_encrypted' => $phone->e164(),
                 'account_number_masked' => $phone->masked(),
                 'is_default' => false,
@@ -96,53 +106,60 @@ class WorkerPaymentMethods
                 'created_by_id' => $admin->getKey(),
             ]);
 
-            AdminAudit::record($admin, 'payouts', 'payouts.method_proposed', $request, $worker, null, ['method_id' => $method->id, 'operator' => $operator->code, 'number' => $phone->masked()]);
+            AdminAudit::record($admin, 'payouts', 'payouts.method_proposed', $request, $owner, null, ['method_id' => $method->id, 'operator' => $operator->code, 'number' => $phone->masked()]);
 
             return $method;
         });
     }
 
-    public function approve(Worker $worker, PaymentMethod $method, Admin $admin, Request $request): void
+    public function approve(Worker|CommercialProfile $owner, PaymentMethod $method, Admin $admin, Request $request): void
     {
-        DB::transaction(function () use ($worker, $method, $admin, $request): void {
-            $method = $this->pendingMethod($worker, $method, $admin);
+        DB::transaction(function () use ($owner, $method, $admin, $request): void {
+            $method = $this->pendingMethod($owner, $method, $admin);
 
-            $this->methods($worker)->where('is_default', true)->update(['is_default' => false, 'status' => PaymentMethodStatus::Desactive]);
+            $this->methods($owner)->where('is_default', true)->update(['is_default' => false, 'status' => PaymentMethodStatus::Desactive]);
             $method->update(['is_default' => true, 'verified_at' => now(), 'verification_method' => 'controle_manuel']);
 
-            AdminAudit::record($admin, 'payouts', 'payouts.method_approved', $request, $worker, null, ['method_id' => $method->id, 'number' => $method->account_number_masked]);
+            AdminAudit::record($admin, 'payouts', 'payouts.method_approved', $request, $owner, null, ['method_id' => $method->id, 'number' => $method->account_number_masked]);
         });
     }
 
-    public function reject(Worker $worker, PaymentMethod $method, string $reason, Admin $admin, Request $request): void
+    public function reject(Worker|CommercialProfile $owner, PaymentMethod $method, string $reason, Admin $admin, Request $request): void
     {
-        DB::transaction(function () use ($worker, $method, $reason, $admin, $request): void {
-            $method = $this->pendingMethod($worker, $method, $admin);
+        DB::transaction(function () use ($owner, $method, $reason, $admin, $request): void {
+            $method = $this->pendingMethod($owner, $method, $admin);
 
             $method->update(['status' => PaymentMethodStatus::Desactive]);
             $method->delete();
 
-            AdminAudit::record($admin, 'payouts', 'payouts.method_rejected', $request, $worker, null, ['method_id' => $method->id, 'number' => $method->account_number_masked, 'reason' => $reason]);
+            AdminAudit::record($admin, 'payouts', 'payouts.method_rejected', $request, $owner, null, ['method_id' => $method->id, 'number' => $method->account_number_masked, 'reason' => $reason]);
         });
     }
 
     /**
      * @return Builder<PaymentMethod>
      */
-    private function methods(Worker $worker): Builder
+    private function methods(Worker|CommercialProfile $owner): Builder
     {
         return PaymentMethod::query()
-            ->where('owner_type', $worker->getMorphClass())
-            ->where('owner_id', $worker->getKey())
+            ->where('owner_type', $owner->getMorphClass())
+            ->where('owner_id', $owner->getKey())
             ->where('status', PaymentMethodStatus::Actif);
+    }
+
+    private function holder(Worker|CommercialProfile $owner): string
+    {
+        $person = $owner instanceof Worker ? $owner : $owner->user;
+
+        return trim($person->first_name.' '.$person->last_name);
     }
 
     /**
      * Seule une autre personne que l’auteur décide d’un numéro en attente.
      */
-    private function pendingMethod(Worker $worker, PaymentMethod $method, Admin $admin): PaymentMethod
+    private function pendingMethod(Worker|CommercialProfile $owner, PaymentMethod $method, Admin $admin): PaymentMethod
     {
-        $locked = $this->methods($worker)->whereKey($method->getKey())->whereNull('verified_at')->lockForUpdate()->first();
+        $locked = $this->methods($owner)->whereKey($method->getKey())->whereNull('verified_at')->lockForUpdate()->first();
 
         if (! $locked) {
             throw ValidationException::withMessages(['payout' => 'Ce numéro a déjà été traité.']);
@@ -158,7 +175,7 @@ class WorkerPaymentMethods
     /**
      * @return list<array{id: string, name: string}>
      */
-    private function operators(): array
+    public function operators(): array
     {
         return PaymentOperator::query()
             ->where('is_active', true)

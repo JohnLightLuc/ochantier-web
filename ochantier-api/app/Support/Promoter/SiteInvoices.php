@@ -6,6 +6,7 @@ use App\Enums\AssignmentStatus;
 use App\Enums\MissionStatus;
 use App\Enums\OfferType;
 use App\Enums\PaymentTransactionStatus;
+use App\Enums\RefundStatus;
 use App\Models\Assignment;
 use App\Models\Mission;
 use App\Models\PaymentTransaction;
@@ -81,9 +82,10 @@ class SiteInvoices
     public function balance(Site $site): array
     {
         $missions = $this->missions($site);
-        $works = (int) $missions->sum(fn (Mission $mission) => $mission->pricingSnapshot->total_promoter_amount);
-        $commission = (int) $missions->sum(fn (Mission $mission) => $mission->pricingSnapshot->promoter_commission_amount);
-        $paid = (int) $missions->sum(fn (Mission $mission) => $mission->paymentSchedules->sum('amount_paid'));
+        $works = (int) $missions->sum(fn (Mission $mission) => $mission->billedAmount());
+        $commission = (int) $missions->sum(fn (Mission $mission) => $mission->billedCommission());
+        $refunded = (int) $missions->sum(fn (Mission $mission) => $mission->refunds->where('status', RefundStatus::Execute)->sum('amount'));
+        $paid = (int) $missions->sum(fn (Mission $mission) => $mission->paymentSchedules->sum('amount_paid')) - $refunded;
         $fees = (int) $this->transactions($site)->sum('fees_amount');
 
         return [
@@ -91,6 +93,7 @@ class SiteInvoices
                 ['label' => 'Montant des travaux', 'amount' => $works],
                 ['label' => 'Dont commission O’CHANTIER', 'amount' => $commission],
                 ['label' => 'Montant réglé', 'amount' => $paid],
+                ...($refunded > 0 ? [['label' => 'Dont remboursé', 'amount' => $refunded]] : []),
                 ['label' => 'Frais opérateurs', 'amount' => $fees],
                 ['label' => 'Reste à payer', 'amount' => max(0, $works - $paid)],
             ],
@@ -104,7 +107,7 @@ class SiteInvoices
      */
     private function missions(Site $site): Collection
     {
-        return $site->missions()->whereIn('status', self::ENGAGED_MISSIONS)->with(['pricingSnapshot', 'paymentSchedules'])->get();
+        return $site->missions()->whereIn('status', self::ENGAGED_MISSIONS)->with(['pricingSnapshot', 'paymentSchedules', 'refunds'])->get();
     }
 
     /**

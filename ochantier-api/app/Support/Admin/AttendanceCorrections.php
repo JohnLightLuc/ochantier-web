@@ -3,10 +3,12 @@
 namespace App\Support\Admin;
 
 use App\Enums\AttendanceCorrectionStatus;
+use App\Enums\PaymentScheduleType;
 use App\Enums\WorkDayStatus;
 use App\Models\Admin;
 use App\Models\AttendanceCorrection;
 use App\Models\Mission;
+use App\Models\PaymentSchedule;
 use App\Models\WorkDay;
 use App\Support\Promoter\SiteAttendance;
 use Illuminate\Database\Eloquent\Builder;
@@ -153,6 +155,10 @@ class AttendanceCorrections
     {
         if ($day->is_locked) {
             throw ValidationException::withMessages(['attendance' => 'Cette journée est facturée : elle ne peut plus être corrigée.']);
+        }
+
+        if (PaymentSchedule::query()->where('mission_id', $day->mission_id)->where('schedule_type', PaymentScheduleType::Regularisation)->exists()) {
+            throw ValidationException::withMessages(['attendance' => 'Cette mission est régularisée : ses journées ne peuvent plus être corrigées.']);
         }
     }
 

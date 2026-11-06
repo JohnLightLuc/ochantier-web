@@ -319,6 +319,7 @@ class PromoterPayments
             ->whereHas('mission.site', $mine)
             ->whereKeyNot($covered)
             ->where('status', '!=', PaymentScheduleStatus::Annulee)
+            ->where(fn (Builder $query) => $query->where('schedule_type', '!=', PaymentScheduleType::Regularisation)->orWhere('amount_due', '>', 0))
             ->with(['mission.site', 'mission.need', 'mission.assignments', 'allocations.transaction.operator', 'allocations.transaction.receipts.mediaFile'])
             ->get()
             ->groupBy(fn (PaymentSchedule $schedule) => implode('|', [$schedule->mission->need->offer_id, $schedule->schedule_type->value, $schedule->sequence, $schedule->due_date?->toDateString()]))
@@ -357,7 +358,7 @@ class PromoterPayments
     public function contractProgress(PaymentSchedule $schedule): array
     {
         $missions = Mission::query()->whereHas('need', fn (Builder $query) => $query->where('offer_id', $schedule->mission->need->offer_id))->with('pricingSnapshot', 'paymentSchedules')->get();
-        $total = (int) $missions->sum(fn (Mission $mission) => $mission->pricingSnapshot->total_promoter_amount);
+        $total = (int) $missions->sum(fn (Mission $mission) => $mission->billedAmount());
         $paid = (int) $missions->sum(fn (Mission $mission) => $mission->paymentSchedules->sum('amount_paid'));
 
         return ['total' => $total, 'paid' => $paid, 'rest' => max(0, $total - $paid)];
@@ -457,9 +458,13 @@ class PromoterPayments
             'proposal' => null,
             'schedules' => $schedules,
             'lines' => [
-                ['label' => 'Coût des ouvriers', 'amount' => (int) $schedules->sum('workers_amount')],
-                ['label' => 'Commission O’CHANTIER '.$this->percent($this->pricing->value(PricingVariable::Y)), 'amount' => (int) $schedules->sum('promoter_commission_amount')],
-                ['label' => 'Part de l’acompte déduite', 'amount' => -(int) $schedules->sum('deposit_deduction_amount')],
+                ...$schedules->contains('schedule_type', PaymentScheduleType::Regularisation) ? [
+                    ['label' => 'Écart entre le coût réel et ce qui a été réglé', 'amount' => (int) $schedules->sum('amount_due')],
+                ] : [
+                    ['label' => 'Coût des ouvriers', 'amount' => (int) $schedules->sum('workers_amount')],
+                    ['label' => 'Commission O’CHANTIER '.$this->percent($this->pricing->value(PricingVariable::Y)), 'amount' => (int) $schedules->sum('promoter_commission_amount')],
+                    ['label' => 'Part de l’acompte déduite', 'amount' => -(int) $schedules->sum('deposit_deduction_amount')],
+                ],
                 ['label' => 'Montant à régler', 'amount' => (int) $schedules->sum(fn (PaymentSchedule $schedule) => $schedule->amount_due - $schedule->amount_paid)],
             ],
             'done_text' => $row['short'].' du '.$this->date(CarbonImmutable::parse($first->due_date)).' réglée.',
@@ -512,7 +517,12 @@ class PromoterPayments
         $workers = (int) $group->sum(fn (PaymentSchedule $schedule) => $schedule->mission->assignments->count());
         $deposit = $first->schedule_type === PaymentScheduleType::Acompte;
         $count = PaymentSchedule::query()->where('mission_id', $first->mission_id)->where('schedule_type', $first->schedule_type)->count();
-        $short = $deposit ? 'Acompte ('.$this->percent($this->pricing->value(PricingVariable::X)).')' : 'Échéance '.$first->sequence.'/'.$count;
+        $regularisation = $first->schedule_type === PaymentScheduleType::Regularisation;
+        $short = match (true) {
+            $deposit => 'Acompte ('.$this->percent($this->pricing->value(PricingVariable::X)).')',
+            $regularisation => 'Régularisation de fin de mission',
+            default => 'Échéance '.$first->sequence.'/'.$count,
+        };
 
         $state = match (true) {
             $paid && $group->every(fn (PaymentSchedule $schedule) => $schedule->mission->status === MissionStatus::Terminee) => 'finalise',
@@ -525,7 +535,7 @@ class PromoterPayments
         return [
             'key' => 'schedule:'.$first->id,
             'target' => ['schedule_ids' => $this->keys($group)],
-            'kind' => $deposit ? ['value' => 'acompte', 'label' => 'Acompte'] : ['value' => 'echeance', 'label' => 'Échéance hebdomadaire'],
+            'kind' => $deposit ? ['value' => 'acompte', 'label' => 'Acompte'] : ['value' => 'echeance', 'label' => $regularisation ? 'Régularisation' : 'Échéance hebdomadaire'],
             'short' => $short,
             'title' => $short.' · '.$site->label,
             'site' => ['id' => $site->id, 'title' => $site->label],

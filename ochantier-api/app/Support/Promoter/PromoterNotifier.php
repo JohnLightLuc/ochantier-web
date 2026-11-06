@@ -15,6 +15,7 @@ use App\Models\PaymentTransaction;
 use App\Models\PromoterProfile;
 use App\Models\Proposal;
 use App\Models\Referral;
+use App\Models\Refund;
 use App\Models\Replacement;
 use App\Models\Site;
 use App\Models\SubscriptionInvoice;
@@ -45,6 +46,8 @@ class PromoterNotifier
         'payment.succeeded' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'payments.manage', 'priority' => Priority::Normale, 'sms' => false],
         'payment.due' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'payments.manage', 'priority' => Priority::Normale, 'sms' => false],
         'payment.late' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'payments.manage', 'priority' => Priority::Haute, 'sms' => true],
+        'payment.regularisation' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'payments.manage', 'priority' => Priority::Haute, 'sms' => false],
+        'payment.refunded' => ['tab' => 'paiements', 'alert' => null, 'ability' => 'payments.manage', 'priority' => Priority::Normale, 'sms' => false],
         'subscription.invoice' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'account.manage', 'priority' => Priority::Haute, 'sms' => false],
         'site.confirmed' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'sites.view', 'priority' => Priority::Normale, 'sms' => false],
         'site.started' => ['tab' => 'chantiers', 'alert' => 'pointages', 'ability' => 'sites.view', 'priority' => Priority::Normale, 'sms' => false],
@@ -104,6 +107,20 @@ class PromoterNotifier
         $this->notify($profile, 'payment.succeeded', 'Paiement confirmé · '.$this->payments->money($transaction->amount + $transaction->fees_amount),
             (string) ($transaction->metadata['done_text'] ?? $transaction->metadata['label'] ?? 'Paiement reçu.'),
             $site, ['type' => 'transaction', 'id' => $transaction->id], $transaction, 'payment.succeeded:'.$transaction->id);
+    }
+
+    public function regularisationDue(PaymentSchedule $schedule, Site $site): void
+    {
+        $this->notify($site->promoterProfile, 'payment.regularisation', 'Régularisation de fin de mission · '.$this->payments->money($schedule->amount_due),
+            'Les journées validées dépassent ce qui a été réglé. À régler avant le '.$this->date($schedule->due_date).'.',
+            $site, ['type' => 'payments', 'id' => null], $schedule, 'payment.regularisation:'.$schedule->id);
+    }
+
+    public function refundExecuted(Refund $refund, PromoterProfile $profile, Site $site): void
+    {
+        $this->notify($profile, 'payment.refunded', 'Remboursement envoyé · '.$this->payments->money($refund->amount),
+            'Le remboursement '.$refund->reference.' a été envoyé sur votre numéro.',
+            $site, ['type' => 'site', 'id' => $site->id], $refund, 'payment.refunded:'.$refund->id);
     }
 
     public function siteConfirmed(Site $site): void

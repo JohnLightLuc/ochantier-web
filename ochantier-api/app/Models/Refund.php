@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\RefundOrigin;
 use App\Enums\RefundStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -22,8 +23,8 @@ class Refund extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'reference', 'mission_id', 'original_transaction_id', 'beneficiary_type', 'beneficiary_id', 'amount', 'reason_id',
-        'reason', 'dispute_id', 'status', 'requested_by_admin_id', 'approved_by_admin_id', 'second_approver_admin_id',
+        'reference', 'mission_id', 'original_transaction_id', 'beneficiary_type', 'beneficiary_id', 'payment_method_id', 'amount', 'reason_id',
+        'reason', 'dispute_id', 'status', 'origin', 'refusal_reason', 'executed_at', 'requested_by_admin_id', 'approved_by_admin_id', 'second_approver_admin_id',
     ];
 
     /**
@@ -35,6 +36,8 @@ class Refund extends Model
     {
         return [
             'status' => RefundStatus::class,
+            'origin' => RefundOrigin::class,
+            'executed_at' => 'datetime',
         ];
     }
 
@@ -52,6 +55,14 @@ class Refund extends Model
     public function originalTransaction(): BelongsTo
     {
         return $this->belongsTo(PaymentTransaction::class);
+    }
+
+    /**
+     * @return BelongsTo<PaymentMethod, $this>
+     */
+    public function paymentMethod(): BelongsTo
+    {
+        return $this->belongsTo(PaymentMethod::class)->withTrashed();
     }
 
     /**
