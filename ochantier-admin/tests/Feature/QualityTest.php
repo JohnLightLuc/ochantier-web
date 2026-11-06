@@ -73,7 +73,7 @@ class QualityTest extends TestCase
         $this->get('/avis-litiges')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Quality/Page')->has('kpis', 8)->has('tabs', 3)->has('tiles', 6)->has('charts', 3)->has('sheets.avg'));
         $this->get('/avis-litiges?vue=litiges')->assertOk()->assertInertia(fn (Assert $page) => $page->has('tiles', 12)->has('flow.steps', 5));
         $this->get('/avis-litiges?vue=expo')->assertOk()->assertInertia(fn (Assert $page) => $page->has('flow.steps', 4));
-        foreach (['reclamations', 'litiges', 'litiges/nouveau', 'mediations', 'recours', 'rapports', 'notifications', 'audit'] as $path) {
+        foreach (['litiges', 'litiges/nouveau', 'mediations', 'recours', 'rapports', 'notifications', 'audit'] as $path) {
             $this->get("/avis-litiges/{$path}")->assertOk()->assertInertia(fn (Assert $page) => $page->component('Quality/Page')->where('missing', null));
         }
 
@@ -81,7 +81,6 @@ class QualityTest extends TestCase
         foreach (array_keys(DisputeController::TABS) as $tab) {
             $this->get("/avis-litiges/litiges/{$dispute->reference}".($tab ? "/{$tab}" : ''))->assertOk()->assertInertia(fn (Assert $page) => $page->has('profile')->has('tabs', 12));
         }
-        $this->get('/avis-litiges/reclamations/'.Claim::query()->value('reference'))->assertOk();
         $this->get('/avis-litiges/litiges/LIT-9999')->assertNotFound();
     }
 
@@ -93,21 +92,6 @@ class QualityTest extends TestCase
         $this->assertTrue($ins->disputesScoped->every(fn (Dispute $d): bool => $d->site->name === $site));
         $this->assertTrue($ins->reviewsScoped->every(fn (Review $r): bool => $r->site->name === $site));
         $this->get('/avis-litiges/litiges?chantier='.urlencode($site))->assertInertia(fn (Assert $page) => $page->where('alerts.0.title', 'Filtres appliqués (1)'));
-    }
-
-    public function test_claim_can_be_transformed_into_a_dispute(): void
-    {
-        $p = QualityInsights::prestations()->first();
-        $this->post('/avis-litiges/reclamations', ['claimant' => 'Ouvrier de la prestation', 'category' => 'Paiement non reçu', 'prestation' => $p['opRef'], 'subject' => 'Paiement de la semaine manquant', 'description' => 'Aucun versement reçu pour la semaine.', 'priority' => 'Normale'])->assertRedirect();
-        $claim = Claim::query()->latest('id')->firstOrFail();
-        $this->assertSame('Reçue', $claim->status);
-        $this->assertDatabaseHas('quality_notifications', ['reference' => $claim->reference]);
-
-        $this->post("/avis-litiges/reclamations/{$claim->reference}/qualification", ['outcome' => 'Transformer en litige', 'reason' => 'Désaccord persistant entre les parties'])->assertRedirect();
-        $claim->refresh();
-        $this->assertSame('Transformée en litige', $claim->status);
-        $this->assertSame('Recevabilité en cours', $claim->dispute->status);
-        $this->assertSame($claim->reference, $claim->dispute->source_reference);
     }
 
     public function test_dispute_workflow_from_admissibility_to_resolution(): void

@@ -1,6 +1,7 @@
 import { FilterSelect, SearchInput } from '@/components/list/ListToolbar';
 import Pagination from '@/components/list/Pagination';
 import { StackCell, TableFrame, TextCell, tdStyle, thStyle } from '@/components/list/Table';
+import QualityNav from '@/components/quality/QualityNav';
 import Button from '@/components/ui/Button';
 import StatCard from '@/components/ui/StatCard';
 import StateBlock from '@/components/ui/StateBlock';
@@ -44,9 +45,7 @@ export default function QualityRatings({ ratings, filters, kpis }: Props) {
             <Head title="Avis" />
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: -6 }}>
-                <Button label="Vue d’ensemble" icon="dashboard" variant="secondary" onClick={() => router.visit('/avis-litiges')} />
-                <Button label="Réclamations" icon="support_agent" variant="secondary" onClick={() => router.visit('/avis-litiges/reclamations')} />
-                <Button label="Litiges" icon="gavel" variant="secondary" onClick={() => router.visit('/avis-litiges/litiges')} />
+                <QualityNav current="/avis-litiges/avis" />
             </div>
 
             <div data-component="StatGrid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 'var(--space-4)' }}>

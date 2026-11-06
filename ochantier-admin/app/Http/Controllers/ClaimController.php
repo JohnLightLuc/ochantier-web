@@ -2,85 +2,179 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Claim;
-use App\Models\Dispute;
-use App\Support\PageBlocks as UI;
-use App\Support\QualityInsights as Q;
+use App\Support\Api\AdminApi;
+use App\Support\Api\AdminUser;
+use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Réclamations : demandes initiales des promoteurs et des ouvriers, traitées simplement ou transformées en litige
- * après qualification.
+ * Réclamations, lues dans l’API (api/v1/admin/claims) : déposées dans l’application Promoteur ou saisies ici au nom
+ * d’un promoteur, d’un ouvrier ou d’un commercial.
  */
-class ClaimController extends QualityPageController
+class ClaimController extends Controller
 {
+    private const PER_PAGE = 20;
+
+    private const QUERY = ['q' => 'search', 'statut' => 'status', 'categorie' => 'category', 'priorite' => 'priority', 'demandeur' => 'claimant_type', 'retard' => 'overdue', 'page' => 'page'];
+
+    private const STATUS_TONES = ['ouverte' => 'a', 'en_traitement' => 'b', 'resolue' => 'g', 'escaladee' => 'p', 'rejetee' => 'r', 'close' => 'n'];
+
+    private const PRIORITY_TONES = ['basse' => 'n', 'normale' => 'b', 'haute' => 'o', 'critique' => 'r'];
+
+    private const ACTION_LABELS = [
+        'claims.created' => 'Saisie au Back Office',
+        'claims.taken' => 'Prise en charge',
+        'claims.prioritized' => 'Priorité modifiée',
+        'claims.resolved' => 'Résolue',
+        'claims.rejected' => 'Rejetée',
+        'claims.closed' => 'Close',
+    ];
+
+    public function __construct(private AdminApi $api) {}
+
     public function index(Request $request): Response
     {
-        $ins = $this->insights($request);
-        if (! Q::can('lit')) {
-            return $this->denied($ins, 'Votre rôle ne permet pas de consulter les réclamations.');
+        $filters = array_filter($request->only(array_keys(self::QUERY)), fn ($value) => is_string($value) && $value !== '');
+        $query = [];
+
+        foreach ($filters as $key => $value) {
+            $query[self::QUERY[$key]] = $value;
         }
-        $status = (string) $request->query('statut', '');
-        $t = Q::today();
-        $list = $ins->search($ins->claimsScoped->filter(fn (Claim $c): bool => $ins->in($c->date->format('Y-m-d')) && ($status === '' || $c->status === $status)), fn (Claim $c): string => implode(' ', [$c->reference, $c->claimant['name'], $c->other_party['name'], $c->site->name, $c->subject, $c->assignment_reference]));
-        $p = UI::paginate($list, (int) $request->query('page', 1), function (Claim $c) use ($ins, $t): array {
-            $left = (int) $t->diffInDays($c->due_date, false);
-            $go = UI::link($ins->url("/reclamations/{$c->reference}"));
 
-            return UI::row($c->reference, [
-                UI::text($c->reference, true), UI::stacked($c->claimant['name'], $c->claimant['role']), UI::stacked($c->other_party['name'], $c->other_party['role']), UI::text($c->site->name), UI::text($c->assignment_reference),
-                UI::text($c->category), UI::text($c->subject), UI::text(Q::date($c->date->format('Y-m-d'))), UI::badge($c->priority, Dispute::PRIORITY_TONES[$c->priority] ?? 'n'), UI::text($c->owner),
-                UI::badge(! $c->isOpen() ? 'Terminé' : ($left < 0 ? 'Dépassé de '.-$left.' j' : "{$left} j"), ! $c->isOpen() ? 'n' : ($left < 0 ? 'r' : 'g')), UI::badge($c->status, Claim::TONES[$c->status] ?? 'n'),
-            ], $go, [['visibility', 'Ouvrir', $go], ['chat', 'Contacter', self::contact($c->reference, [$c->claimant['name'], $c->other_party['name']])]]);
-        });
+        $response = $this->api->get('claims', [...$query, 'per_page' => self::PER_PAGE]);
+        $meta = $response->json('meta');
+        $rows = array_map($this->row(...), $response->json('data'));
+        $from = $meta['total'] ? ($meta['current_page'] - 1) * $meta['per_page'] + 1 : 0;
 
-        return $this->render($ins, '/reclamations', [
-            ...$this->filterBar($ins, '/reclamations', ['chantier', 'commune', 'categorie'], [['key' => 'statut', 'label' => 'Statut', 'value' => $status, 'options' => [['value' => '', 'label' => 'Statut : tous'], ...array_map(fn (string $s): array => ['value' => $s, 'label' => $s], Claim::STATUSES)]]], null, false), 'search' => true,
-            'tiles' => [
-                UI::tile('Réclamations', $list->count(), 'support_agent', 'b'), UI::tile('À qualifier', $list->filter(fn (Claim $c): bool => in_array($c->status, ['Reçue', 'Soumise', 'À qualifier'], true))->count(), 'rule', 'a'),
-                UI::tile('Traitées sans litige', $list->filter(fn (Claim $c): bool => in_array($c->status, ['Résolue', 'Clôturée'], true))->count(), 'task_alt', 'g', ['sub' => 'Résolues ou clôturées sans procédure contradictoire']),
-                UI::tile('Transformées en litige', $list->where('status', 'Transformée en litige')->count(), 'gavel', 'p'),
-            ],
-            'toolbar' => [self::newClaimButton(null, 'primary'), UI::button('Exporter', 'download', self::allowed('export', UI::download($ins->url('/rapports/generer', ['rapport' => 'reclamations', 'format' => 'Excel'])), 'export'))],
-            'tables' => [UI::table('support_agent', 'Réclamations · '.mb_strtolower($ins->period['label']), $p['label'], ['Référence', 'Demandeur', 'Partie concernée', 'Chantier', 'Affectation', 'Catégorie', 'Objet', 'Date', 'Priorité', 'Responsable', 'Délai', 'Statut'], $p['rows'], 1900, ['inbox', 'Aucune réclamation', 'Aucune réclamation sur la période et les filtres.'], $p['pagination'])],
-        ], 'Réclamations', 'Demandes initiales : traitement simple ou transformation en litige après qualification', [['Réclamations']]);
+        return Inertia::render('Quality/Claims', [
+            'claims' => ['data' => $rows, 'currentPage' => $meta['current_page'], 'lastPage' => $meta['last_page'], 'total' => $meta['total'], 'from' => $from, 'to' => $from ? $from + count($rows) - 1 : 0],
+            'filters' => $filters,
+            'categories' => $meta['categories'],
+            'kpis' => ['open' => $meta['counts']['statuses']['ouverte'], 'processing' => $meta['counts']['statuses']['en_traitement'], 'overdue' => $meta['counts']['overdue'], 'resolved' => $meta['counts']['statuses']['resolue']],
+            'can' => $this->can($request),
+            'header' => $this->header('Réclamations', '', [['Avis & litiges', '/avis-litiges'], ['Réclamations']]),
+        ]);
     }
 
-    public function show(Request $request, Claim $claim): Response
+    public function show(Request $request, string $claim): Response
     {
-        $ins = $this->insights($request);
-        if (! Q::can('lit')) {
-            return $this->denied($ins, 'Votre rôle ne permet pas de consulter les réclamations.');
-        }
-        $c = $claim->load('site', 'dispute');
-        $d = $c->dispute;
-        $url = "/avis-litiges/reclamations/{$c->reference}";
-        $buttons = match (true) {
-            $c->isOpen() => [
-                UI::button('Qualifier', 'rule', self::allowed('qualif', UI::form("Qualifier la réclamation {$c->reference}", '', 'rule', 'Valider', "{$url}/qualification", [
-                    ['name' => 'outcome', 'label' => 'Issue', 'type' => 'select', 'required' => true, 'options' => ['Traitement simple', 'Information demandée', 'Transformer en litige', 'Rejeter']],
-                    ['name' => 'reason', 'label' => 'Motivation', 'type' => 'textarea', 'required' => true],
-                ]), 'qualification'), 'primary'),
-                UI::button('Résoudre sans litige', 'task_alt', UI::reason('Résoudre la réclamation', 'Traitement simple : aucune procédure contradictoire n’est ouverte.', 'task_alt', 'Résoudre', "{$url}/resolution", 'Solution apportée')),
-                UI::button('Transformer en litige', 'gavel', self::allowed('qualif', UI::confirm("Transformer {$c->reference} en litige ?", 'Le litige est créé en recevabilité ; la procédure contradictoire se poursuit dans le dossier du litige.', 'gavel', 'Transformer', "{$url}/litige", 'warning'), 'qualification')),
-            ],
-            $c->status === 'Résolue' => [UI::button('Clôturer', 'lock', UI::confirm("Clôturer {$c->reference} ?", 'Clôture après résolution.', 'lock', 'Clôturer', "{$url}/cloture"))],
-            (bool) $d => [UI::button("Ouvrir le litige {$d->reference}", 'gavel', UI::link($ins->url("/litiges/{$d->reference}")), 'primary')],
-            default => [],
-        };
-        $profile = UI::profile("{$c->reference} · {$c->subject}", [$c->status, Claim::TONES[$c->status] ?? 'n'], ["Priorité {$c->priority}", Dispute::PRIORITY_TONES[$c->priority] ?? 'n'], $c->category, [
-            ['person', 'Demandeur', "{$c->claimant['name']} ({$c->claimant['role']})"], ['person_off', 'Partie concernée', $c->other_party['name']], ['construction', 'Chantier', $c->site->name],
-            ['assignment_ind', 'Affectation', $c->assignment_reference], ['event', 'Reçue le', Q::date($c->date->format('Y-m-d'))], ['badge', 'Responsable', $c->owner],
-        ], $buttons, [['chat', 'Contacter', self::contact($c->reference, [$c->claimant['name'], $c->other_party['name']])], ['construction', 'Voir le chantier', UI::link("/chantiers/{$c->site->slug}")]]);
+        $c = $this->api->get("claims/{$claim}")->json('data');
 
-        return $this->render($ins, '/reclamations', [
-            'profile' => $profile,
-            'alerts' => [$d
-                ? UI::alert('info', 'gavel', "Transformée en litige {$d->reference}", 'La procédure contradictoire se poursuit dans le litige.', 'Ouvrir', UI::link($ins->url("/litiges/{$d->reference}")))
-                : UI::alert('info', 'info', 'Réclamation ≠ litige', 'Une réclamation ne devient un litige qu’après qualification.')],
-            'panels' => [UI::keyValues('description', 'Réclamation', [['Catégorie', $c->category], ['Objet', $c->subject], ['Description', $c->description], ['Priorité', $c->priority], ['Échéance de qualification', Q::date($c->due_date->format('Y-m-d'))], ['Source', $c->review_reference ? "Avis {$c->review_reference}" : 'Application'], ['Traitement', $c->resolution ?: '—']])],
-            'timeline' => $c->activities()->get()->map(fn ($e): array => self::activity($e))->all(),
-        ], "Réclamation {$c->reference}", '', [['Réclamations', $ins->url('/reclamations')], [$c->reference]]);
+        return Inertia::render('Quality/Claim', [
+            'claim' => [
+                ...$this->row($c),
+                'description' => $c['description'],
+                'otherParty' => $c['other_party'],
+                'resolution' => $c['resolution'],
+                'history' => array_map(fn (array $h): array => [...$h, 'label' => self::ACTION_LABELS[$h['action']] ?? $h['action'], 'date' => $this->moment($h['date'])], $c['history']),
+                'actions' => $c['can'],
+            ],
+            'can' => $this->can($request),
+            'header' => $this->header('Fiche de la réclamation', '', [['Avis & litiges', '/avis-litiges'], ['Réclamations', '/avis-litiges/reclamations'], [$c['reference']]]),
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        return $this->act('claims', $request->only('claimant_type', 'dial_code', 'phone_number', 'site_reference', 'category', 'priority', 'subject', 'description'));
+    }
+
+    public function take(string $claim): RedirectResponse
+    {
+        return $this->act("claims/{$claim}/take");
+    }
+
+    public function prioritize(Request $request, string $claim): RedirectResponse
+    {
+        return $this->act("claims/{$claim}/priority", $request->only('priority'));
+    }
+
+    public function resolve(Request $request, string $claim): RedirectResponse
+    {
+        return $this->act("claims/{$claim}/resolve", $request->only('reason'));
+    }
+
+    public function reject(Request $request, string $claim): RedirectResponse
+    {
+        return $this->act("claims/{$claim}/reject", $request->only('reason'));
+    }
+
+    public function close(string $claim): RedirectResponse
+    {
+        return $this->act("claims/{$claim}/close");
+    }
+
+    public function legacy(): RedirectResponse
+    {
+        Inertia::flash('toast', 'Cette page a été remplacée : voici les réclamations.');
+
+        return to_route('claims.index');
+    }
+
+    /**
+     * Un refus métier s’affiche en message ; une erreur de champ reste sous le champ du formulaire.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function act(string $uri, array $data = []): RedirectResponse
+    {
+        try {
+            $response = $this->api->post($uri, $data);
+        } catch (ValidationException $e) {
+            $refusal = array_intersect_key($e->errors(), array_flip(['claim', 'api']));
+
+            if ($refusal === []) {
+                throw $e;
+            }
+
+            Inertia::flash('toastError', collect($refusal)->flatten()->first());
+
+            return back();
+        }
+
+        Inertia::flash('toast', $response->json('message'));
+
+        return back();
+    }
+
+    /**
+     * @param  array<string, mixed>  $c
+     * @return array<string, mixed>
+     */
+    private function row(array $c): array
+    {
+        return [
+            'id' => $c['id'],
+            'reference' => $c['reference'],
+            'category' => $c['category']['label'],
+            'subject' => $c['subject'],
+            'claimant' => $c['claimant'],
+            'site' => $c['site'],
+            'priority' => [...$c['priority'], 'tone' => self::PRIORITY_TONES[$c['priority']['value']] ?? 'n'],
+            'status' => [...$c['status'], 'tone' => self::STATUS_TONES[$c['status']['value']] ?? 'n'],
+            'owner' => $c['owner'],
+            'dueAt' => $this->moment($c['due_at']),
+            'overdue' => $c['overdue'],
+            'createdAt' => $this->moment($c['created_at']),
+        ];
+    }
+
+    /**
+     * @return array<string, bool>
+     */
+    private function can(Request $request): array
+    {
+        $user = $request->user();
+
+        return ['update' => $user instanceof AdminUser && $user->hasPermission('disputes.update')];
+    }
+
+    private function moment(?string $date): ?string
+    {
+        return $date ? Carbon::parse($date)->setTimezone(config('app.timezone'))->format('Y-m-d H:i') : null;
     }
 }

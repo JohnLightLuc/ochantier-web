@@ -10,7 +10,6 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\OtpController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
-use App\Http\Controllers\ClaimActionController;
 use App\Http\Controllers\ClaimController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisputeActionController;
@@ -401,14 +400,21 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::get('/{rest}', 'legacy')->where('rest', '.*')->name('legacy');
         });
 
-        Route::prefix('reclamations')->name('claims.')->group(function () {
-            Route::get('/', [ClaimController::class, 'index'])->name('index');
-            Route::post('/', [ClaimActionController::class, 'store'])->name('store');
-            Route::get('/{claim}', [ClaimController::class, 'show'])->name('show');
-            Route::post('/{claim}/qualification', [ClaimActionController::class, 'qualify'])->name('qualify');
-            Route::post('/{claim}/resolution', [ClaimActionController::class, 'resolve'])->name('resolve');
-            Route::post('/{claim}/cloture', [ClaimActionController::class, 'close'])->name('close');
-            Route::post('/{claim}/litige', [ClaimActionController::class, 'transform'])->name('transform');
+        // Réclamations : données de l’API (api/v1/admin/claims). Liste, saisie, fiche et traitement.
+        Route::prefix('reclamations')->name('claims.')->controller(ClaimController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->name('store');
+
+            Route::prefix('{claim}')->whereUuid('claim')->group(function () {
+                Route::get('/', 'show')->name('show');
+                Route::post('/prise-en-charge', 'take')->name('take');
+                Route::post('/priorite', 'prioritize')->name('priority');
+                Route::post('/resolution', 'resolve')->name('resolve');
+                Route::post('/rejet', 'reject')->name('reject');
+                Route::post('/cloture', 'close')->name('close');
+            });
+
+            Route::get('/{rest}', 'legacy')->where('rest', '.*')->name('legacy');
         });
 
         Route::prefix('litiges')->name('disputes.')->group(function () {
