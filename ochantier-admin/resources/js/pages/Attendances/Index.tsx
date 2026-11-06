@@ -75,11 +75,11 @@ export default function AttendancesIndex({ attendances, filters, filterOptions, 
         <>
             <Head title="Pointages" />
 
-            {can.export && (
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -6 }}>
-                    <Button label="Exporter" icon="download" variant="secondary" onClick={() => (window.location.href = exportUrl)} />
-                </div>
-            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', marginTop: -6 }}>
+                <Button label="Anomalies" icon="report" variant="secondary" onClick={() => router.visit('/pointages/anomalies')} />
+                <Button label="Corrections" icon="edit_note" variant="secondary" onClick={() => router.visit('/pointages/corrections')} />
+                {can.export && <Button label="Exporter" icon="download" variant="secondary" onClick={() => (window.location.href = exportUrl)} />}
+            </div>
 
             <div data-component="StatGrid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 'var(--space-4)' }}>
                 <StatCard label="À valider par le promoteur" value={String(kpis.pending)} icon="pending_actions" tone="a" />
@@ -188,6 +188,7 @@ export default function AttendancesIndex({ attendances, filters, filterOptions, 
                     { key: 'incomplets', count: todo.incomplets, label: 'sans départ', icon: 'logout', tone: 'o' },
                     { key: 'absences', count: todo.absences, label: 'absences', icon: 'person_off', tone: 'r' },
                     { key: 'hors_zone', count: todo.hors_zone, label: 'hors zone', icon: 'wrong_location', tone: 'o' },
+                    { key: 'anomalies', count: todo.anomalies, label: 'avec anomalie ouverte', icon: 'report', tone: 'r' },
                 ]}
             />
         </>

@@ -1,12 +1,21 @@
 import { TextCell } from '@/components/list/Table';
+import FormDialog from '@/components/overlays/FormDialog';
 import { RelationTable, stack } from '@/components/promoters/RelationTabs';
 import Button from '@/components/ui/Button';
+import type { Option } from '@/components/ui/Field';
 import StatCard from '@/components/ui/StatCard';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { Block, KeyValues } from '@/components/workers/blocks';
 import { formatDate } from '@/lib/format';
+import { anomalyActions } from '@/pages/Attendances/Anomalies';
+import { correctionActions } from '@/pages/Attendances/Corrections';
 import { duration } from '@/pages/Attendances/Index';
 import { Head, router } from '@inertiajs/react';
+import { useState, type ReactNode } from 'react';
+
+type Correction = { id: string; status: { value: string; label: string; tone: string }; reason: string; changes: string; requestedBy: string | null; decidedBy: string | null; isPending: boolean; canApprove: boolean };
+
+type Anomaly = { id: string; type: string; status: { value: string; label: string; tone: string }; detectedBy: string; comment: string | null; resolution: string | null; isOpen: boolean };
 
 type Proof = { time: string | null; distance: number | null; accuracy: number | null; outOfZone: boolean; author: string; photo: string | null; signature: string | null; status: string };
 
@@ -30,12 +39,13 @@ type Attendance = {
     validatedBy: string | null;
     arrivalProof: Proof | null;
     departureProof: Proof | null;
-    anomalies: { id: string; type: string; status: string; detectedBy: string; comment: string | null; resolution: string | null }[];
-    corrections: { id: string; status: string; reason: string; date: string | null }[];
+    anomalies: Anomaly[];
+    corrections: Correction[];
     canRemind: boolean;
+    correct: { minutes: boolean; status: string | null };
 };
 
-type Props = { attendance: Attendance; can: { update: boolean; export: boolean } };
+type Props = { attendance: Attendance; reportTypes: Option[]; can: { update: boolean; export: boolean; validate: boolean } };
 
 function ProofCard({ title, proof }: { title: string; proof: Proof | null }) {
     const image = (src: string | null, alt: string) => (src ? <a href={src} target="_blank" rel="noreferrer"><img src={src} alt={alt} style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 'var(--radius-lg)', border: '1px solid var(--c-line)' }} /></a> : null);
@@ -66,7 +76,45 @@ function ProofCard({ title, proof }: { title: string; proof: Proof | null }) {
 }
 
 /** Fiche d’une journée : preuves, validation par le promoteur, anomalies et corrections. */
-export default function AttendanceShow({ attendance: a, can }: Props) {
+export default function AttendanceShow({ attendance: a, reportTypes, can }: Props) {
+    const [dialog, setDialog] = useState<ReactNode>(null);
+    const close = () => setDialog(null);
+
+    const report = () =>
+        setDialog(
+            <FormDialog
+                title="Signaler une anomalie"
+                body="L’anomalie ne bloque ni la validation ni le paiement."
+                icon="report"
+                tone="warning"
+                okLabel="Signaler"
+                url={`/pointages/${a.id}/anomalies`}
+                onClose={close}
+                fields={[
+                    { name: 'type', label: 'Type', type: 'select', required: true, full: true, options: reportTypes },
+                    { name: 'comment', label: 'Description', type: 'textarea', required: true },
+                ]}
+            />,
+        );
+
+    const correct = () =>
+        setDialog(
+            <FormDialog
+                title="Demander une correction"
+                body="Une autre personne doit l’approuver. L’ancienne valeur reste conservée."
+                icon="edit_note"
+                tone="warning"
+                okLabel="Demander"
+                url={`/pointages/${a.id}/corrections`}
+                onClose={close}
+                fields={[
+                    ...(a.correct.minutes ? [{ name: 'hours', label: `Durée en heures (actuelle : ${duration(a.minutes)})`, type: 'number' as const, full: true }] : []),
+                    ...(a.correct.status ? [{ name: 'status', label: 'Statut', type: 'select' as const, full: true, options: [{ value: a.correct.status, label: a.correct.status === 'rejete' ? 'Rejeter la journée' : 'Rétablir la journée validée' }] }] : []),
+                    { name: 'reason', label: 'Motif', type: 'textarea' as const, required: true },
+                ]}
+            />,
+        );
+
     return (
         <>
             <Head title={`Pointage · ${a.worker.full_name}`} />
@@ -85,6 +133,8 @@ export default function AttendanceShow({ attendance: a, can }: Props) {
                     </div>
                     <Button label="Affectation" icon="assignment_ind" variant="secondary" onClick={() => router.visit(`/affectations/${a.assignmentId}`)} />
                     <Button label="Chantier" icon="construction" variant="secondary" onClick={() => router.visit(`/chantiers/${a.site.id}`)} />
+                    {can.update && (a.correct.minutes || a.correct.status) && <Button label="Demander une correction" icon="edit_note" variant="secondary" onClick={correct} />}
+                    {can.update && <Button label="Signaler une anomalie" icon="report" variant="secondary" onClick={report} />}
                     {can.update && a.canRemind && <Button label="Relancer le promoteur" icon="notifications_active" variant="primary" onClick={() => router.post(`/pointages/${a.id}/relance`, {}, { preserveScroll: true })} />}
                 </section>
 
@@ -113,18 +163,20 @@ export default function AttendanceShow({ attendance: a, can }: Props) {
                         <RelationTable
                             columns={['Type', 'Détectée par', 'Commentaire', 'Résolution', 'Statut']}
                             empty={{ icon: 'report', title: 'Aucune anomalie', text: '' }}
-                            rows={a.anomalies.map((x) => ({ key: x.id, cells: [<TextCell>{x.type}</TextCell>, <TextCell>{x.detectedBy}</TextCell>, <TextCell muted={!x.comment}>{x.comment ?? '—'}</TextCell>, <TextCell muted={!x.resolution}>{x.resolution ?? '—'}</TextCell>, <TextCell>{x.status}</TextCell>] }))}
+                            rows={a.anomalies.map((x) => ({ key: x.id, cells: [<TextCell>{x.type}</TextCell>, <TextCell>{x.detectedBy}</TextCell>, <TextCell muted={!x.comment}>{x.comment ?? '—'}</TextCell>, <TextCell muted={!x.resolution}>{x.resolution ?? '—'}</TextCell>, <StatusBadge label={x.status.label} tone={x.status.tone as never} />], actions: can.update ? anomalyActions(x, setDialog) : [] }))}
                         />
                     </Block>
                     <Block icon="edit_note" title="Corrections" count={String(a.corrections.length)}>
                         <RelationTable
-                            columns={['Date', 'Motif', 'Statut']}
+                            columns={['Changement', 'Motif', 'Demandée par', 'Décidée par', 'Statut']}
                             empty={{ icon: 'edit_note', title: 'Aucune correction', text: '' }}
-                            rows={a.corrections.map((x) => ({ key: x.id, cells: [<TextCell>{x.date ? formatDate(x.date) : '—'}</TextCell>, <TextCell>{x.reason}</TextCell>, <TextCell>{x.status}</TextCell>] }))}
+                            rows={a.corrections.map((x) => ({ key: x.id, cells: [<TextCell>{x.changes}</TextCell>, <TextCell>{x.reason}</TextCell>, <TextCell muted={!x.requestedBy}>{x.requestedBy ?? '—'}</TextCell>, <TextCell muted={!x.decidedBy}>{x.decidedBy ?? '—'}</TextCell>, <StatusBadge label={x.status.label} tone={x.status.tone as never} />], actions: can.validate ? correctionActions(x) : [] }))}
                         />
                     </Block>
                 </section>
             </div>
+
+            {dialog}
         </>
     );
 }

@@ -38,6 +38,22 @@ class AttendancesTest extends TestCase
         return ['id' => self::ID, 'date' => '2026-11-04', 'status' => ['value' => 'a_valider', 'label' => 'À valider'], 'worker' => ['id' => 'w1', 'reference' => 'OUV-1', 'full_name' => 'Jean Kouassi'], 'site' => ['id' => 's1', 'reference' => 'CHT-1', 'label' => 'Résidence Les Palmiers', 'commune' => 'Cocody'], 'promoter' => ['name' => 'Bâtir Afrique'], 'trade' => 'Maçon', 'arrival' => '08:00', 'departure' => '17:00', 'worked_minutes' => 480, 'out_of_zone' => true, 'open_anomalies' => 1, 'is_locked' => false];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function anomaly(): array
+    {
+        return ['id' => 'x1', 'type' => ['value' => 'hors_zone', 'label' => 'Hors zone'], 'status' => ['value' => 'ouverte', 'label' => 'Ouverte'], 'detected_by' => ['value' => 'systeme', 'label' => 'Système'], 'comment' => 'Pointage à 400 m', 'resolution' => null, 'resolved_by' => null, 'occurred_at' => null, 'resolved_at' => null, 'work_day_id' => self::ID, 'date' => '2026-11-04', 'worker' => ['id' => 'w1', 'reference' => 'OUV-1', 'full_name' => 'Jean Kouassi'], 'site' => ['id' => 's1', 'label' => 'Résidence Les Palmiers'], 'is_open' => true];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function correction(): array
+    {
+        return ['id' => 'c1', 'status' => ['value' => 'demandee', 'label' => 'Demandée'], 'reason' => 'Parti le matin.', 'old_values' => ['status' => 'valide', 'worked_minutes' => 480], 'new_values' => ['worked_minutes' => 300, 'status' => 'rejete'], 'requested_by' => 'Awa Koné', 'decided_by' => null, 'created_at' => null, 'decided_at' => null, 'work_day_id' => self::ID, 'date' => '2026-11-04', 'worker' => ['id' => 'w1', 'reference' => 'OUV-1', 'full_name' => 'Jean Kouassi'], 'site' => ['id' => 's1', 'label' => 'Résidence Les Palmiers'], 'is_pending' => true, 'can_approve' => true];
+    }
+
     public function test_the_list_translates_the_filters(): void
     {
         Http::fake([self::API.'/attendance*' => Http::response(['data' => [$this->row()], 'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 20, 'total' => 1, 'counts' => ['total' => 1, 'statuses' => ['en_cours' => 0, 'a_valider' => 1, 'valide' => 0, 'rejete' => 0, 'absent' => 0, 'annule' => 0], 'todo' => ['retard' => 1, 'incomplets' => 0, 'absences' => 0, 'hors_zone' => 1, 'anomalies' => 1]], 'trades' => [['id' => 't1', 'label' => 'Maçon']], 'communes' => []]])]);
@@ -51,14 +67,52 @@ class AttendancesTest extends TestCase
     {
         Http::fake([
             self::API.'/attendance/'.self::ID.'/remind' => Http::sequence()->push(['message' => 'Promoteur relancé.'])->push(['message' => 'Refus.', 'errors' => ['attendance' => ['Le promoteur a déjà été relancé aujourd’hui pour cette journée.']]], 422),
-            self::API.'/attendance/'.self::ID => Http::response(['data' => [...$this->row(), 'assignment_id' => 'a1', 'observation' => null, 'validated_at' => null, 'validated_by' => null, 'events' => ['arrival' => ['time' => '08:00', 'distance_m' => 12, 'accuracy_m' => 8, 'out_of_zone' => false, 'author' => 'Awa Yao', 'photo_url' => 'http://x/p.jpg', 'signature_url' => 'http://x/s.png', 'status' => ['label' => 'Soumis']], 'departure' => null], 'anomalies' => [['id' => 'x1', 'type' => ['label' => 'Hors zone'], 'status' => ['label' => 'Ouverte'], 'detected_by' => ['label' => 'Système'], 'comment' => 'Pointage à 400 m', 'resolution' => null]], 'corrections' => [], 'can' => ['remind' => true]]]),
+            self::API.'/attendance/'.self::ID => Http::response(['data' => [...$this->row(), 'assignment_id' => 'a1', 'observation' => null, 'validated_at' => null, 'validated_by' => null, 'events' => ['arrival' => ['time' => '08:00', 'distance_m' => 12, 'accuracy_m' => 8, 'out_of_zone' => false, 'author' => 'Awa Yao', 'photo_url' => 'http://x/p.jpg', 'signature_url' => 'http://x/s.png', 'status' => ['label' => 'Soumis']], 'departure' => null], 'anomalies' => [$this->anomaly()], 'corrections' => [$this->correction()], 'can' => ['remind' => true, 'correct' => ['minutes' => true, 'status' => 'rejete']]]]),
         ]);
         $page = '/pointages/'.self::ID;
 
-        $this->get($page)->assertOk()->assertInertia(fn (Assert $p) => $p->component('Attendances/Show')->where('attendance.arrivalProof.distance', 12)->where('attendance.departureProof', null)->where('attendance.anomalies.0.type', 'Hors zone')->where('attendance.canRemind', true));
+        $this->get($page)->assertOk()->assertInertia(fn (Assert $p) => $p->component('Attendances/Show')->where('attendance.arrivalProof.distance', 12)->where('attendance.departureProof', null)->where('attendance.anomalies.0.type', 'Hors zone')->where('attendance.anomalies.0.status.tone', 'r')->where('reportTypes.0.value', 'retard')->where('attendance.canRemind', true)->where('attendance.correct.status', 'rejete')->where('attendance.corrections.0.changes', 'Durée : 8 h 00 → 5 h 00 · Statut : Validé → Rejeté'));
 
         $this->from($page)->post("{$page}/relance")->assertRedirect($page)->assertSessionHas('inertia.flash_data.toast', 'Promoteur relancé.');
         $this->from($page)->post("{$page}/relance")->assertSessionHas('inertia.flash_data.toastError', 'Le promoteur a déjà été relancé aujourd’hui pour cette journée.');
+    }
+
+    public function test_the_anomalies_page_and_actions_reach_the_api(): void
+    {
+        Http::fake([
+            self::API.'/attendance/anomalies/'.self::ID.'/start' => Http::response(['message' => 'Anomalie prise en charge.']),
+            self::API.'/attendance/anomalies/'.self::ID.'/close' => Http::response(['message' => 'Refus.', 'errors' => ['anomaly' => ['Cette anomalie est déjà clôturée.']]], 422),
+            self::API.'/attendance/'.self::ID.'/anomalies' => Http::response(['message' => 'Anomalie signalée.']),
+            self::API.'/attendance/anomalies*' => Http::response(['data' => [$this->anomaly()], 'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 20, 'total' => 1, 'counts' => ['ouverte' => 1, 'en_traitement' => 0, 'resolue' => 0, 'rejetee' => 0], 'types' => [['value' => 'hors_zone', 'label' => 'Hors zone']]]]),
+        ]);
+        $page = '/pointages/anomalies';
+
+        $this->get($page.'?q=jean&statut=ouverte&type=hors_zone')->assertOk()->assertInertia(fn (Assert $p) => $p->component('Attendances/Anomalies')->where('anomalies.data.0.worker.full_name', 'Jean Kouassi')->where('kpis.open', 1)->where('filterOptions.type.0.value', 'hors_zone'));
+        Http::assertSent(fn (ClientRequest $r) => str_contains($r->url(), 'search=jean') && str_contains($r->url(), 'status=ouverte') && str_contains($r->url(), 'type=hors_zone'));
+
+        $this->from($page)->post('/pointages/'.self::ID.'/anomalies', ['type' => 'doublon', 'comment' => ' Deux pointages. '])->assertSessionHas('inertia.flash_data.toast', 'Anomalie signalée.');
+        Http::assertSent(fn (ClientRequest $r) => str_ends_with($r->url(), '/anomalies') && $r['comment'] === 'Deux pointages.');
+        $this->from($page)->post('/pointages/anomalies/'.self::ID.'/prise-en-charge')->assertSessionHas('inertia.flash_data.toast', 'Anomalie prise en charge.');
+        $this->from($page)->post('/pointages/anomalies/'.self::ID.'/cloture', ['outcome' => 'resolue', 'resolution' => 'Vu avec le promoteur.'])->assertSessionHas('inertia.flash_data.toastError', 'Cette anomalie est déjà clôturée.');
+    }
+
+    public function test_the_corrections_page_and_actions_reach_the_api(): void
+    {
+        Http::fake([
+            self::API.'/attendance/corrections/'.self::ID.'/approve' => Http::response(['message' => 'Refus.', 'errors' => ['attendance' => ['Une autre personne doit approuver cette correction.']]], 422),
+            self::API.'/attendance/corrections/'.self::ID.'/refuse' => Http::response(['message' => 'Correction refusée.']),
+            self::API.'/attendance/'.self::ID.'/corrections' => Http::response(['message' => 'Correction demandée : une autre personne doit l’approuver.']),
+            self::API.'/attendance/corrections*' => Http::response(['data' => [$this->correction()], 'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 20, 'total' => 1, 'counts' => ['demandee' => 1, 'approuvee' => 0, 'refusee' => 0], 'status_labels' => []]]),
+        ]);
+        $page = '/pointages/corrections';
+
+        $this->get($page.'?q=jean&statut=demandee')->assertOk()->assertInertia(fn (Assert $p) => $p->component('Attendances/Corrections')->where('corrections.data.0.canApprove', true)->where('kpis.pending', 1));
+        Http::assertSent(fn (ClientRequest $r) => str_contains($r->url(), 'search=jean') && str_contains($r->url(), 'status=demandee'));
+
+        $this->from($page)->post('/pointages/'.self::ID.'/corrections', ['hours' => '7,5', 'status' => '', 'reason' => ' Parti plus tôt ce jour. '])->assertSessionHas('inertia.flash_data.toast');
+        Http::assertSent(fn (ClientRequest $r) => str_ends_with($r->url(), '/corrections') && $r->method() === 'POST' && $r['worked_minutes'] === 450 && $r['status'] === null);
+        $this->from($page)->post('/pointages/corrections/'.self::ID.'/approbation')->assertSessionHas('inertia.flash_data.toastError', 'Une autre personne doit approuver cette correction.');
+        $this->from($page)->post('/pointages/corrections/'.self::ID.'/refus')->assertSessionHas('inertia.flash_data.toast', 'Correction refusée.');
     }
 
     public function test_old_addresses_lead_to_the_list(): void

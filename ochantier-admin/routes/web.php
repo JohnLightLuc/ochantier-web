@@ -239,10 +239,18 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('/{rest}', [AssignmentController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
-    // Pointages : données de l’API (api/v1/admin/attendance). Liste, fiche et relance du promoteur.
+    // Pointages : données de l’API (api/v1/admin/attendance). Liste, fiche, relance du promoteur, anomalies et corrections.
     Route::prefix('pointages')->name('attendances.')->group(function () {
         Route::get('/', [AttendanceController::class, 'index'])->name('index');
         Route::get('/export', [AttendanceController::class, 'export'])->name('export');
+        Route::get('/anomalies', [AttendanceController::class, 'anomalies'])->name('anomalies');
+        Route::post('/anomalies/{anomaly}/prise-en-charge', [AttendanceController::class, 'startAnomaly'])->whereUuid('anomaly')->name('anomalies.start');
+        Route::post('/anomalies/{anomaly}/cloture', [AttendanceController::class, 'closeAnomaly'])->whereUuid('anomaly')->name('anomalies.close');
+        Route::get('/corrections', [AttendanceController::class, 'corrections'])->name('corrections');
+        Route::post('/corrections/{correction}/approbation', [AttendanceController::class, 'approveCorrection'])->whereUuid('correction')->name('corrections.approve');
+        Route::post('/corrections/{correction}/refus', [AttendanceController::class, 'refuseCorrection'])->whereUuid('correction')->name('corrections.refuse');
+        Route::post('/{attendance}/corrections', [AttendanceController::class, 'requestCorrection'])->whereUuid('attendance')->name('corrections.store');
+        Route::post('/{attendance}/anomalies', [AttendanceController::class, 'reportAnomaly'])->whereUuid('attendance')->name('anomalies.report');
         Route::post('/{attendance}/relance', [AttendanceController::class, 'remind'])->whereUuid('attendance')->name('remind');
         Route::get('/{attendance}', [AttendanceController::class, 'show'])->whereUuid('attendance')->name('show');
         Route::get('/{rest}', [AttendanceController::class, 'legacy'])->where('rest', '.*')->name('legacy');
