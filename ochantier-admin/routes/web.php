@@ -25,6 +25,7 @@ use App\Http\Controllers\PromoterController;
 use App\Http\Controllers\PromoterFormController;
 use App\Http\Controllers\PromoterReviewController;
 use App\Http\Controllers\RatingController;
+use App\Http\Controllers\ReconciliationController;
 use App\Http\Controllers\SalesAgentAccessController;
 use App\Http\Controllers\SalesAgentController;
 use App\Http\Controllers\SalesAgentFormController;
@@ -342,6 +343,13 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/commissions', 'commissions')->name('commissions');
         Route::get('/commissions/export', 'export')->name('commissions.export');
+        Route::prefix('rapprochements')->name('reconciliations.')->controller(ReconciliationController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->name('store');
+            Route::get('/{run}', 'show')->whereUuid('run')->name('show');
+            Route::post('/{run}/ecarts/{item}/acceptation', 'accept')->whereUuid(['run', 'item'])->name('accept');
+            Route::post('/{run}/ecarts/{item}/resolution', 'resolve')->whereUuid(['run', 'item'])->name('resolve');
+        });
         Route::redirect('/chantiers', '/finance-reporting/commissions?axe=chantier');
         Route::redirect('/promoteurs', '/finance-reporting/commissions?axe=promoteur');
         Route::get('/{rest}', 'legacy')->where('rest', '.*')->name('legacy');

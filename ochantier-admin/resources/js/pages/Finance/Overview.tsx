@@ -26,7 +26,10 @@ export default function FinanceOverview({ report: r, filters }: Props) {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: -6 }}>
                 <PeriodFilter from={filters.from} to={filters.to} onChange={(period) => router.get('/finance-reporting', period, { preserveState: true, preserveScroll: true, replace: true })} />
-                <Button label="Journal des commissions" icon="receipt_long" variant="secondary" onClick={() => router.get('/finance-reporting/commissions', { du: filters.from, au: filters.to })} />
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                    <Button label="Rapprochements" icon="sync_alt" variant="secondary" onClick={() => router.visit('/finance-reporting/rapprochements')} />
+                    <Button label="Journal des commissions" icon="receipt_long" variant="secondary" onClick={() => router.get('/finance-reporting/commissions', { du: filters.from, au: filters.to })} />
+                </div>
             </div>
 
             <div data-component="StatGrid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 'var(--space-4)' }}>

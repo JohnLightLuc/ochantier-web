@@ -7,6 +7,7 @@ export type DialogField = {
     name: string;
     label: string;
     type?: 'text' | 'textarea' | 'select' | 'date' | 'time' | 'number' | 'file';
+    accept?: string;
     options?: (string | { value: string; label: string })[];
     required?: boolean;
     /** Occupe toute la largeur de la grille. */
@@ -62,7 +63,7 @@ export default function FormDialog({ title, body, icon, tone, okLabel, okIcon, u
                                         <b style={{ display: 'block', fontSize: 'var(--fs-md)' }}>{value instanceof File ? value.name : 'Glissez un fichier ou cliquez pour parcourir'}</b>
                                         <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--c-muted)' }}>PDF, JPG ou PNG · 10 Mo maximum</span>
                                     </span>
-                                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" aria-label={f.label} onChange={(e) => set(e.target.files?.[0] ?? null)} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
+                                    <input type="file" accept={f.accept ?? '.pdf,.jpg,.jpeg,.png'} aria-label={f.label} onChange={(e) => set(e.target.files?.[0] ?? null)} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
                                 </label>
                             ) : (
                                 <TextInput type={f.type === 'number' ? 'text' : f.type ?? 'text'} inputMode={f.type === 'number' ? 'numeric' : undefined} value={String(value ?? '')} onChange={(e) => set(e.target.value)} invalid={!!error} placeholder={f.placeholder} />
