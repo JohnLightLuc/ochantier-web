@@ -105,10 +105,26 @@ class FinanceTest extends TestCase
         Http::assertSent(fn (ClientRequest $request) => $request['reason'] === 'Opération de test');
     }
 
+    public function test_closings_list_months_and_refusals_become_messages(): void
+    {
+        $month = ['month' => '2026-10', 'status' => ['value' => 'en_cloture', 'label' => 'En clôture'], 'version' => 0, 'revenue' => 32, 'prepared_by' => 'Awa Finance', 'prepared_at' => '2026-11-02T10:00:00+00:00', 'closed_by' => null, 'closed_at' => null, 'reopen_reason' => null];
+        Http::fake([
+            self::API.'/finance/closings' => Http::response(['data' => [$month]]),
+            self::API.'/finance/closings/2026-10' => Http::response(['data' => [...$month, 'figures' => ['revenue' => 32], 'warnings' => ['1 opération(s) du mois non rapprochée(s)'], 'drift' => [], 'can' => ['prepare' => true, 'close' => true, 'reopen' => false]]]),
+            self::API.'/finance/closings/2026-10/close' => Http::response(['message' => 'Refusé.', 'errors' => ['closing' => ['Une autre personne doit clôturer ce mois.']]], 422),
+            self::API.'/finance/closings/2026-10/export' => Http::response('Mois;2026-10'),
+        ]);
+        $base = '/finance-reporting/clotures/2026-10';
+
+        $this->get('/finance-reporting/clotures')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Finance/Closings')->where('months.0.status.tone', 'a'));
+        $this->get($base)->assertOk()->assertInertia(fn (Assert $page) => $page->component('Finance/Closing')->where('closing.actions.close', true)->where('closing.warnings.0', '1 opération(s) du mois non rapprochée(s)')->where('can.reopen', false));
+        $this->from($base)->post("{$base}/cloture")->assertRedirect($base)->assertSessionHasNoErrors();
+        $this->get("{$base}/export")->assertOk()->assertHeader('content-disposition', 'attachment; filename="cloture-2026-10.csv"');
+    }
+
     public function test_old_pages_lead_to_the_new_screens(): void
     {
         $this->get('/finance-reporting/chantiers')->assertRedirect('/finance-reporting/commissions?axe=chantier');
         $this->get('/finance-reporting/tresorerie')->assertRedirect('/finance-reporting');
-        $this->get('/finance-reporting/clotures')->assertRedirect('/finance-reporting');
     }
 }

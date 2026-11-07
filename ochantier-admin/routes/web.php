@@ -11,6 +11,7 @@ use App\Http\Controllers\Auth\OtpController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\ClaimController;
+use App\Http\Controllers\ClosingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisputeController;
 use App\Http\Controllers\FinanceController;
@@ -349,6 +350,17 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::get('/{run}', 'show')->whereUuid('run')->name('show');
             Route::post('/{run}/ecarts/{item}/acceptation', 'accept')->whereUuid(['run', 'item'])->name('accept');
             Route::post('/{run}/ecarts/{item}/resolution', 'resolve')->whereUuid(['run', 'item'])->name('resolve');
+        });
+        Route::prefix('clotures')->name('closings.')->controller(ClosingController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+
+            Route::prefix('{month}')->where(['month' => '20\d{2}-(0[1-9]|1[0-2])'])->group(function () {
+                Route::get('/', 'show')->name('show');
+                Route::get('/export', 'export')->name('export');
+                Route::post('/preparation', 'prepare')->name('prepare');
+                Route::post('/cloture', 'close')->name('close');
+                Route::post('/reouverture', 'reopen')->name('reopen');
+            });
         });
         Route::redirect('/chantiers', '/finance-reporting/commissions?axe=chantier');
         Route::redirect('/promoteurs', '/finance-reporting/commissions?axe=promoteur');
