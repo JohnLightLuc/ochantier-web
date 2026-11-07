@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\Admin\Auth\SessionController;
 use App\Http\Controllers\Api\V1\Admin\Claim\ClaimController;
 use App\Http\Controllers\Api\V1\Admin\Dispute\DisputeController;
 use App\Http\Controllers\Api\V1\Admin\Finance\FinanceController;
+use App\Http\Controllers\Api\V1\Admin\Finance\ReconciliationController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialAccessController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialAccountController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialCompensationController;
@@ -214,6 +215,18 @@ Route::middleware('auth:admin')->group(function () {
             Route::get('overview', 'overview')->middleware('admin.can:finance.read')->name('overview');
             Route::get('commissions', 'commissions')->middleware('admin.can:finance.read')->name('commissions');
             Route::get('commissions/export', 'export')->middleware('admin.can:finance.export')->name('commissions.export');
+        });
+
+        // Rapprochements : un relevé d’opérateur comparé aux opérations de la plateforme.
+        Route::prefix('finance/reconciliations')->name('finance.reconciliations.')->controller(ReconciliationController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:finance.read')->name('index');
+            Route::post('/', 'store')->middleware('admin.can:finance.update')->name('store');
+
+            Route::prefix('{runId}')->whereUuid('runId')->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:finance.read')->name('show');
+                Route::post('items/{itemId}/accept', 'accept')->whereUuid('itemId')->middleware('admin.can:finance.update')->name('accept');
+                Route::post('items/{itemId}/resolve', 'resolve')->whereUuid('itemId')->middleware('admin.can:finance.update')->name('resolve');
+            });
         });
 
         // Réclamations : déposées dans l’application Promoteur ou saisies ici au nom du demandeur.
