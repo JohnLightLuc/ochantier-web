@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\Admin\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Admin\Auth\SessionController;
 use App\Http\Controllers\Api\V1\Admin\Claim\ClaimController;
 use App\Http\Controllers\Api\V1\Admin\Dispute\DisputeController;
+use App\Http\Controllers\Api\V1\Admin\Finance\FinanceController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialAccessController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialAccountController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialCompensationController;
@@ -206,6 +207,13 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('/', 'store')->middleware('admin.can:payments.update')->name('store');
                 Route::post('refunds', 'refund')->middleware('admin.can:payments.update')->name('refund');
             });
+        });
+
+        // Finance : chiffres d’une période, calculés sur les flux réels.
+        Route::prefix('finance')->name('finance.')->controller(FinanceController::class)->group(function () {
+            Route::get('overview', 'overview')->middleware('admin.can:finance.read')->name('overview');
+            Route::get('commissions', 'commissions')->middleware('admin.can:finance.read')->name('commissions');
+            Route::get('commissions/export', 'export')->middleware('admin.can:finance.export')->name('commissions.export');
         });
 
         // Réclamations : déposées dans l’application Promoteur ou saisies ici au nom du demandeur.
