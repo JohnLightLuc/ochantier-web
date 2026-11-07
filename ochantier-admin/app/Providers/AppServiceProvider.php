@@ -5,7 +5,6 @@ namespace App\Providers;
 use App\Support\Api\AdminApi;
 use App\Support\Api\ApiGuard;
 use App\Support\Api\ApiTokens;
-use App\Support\Settings;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\ServiceProvider;
@@ -26,8 +25,5 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Auth::extend('ochantier-api', fn (Application $app) => new ApiGuard($app->make(ApiTokens::class), $app->make(AdminApi::class)));
-
-        Settings::forget();
-        Settings::apply();
     }
 }

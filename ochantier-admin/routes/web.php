@@ -14,7 +14,6 @@ use App\Http\Controllers\ClosingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisputeController;
 use App\Http\Controllers\FinanceController;
-use App\Http\Controllers\IntegrationController;
 use App\Http\Controllers\MatchingController;
 use App\Http\Controllers\NeedController;
 use App\Http\Controllers\NeedDecisionController;
@@ -38,7 +37,6 @@ use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\WorkerController;
 use App\Http\Controllers\WorkerFormController;
 use App\Http\Controllers\WorkerStatusController;
-use App\Support\Settings;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -448,6 +446,15 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
 
     Route::prefix('parametres')->name('settings.')->group(function () {
         Route::get('/', [SettingsController::class, 'index'])->name('index');
+        Route::post('/valeurs', [SettingsController::class, 'saveValue'])->name('values');
+        Route::post('/matching', [SettingsController::class, 'saveMatching'])->name('matching');
+        Route::post('/taux', [SettingsController::class, 'proposeRate'])->name('rates.propose');
+        Route::post('/taux/{rate}/validation', [SettingsController::class, 'approveRate'])->whereUuid('rate')->name('rates.approve');
+        Route::post('/taux/{rate}/refus', [SettingsController::class, 'refuseRate'])->whereUuid('rate')->name('rates.refuse');
+        Route::post('/metiers', [SettingsController::class, 'storeTrade'])->name('trades.store');
+        Route::put('/metiers/{trade}', [SettingsController::class, 'updateTrade'])->whereUuid('trade')->name('trades.update');
+        Route::post('/metiers/{trade}/statut', [SettingsController::class, 'toggleTrade'])->whereUuid('trade')->name('trades.toggle');
+
         // Utilisateurs et journal : données de l’API (api/v1/admin/admins et audit).
         Route::controller(AdminAccountController::class)->group(function () {
             Route::get('/utilisateurs', 'index')->name('admins.index');
@@ -467,9 +474,6 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             });
         });
 
-        Route::post('/integrations/{integration}/test', [IntegrationController::class, 'test'])->name('integrations.test');
-        Route::post('/integrations/{integration}/statut', [IntegrationController::class, 'status'])->name('integrations.status');
-        Route::get('/{section}', [SettingsController::class, 'show'])->whereIn('section', array_keys(Settings::SECTIONS))->name('show');
-        Route::post('/{section}', [SettingsController::class, 'save'])->whereIn('section', array_keys(Settings::SECTIONS))->name('save');
+        Route::get('/{rest}', [SettingsController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 });
