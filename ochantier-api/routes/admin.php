@@ -38,6 +38,7 @@ use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterReviewController;
 use App\Http\Controllers\Api\V1\Admin\Rating\RatingController;
 use App\Http\Controllers\Api\V1\Admin\Report\ReportController;
 use App\Http\Controllers\Api\V1\Admin\Report\ReportLibraryController;
+use App\Http\Controllers\Api\V1\Admin\Settings\SettingsController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteDecisionController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteRelationController;
@@ -236,6 +237,19 @@ Route::middleware('auth:admin')->group(function () {
 
         Route::get('audit', [AuditController::class, 'index'])->middleware('admin.can:audit.read')->name('audit.index');
         Route::get('audit/export', [AuditController::class, 'export'])->middleware('admin.can:audit.export')->name('audit.export');
+
+        // Paramètres : seulement ce que le code lit ; une commission demande deux personnes.
+        Route::prefix('settings')->name('settings.')->controller(SettingsController::class)->group(function () {
+            Route::get('/', 'show')->middleware('admin.can:settings.read')->name('show');
+            Route::post('values', 'saveValue')->middleware('admin.can:settings.update')->name('values');
+            Route::post('matching', 'saveMatching')->middleware('admin.can:settings.update')->name('matching');
+            Route::post('rates', 'proposeRate')->middleware('admin.can:settings.update')->name('rates.propose');
+            Route::post('rates/{rateId}/approve', 'approveRate')->whereUuid('rateId')->middleware('admin.can:settings.approve')->name('rates.approve');
+            Route::post('rates/{rateId}/refuse', 'refuseRate')->whereUuid('rateId')->middleware('admin.can:settings.approve')->name('rates.refuse');
+            Route::post('trades', 'storeTrade')->middleware('admin.can:settings.update')->name('trades.store');
+            Route::patch('trades/{tradeId}', 'updateTrade')->whereUuid('tradeId')->middleware('admin.can:settings.update')->name('trades.update');
+            Route::post('trades/{tradeId}/toggle', 'toggleTrade')->whereUuid('tradeId')->middleware('admin.can:settings.update')->name('trades.toggle');
+        });
 
         // Tableau de bord : chaque bloc dépend aussi du droit de lire son module.
         Route::get('dashboard', [DashboardController::class, 'show'])->middleware('admin.can:dashboard.read')->name('dashboard');
