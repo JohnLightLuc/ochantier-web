@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\AdminAccountController;
 use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\Auth\CommercialActivationController;
@@ -448,10 +448,25 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
 
     Route::prefix('parametres')->name('settings.')->group(function () {
         Route::get('/', [SettingsController::class, 'index'])->name('index');
-        Route::post('/utilisateurs/invitations', [AdminUserController::class, 'invite'])->name('users.invite');
-        Route::post('/utilisateurs/{user}/role', [AdminUserController::class, 'role'])->name('users.role');
-        Route::post('/utilisateurs/{user}/statut', [AdminUserController::class, 'status'])->name('users.status');
-        Route::post('/utilisateurs/{user}/invitation', [AdminUserController::class, 'resend'])->name('users.resend');
+        // Utilisateurs et journal : données de l’API (api/v1/admin/admins et audit).
+        Route::controller(AdminAccountController::class)->group(function () {
+            Route::get('/utilisateurs', 'index')->name('admins.index');
+            Route::post('/utilisateurs', 'store')->name('admins.store');
+            Route::get('/utilisateurs/roles', 'roles')->name('admins.roles');
+            Route::get('/audit', 'audit')->name('audit');
+            Route::get('/audit/export', 'auditExport')->name('audit.export');
+
+            Route::prefix('utilisateurs/{admin}')->whereUuid('admin')->name('admins.')->group(function () {
+                Route::get('/', 'show')->name('show');
+                Route::post('/invitation', 'resend')->name('resend');
+                Route::delete('/invitation', 'revoke')->name('revoke');
+                Route::put('/roles', 'updateRoles')->name('update-roles');
+                Route::post('/suspension', 'suspend')->name('suspend');
+                Route::post('/reactivation', 'reactivate')->name('reactivate');
+                Route::post('/desactivation', 'deactivate')->name('deactivate');
+            });
+        });
+
         Route::post('/integrations/{integration}/test', [IntegrationController::class, 'test'])->name('integrations.test');
         Route::post('/integrations/{integration}/statut', [IntegrationController::class, 'status'])->name('integrations.status');
         Route::get('/{section}', [SettingsController::class, 'show'])->whereIn('section', array_keys(Settings::SECTIONS))->name('show');

@@ -13,7 +13,7 @@ type Props = {
     onOpen: (site: Site) => void;
 };
 
-const HEADERS = ['Chantier', 'Promoteur', 'Localisation', 'Progression', 'Ouvriers', 'Statut'];
+const HEADERS = ['Chantier', 'Promoteur', 'Localisation', 'Temps écoulé', 'Ouvriers', 'Statut'];
 
 const thStyle = { padding: 'var(--space-2_5) var(--space-3)', fontSize: 'var(--fs-sm)', fontWeight: 'var(--fw-semibold)', color: 'var(--c-ink-2)' } as const;
 const rowIconButton = { width: 'var(--control-xs)', height: 'var(--control-xs)', border: 0, borderRadius: 'var(--radius-md)', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center', color: 'var(--c-ink-2)' } as const;
@@ -127,7 +127,7 @@ export default function RecentSites({ sites, distribution, onOpen }: Props) {
                         <div style={{ fontSize: 'var(--fs-md)', fontWeight: 'var(--fw-semibold)', marginBottom: 'var(--space-2)' }}>Répartition des {distribution.total} chantiers actifs</div>
                         <div style={{ display: 'flex', height: 10, borderRadius: 'var(--radius-pill)', overflow: 'hidden', gap: 2, background: 'var(--c-line-soft)' }}>
                             {distribution.segments.map((d) => (
-                                <div key={d.label} style={{ height: '100%', width: `${(d.count / distribution.total) * 100}%`, background: d.color }} />
+                                <div key={d.label} style={{ height: '100%', width: `${(d.count / (distribution.total || 1)) * 100}%`, background: d.color }} />
                             ))}
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2) var(--space-5)', marginTop: 'var(--space-2_5)' }}>

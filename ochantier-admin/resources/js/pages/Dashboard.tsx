@@ -8,7 +8,6 @@ import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
 import StatCard from '@/components/ui/StatCard';
 import { useAdminUi } from '@/contexts/AdminUiContext';
-import { hash } from '@/lib/tone';
 import type { ActivityRange, DashboardProps, FinanceRange, Site, WorkerProfile } from '@/types/dashboard';
 import { Head, Link, router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
@@ -77,24 +76,16 @@ export default function Dashboard({ kpis, activity, priorities, recentSites, sit
             ],
         });
 
-    // Clic sur un point du graphique : chantiers concernés à cette date (échantillon des chantiers récents).
+    // Clic sur un point du graphique : le chiffre de cette date, et le module Chantiers pour le détail.
     const openPoint = (series: SeriesKey, index: number) => {
+        if (!activity) return;
         const value = activity[series][index];
-        const date = activity.dates[index];
-        const pool = recentSites;
-        const start = hash(date) % Math.max(1, pool.length);
-        const list = Array.from({ length: Math.min(value, 6, pool.length) }, (_, i) => pool[(start + i) % pool.length]);
-        const plural = value > 1 ? 's' : '';
 
         ui.openPanel({
-            kicker: `Activité des chantiers · ${date}`,
+            kicker: `Activité des chantiers · ${activity.dates[index]}`,
             title: `${SERIES[series].name} : ${value}`,
-            text: value ? (series === 'active' ? `${value} chantier${plural} actif${plural} à cette date.` : `${value} chantier${plural} créé${plural} à cette date.`) : undefined,
-            listTitle: value ? 'Chantiers concernés' : undefined,
-            list: list.map((site) => ({ icon: 'construction', tone: 'g', name: site.name, sub: `${site.promoter} · ${site.location}`, badge: site.status, badgeTone: site.tone, onClick: () => openSite(site) })),
-            foot: value > list.length ? `+ ${value - list.length} autres chantiers` : undefined,
-            state: value ? undefined : { kind: 'nodata', title: 'Aucun nouveau chantier', text: 'Aucun chantier n’a été créé à cette date.' },
-            actions: [{ label: 'Voir dans Chantiers', icon: 'open_in_new', onClick: () => router.visit(`/chantiers?filtre=${series === 'active' ? 'En cours' : 'À démarrer'}`) }],
+            state: value ? undefined : { kind: 'nodata', title: 'Aucun chantier', text: 'Aucun chantier à cette date.' },
+            actions: [{ label: 'Voir dans Chantiers', icon: 'open_in_new', onClick: () => router.visit('/chantiers') }],
         });
     };
 
@@ -128,16 +119,16 @@ export default function Dashboard({ kpis, activity, priorities, recentSites, sit
                             className="och-hover-lift"
                             style={{ display: 'block', minWidth: 0, borderRadius: 'var(--radius-2xl)', color: 'inherit', textDecoration: 'none' }}
                         >
-                            <StatCard label={k.label} value={k.value} unit={k.unit} icon={k.icon} tone={k.tone} delta={k.delta} deltaTone={k.deltaTone} deltaIcon={k.deltaIcon} compare={k.compare} highlight={k.highlight} />
+                            <StatCard label={k.label} value={k.value} unit={k.unit} icon={k.icon} tone={k.tone} highlight={k.highlight} />
                         </Link>
                     ))}
                 </div>
 
                 <div className="och-dash-grid">
-                    <ActivityChart activity={activity} loading={!!(loading.activity || loading.all)} onRange={changeActivityRange} onPoint={openPoint} onReport={() => router.visit('/rapports')} />
+                    {activity && <ActivityChart activity={activity} loading={!!(loading.activity || loading.all)} onRange={changeActivityRange} onPoint={openPoint} onReport={() => router.visit('/rapports')} />}
                     <PriorityList priorities={priorities} />
-                    <RecentSites sites={recentSites} distribution={siteDistribution} onOpen={openSite} />
-                    <MatchingCard
+                    {siteDistribution && <RecentSites sites={recentSites} distribution={siteDistribution} onOpen={openSite} />}
+                    {matching && <MatchingCard
                         matching={matching}
                         onWorker={openWorker}
                         onSeeAll={() =>
@@ -150,9 +141,9 @@ export default function Dashboard({ kpis, activity, priorities, recentSites, sit
                                 actions: [{ label: 'Ouvrir le module Matching', icon: 'join_inner', variant: 'primary', onClick: () => router.visit('/matching') }],
                             })
                         }
-                        onLaunch={() => router.visit('/matching', { onSuccess: () => ui.toast(`Matching lancé sur ${matching.pending} besoins en attente.`) })}
-                    />
-                    <FinanceChart finance={finance} loading={!!(loading.finance || loading.all)} onRange={changeFinanceRange} onPayments={() => router.visit('/paiements')} />
+                        onLaunch={() => router.visit('/matching')}
+                    />}
+                    {finance && <FinanceChart finance={finance} loading={!!(loading.finance || loading.all)} onRange={changeFinanceRange} onPayments={() => router.visit('/paiements')} />}
                     <ActivityFeed
                         feed={feed}
                         onSeeAll={() =>

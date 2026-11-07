@@ -34,10 +34,9 @@ class SettingsTest extends TestCase
         $this->get('/parametres')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('Settings/Page')->where('section', 'commissions')->has('nav', 10)->where('values.z', 10)->where('values', fn ($values): bool => $values['z.on'] === true)->where('values.rsx', [80]));
 
-        foreach (array_keys(Settings::SECTIONS) as $section) {
+        foreach (array_diff(array_keys(Settings::SECTIONS), ['utilisateurs', 'audit']) as $section) {
             $this->get("/parametres/{$section}")->assertOk()->assertInertia(fn (Assert $page) => $page->component('Settings/Page')->where('section', $section));
         }
-        $this->get('/parametres/utilisateurs')->assertInertia(fn (Assert $page) => $page->has('tables', 3)->has('tables.0.rows', 9)->has('toolbar', 1));
         $this->get('/parametres/integrations')->assertInertia(fn (Assert $page) => $page->has('tables.0.rows', 16));
         $this->get('/parametres/inconnu')->assertNotFound();
     }
@@ -96,28 +95,6 @@ class SettingsTest extends TestCase
         $this->assertDatabaseHas('setting_changes', ['action' => 'Métiers ajoutés : Étancheur · désactivés : Coffreur']);
     }
 
-    public function test_users_can_be_invited_suspended_and_reassigned_with_safeguards(): void
-    {
-        $this->post('/parametres/utilisateurs/invitations', ['name' => 'Koffi Brou', 'email' => 'k.brou@ochantier.ci', 'role' => 'Comptable'])->assertSessionHasNoErrors();
-        $this->assertDatabaseHas('users', ['email' => 'k.brou@ochantier.ci', 'status' => 'Invitation envoyée', 'role' => 'Comptable']);
-        $this->post('/parametres/utilisateurs/invitations', ['name' => 'Doublon', 'email' => 'a.kone@ochantier.ci', 'role' => 'Support'])->assertSessionHasErrors('email');
-        $this->post('/parametres/utilisateurs/invitations', ['name' => 'Troisième admin', 'email' => 'admin3@ochantier.ci', 'role' => 'Administrateur'])->assertSessionHasNoErrors();
-        $this->post('/parametres/utilisateurs', ['values' => ['usr.maxAdmins' => 3]])->assertSessionHasNoErrors();
-        $this->post('/parametres/utilisateurs/invitations', ['name' => 'Quatrième admin', 'email' => 'admin4@ochantier.ci', 'role' => 'Super administrateur'])->assertSessionHasErrors('role');
-
-        $kone = User::query()->where('email', 'a.kone@ochantier.ci')->first();
-        $this->post("/parametres/utilisateurs/{$kone->id}/role", ['role' => 'Support'])->assertSessionHasNoErrors();
-        $this->assertSame('Support', $kone->fresh()->role);
-        $this->post("/parametres/utilisateurs/{$kone->id}/statut")->assertSessionHasNoErrors();
-        $this->assertSame('Suspendu', $kone->fresh()->status);
-        $this->post("/parametres/utilisateurs/{$kone->id}/statut");
-        $this->assertSame('Actif', $kone->fresh()->status);
-
-        $this->post("/parametres/utilisateurs/{$this->admin->id}/statut")->assertSessionHasErrors('status');
-        $this->post("/parametres/utilisateurs/{$this->admin->id}/role", ['role' => 'Support'])->assertSessionHasErrors('role');
-        $this->assertDatabaseHas('setting_changes', ['action' => 'Rôle de A. Koné modifié de Responsable opérations à Support']);
-    }
-
     public function test_integrations_can_be_tested_and_suspended(): void
     {
         $signature = Integration::query()->where('name', 'Signature électronique')->first();
@@ -136,10 +113,4 @@ class SettingsTest extends TestCase
         $this->get('/parametres/integrations')->assertInertia(fn (Assert $page) => $page->where('tables.0.rows', fn ($rows) => ! str_contains(json_encode($rows), $sms->fresh()->secret)));
     }
 
-    public function test_audit_log_can_be_filtered(): void
-    {
-        $this->get('/parametres/audit')->assertInertia(fn (Assert $page) => $page->has('tables.0.rows', 10)->where('tables.0.pagination.total', 10));
-        $this->get('/parametres/audit?rubrique=Intégrations')->assertInertia(fn (Assert $page) => $page->has('tables.0.rows', 2));
-        $this->get('/parametres/audit?q=Gbagbo')->assertInertia(fn (Assert $page) => $page->has('tables.0.rows', 1));
-    }
 }

@@ -6,10 +6,6 @@ export type Kpi = {
     unit: string;
     icon: string;
     tone: AnyTone;
-    delta: string;
-    deltaTone: AnyTone;
-    deltaIcon: string;
-    compare: string;
     highlight: boolean;
     href: string;
 };
@@ -79,7 +75,6 @@ export type WorkerProfile = {
 export type Matching = {
     relevance: number;
     pending: number;
-    delta: string;
     profiles: WorkerProfile[];
 };
 
@@ -105,12 +100,12 @@ export type FeedEntry = {
 
 export type DashboardProps = {
     kpis: Kpi[];
-    activity: Activity;
+    activity: Activity | null;
     priorities: Priorities;
     recentSites: Site[];
-    siteDistribution: SiteDistribution;
-    matching: Matching;
-    finance: Finance;
+    siteDistribution: SiteDistribution | null;
+    matching: Matching | null;
+    finance: Finance | null;
     feed: FeedEntry[];
     updatedAt: string;
 };

@@ -232,7 +232,7 @@ class AuthenticationTest extends TestCase
         $this->get('/')->assertRedirect('/mot-de-passe/nouveau');
         $this->get('/mot-de-passe/nouveau')->assertInertia(fn (Assert $page) => $page->where('step', 'change'));
 
-        Http::fake([self::API.'/auth/password' => Http::response(['message' => 'Mot de passe mis à jour', 'data' => $this->admin()])]);
+        Http::fake([self::API.'/dashboard?*' => Http::response(['data' => ['kpis' => [], 'activity' => null, 'priorities' => [], 'recent_sites' => [], 'site_distribution' => null, 'matching' => null, 'finance' => null, 'feed' => []]]), self::API.'/auth/password' => Http::response(['message' => 'Mot de passe mis à jour', 'data' => $this->admin()])]);
 
         $this->put('/mot-de-passe', ['current_password' => 'motdepasse1', 'password' => 'Nouveau#Secret26', 'password_confirmation' => 'Nouveau#Secret26'])
             ->assertRedirect('/');
@@ -248,6 +248,7 @@ class AuthenticationTest extends TestCase
         $this->signIn();
 
         Http::fake([
+            self::API.'/dashboard?*' => Http::response(['data' => ['kpis' => [], 'activity' => null, 'priorities' => [], 'recent_sites' => [], 'site_distribution' => null, 'matching' => null, 'finance' => null, 'feed' => []]]),
             self::API.'/auth/refresh' => Http::response($this->tokens('2')),
             self::API.'/me' => Http::response(['message' => null, 'data' => $this->admin()]),
         ]);
@@ -280,7 +281,7 @@ class AuthenticationTest extends TestCase
     {
         $this->signIn();
 
-        Http::fake([self::API.'/me' => Http::response(['message' => 'Server Error'], 503)]);
+        Http::fake([self::API.'/dashboard?*' => Http::response(['data' => ['kpis' => [], 'activity' => null, 'priorities' => [], 'recent_sites' => [], 'site_distribution' => null, 'matching' => null, 'finance' => null, 'feed' => []]]), self::API.'/me' => Http::response(['message' => 'Server Error'], 503)]);
 
         $this->travel(2)->minutes();
         $this->app['auth']->forgetGuards();

@@ -20,20 +20,18 @@ const RANGES: [FinanceRange, string][] = [
 ];
 
 /** Part des encaissements reversée à O’CHANTIER. */
-const COMMISSION_RATE = 0.08;
 
 const BARS = [
     { key: 'collected', label: 'Encaissements promoteurs', short: 'Encaissements', color: 'var(--c-primary-600)' },
     { key: 'paidOut', label: 'Reversements aux ouvriers', short: 'Reversements', color: 'var(--c-accent-600)' },
-    { key: 'commission', label: 'Commissions O’CHANTIER', short: 'Commissions', color: 'var(--c-info)' },
 ] as const;
 
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 
-/** Histogramme des encaissements, reversements et commissions. */
+/** Histogramme des encaissements et reversements. */
 export default function FinanceChart({ finance, loading, onRange, onPayments }: Props) {
     const [hover, setHover] = useState<number | null>(null);
-    const series = { collected: finance.collected, paidOut: finance.paidOut, commission: finance.collected.map((v) => v * COMMISSION_RATE) };
+    const series = { collected: finance.collected, paidOut: finance.paidOut };
     const empty = finance.labels.length === 0;
     const step = empty ? 1 : niceStep((Math.max(...finance.collected) * 1.1) / 4);
     const yMax = step * 4;
@@ -44,7 +42,6 @@ export default function FinanceChart({ finance, loading, onRange, onPayments }: 
     const totals = [
         { label: 'Total encaissé', value: sum(series.collected), color: 'var(--c-primary-600)' },
         { label: 'Total reversé', value: sum(series.paidOut), color: 'var(--c-accent-600)' },
-        { label: 'Total des commissions', value: sum(series.commission), color: 'var(--c-info)' },
         { label: 'Montant en attente', value: finance.pending, color: 'var(--c-orange)' },
     ];
 
@@ -83,7 +80,7 @@ export default function FinanceChart({ finance, loading, onRange, onPayments }: 
                                             onMouseLeave={() => setHover(null)}
                                             onFocus={() => setHover(i)}
                                             onBlur={() => setHover(null)}
-                                            aria-label={`${label} : encaissements ${formatMillions(values[0])} FCFA, reversements ${formatMillions(values[1])} FCFA, commissions ${formatMillions(values[2])} FCFA`}
+                                            aria-label={`${label} : encaissements ${formatMillions(values[0])} FCFA, reversements ${formatMillions(values[1])} FCFA`}
                                             style={{ position: 'relative', flex: 1, maxWidth: 56, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 3, height: '100%', cursor: 'pointer', borderRadius: 'var(--radius-sm)', background: on ? 'var(--c-surface-3)' : 'transparent', outline: 0 }}
                                         >
                                             {on && (

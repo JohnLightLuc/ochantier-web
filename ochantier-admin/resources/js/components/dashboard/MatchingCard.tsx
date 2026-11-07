@@ -14,7 +14,7 @@ type Props = {
 
 /** Synthèse du matching intelligent et profils récemment suggérés. */
 export default function MatchingCard({ matching, onWorker, onSeeAll, onLaunch }: Props) {
-    const { relevance, pending, delta, profiles } = matching;
+    const { relevance, pending, profiles } = matching;
 
     return (
         <Card component="MatchingCard" span={4} icon="join_inner" title="Matching intelligent">
@@ -31,11 +31,6 @@ export default function MatchingCard({ matching, onWorker, onSeeAll, onLaunch }:
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-1_5)', flexWrap: 'wrap', marginTop: 'var(--space-1)' }}>
                                 <b style={{ fontSize: 'var(--fs-3xl)', lineHeight: 1 }}>{pending}</b>
                                 <span style={{ fontSize: 'var(--fs-md)' }}>besoins en attente</span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-0_5)', marginTop: 'var(--space-1)', fontSize: 'var(--fs-sm)', fontWeight: 'var(--fw-bold)', color: 'var(--c-success-fg)' }}>
-                                <Icon name="north_east" size="var(--icon-xs)" />
-                                {delta}
-                                <span style={{ fontWeight: 'var(--fw-regular)', color: 'var(--c-muted)', marginLeft: 'var(--space-1)' }}>vs mois dernier</span>
                             </div>
                         </div>
                     </div>

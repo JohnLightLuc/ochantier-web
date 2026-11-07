@@ -336,14 +336,6 @@ return [
         ],
     ],
 
-    'demo_badges' => [
-        'affectations' => 18,
-        'pointages' => 4,
-        'paiements' => 7,
-        'abonnements' => 2,
-        'avis' => 5,
-    ],
-
     /*
     |--------------------------------------------------------------------------
     | Couleur des statuts
