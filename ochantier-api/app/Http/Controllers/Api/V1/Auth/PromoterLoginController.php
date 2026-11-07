@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Auth;
 
+use App\Enums\MessageChannel;
 use App\Enums\OtpPurpose;
 use App\Enums\UserType;
 use App\Http\Requests\V1\Auth\ContactRequest;
@@ -11,6 +12,7 @@ use App\Support\Auth\DeviceContext;
 use App\Support\Promoter\PromoterActivity;
 use App\Support\Promoter\PromoterTeam;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Connexion d’un promoteur sans mot de passe (« Bon retour parmi nous ») : code reçu par SMS ou e-mail.
@@ -18,20 +20,28 @@ use Illuminate\Http\JsonResponse;
 class PromoterLoginController extends AuthController
 {
     /**
-     * Envoie un code si un compte actif correspond. La réponse est identique dans tous les cas
-     * pour ne pas révéler les coordonnées inscrites.
+     * Envoie un code au compte actif correspondant ; refuse les coordonnées inconnues et les comptes suspendus ou désactivés.
+     * Une inscription non terminée compte comme inconnue : elle se reprend depuis l’écran d’inscription.
      */
     public function store(ContactRequest $request): JsonResponse
     {
         [$channel, $destination] = $request->contact();
         $user = User::findByContact(UserType::Promoter, ...$request->contactLookup());
 
-        if ($user?->canSignIn()) {
-            $this->ensureCanResend(OtpPurpose::Login, $destination);
-            $this->otp->send(OtpPurpose::Login, $channel, $destination, $user);
+        if ($refusal = $user?->signInRefusal()) {
+            return response()->json(['message' => $refusal], 403);
         }
 
-        return $this->codeSent($request->recipient(), 'Si un compte est associé à ces coordonnées, un code vient de lui être envoyé.');
+        if (! $user?->canSignIn()) {
+            throw ValidationException::withMessages($channel === MessageChannel::Sms
+                ? ['phone_number' => 'Aucun compte n’existe avec ce numéro. Inscrivez-vous.']
+                : ['email' => 'Aucun compte n’existe avec cette adresse e-mail. Inscrivez-vous.']);
+        }
+
+        $this->ensureCanResend(OtpPurpose::Login, $destination);
+        $this->otp->send(OtpPurpose::Login, $channel, $destination, $user);
+
+        return $this->codeSent($request->recipient(), 'Code de connexion envoyé.');
     }
 
     /**

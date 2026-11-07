@@ -146,23 +146,50 @@ class PromoterAuthTest extends AuthTestCase
         $this->assertNotNull($user->fresh()->last_login_at);
     }
 
-    public function test_the_login_response_does_not_reveal_unknown_numbers(): void
+    public function test_an_unknown_number_is_refused_and_no_code_is_sent(): void
     {
         $this->postJson('/api/v1/auth/promoter/login', ['dial_code' => '225', 'phone_number' => '0708091011'])
-            ->assertAccepted()
-            ->assertJsonPath('message', 'Si un compte est associé à ces coordonnées, un code vient de lui être envoyé.');
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Aucun compte n’existe avec ce numéro. Inscrivez-vous.')
+            ->assertJsonValidationErrors(['phone_number' => 'Aucun compte n’existe avec ce numéro. Inscrivez-vous.']);
 
         $this->assertEmpty($this->sms->sent);
+        $this->assertSame(0, OtpCode::count());
 
         $this->postJson('/api/v1/auth/promoter/login/verify', ['dial_code' => '225', 'phone_number' => '0708091011', 'code' => '123456', ...$this->device()])
             ->assertJsonValidationErrors(['code']);
+    }
+
+    public function test_an_unknown_email_is_refused_and_no_code_is_sent(): void
+    {
+        Mail::fake();
+
+        $this->postJson('/api/v1/auth/promoter/login', ['email' => 'inconnu@batir.ci'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['email' => 'Aucun compte n’existe avec cette adresse e-mail. Inscrivez-vous.']);
+
+        $this->assertSame(0, OtpCode::count());
+    }
+
+    public function test_an_unfinished_registration_cannot_request_a_login_code(): void
+    {
+        $this->postJson('/api/v1/auth/promoter/register', ['profile_kind' => 'particulier', 'dial_code' => '225', 'phone_number' => '0708091011', 'accept_terms' => true])
+            ->assertAccepted();
+
+        $this->postJson('/api/v1/auth/promoter/login', ['dial_code' => '225', 'phone_number' => '0708091011'])
+            ->assertJsonValidationErrors(['phone_number' => 'Aucun compte n’existe avec ce numéro. Inscrivez-vous.']);
+
+        $this->assertCount(1, $this->sms->sent);
     }
 
     public function test_a_suspended_promoter_cannot_sign_in(): void
     {
         User::factory()->promoter()->suspended()->create(['dial_code' => '225', 'phone_number' => '0708091011']);
 
-        $this->postJson('/api/v1/auth/promoter/login', ['dial_code' => '225', 'phone_number' => '0708091011'])->assertAccepted();
+        $this->postJson('/api/v1/auth/promoter/login', ['dial_code' => '225', 'phone_number' => '0708091011'])
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Votre compte est suspendu. Contactez le support O’CHANTIER.');
+
         $this->assertEmpty($this->sms->sent);
 
         $this->postJson('/api/v1/auth/promoter/login/verify', ['dial_code' => '225', 'phone_number' => '0708091011', 'code' => '123456', ...$this->device()])

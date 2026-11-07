@@ -511,7 +511,7 @@
                 "login"
               ]
             },
-            "description": "Écran « Bon retour parmi nous ». Envoie un code de connexion par SMS (`dial_code` et `phone_number`) ou par e-mail (`email`).\n\nLa réponse est **identique qu’un compte existe ou non**, pour ne pas révéler les coordonnées inscrites.\n\n**Réponse 202** : `message` à afficher et, dans `data`, `channel` (`sms` ou `email`), `destination` masquée, `expires_in` (validité du code en secondes), `resend_in` (délai avant de pouvoir redemander un code, en secondes), `code_length` (nombre de chiffres du code).\nUne nouvelle demande avant ce délai renvoie **429** avec `retry_after` et l’en-tête `Retry-After`.\n",
+            "description": "Écran « Bon retour parmi nous ». Envoie un code de connexion par SMS (`dial_code` et `phone_number`) ou par e-mail (`email`).\n\nLe compte doit exister et être actif :\n\n| Cas | Réponse |\n|---|---|\n| Numéro ou e-mail inconnu, ou inscription non terminée | **422** sur `phone_number` ou `email` : « Aucun compte n’existe avec ce numéro. Inscrivez-vous. » / « Aucun compte n’existe avec cette adresse e-mail. Inscrivez-vous. » |\n| Compte suspendu ou désactivé | **403** avec le motif dans `message`. |\n\nDans ces cas, aucun code n’est envoyé.\n\n**Réponse 202** : `message` à afficher et, dans `data`, `channel` (`sms` ou `email`), `destination` masquée, `expires_in` (validité du code en secondes), `resend_in` (délai avant de pouvoir redemander un code, en secondes), `code_length` (nombre de chiffres du code).\nUne nouvelle demande avant ce délai renvoie **429** avec `retry_after` et l’en-tête `Retry-After`.\n",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"dial_code\": \"{{dial_code}}\",\n  \"phone_number\": \"{{promoter_phone}}\"\n}",
@@ -579,7 +579,54 @@
                   "value": "2"
                 }
               ],
-              "body": "{\n  \"message\": \"Si un compte est associé à ces coordonnées, un code vient de lui être envoyé.\",\n  \"data\": {\n    \"channel\": \"sms\",\n    \"destination\": \"+225 07 •• •• •• 02\",\n    \"expires_in\": 300,\n    \"resend_in\": 45,\n    \"code_length\": 6\n  }\n}"
+              "body": "{\n  \"message\": \"Code de connexion envoyé.\",\n  \"data\": {\n    \"channel\": \"sms\",\n    \"destination\": \"+225 07 •• •• •• 02\",\n    \"expires_in\": 300,\n    \"resend_in\": 45,\n    \"code_length\": 6\n  }\n}"
+            },
+            {
+              "name": "422 · Numéro inconnu",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/promoter/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "promoter",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"dial_code\": \"225\",\n  \"phone_number\": \"0700009999\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unprocessable Content",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"Aucun compte n’existe avec ce numéro. Inscrivez-vous.\",\n  \"errors\": {\n    \"phone_number\": [\n      \"Aucun compte n’existe avec ce numéro. Inscrivez-vous.\"\n    ]\n  }\n}",
+              "id": "a3f1c6de-5b1e-4a57-9d0c-7c1e2f4b6a10"
             }
           ]
         },
@@ -737,7 +784,7 @@
                 "login"
               ]
             },
-            "description": "Même point d’entrée que la connexion par téléphone, avec `email` à la place de `dial_code` et `phone_number`. En local, l’e-mail est écrit dans `storage/logs/laravel.log`.\n**Réponse 202** : `message` à afficher et, dans `data`, `channel` (`sms` ou `email`), `destination` masquée, `expires_in` (validité du code en secondes), `resend_in` (délai avant de pouvoir redemander un code, en secondes), `code_length` (nombre de chiffres du code).\nUne nouvelle demande avant ce délai renvoie **429** avec `retry_after` et l’en-tête `Retry-After`.\n",
+            "description": "Même point d’entrée que la connexion par téléphone, avec `email` à la place de `dial_code` et `phone_number`. En local, l’e-mail est écrit dans `storage/logs/laravel.log`.\nE-mail inconnu : **422** sur `email`. Compte suspendu ou désactivé : **403**.\n**Réponse 202** : `message` à afficher et, dans `data`, `channel` (`sms` ou `email`), `destination` masquée, `expires_in` (validité du code en secondes), `resend_in` (délai avant de pouvoir redemander un code, en secondes), `code_length` (nombre de chiffres du code).\nUne nouvelle demande avant ce délai renvoie **429** avec `retry_after` et l’en-tête `Retry-After`.\n",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{promoter_email}}\"\n}",
@@ -805,7 +852,7 @@
                   "value": "2"
                 }
               ],
-              "body": "{\n  \"message\": \"Si un compte est associé à ces coordonnées, un code vient de lui être envoyé.\",\n  \"data\": {\n    \"channel\": \"email\",\n    \"destination\": \"p•••@demo.ochantier.ci\",\n    \"expires_in\": 300,\n    \"resend_in\": 45,\n    \"code_length\": 6\n  }\n}"
+              "body": "{\n  \"message\": \"Code de connexion envoyé.\",\n  \"data\": {\n    \"channel\": \"email\",\n    \"destination\": \"p•••@demo.ochantier.ci\",\n    \"expires_in\": 300,\n    \"resend_in\": 45,\n    \"code_length\": 6\n  }\n}"
             }
           ]
         },
