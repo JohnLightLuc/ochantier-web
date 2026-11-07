@@ -13,7 +13,6 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\ClaimController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisputeController;
-use App\Http\Controllers\FinanceActionController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\IntegrationController;
 use App\Http\Controllers\MatchingController;
@@ -338,36 +337,14 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('/{rest}', 'legacy')->where('rest', '.*')->name('legacy');
     });
 
-    Route::prefix('finance-reporting')->name('finance.')->group(function () {
-        Route::get('/', [FinanceController::class, 'index'])->name('index');
-        Route::post('/synchronisation', [FinanceActionController::class, 'sync'])->name('sync');
-        Route::post('/vues', [FinanceActionController::class, 'storeView'])->name('views.store');
-        Route::post('/vues/partage', [FinanceActionController::class, 'shareView'])->name('views.share');
-        Route::get('/commissions', [FinanceController::class, 'journal'])->name('journal');
-        Route::get('/commissions/{reference}', [FinanceController::class, 'commission'])->name('commission');
-        Route::get('/commissions/{reference}/export', [FinanceActionController::class, 'commissionExport'])->name('commission.export');
-        Route::post('/commissions/{reference}/ecart', [FinanceActionController::class, 'reportGap'])->name('commission.report');
-        Route::get('/creances', [FinanceController::class, 'receivables'])->name('receivables');
-        Route::get('/reversements', [FinanceController::class, 'payouts'])->name('payouts');
-        Route::get('/tresorerie', [FinanceController::class, 'treasury'])->name('treasury');
-        Route::get('/remboursements', [FinanceController::class, 'refunds'])->name('refunds');
-        Route::get('/frais-operateurs', [FinanceController::class, 'fees'])->name('fees');
-        Route::get('/rapprochements', [FinanceController::class, 'reconciliations'])->name('reconciliations');
-        Route::post('/rapprochements/{reference}/ecart', [FinanceActionController::class, 'resolveGap'])->name('reconciliations.gap');
-        Route::post('/rapprochements/{reference}/doublon', [FinanceActionController::class, 'confirmDuplicate'])->name('reconciliations.duplicate');
-        Route::get('/anomalies', [FinanceController::class, 'risks'])->name('risks');
-        Route::get('/objectifs', [FinanceController::class, 'objectives'])->name('objectives');
-        Route::get('/previsions', [FinanceController::class, 'forecasts'])->name('forecasts');
-        Route::get('/clotures', [FinanceController::class, 'closings'])->name('closings');
-        Route::get('/clotures/{month}/instantane', [FinanceActionController::class, 'snapshotExport'])->where('month', '\d{4}-\d{2}')->name('closings.snapshot');
-        Route::post('/clotures/{month}/{action}', [FinanceActionController::class, 'closing'])->where('month', '\d{4}-\d{2}')->whereIn('action', ['preparation', 'controle', 'cloture', 'reouverture'])->name('closings.update');
-        Route::get('/rapports', [FinanceController::class, 'reports'])->name('reports');
-        Route::get('/rapports/generer', [FinanceActionController::class, 'generate'])->name('reports.generate');
-        Route::get('/definitions', [FinanceController::class, 'definitions'])->name('definitions');
-        Route::get('/audit', [FinanceController::class, 'audit'])->name('audit');
-        Route::get('/audit/export', [FinanceActionController::class, 'auditExport'])->name('audit.export');
-        Route::get('/{dimension}', [FinanceController::class, 'analysis'])->whereIn('dimension', array_keys(FinanceController::DIMENSIONS))->name('analysis');
-        Route::get('/{dimension}/{key}', [FinanceController::class, 'analysisDetail'])->whereIn('dimension', ['chantiers', 'promoteurs', 'ouvriers'])->name('analysis.show');
+    // Finance : données de l’API (api/v1/admin/finance). Vue d’une période et journal des commissions.
+    Route::prefix('finance-reporting')->name('finance.')->controller(FinanceController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/commissions', 'commissions')->name('commissions');
+        Route::get('/commissions/export', 'export')->name('commissions.export');
+        Route::redirect('/chantiers', '/finance-reporting/commissions?axe=chantier');
+        Route::redirect('/promoteurs', '/finance-reporting/commissions?axe=promoteur');
+        Route::get('/{rest}', 'legacy')->where('rest', '.*')->name('legacy');
     });
 
     Route::prefix('avis-litiges')->group(function () {
