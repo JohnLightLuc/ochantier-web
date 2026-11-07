@@ -1,11 +1,13 @@
 import PeriodFilter from '@/components/finance/PeriodFilter';
 import Pagination from '@/components/list/Pagination';
 import { TableFrame, TextCell, tdStyle, thStyle } from '@/components/list/Table';
+import FormDialog from '@/components/overlays/FormDialog';
 import Button from '@/components/ui/Button';
 import StatCard from '@/components/ui/StatCard';
 import StateBlock from '@/components/ui/StateBlock';
 import { fcfa, formatNumber } from '@/lib/format';
 import { Head, router } from '@inertiajs/react';
+import { useState } from 'react';
 
 type Column = { key: string; label: string; money?: boolean };
 
@@ -19,13 +21,20 @@ type Props = {
         rows: Record<string, string | number | null>[];
     };
     pagination: { currentPage: number; lastPage: number; total: number; from: number; to: number };
-    can: { export: boolean };
+    can: { export: boolean; create: boolean };
 };
+
+export const FORMATS = [
+    { value: 'xlsx', label: 'Excel' },
+    { value: 'pdf', label: 'PDF' },
+    { value: 'csv', label: 'CSV' },
+];
 
 const cell = (value: string | number | null | undefined, column: Column) => (value === null || value === undefined ? '—' : column.money ? fcfa(Number(value)) : typeof value === 'number' ? formatNumber(value) : value);
 
 /** Un rapport sur une période : indicateurs, tableau et export. */
 export default function ReportShow({ report: r, pagination: p, can }: Props) {
+    const [generating, setGenerating] = useState(false);
     const period = { du: r.period.from, au: r.period.to };
     const url = `/rapports/${r.kind}`;
 
@@ -35,7 +44,10 @@ export default function ReportShow({ report: r, pagination: p, can }: Props) {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: -6 }}>
                 <PeriodFilter from={r.period.from} to={r.period.to} onChange={(next) => router.get(url, next, { preserveState: true, preserveScroll: true, replace: true })} />
-                {can.export && <Button label="Exporter en CSV" icon="download" variant="secondary" onClick={() => (window.location.href = `${url}/export?${new URLSearchParams(period).toString()}`)} />}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                    {can.export && <Button label="Exporter en CSV" icon="download" variant="secondary" onClick={() => (window.location.href = `${url}/export?${new URLSearchParams(period).toString()}`)} />}
+                    {can.create && <Button label="Générer un fichier" icon="description" onClick={() => setGenerating(true)} />}
+                </div>
             </div>
 
             <div data-component="StatGrid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 'var(--space-4)' }}>
@@ -76,6 +88,20 @@ export default function ReportShow({ report: r, pagination: p, can }: Props) {
 
                 <Pagination page={p.currentPage} lastPage={p.lastPage} from={p.from} to={p.to} total={p.total} onPage={(page) => router.get(url, { ...period, page: String(page) }, { preserveScroll: true })} />
             </section>
+
+            {generating && (
+                <FormDialog
+                    title="Générer un fichier"
+                    body={`Le fichier couvre la période affichée et rejoint la bibliothèque : ${r.period.from} au ${r.period.to}.`}
+                    icon="description"
+                    okLabel="Générer"
+                    url={`${url}/generation`}
+                    extra={{ from: r.period.from, to: r.period.to }}
+                    initial={{ format: 'xlsx' }}
+                    onClose={() => setGenerating(false)}
+                    fields={[{ name: 'format', label: 'Format', type: 'select', required: true, full: true, options: FORMATS }]}
+                />
+            )}
         </>
     );
 }

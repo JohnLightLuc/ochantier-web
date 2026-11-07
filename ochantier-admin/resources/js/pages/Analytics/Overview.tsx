@@ -24,6 +24,7 @@ export default function ReportsOverview({ report: r }: Props) {
             <Head title="Rapports" />
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: -6 }}>
+                <Button label="Bibliothèque" icon="folder_open" variant="secondary" onClick={() => router.visit('/rapports/bibliotheque')} />
                 {r.kinds.map((k) => (
                     <Button key={k.kind} label={k.label} icon="description" variant="secondary" onClick={() => router.visit(`/rapports/${k.kind}`)} />
                 ))}

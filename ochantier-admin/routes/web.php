@@ -435,6 +435,12 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
     // Rapports : données de l’API (api/v1/admin/reports). Vue d’ensemble et rapports par période.
     Route::prefix('rapports')->name('analytics.')->controller(ReportController::class)->group(function () {
         Route::get('/', 'index')->name('index');
+        Route::get('/bibliotheque', 'library')->name('library');
+        Route::post('/programmations', 'storeSchedule')->name('schedules.store');
+        Route::post('/programmations/{schedule}/statut', 'toggleSchedule')->whereUuid('schedule')->name('schedules.toggle');
+        Route::delete('/programmations/{schedule}', 'destroySchedule')->whereUuid('schedule')->name('schedules.destroy');
+        Route::get('/fichiers/{run}', 'download')->whereUuid('run')->name('download');
+        Route::post('/{kind}/generation', 'generate')->whereIn('kind', ['financier', 'missions', 'chantiers', 'ouvriers'])->name('generate');
         Route::get('/{kind}', 'show')->whereIn('kind', ['financier', 'missions', 'chantiers', 'ouvriers'])->name('show');
         Route::get('/{kind}/export', 'export')->whereIn('kind', ['financier', 'missions', 'chantiers', 'ouvriers'])->name('export');
         Route::get('/{rest}', 'legacy')->where('rest', '.*')->name('legacy');
