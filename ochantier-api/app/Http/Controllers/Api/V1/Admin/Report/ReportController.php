@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Admin\Report;
 use App\Http\Controllers\Controller;
 use App\Support\Admin\AdminAudit;
 use App\Support\Admin\ReportCatalog;
+use App\Support\Admin\ReportFiles;
 use App\Support\ApiResponse;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -16,7 +17,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class ReportController extends Controller
 {
-    public function __construct(private ReportCatalog $catalog) {}
+    public function __construct(private ReportCatalog $catalog, private ReportFiles $files) {}
 
     public function overview(Request $request): JsonResponse
     {
@@ -39,16 +40,10 @@ class ReportController extends Controller
 
         AdminAudit::record($request->user(), 'reports', 'reports.exported', $request, null, null, ['kind' => $kind, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'format' => 'csv']);
 
-        return response()->streamDownload(function () use ($report): void {
-            $out = fopen('php://output', 'w');
-            fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, array_column($report['columns'], 'label'), ';');
+        $csv = $this->files->csv($report);
 
-            foreach ($report['rows'] as $row) {
-                fputcsv($out, array_map(fn (array $column) => $row[$column['key']] ?? '', $report['columns']), ';');
-            }
-
-            fclose($out);
+        return response()->streamDownload(function () use ($csv): void {
+            echo $csv;
         }, "rapport-{$kind}.csv", ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 

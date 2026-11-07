@@ -34,6 +34,7 @@ use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterRelationController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterReviewController;
 use App\Http\Controllers\Api\V1\Admin\Rating\RatingController;
 use App\Http\Controllers\Api\V1\Admin\Report\ReportController;
+use App\Http\Controllers\Api\V1\Admin\Report\ReportLibraryController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteDecisionController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteRelationController;
@@ -221,6 +222,15 @@ Route::middleware('auth:admin')->group(function () {
                 Route::get('/', 'show')->middleware('admin.can:reports.read')->name('show');
                 Route::get('export', 'export')->middleware('admin.can:reports.export')->name('export');
             });
+        });
+
+        Route::prefix('report-library')->name('report-library.')->controller(ReportLibraryController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:reports.read')->name('index');
+            Route::get('runs/{runId}/download', 'download')->whereUuid('runId')->middleware('admin.can:reports.export')->name('download');
+            Route::post('generate/{kind}', 'generate')->whereIn('kind', array_keys(ReportCatalog::KINDS))->middleware('admin.can:reports.create')->name('generate');
+            Route::post('schedules', 'storeSchedule')->middleware('admin.can:reports.create')->name('schedules.store');
+            Route::post('schedules/{scheduleId}/toggle', 'toggleSchedule')->whereUuid('scheduleId')->middleware('admin.can:reports.create')->name('schedules.toggle');
+            Route::delete('schedules/{scheduleId}', 'destroySchedule')->whereUuid('scheduleId')->middleware('admin.can:reports.create')->name('schedules.destroy');
         });
 
         // Finance : chiffres d’une période, calculés sur les flux réels.
