@@ -31,7 +31,15 @@ class TradeSeeder extends Seeder
         'Coffreur' => ['Coffrages bois et métalliques.', ['Coffrage bois', 'Coffrage métallique'], ['Lecture de plans', 'Étaiement', 'Décoffrage', 'Traçage']],
         'Ferrailleur' => ['Armatures pour béton armé.', ['Armatures', 'Façonnage'], ['Lecture de plans de ferraillage', 'Ligature', 'Découpe et pliage']],
         'Soudeur' => ['Soudure et charpente métallique.', ['Soudure à l’arc', 'Charpente métallique'], ['Soudure MIG', 'Meulage', 'Lecture de plans']],
+        'Étanchéiste' => ['Étanchéité des toitures, terrasses et fondations.', ['Toitures-terrasses', 'Fondations et sous-sols'], ['Membranes bitumineuses', 'Résines d’étanchéité', 'Relevés et joints']],
     ];
+
+    /**
+     * Métiers absents de la demande de devis du promoteur (aucun devis à établir).
+     *
+     * @var list<string>
+     */
+    private const NO_QUOTES = ['Manœuvre'];
 
     /**
      * @var array<string, string>
@@ -57,6 +65,7 @@ class TradeSeeder extends Seeder
                 'description' => $description,
                 'sort_order' => $order += 10,
                 'is_active' => true,
+                'accepts_quotes' => ! in_array($label, self::NO_QUOTES, true),
             ]);
 
             foreach ($specialties as $specialty) {

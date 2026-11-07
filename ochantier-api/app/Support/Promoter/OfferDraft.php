@@ -4,6 +4,8 @@ namespace App\Support\Promoter;
 
 use App\Enums\ContractPaymentMode;
 use App\Enums\PricingVariable;
+use App\Http\Resources\V1\DocumentResource;
+use App\Models\Document;
 use App\Models\Site;
 use App\Models\Trade;
 use App\Models\Worker;
@@ -17,8 +19,9 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
  * Besoins d’un chantier saisis avant la publication (« Offre journalière » ou « Offre contractuelle »).
  *
  * Offre journalière : effectifs par métier avec le tarif journalier proposé, et/ou ouvriers choisis directement.
- * Offre contractuelle : forfait global, mode de paiement du solde et documents du chantier ; les entreprises
- * répondent au forfait.
+ * Offre contractuelle : « Avez-vous un devis ? ». Oui : devis du promoteur (PDF ou image), forfait global et
+ * paiement du solde (hebdomadaire ou par étape) ; les entreprises répondent au forfait. Non : demande de devis par
+ * corps de métier, sans offre financière ; un technicien établit le devis avant que l’offre soit définie.
  *
  * Le brouillon est enregistré sur le chantier (sites.offer_draft) ; la publication en crée l’offre et les besoins.
  */
@@ -32,6 +35,19 @@ class OfferDraft
      * Sous ce pourcentage du tarif de référence, le tarif proposé est signalé comme bas.
      */
     public const LOW_RATE_PERCENT = 70;
+
+    /**
+     * Pièce du chantier qui sert de devis à l’offre contractuelle (« Télécharger le devis »).
+     */
+    public const QUOTE_DOCUMENT = 'site_quote';
+
+    /**
+     * Paiements du solde proposés (« Fin de chantier » n’est plus proposé ; il reste lisible sur les offres
+     * publiées avant).
+     *
+     * @var list<ContractPaymentMode>
+     */
+    public const PAYMENT_MODES = [ContractPaymentMode::Hebdomadaire, ContractPaymentMode::ParEtape];
 
     public function __construct(private PricingRules $pricing, private WorkerCatalog $catalog, private DocumentStore $documents) {}
 
@@ -48,8 +64,13 @@ class OfferDraft
 
         $draft = $data['type'] === self::CONTRACT
             ? ['type' => self::CONTRACT, 'contract' => [
+                'has_quote' => isset($data['contract']['has_quote']) ? (bool) $data['contract']['has_quote'] : null,
                 'amount' => isset($data['contract']['amount']) ? (int) $data['contract']['amount'] : null,
                 'payment_mode' => $data['contract']['payment_mode'] ?? ContractPaymentMode::Hebdomadaire->value,
+                'quote_request' => [
+                    'trade_ids' => array_values(array_unique($data['contract']['quote_request']['trade_ids'] ?? [])),
+                    'notes' => filled($data['contract']['quote_request']['notes'] ?? null) ? trim($data['contract']['quote_request']['notes']) : null,
+                ],
             ]]
             : ['type' => self::DAILY, 'needs' => collect($data['needs'] ?? [])
                 ->filter(fn (array $need) => (int) ($need['headcount'] ?? 0) > 0 || filled($need['daily_rate'] ?? null))
@@ -69,6 +90,46 @@ class OfferDraft
     public function type(Site $site): ?string
     {
         return $site->offer_draft['type'] ?? null;
+    }
+
+    /**
+     * Réponse à « Avez-vous un devis ? » (null tant que le promoteur n’a pas répondu).
+     */
+    public function hasQuote(Site $site): ?bool
+    {
+        return $site->offer_draft['contract']['has_quote'] ?? null;
+    }
+
+    /**
+     * Offre contractuelle sans devis : le promoteur demande un devis au lieu de publier une offre financière.
+     */
+    public function requestsQuote(Site $site): bool
+    {
+        return $this->type($site) === self::CONTRACT && $this->hasQuote($site) === false;
+    }
+
+    /**
+     * Devis joints par le promoteur, du plus récent au plus ancien.
+     *
+     * @return Collection<int, Document>
+     */
+    public function quotes(Site $site): Collection
+    {
+        return $this->documents->active($site)
+            ->filter(fn (Document $document) => $document->documentType?->code === self::QUOTE_DOCUMENT)
+            ->values();
+    }
+
+    /**
+     * Corps de métier de la demande de devis encore proposés, dans l’ordre du référentiel.
+     *
+     * @return Collection<int, Trade>
+     */
+    public function quoteTrades(Site $site): Collection
+    {
+        $ids = $site->offer_draft['contract']['quote_request']['trade_ids'] ?? [];
+
+        return $ids ? Trade::query()->whereKey($ids)->where('is_active', true)->where('accepts_quotes', true)->orderBy('sort_order')->get() : collect();
     }
 
     /**
@@ -148,6 +209,23 @@ class OfferDraft
             $errors[] = compact('key', 'label');
         };
 
+        // Demande de devis : un titre, une localisation et au moins un corps de métier suffisent.
+        if ($this->requestsQuote($site)) {
+            if (blank($site->label)) {
+                $add('title', 'Donnez un titre au chantier');
+            }
+
+            if (blank($site->address)) {
+                $add('location', 'Indiquez la localisation');
+            }
+
+            if ($this->quoteTrades($site)->isEmpty()) {
+                $add('quote_trades', 'Choisissez au moins un corps de métier pour le devis');
+            }
+
+            return $errors;
+        }
+
         if ($type === self::DAILY) {
             foreach ($this->dailyLines($site) as $line) {
                 if ($line['headcount'] > 0 && ! $line['daily_rate']) {
@@ -173,12 +251,20 @@ class OfferDraft
         }
 
         if ($type === self::CONTRACT) {
-            if (! ($site->offer_draft['contract']['amount'] ?? null)) {
-                $add('amount', 'Indiquez le montant de votre offre financière');
-            }
+            if ($this->hasQuote($site) === null) {
+                $add('has_quote', 'Indiquez si vous avez un devis');
+            } else {
+                if ($this->quotes($site)->isEmpty()) {
+                    $add('quote', 'Téléchargez votre devis');
+                }
 
-            if ($this->documents->active($site)->isEmpty()) {
-                $add('documents', 'Ajoutez au moins un document (plans, cahier des charges, devis)');
+                if (! ($site->offer_draft['contract']['amount'] ?? null)) {
+                    $add('amount', 'Indiquez le montant de votre offre financière');
+                }
+
+                if (! in_array($this->paymentMode($site), self::PAYMENT_MODES, true)) {
+                    $add('payment_mode', 'Choisissez le paiement du solde : hebdomadaire ou par étape');
+                }
             }
         } elseif (collect($type ? $this->dailyLines($site) : [])->sum('total_headcount') === 0) {
             $add('needs', 'Ajoutez des besoins en ouvriers ou sélectionnez des ouvriers');
@@ -202,6 +288,11 @@ class OfferDraft
             ContractPaymentMode::ParEtape => ['count' => 3, 'label' => '3 échéances par étape'],
             ContractPaymentMode::FinDeChantier => ['count' => 1, 'label' => '1 paiement à la fin'],
         };
+    }
+
+    public function paymentMode(Site $site): ContractPaymentMode
+    {
+        return ContractPaymentMode::tryFrom($site->offer_draft['contract']['payment_mode'] ?? '') ?? ContractPaymentMode::Hebdomadaire;
     }
 
     public function primaryTradeId(Worker $worker): ?string
@@ -251,13 +342,21 @@ class OfferDraft
     private function contractSummary(Site $site): array
     {
         $amount = $site->offer_draft['contract']['amount'] ?? null;
-        $mode = ContractPaymentMode::from($site->offer_draft['contract']['payment_mode'] ?? ContractPaymentMode::Hebdomadaire->value);
+        $mode = $this->paymentMode($site);
         $days = $site->planned_duration_days;
         $deposit = $amount ? $this->pricing->deposit($amount) : null;
         $documents = $this->documents->active($site)->count();
+        $hasQuote = $this->hasQuote($site);
 
         return [
             'type' => ['value' => self::CONTRACT, 'label' => 'Offre contractuelle'],
+            'has_quote' => $hasQuote,
+            'quotes' => DocumentResource::collection($this->quotes($site))->resolve(),
+            'quote_request' => [
+                'trades' => $this->quoteTrades($site)->map(fn (Trade $trade) => $trade->only(['id', 'code', 'label']))->values()->all(),
+                'notes' => $site->offer_draft['contract']['quote_request']['notes'] ?? null,
+            ],
+            'submit_label' => $hasQuote === false ? 'Rechercher un technicien' : 'Publier',
             'amount' => $amount,
             'payment_mode' => ['value' => $mode->value, 'label' => $mode->label()],
             'deposit_percent' => $this->pricing->value(PricingVariable::X),
@@ -269,7 +368,7 @@ class OfferDraft
             'documents_count' => $documents,
             'documents_hint' => $documents
                 ? $documents.' document'.($documents > 1 ? 's' : '').' joint'.($documents > 1 ? 's' : '').' à l’offre'
-                : 'Joignez vos plans et le cahier des charges (obligatoire)',
+                : 'Joignez vos plans et le cahier des charges (facultatif)',
         ];
     }
 

@@ -40,6 +40,11 @@ class SitePublisher
             throw ValidationException::withMessages(['publication' => array_column($errors, 'label')]);
         }
 
+        // Le circuit de la demande de devis (techniciens de l’application Ouvriers) n’est pas encore en place.
+        if ($this->drafts->requestsQuote($site)) {
+            throw ValidationException::withMessages(['publication' => ['La demande de devis n’est pas encore disponible. Joignez votre devis pour publier.']]);
+        }
+
         return DB::transaction(function () use ($site, $author): Offer {
             $contract = $this->drafts->type($site) === OfferDraft::CONTRACT;
             $type = match (true) {
@@ -48,7 +53,7 @@ class SitePublisher
                 default => OfferType::Ponctuelle,
             };
             $amount = $contract ? (int) $site->offer_draft['contract']['amount'] : null;
-            $mode = $contract ? ContractPaymentMode::from($site->offer_draft['contract']['payment_mode']) : null;
+            $mode = $contract ? $this->drafts->paymentMode($site) : null;
 
             $offer = $site->offers()->create([
                 'reference' => $this->reference('OF', 'offer_reference_seq'),
@@ -59,6 +64,7 @@ class SitePublisher
                 'start_date' => $site->planned_start_date,
                 'end_date' => $site->planned_end_date,
                 'contract_total_amount' => $amount,
+                'quote_document_id' => $contract ? $this->drafts->quotes($site)->first()?->getKey() : null,
                 'payment_mode' => $mode,
                 'visibility' => OfferVisibility::Ciblee,
                 'status' => OfferStatus::Soumise,
@@ -184,8 +190,8 @@ class SitePublisher
     }
 
     /**
-     * Échéances du solde d’une offre contractuelle payée par étape ou en fin de chantier (le paiement hebdomadaire
-     * est calculé avec l’échéancier).
+     * Échéances du solde d’une offre contractuelle payée par étape (le paiement hebdomadaire est calculé avec
+     * l’échéancier ; « Fin de chantier » n’est plus proposé à la publication).
      */
     private function createMilestones(Offer $offer, Site $site, int $amount, ContractPaymentMode $mode): void
     {
