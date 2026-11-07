@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\AdminUserController;
-use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\Auth\CommercialActivationController;
@@ -27,6 +26,7 @@ use App\Http\Controllers\PromoterFormController;
 use App\Http\Controllers\PromoterReviewController;
 use App\Http\Controllers\RatingController;
 use App\Http\Controllers\ReconciliationController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SalesAgentAccessController;
 use App\Http\Controllers\SalesAgentController;
 use App\Http\Controllers\SalesAgentFormController;
@@ -432,16 +432,12 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         });
     });
 
-    Route::prefix('rapports')->name('analytics.')->group(function () {
-        Route::get('/', [AnalyticsController::class, 'index'])->name('index');
-        Route::get('/generer', [AnalyticsController::class, 'generate'])->name('generate');
-        Route::post('/bibliotheque', [AnalyticsController::class, 'store'])->name('reports.store');
-        Route::get('/bibliotheque/{report}/telechargement', [AnalyticsController::class, 'download'])->name('reports.download');
-        Route::post('/programmations', [AnalyticsController::class, 'schedule'])->name('schedules.store');
-        Route::post('/programmations/{schedule}/statut', [AnalyticsController::class, 'toggle'])->name('schedules.toggle');
-        Route::post('/programmations/{schedule}/suppression', [AnalyticsController::class, 'destroy'])->name('schedules.destroy');
-        Route::get('/chantiers/{site:slug}', [AnalyticsController::class, 'site'])->name('site');
-        Route::get('/{kind}', [AnalyticsController::class, 'show'])->whereIn('kind', ['financier', 'missions', 'chantiers', 'ouvriers', 'bibliotheque'])->name('show');
+    // Rapports : données de l’API (api/v1/admin/reports). Vue d’ensemble et rapports par période.
+    Route::prefix('rapports')->name('analytics.')->controller(ReportController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/{kind}', 'show')->whereIn('kind', ['financier', 'missions', 'chantiers', 'ouvriers'])->name('show');
+        Route::get('/{kind}/export', 'export')->whereIn('kind', ['financier', 'missions', 'chantiers', 'ouvriers'])->name('export');
+        Route::get('/{rest}', 'legacy')->where('rest', '.*')->name('legacy');
     });
 
     Route::prefix('parametres')->name('settings.')->group(function () {
