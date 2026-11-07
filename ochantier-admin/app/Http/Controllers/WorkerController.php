@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Worker;
 use App\Support\Api\AdminApi;
 use App\Support\Api\AdminUser;
 use App\Support\WorkerPresenter;
@@ -140,7 +139,7 @@ class WorkerController extends Controller
             return to_route('workers.show', $worker);
         }
 
-        $name = Worker::query()->where('slug', $worker)->first()?->name ?? Str::of($worker)->replace('-', ' ')->title()->value();
+        $name = Str::of($worker)->replace('-', ' ')->title()->value();
         Inertia::flash('toast', 'Ce lien renvoie vers une ancienne fiche : voici la recherche correspondante.');
 
         return to_route('workers.index', ['q' => $name]);

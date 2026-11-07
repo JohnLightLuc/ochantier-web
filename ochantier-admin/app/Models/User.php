@@ -18,7 +18,7 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
-    protected $fillable = ['name', 'email', 'password', 'phone', 'role', 'status', 'modules', 'two_factor', 'last_login_at', 'invitation_expires_on'];
+    protected $fillable = ['name', 'email', 'password'];
 
     /**
      * The attributes that should be hidden for serialization.
@@ -37,17 +37,6 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'two_factor' => 'boolean',
-            'last_login_at' => 'datetime',
-            'invitation_expires_on' => 'date',
         ];
-    }
-
-    /**
-     * Seuls les comptes actifs peuvent se connecter (pas les comptes suspendus ni les invitations en attente).
-     */
-    public function isActive(): bool
-    {
-        return $this->status === 'Actif';
     }
 }

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Worker;
 use App\Support\Api\ApiTokens;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
@@ -191,9 +190,7 @@ class WorkersTest extends TestCase
 
     public function test_old_links_lead_to_the_search_or_the_list(): void
     {
-        Worker::factory()->create(['slug' => 'kouame-koffi', 'first_name' => 'Kouamé', 'last_name' => 'Koffi']);
-
-        $this->get('/ouvriers/kouame-koffi/pointages')->assertRedirect('/ouvriers?q='.rawurlencode('Kouamé Koffi'));
+        $this->get('/ouvriers/kouame-koffi/pointages')->assertRedirect('/ouvriers?q='.rawurlencode('Kouame Koffi'));
 
         Http::assertNothingSent();
     }

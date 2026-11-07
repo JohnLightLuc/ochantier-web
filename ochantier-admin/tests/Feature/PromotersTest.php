@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Promoter;
 use App\Support\Api\ApiTokens;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
@@ -229,10 +228,8 @@ class PromotersTest extends TestCase
 
     public function test_old_links_lead_to_the_search_or_the_overview_instead_of_a_missing_page(): void
     {
-        Promoter::factory()->create(['slug' => 'batir-afrique', 'name' => 'Bâtir Afrique']);
-
         $this->get('/promoteurs/batir-afrique/paiements/PAY-260918-1702')
-            ->assertRedirect('/promoteurs?q='.rawurlencode('Bâtir Afrique'))
+            ->assertRedirect('/promoteurs?q='.rawurlencode('Batir Afrique'))
             ->assertSessionHas('inertia.flash_data.toast');
         $this->get('/promoteurs/horizon-btp')->assertRedirect('/promoteurs?q=Horizon%20Btp');
         $this->get('/promoteurs/'.self::ID.'/litiges')->assertRedirect('/promoteurs/'.self::ID);

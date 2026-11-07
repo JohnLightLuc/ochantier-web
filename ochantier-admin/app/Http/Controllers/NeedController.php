@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Need;
 use App\Support\Api\AdminApi;
 use App\Support\Api\AdminUser;
 use App\Support\OfferPresenter;
@@ -106,7 +105,7 @@ class NeedController extends Controller
             return to_route('needs.index');
         }
 
-        $reference = Need::query()->where('slug', $need)->first()?->reference ?? Str::of($need)->replace('-', ' ')->value();
+        $reference = Str::of($need)->replace('-', ' ')->value();
         Inertia::flash('toast', 'Ce lien renvoie vers une ancienne fiche : voici la recherche correspondante.');
 
         return to_route('needs.index', ['q' => $reference]);

@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Site;
 use App\Support\Api\AdminApi;
 use App\Support\Api\AdminUser;
 use App\Support\SitePresenter;
@@ -102,7 +101,7 @@ class SiteController extends Controller
             return to_route('sites.show', $site);
         }
 
-        $name = Site::query()->where('slug', $site)->first()?->name ?? Str::of($site)->replace('-', ' ')->title()->value();
+        $name = Str::of($site)->replace('-', ' ')->title()->value();
         Inertia::flash('toast', 'Ce lien renvoie vers une ancienne fiche : voici la recherche correspondante.');
 
         return to_route('sites.index', ['q' => $name]);
