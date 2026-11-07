@@ -8,10 +8,6 @@ use App\Http\Controllers\Api\V1\Admin\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Admin\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Admin\Auth\SessionController;
 use App\Http\Controllers\Api\V1\Admin\Claim\ClaimController;
-use App\Http\Controllers\Api\V1\Admin\Dispute\DisputeController;
-use App\Http\Controllers\Api\V1\Admin\Finance\ClosingController;
-use App\Http\Controllers\Api\V1\Admin\Finance\FinanceController;
-use App\Http\Controllers\Api\V1\Admin\Finance\ReconciliationController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialAccessController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialAccountController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialCompensationController;
@@ -19,6 +15,10 @@ use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialPortfolioController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialRankingController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialTerritoryController;
+use App\Http\Controllers\Api\V1\Admin\Dispute\DisputeController;
+use App\Http\Controllers\Api\V1\Admin\Finance\ClosingController;
+use App\Http\Controllers\Api\V1\Admin\Finance\FinanceController;
+use App\Http\Controllers\Api\V1\Admin\Finance\ReconciliationController;
 use App\Http\Controllers\Api\V1\Admin\Matching\MatchingController;
 use App\Http\Controllers\Api\V1\Admin\Offer\OfferController;
 use App\Http\Controllers\Api\V1\Admin\Payment\PaymentController as AdminPaymentController;
@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterRelationController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterReviewController;
 use App\Http\Controllers\Api\V1\Admin\Rating\RatingController;
+use App\Http\Controllers\Api\V1\Admin\Report\ReportController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteDecisionController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteRelationController;
@@ -43,6 +44,7 @@ use App\Http\Controllers\Api\V1\Admin\Worker\WorkerController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerRelationController;
 use App\Http\Controllers\Api\V1\Admin\Worker\WorkerReviewController;
 use App\Http\Controllers\Api\V1\Auth\CommercialActivationController;
+use App\Support\Admin\ReportCatalog;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -208,6 +210,16 @@ Route::middleware('auth:admin')->group(function () {
                 Route::get('/', 'show')->middleware('admin.can:payments.read')->name('show');
                 Route::post('/', 'store')->middleware('admin.can:payments.update')->name('store');
                 Route::post('refunds', 'refund')->middleware('admin.can:payments.update')->name('refund');
+            });
+        });
+
+        // Rapports : vue d’ensemble, consultation et export.
+        Route::prefix('reports')->name('reports.')->controller(ReportController::class)->group(function () {
+            Route::get('/', 'overview')->middleware('admin.can:reports.read')->name('overview');
+
+            Route::prefix('{kind}')->whereIn('kind', array_keys(ReportCatalog::KINDS))->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:reports.read')->name('show');
+                Route::get('export', 'export')->middleware('admin.can:reports.export')->name('export');
             });
         });
 

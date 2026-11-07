@@ -32,8 +32,8 @@ class FinanceReport
     public function overview(CarbonImmutable $from, CarbonImmutable $to): array
     {
         $flows = $this->flows($from, $to);
-        $totals = DB::query()->fromSub($this->journal($from, $to), 'j');
-        $sum = fn (string $column): int => (int) (clone $totals)->sum($column);
+        $totals = DB::query()->fromSub($this->journal($from, $to), 'j')->selectRaw('coalesce(sum(y_amount), 0) as y_amount, coalesce(sum(z_amount), 0) as z_amount, coalesce(sum(earned), 0) as earned, coalesce(sum(collected), 0) as collected, coalesce(sum(refunded), 0) as refunded, coalesce(sum(remaining), 0) as remaining')->first();
+        $sum = fn (string $column): int => (int) $totals->{$column};
         $collected = $sum('collected') - $sum('refunded');
         $schedules = $this->payments->scheduleCounts();
 
