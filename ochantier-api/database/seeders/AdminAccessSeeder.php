@@ -41,7 +41,7 @@ class AdminAccessSeeder extends Seeder
         'payments' => ['paiements', ['read', 'update', 'approve', 'export']],
         'payouts' => ['reversements', ['read', 'create', 'approve', 'export']],
         'commercial_earnings' => ['gains des commerciaux', ['read', 'update', 'approve', 'export']],
-        'finance' => ['finance et rapprochements', ['read', 'update', 'approve', 'export']],
+        'finance' => ['finance et rapprochements', ['read', 'update', 'validate', 'approve', 'export']],
         'ratings' => ['avis', ['read', 'update', 'validate']],
         'disputes' => ['litiges et réclamations', ['read', 'update', 'validate', 'approve']],
         'tickets' => ['support', ['read', 'create', 'update']],
@@ -63,7 +63,7 @@ class AdminAccessSeeder extends Seeder
         'super_admin' => ['Super administrateur', 'Accès complet, y compris la gestion des administrateurs.', ['*' => ['*']]],
         'direction' => ['Direction', 'Pilotage : consultation et export de tous les modules, approbations financières et paramètres.', [
             '*' => ['read', 'export'],
-            'payments' => ['approve'], 'payouts' => ['approve'], 'finance' => ['approve'], 'commercial_earnings' => ['approve'], 'settings' => ['approve'], 'matching' => ['approve'], 'disputes' => ['validate', 'approve'],
+            'payments' => ['approve'], 'payouts' => ['approve'], 'finance' => ['validate', 'approve'], 'commercial_earnings' => ['approve'], 'settings' => ['approve'], 'matching' => ['approve'], 'disputes' => ['validate', 'approve'],
         ]],
         'operations' => ['Opérations', 'Contrôle des profils, chantiers, matching, affectations et pointages.', [
             'dashboard' => ['*'], 'promoters' => ['read', 'create', 'update', 'validate', 'export'], 'organizations' => ['read', 'update', 'validate'], 'commercials' => ['*'], 'prospects' => ['*'],
@@ -72,7 +72,7 @@ class AdminAccessSeeder extends Seeder
         ]],
         'finance' => ['Finance', 'Paiements, reversements, abonnements, gains des commerciaux et rapprochements.', [
             'dashboard' => ['*'], 'promoters' => ['read'], 'organizations' => ['read'], 'subscriptions' => ['*'], 'commercials' => ['read'], 'workers' => ['read'], 'sites' => ['read'],
-            'missions' => ['read'], 'attendance' => ['read', 'export'], 'payments' => ['*'], 'payouts' => ['*'], 'commercial_earnings' => ['*'], 'finance' => ['*'],
+            'missions' => ['read'], 'attendance' => ['read', 'export'], 'payments' => ['*'], 'payouts' => ['*'], 'commercial_earnings' => ['*'], 'finance' => ['read', 'update', 'approve', 'export'],
             'disputes' => ['read'], 'reports' => ['*'], 'settings' => ['read'],
         ]],
         'support' => ['Support', 'Assistance aux utilisateurs, avis, litiges et contenus d’aide.', [

@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\Admin\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Admin\Auth\SessionController;
 use App\Http\Controllers\Api\V1\Admin\Claim\ClaimController;
 use App\Http\Controllers\Api\V1\Admin\Dispute\DisputeController;
+use App\Http\Controllers\Api\V1\Admin\Finance\ClosingController;
 use App\Http\Controllers\Api\V1\Admin\Finance\FinanceController;
 use App\Http\Controllers\Api\V1\Admin\Finance\ReconciliationController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialAccessController;
@@ -215,6 +216,19 @@ Route::middleware('auth:admin')->group(function () {
             Route::get('overview', 'overview')->middleware('admin.can:finance.read')->name('overview');
             Route::get('commissions', 'commissions')->middleware('admin.can:finance.read')->name('commissions');
             Route::get('commissions/export', 'export')->middleware('admin.can:finance.export')->name('commissions.export');
+        });
+
+        // Clôtures mensuelles : une personne prépare, une autre clôture ; rouvrir (finance.validate) revient à la Direction.
+        Route::prefix('finance/closings')->name('finance.closings.')->controller(ClosingController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:finance.read')->name('index');
+
+            Route::prefix('{month}')->where(['month' => '20\d{2}-(0[1-9]|1[0-2])'])->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:finance.read')->name('show');
+                Route::get('export', 'export')->middleware('admin.can:finance.export')->name('export');
+                Route::post('prepare', 'prepare')->middleware('admin.can:finance.update')->name('prepare');
+                Route::post('close', 'close')->middleware('admin.can:finance.approve')->name('close');
+                Route::post('reopen', 'reopen')->middleware('admin.can:finance.validate')->name('reopen');
+            });
         });
 
         // Rapprochements : un relevé d’opérateur comparé aux opérations de la plateforme.
