@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Admin\Access\AdminController;
+use App\Http\Controllers\Api\V1\Admin\Access\AuditController;
 use App\Http\Controllers\Api\V1\Admin\Assignment\AssignmentController;
 use App\Http\Controllers\Api\V1\Admin\Attendance\AnomalyController;
 use App\Http\Controllers\Api\V1\Admin\Attendance\AttendanceController;
@@ -15,6 +17,7 @@ use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialPortfolioController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialRankingController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialTerritoryController;
+use App\Http\Controllers\Api\V1\Admin\Dashboard\DashboardController;
 use App\Http\Controllers\Api\V1\Admin\Dispute\DisputeController;
 use App\Http\Controllers\Api\V1\Admin\Finance\ClosingController;
 use App\Http\Controllers\Api\V1\Admin\Finance\FinanceController;
@@ -213,6 +216,30 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('refunds', 'refund')->middleware('admin.can:payments.update')->name('refund');
             });
         });
+
+        // Administrateurs : invitation par lien, rôles fixes, suspension et désactivation.
+        Route::prefix('admins')->name('admins.')->controller(AdminController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:admins.read')->name('index');
+            Route::post('/', 'store')->middleware('admin.can:admins.create')->name('store');
+            Route::get('roles', 'roles')->middleware('admin.can:admins.read')->name('roles');
+
+            Route::prefix('{adminId}')->whereUuid('adminId')->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:admins.read')->name('show');
+                Route::post('invitation', 'resend')->middleware('admin.can:admins.update')->name('invitation.resend');
+                Route::delete('invitation', 'revoke')->middleware('admin.can:admins.update')->name('invitation.revoke');
+                Route::put('roles', 'updateRoles')->middleware('admin.can:admins.update')->name('roles.update');
+                Route::post('suspension', 'suspend')->middleware('admin.can:admins.update')->name('suspend');
+                Route::post('reactivation', 'reactivate')->middleware('admin.can:admins.update')->name('reactivate');
+                Route::post('deactivation', 'deactivate')->middleware('admin.can:admins.delete')->name('deactivate');
+            });
+        });
+
+        Route::get('audit', [AuditController::class, 'index'])->middleware('admin.can:audit.read')->name('audit.index');
+        Route::get('audit/export', [AuditController::class, 'export'])->middleware('admin.can:audit.export')->name('audit.export');
+
+        // Tableau de bord : chaque bloc dépend aussi du droit de lire son module.
+        Route::get('dashboard', [DashboardController::class, 'show'])->middleware('admin.can:dashboard.read')->name('dashboard');
+        Route::get('dashboard/badges', [DashboardController::class, 'badges'])->middleware('admin.can:dashboard.read')->name('dashboard.badges');
 
         // Rapports : vue d’ensemble, consultation et export.
         Route::prefix('reports')->name('reports.')->controller(ReportController::class)->group(function () {

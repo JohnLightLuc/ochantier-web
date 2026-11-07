@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Admin\Auth;
 
+use App\Enums\AdminStatus;
 use App\Http\Requests\V1\Admin\Auth\EmailRequest;
 use App\Http\Requests\V1\Admin\Auth\ResetPasswordRequest;
 use App\Http\Requests\V1\Admin\Auth\UpdatePasswordRequest;
@@ -74,16 +75,19 @@ class PasswordController extends AdminAuthController
             ->where('expires_at', '>', now())
             ->first() : null;
 
-        if (! $reset || ! $admin->canSignIn()) {
+        $invited = $admin?->status === AdminStatus::Invite;
+
+        if (! $reset || (! $invited && ! $admin->canSignIn())) {
             $this->recordAttempt($request, $request->email(), false, $admin, 'reset_token');
 
             throw ValidationException::withMessages(['token' => 'Ce lien a expiré ou a déjà été utilisé. Faites une nouvelle demande.']);
         }
 
-        DB::transaction(function () use ($admin, $reset, $request): void {
+        DB::transaction(function () use ($admin, $reset, $request, $invited): void {
             $reset->update(['used_at' => now()]);
 
             $admin->forceFill([
+                'status' => $invited ? AdminStatus::Actif : $admin->status,
                 'password_hash' => $request->input('password'),
                 'must_change_password' => false,
                 'failed_login_count' => 0,

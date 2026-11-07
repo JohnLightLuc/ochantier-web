@@ -143,8 +143,10 @@ class CommercialEarnings
             return null;
         }
 
+        // Un versement annulé garde sa ligne : le rang du mois donne une référence nouvelle à chaque nouvelle préparation.
+        $rank = $commercial->commercialPayouts()->whereDate('period_start', $month->startOfMonth()->toDateString())->count() + 1;
         $payout = $commercial->commercialPayouts()->create([
-            'reference' => sprintf('VRS-%s-%s', $month->format('Ym'), mb_strtoupper(substr(str_replace('-', '', (string) $commercial->employee_number), -5))).'-'.random_int(100, 999),
+            'reference' => sprintf('VRS-%s-%s-%02d', $month->format('Ym'), mb_strtoupper(substr(str_replace('-', '', (string) $commercial->employee_number), -5)), $rank),
             'period_start' => $month->startOfMonth()->toDateString(),
             'period_end' => $month->endOfMonth()->toDateString(),
             'total_amount' => $due['total'],

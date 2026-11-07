@@ -193,6 +193,22 @@ class CommercialPayoutAdminTest extends CommercialTestCase
         $this->getJson('/api/v1/admin/commercial-payouts/payable?month='.$this->month)->assertJsonPath('data.0.commissions', $other->amount);
     }
 
+    public function test_a_payout_prepared_again_after_a_cancellation_gets_its_own_reference(): void
+    {
+        $this->earning();
+        $this->number();
+        $references = [];
+
+        foreach (range(1, 3) as $attempt) {
+            $payout = $this->prepare();
+            $references[] = $payout->reference;
+            $this->as($this->preparer)->postJson("/api/v1/admin/commercial-payouts/{$payout->id}/cancel", ['reason' => 'Versement à revoir.'])->assertOk();
+        }
+
+        $this->assertCount(3, array_unique($references));
+        $this->assertStringEndsWith('-03', $references[2]);
+    }
+
     public function test_a_commercial_number_needs_a_second_person_and_is_listed_with_the_others(): void
     {
         $operator = PaymentOperator::query()->where('code', 'orange_money')->sole();
