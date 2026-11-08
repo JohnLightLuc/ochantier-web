@@ -9,8 +9,8 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Besoins du chantier (« Type d’offre », « Effectifs ouvriers », « Offre contractuelle ») : le brouillon est
- * remplacé par ce qui est envoyé.
+ * Besoins du chantier (« Type d’offre », « Effectifs ouvriers », « Offre contractuelle » avec « Avez-vous un
+ * devis ? », l’offre financière ou la demande de devis) : le brouillon est remplacé par ce qui est envoyé.
  */
 class OfferDraftRequest extends FormRequest
 {
@@ -32,7 +32,12 @@ class OfferDraftRequest extends FormRequest
             'worker_ids.*' => ['uuid', 'distinct', Rule::exists('workers', 'id')->where('verification_status', WorkerVerificationStatus::Valide->value)->whereNull('merged_into_worker_id')->whereNull('deleted_at')],
             'contract' => [$daily ? 'prohibited' : 'sometimes', 'array'],
             'contract.amount' => ['nullable', 'integer', 'min:10000', 'max:100000000000'],
-            'contract.payment_mode' => ['sometimes', Rule::enum(ContractPaymentMode::class)],
+            'contract.payment_mode' => ['sometimes', Rule::enum(ContractPaymentMode::class)->only(OfferDraft::PAYMENT_MODES)],
+            'contract.has_quote' => ['sometimes', 'nullable', 'boolean'],
+            'contract.quote_request' => ['sometimes', 'array'],
+            'contract.quote_request.trade_ids' => ['sometimes', 'array', 'max:20'],
+            'contract.quote_request.trade_ids.*' => ['uuid', 'distinct', Rule::exists('trades', 'id')->where('is_active', true)->where('accepts_quotes', true)],
+            'contract.quote_request.notes' => ['nullable', 'string', 'max:1000'],
         ];
     }
 
@@ -53,6 +58,10 @@ class OfferDraftRequest extends FormRequest
             'needs.*.daily_rate.min' => 'Le tarif journalier doit être d’au moins 1 000 FCFA.',
             'worker_ids.*.exists' => 'Cet ouvrier n’est plus disponible à la réservation.',
             'contract.amount.min' => 'Le montant du forfait doit être d’au moins 10 000 FCFA.',
+            'contract.payment_mode.enum' => 'Paiement du solde attendu : hebdomadaire ou par étape.',
+            'contract.quote_request.trade_ids.*.distinct' => 'Ce corps de métier est déjà choisi.',
+            'contract.quote_request.trade_ids.*.exists' => 'Corps de métier inconnu.',
+            'contract.quote_request.notes.max' => 'Les précisions pour le technicien ne doivent pas dépasser 1 000 caractères.',
         ];
     }
 }

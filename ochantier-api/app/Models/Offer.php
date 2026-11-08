@@ -33,6 +33,7 @@ class Offer extends Model
         'contract_total_amount', 'quote_document_id', 'quote_amount', 'deliverables', 'visibility', 'published_at',
         'application_deadline', 'applications_open', 'extension_count', 'auto_renew', 'status', 'submitted_at',
         'assigned_admin_id', 'created_by_user_id', 'cancellation_reason', 'client_uuid', 'lock_version', 'payment_mode',
+        'contractor_bid_id',
     ];
 
     /**
@@ -113,6 +114,22 @@ class Offer extends Model
     public function proposals(): HasMany
     {
         return $this->hasMany(Proposal::class);
+    }
+
+    /**
+     * @return HasMany<ContractorBid, $this>
+     */
+    public function contractorBids(): HasMany
+    {
+        return $this->hasMany(ContractorBid::class);
+    }
+
+    /**
+     * @return BelongsTo<ContractorBid, $this>
+     */
+    public function contractorBid(): BelongsTo
+    {
+        return $this->belongsTo(ContractorBid::class);
     }
 
     /**

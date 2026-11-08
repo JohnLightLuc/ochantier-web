@@ -8,7 +8,9 @@ use App\Models\Need;
 use App\Models\Offer;
 use App\Models\OfferMilestone;
 use App\Models\Site;
+use App\Support\Promoter\ContractorOffers;
 use App\Support\Promoter\OfferDraft;
+use App\Support\Promoter\QuoteRequests;
 use App\Support\Promoter\SiteManager;
 use Illuminate\Http\Request;
 
@@ -36,6 +38,8 @@ class SiteDetailResource extends SiteResource
                 'draft' => app(OfferDraft::class)->summary($this->resource),
                 'published' => ($offer = $this->offers()->with(['needs.trade', 'milestones'])->latest()->first()) ? $this->published($offer) : null,
             ],
+            'contractor_offers' => ($contract = app(ContractorOffers::class)->openOffer($this->resource)) ? app(ContractorOffers::class)->summary($contract) : null,
+            'quote_request' => ($quote = app(QuoteRequests::class)->current($this->resource)) ? app(QuoteRequests::class)->summary($quote) : null,
             'documents' => $sites->activeDocuments($this->resource)
                 ->map(fn (Document $document) => DocumentResource::make($document)->resolve())
                 ->values()

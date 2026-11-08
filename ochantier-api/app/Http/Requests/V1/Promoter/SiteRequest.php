@@ -5,6 +5,7 @@ namespace App\Http\Requests\V1\Promoter;
 use App\Enums\SiteWorkType;
 use App\Models\Site;
 use App\Support\Promoter\PromoterAccess;
+use App\Support\Promoter\PromoterSubscriptions;
 use App\Support\Promoter\SiteManager;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
@@ -62,9 +63,13 @@ class SiteRequest extends FormRequest
                 }
 
                 $responsible = $this->input('responsible_user_id');
+                $profile = app(PromoterAccess::class)->profile($this->user());
 
-                if ($responsible && ! app(SiteManager::class)->isAllowedResponsible(app(PromoterAccess::class)->profile($this->user()), $responsible)) {
-                    $validator->errors()->add('responsible_user_id', 'Choisissez vous-même ou un utilisateur de votre équipe.');
+                // Le responsable déjà désigné reste accepté, même si l’abonnement a pris fin depuis.
+                if ($responsible && $responsible !== $this->site()?->responsible_user_id && ! app(SiteManager::class)->isAllowedResponsible($profile, $responsible)) {
+                    $validator->errors()->add('responsible_user_id', app(PromoterSubscriptions::class)->isSubscribed($profile)
+                        ? 'Choisissez vous-même ou un utilisateur de votre équipe.'
+                        : 'Un abonnement est nécessaire pour confier un chantier à un collaborateur.');
                 }
             },
         ];

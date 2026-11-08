@@ -11,6 +11,7 @@ use App\Enums\WorkerVerificationStatus;
 use App\Models\Need;
 use App\Models\Offer;
 use App\Models\Setting;
+use App\Models\Site;
 
 class SiteOfferTest extends PromoterTestCase
 {
@@ -29,7 +30,9 @@ class SiteOfferTest extends PromoterTestCase
             ->assertJsonPath('data.trades.0.reference_rate', 25000)
             ->assertJsonPath('data.deposit_percent', 30)
             ->assertJsonPath('data.low_rate_percent', 70)
-            ->assertJsonPath('data.payment_modes.*.value', ['hebdomadaire', 'par_etape', 'fin_de_chantier']);
+            ->assertJsonPath('data.payment_modes.*.value', ['hebdomadaire', 'par_etape'])
+            ->assertJsonPath('data.quote_trades.*.code', ['macon', 'electricien', 'plombier', 'peintre', 'menuisier', 'carreleur', 'coffreur', 'ferrailleur', 'soudeur', 'etancheiste'])
+            ->assertJsonPath('data.quote_document_type', 'site_quote');
     }
 
     public function test_the_catalogue_shows_validated_workers_with_the_promoter_rate(): void
@@ -171,19 +174,28 @@ class SiteOfferTest extends PromoterTestCase
     {
         $site = $this->readySite(days: 30);
 
-        $this->putJson("/api/v1/promoter/sites/{$site['id']}/offer", ['type' => 'contractuelle', 'contract' => ['amount' => 3000000, 'payment_mode' => 'par_etape']])
+        $this->putJson("/api/v1/promoter/sites/{$site['id']}/offer", ['type' => 'contractuelle', 'contract' => ['has_quote' => true, 'amount' => 3000000, 'payment_mode' => 'par_etape']])
             ->assertOk()
+            ->assertJsonPath('data.offer.draft.has_quote', true)
+            ->assertJsonPath('data.offer.draft.submit_label', 'Publier')
             ->assertJsonPath('data.offer.draft.deposit', 900000)
             ->assertJsonPath('data.offer.draft.balance', 2100000)
             ->assertJsonPath('data.offer.draft.installments', ['count' => 3, 'label' => '3 échéances par étape'])
             ->assertJsonPath('data.offer.draft.daily_equivalent', 100000)
-            ->assertJsonPath('data.offer.draft.documents_hint', 'Joignez vos plans et le cahier des charges (obligatoire)')
+            ->assertJsonPath('data.offer.draft.documents_hint', 'Joignez vos plans et le cahier des charges (facultatif)')
             ->assertJsonPath('data.offer_summary.amount', 3000000);
 
         $this->postJson("/api/v1/promoter/sites/{$site['id']}/publish")
-            ->assertJsonPath('errors.publication', ['Ajoutez au moins un document (plans, cahier des charges, devis)']);
+            ->assertJsonPath('errors.publication', ['Téléchargez votre devis']);
 
+        // Les autres documents ne suffisent plus : seul le devis est obligatoire.
         $this->post("/api/v1/promoter/sites/{$site['id']}/documents", ['document_type' => 'site_specifications', 'file' => $this->pdf('Cahier des charges.pdf')], ['Accept' => 'application/json'])->assertCreated();
+        $this->postJson("/api/v1/promoter/sites/{$site['id']}/publish")
+            ->assertJsonPath('errors.publication', ['Téléchargez votre devis']);
+
+        $quote = $this->post("/api/v1/promoter/sites/{$site['id']}/documents", ['document_type' => 'site_quote', 'file' => $this->image()], ['Accept' => 'application/json'])->assertCreated()->json('data.id');
+        $this->getJson("/api/v1/promoter/sites/{$site['id']}")
+            ->assertJsonPath('data.offer.draft.quotes.*.id', [$quote]);
 
         $this->postJson("/api/v1/promoter/sites/{$site['id']}/publish")
             ->assertOk()
@@ -196,6 +208,7 @@ class SiteOfferTest extends PromoterTestCase
             ->assertJsonPath('data.offer.published.milestones.2.due_date', $site['end_date']);
 
         $this->assertSame(PriceOrigin::Promoteur, Offer::query()->sole()->price_origin);
+        $this->assertSame($quote, Offer::query()->sole()->quote_document_id);
     }
 
     public function test_the_contract_amount_is_required_to_publish(): void
@@ -203,12 +216,66 @@ class SiteOfferTest extends PromoterTestCase
         $site = $this->readySite();
         $this->post("/api/v1/promoter/sites/{$site['id']}/documents", ['document_type' => 'site_plan', 'file' => $this->pdf()], ['Accept' => 'application/json'])->assertCreated();
 
-        $this->putJson("/api/v1/promoter/sites/{$site['id']}/offer", ['type' => 'contractuelle', 'contract' => ['payment_mode' => 'fin_de_chantier']])
+        $this->post("/api/v1/promoter/sites/{$site['id']}/documents", ['document_type' => 'site_quote', 'file' => $this->pdf('Devis.pdf')], ['Accept' => 'application/json'])->assertCreated();
+
+        $this->putJson("/api/v1/promoter/sites/{$site['id']}/offer", ['type' => 'contractuelle', 'contract' => ['payment_mode' => 'hebdomadaire']])
             ->assertOk()
-            ->assertJsonPath('data.offer.draft.installments.label', '1 paiement à la fin');
+            ->assertJsonPath('data.offer.draft.has_quote', null);
+
+        $this->postJson("/api/v1/promoter/sites/{$site['id']}/publish")
+            ->assertJsonPath('errors.publication', ['Indiquez si vous avez un devis']);
+
+        $this->putJson("/api/v1/promoter/sites/{$site['id']}/offer", ['type' => 'contractuelle', 'contract' => ['has_quote' => true, 'payment_mode' => 'hebdomadaire']])->assertOk();
 
         $this->postJson("/api/v1/promoter/sites/{$site['id']}/publish")
             ->assertJsonPath('errors.publication', ['Indiquez le montant de votre offre financière']);
+    }
+
+    public function test_the_balance_can_no_longer_be_paid_at_the_end(): void
+    {
+        $site = $this->readySite();
+
+        $this->putJson("/api/v1/promoter/sites/{$site['id']}/offer", ['type' => 'contractuelle', 'contract' => ['has_quote' => true, 'amount' => 3000000, 'payment_mode' => 'fin_de_chantier']])
+            ->assertJsonValidationErrors(['contract.payment_mode' => 'Paiement du solde attendu : hebdomadaire ou par étape.']);
+
+        // Brouillon enregistré avant la mise à jour.
+        Site::query()->whereKey($site['id'])->update(['offer_draft' => json_encode(['type' => 'contractuelle', 'contract' => ['has_quote' => true, 'amount' => 3000000, 'payment_mode' => 'fin_de_chantier']])]);
+        $this->post("/api/v1/promoter/sites/{$site['id']}/documents", ['document_type' => 'site_quote', 'file' => $this->pdf('Devis.pdf')], ['Accept' => 'application/json'])->assertCreated();
+
+        $this->postJson("/api/v1/promoter/sites/{$site['id']}/publish")
+            ->assertJsonPath('errors.publication', ['Choisissez le paiement du solde : hebdomadaire ou par étape']);
+    }
+
+    public function test_without_a_quote_the_promoter_requests_one_by_trade(): void
+    {
+        $site = $this->createSite();
+        $macon = $this->trade('macon')->id;
+        $plombier = $this->trade('plombier')->id;
+
+        $this->putJson("/api/v1/promoter/sites/{$site['id']}/offer", ['type' => 'contractuelle', 'contract' => ['has_quote' => false, 'quote_request' => ['trade_ids' => [$this->trade('manoeuvre')->id]]]])
+            ->assertJsonValidationErrors(['contract.quote_request.trade_ids.0' => 'Corps de métier inconnu.']);
+
+        $this->putJson("/api/v1/promoter/sites/{$site['id']}/offer", ['type' => 'contractuelle', 'contract' => ['has_quote' => false, 'quote_request' => ['trade_ids' => []]]])
+            ->assertOk()
+            ->assertJsonPath('data.offer.draft.submit_label', 'Rechercher un technicien');
+
+        // Sans photo ni dates : seuls le titre, la localisation et un corps de métier sont exigés.
+        $this->postJson("/api/v1/promoter/sites/{$site['id']}/publish")
+            ->assertJsonPath('errors.publication', ['Indiquez la localisation', 'Choisissez au moins un corps de métier pour le devis']);
+
+        $this->patchJson("/api/v1/promoter/sites/{$site['id']}", ['address' => 'Angré, Abidjan', 'commune_id' => $this->commune()])->assertOk();
+        $this->putJson("/api/v1/promoter/sites/{$site['id']}/offer", ['type' => 'contractuelle', 'contract' => ['has_quote' => false, 'quote_request' => ['trade_ids' => [$plombier, $macon], 'notes' => '  Villa R+1, accès par la rue pavée. ']]])
+            ->assertOk()
+            ->assertJsonPath('data.offer.draft.quote_request.trades.*.code', ['macon', 'plombier'])
+            ->assertJsonPath('data.offer.draft.quote_request.notes', 'Villa R+1, accès par la rue pavée.');
+
+        $this->getJson("/api/v1/promoter/sites/{$site['id']}")->assertJsonPath('data.missing_for_publication', []);
+
+        // « Rechercher un technicien » lance la demande de devis, sans créer d’offre (voir QuoteRequestTest).
+        $this->postJson("/api/v1/promoter/sites/{$site['id']}/publish")
+            ->assertOk()
+            ->assertJsonPath('data.status.value', 'devis');
+        $this->assertSame(0, Offer::query()->count());
     }
 
     /**

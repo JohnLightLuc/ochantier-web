@@ -177,6 +177,14 @@ class Site extends Model
     }
 
     /**
+     * @return HasMany<QuoteRequest, $this>
+     */
+    public function quoteRequests(): HasMany
+    {
+        return $this->hasMany(QuoteRequest::class);
+    }
+
+    /**
      * @return HasMany<Offer, $this>
      */
     public function offers(): HasMany

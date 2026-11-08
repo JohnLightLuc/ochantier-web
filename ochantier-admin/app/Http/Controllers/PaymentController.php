@@ -26,7 +26,7 @@ class PaymentController extends Controller
 
     private const STATUS_LABELS = ['initiee' => 'Initiée', 'en_attente' => 'En attente', 'reussie' => 'Réussie', 'echouee' => 'Échouée', 'expiree' => 'Expirée', 'annulee' => 'Annulée'];
 
-    private const PURPOSE_LABELS = ['acompte' => 'Acompte', 'echeance' => 'Échéance', 'abonnement' => 'Abonnement'];
+    private const PURPOSE_LABELS = ['acompte' => 'Acompte', 'echeance' => 'Échéance', 'abonnement' => 'Abonnement', 'commande_devis' => 'Commande des devis'];
 
     private const STATE_TONES = ['prevue' => 'n', 'exigible' => 'a', 'partiellement_payee' => 'o', 'en_retard' => 'r', 'payee' => 'g', 'contestee' => 'r', 'annulee' => 'n', 'remboursee' => 'p'];
 

@@ -55,15 +55,15 @@ class SiteController extends Controller
         $sites = $mine()
             ->with(self::WITH)
             ->tap($search)
-            ->when($filters['filter'] ?? null, fn ($query, $filter) => $query->whereIn('status', SiteManager::FILTERS[$filter]))
+            ->when($filters['filter'] ?? null, fn ($query, $filter) => $this->sites->filter($query, $filter))
             ->latest('updated_at')
             ->paginate((int) ($filters['per_page'] ?? 20))
             ->withQueryString();
 
         $counts = ['tous' => $mine()->tap($search)->count()];
 
-        foreach (SiteManager::FILTERS as $filter => $statuses) {
-            $counts[$filter] = $mine()->tap($search)->whereIn('status', $statuses)->count();
+        foreach (array_keys(SiteManager::FILTERS) as $filter) {
+            $counts[$filter] = $this->sites->filter($mine()->tap($search), $filter)->count();
         }
 
         return SiteResource::collection($sites)->additional(['meta' => ['counts' => $counts]]);
@@ -113,7 +113,8 @@ class SiteController extends Controller
 
     /**
      * Listes du formulaire « Nouveau chantier » : types de travaux, types de bien, responsables possibles,
-     * documents acceptés, métiers avec leur tarif moyen constaté, modes de paiement du forfait et taux d’acompte.
+     * documents acceptés, métiers avec leur tarif moyen constaté, modes de paiement du forfait, taux d’acompte, corps de
+     * métier de la demande de devis et type de pièce du devis.
      */
     public function formOptions(Request $request, PricingRules $pricing): JsonResponse
     {
@@ -126,7 +127,9 @@ class SiteController extends Controller
                 'label' => $trade->label,
                 'reference_rate' => $rates->get($trade->id)['rate'] ?? null,
             ]),
-            'payment_modes' => array_map(fn (ContractPaymentMode $mode) => ['value' => $mode->value, 'label' => $mode->label()], ContractPaymentMode::cases()),
+            'payment_modes' => array_map(fn (ContractPaymentMode $mode) => ['value' => $mode->value, 'label' => $mode->label()], OfferDraft::PAYMENT_MODES),
+            'quote_trades' => Trade::query()->where('is_active', true)->where('accepts_quotes', true)->orderBy('sort_order')->get(['id', 'code', 'label']),
+            'quote_document_type' => OfferDraft::QUOTE_DOCUMENT,
             'deposit_percent' => $pricing->value(PricingVariable::X),
             'low_rate_percent' => OfferDraft::LOW_RATE_PERCENT,
             'work_types' => array_map(fn (SiteWorkType $type) => ['value' => $type->value, 'label' => $type->label()], SiteWorkType::cases()),

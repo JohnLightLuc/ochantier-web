@@ -19,7 +19,7 @@ class Trade extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'code', 'label', 'description', 'sort_order', 'is_active', 'archived_at',
+        'code', 'label', 'description', 'sort_order', 'is_active', 'accepts_quotes', 'archived_at',
     ];
 
     /**
@@ -31,6 +31,7 @@ class Trade extends Model
     {
         return [
             'is_active' => 'boolean',
+            'accepts_quotes' => 'boolean',
             'archived_at' => 'datetime',
         ];
     }

@@ -5,9 +5,13 @@ namespace Tests\Feature\Promoter;
 use App\Enums\OrganizationMemberStatus;
 use App\Enums\OrganizationRole;
 use App\Enums\SiteStatus;
+use App\Enums\SubscriptionStatus;
 use App\Models\ConstructionType;
 use App\Models\Site;
+use App\Models\Subscription;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
+use Database\Seeders\CommercialOfferSeeder;
 use Illuminate\Http\UploadedFile;
 
 class SiteTest extends PromoterTestCase
@@ -168,6 +172,7 @@ class SiteTest extends PromoterTestCase
 
     public function test_the_responsible_is_the_promoter_or_a_user_of_the_company(): void
     {
+        $this->subscribe();
         $organization = $this->promoter->ownedOrganizations()->create(['legal_name' => 'ADJEMIN']);
         $technician = User::factory()->promoter()->create(['first_name' => 'Jean', 'last_name' => 'Kouamé', 'dial_code' => '225', 'phone_number' => '0700000000']);
         $organization->members()->create(['user_id' => $technician->id, 'role' => OrganizationRole::ResponsableChantier, 'status' => OrganizationMemberStatus::Actif, 'joined_at' => now()]);
@@ -192,6 +197,28 @@ class SiteTest extends PromoterTestCase
         $this->assertSame($organization->id, Site::query()->sole()->organization_id);
     }
 
+    public function test_without_a_subscription_only_the_promoter_can_be_responsible(): void
+    {
+        $organization = $this->promoter->ownedOrganizations()->create(['legal_name' => 'ADJEMIN']);
+        $technician = User::factory()->promoter()->create(['first_name' => 'Jean', 'last_name' => 'Kouamé']);
+        $organization->members()->create(['user_id' => $technician->id, 'role' => OrganizationRole::ResponsableChantier, 'status' => OrganizationMemberStatus::Actif, 'joined_at' => now()]);
+
+        $this->getJson('/api/v1/promoter/sites/form-options')
+            ->assertJsonCount(1, 'data.responsibles')
+            ->assertJsonPath('data.responsibles.0.role', 'Moi-même');
+
+        $this->postJson('/api/v1/promoter/sites', ['title' => 'Villa Riviera', 'responsible_user_id' => $technician->id])
+            ->assertJsonValidationErrors(['responsible_user_id' => 'Un abonnement est nécessaire pour confier un chantier à un collaborateur.']);
+        $this->postJson('/api/v1/promoter/sites', ['title' => 'Villa Riviera', 'responsible_user_id' => $this->promoter->id])->assertCreated();
+
+        // Un chantier confié pendant l’abonnement garde son responsable.
+        $site = Site::query()->sole();
+        $site->update(['responsible_user_id' => $technician->id]);
+        $this->patchJson("/api/v1/promoter/sites/{$site->id}", ['title' => 'Villa Riviera 2', 'responsible_user_id' => $technician->id])
+            ->assertOk()
+            ->assertJsonPath('data.responsible.name', 'Jean Kouamé');
+    }
+
     public function test_sites_of_other_promoters_are_not_found(): void
     {
         $site = $this->createSite();
@@ -212,5 +239,20 @@ class SiteTest extends PromoterTestCase
     private function createSite(array $data = []): array
     {
         return $this->postJson('/api/v1/promoter/sites', ['title' => 'Duplex Bingerville', ...$data])->assertCreated()->json('data');
+    }
+
+    private function subscribe(): void
+    {
+        $this->seed(CommercialOfferSeeder::class);
+
+        Subscription::query()->create([
+            'reference' => 'ABO-TEST-0001',
+            'promoter_profile_id' => $this->promoter->promoterProfile->id,
+            'plan_id' => SubscriptionPlan::query()->where('code', 'equipe')->value('id'),
+            'status' => SubscriptionStatus::Active,
+            'started_at' => today(),
+            'current_period_start' => today(),
+            'current_period_end' => today()->addMonth()->subDay(),
+        ]);
     }
 }

@@ -9,9 +9,9 @@ use Carbon\Carbon;
  */
 class SitePresenter
 {
-    public const STATUS_TONES = ['brouillon' => 'n', 'soumis' => 'a', 'recherche' => 'p', 'paiement' => 'o', 'confirme' => 'b', 'en_cours' => 'g', 'suspendu' => 'r', 'termine' => 'g', 'annule' => 'n'];
+    public const STATUS_TONES = ['brouillon' => 'n', 'devis' => 'b', 'soumis' => 'a', 'recherche' => 'p', 'paiement' => 'o', 'confirme' => 'b', 'en_cours' => 'g', 'suspendu' => 'r', 'termine' => 'g', 'annule' => 'n'];
 
-    public const STATUS_LABELS = ['brouillon' => 'Brouillon', 'soumis' => 'Soumis', 'recherche' => 'Recherche', 'paiement' => 'Paiement', 'confirme' => 'Confirmé', 'en_cours' => 'En cours', 'suspendu' => 'Suspendu', 'termine' => 'Terminé', 'annule' => 'Annulé'];
+    public const STATUS_LABELS = ['brouillon' => 'Brouillon', 'devis' => 'Demande de devis', 'soumis' => 'Soumis', 'recherche' => 'Recherche', 'paiement' => 'Paiement', 'confirme' => 'Confirmé', 'en_cours' => 'En cours', 'suspendu' => 'Suspendu', 'termine' => 'Terminé', 'annule' => 'Annulé'];
 
     private const PRIORITY_TONES = ['basse' => 'n', 'normale' => 'b', 'haute' => 'o', 'critique' => 'r'];
 

@@ -20,8 +20,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Publication d’un chantier (« Publier ») : crée l’offre et ses besoins à partir du brouillon et les transmet au
- * Back office pour contrôle, avant la recherche d’ouvriers (matching).
+ * Publication d’un chantier (« Publier ») : crée l’offre et ses besoins à partir du brouillon. L’offre journalière
+ * est transmise au Back office pour contrôle, avant la recherche d’ouvriers (matching) ; l’offre contractuelle part
+ * directement aux entrepreneurs.
  */
 class SitePublisher
 {
@@ -40,6 +41,10 @@ class SitePublisher
             throw ValidationException::withMessages(['publication' => array_column($errors, 'label')]);
         }
 
+        if ($this->drafts->requestsQuote($site)) {
+            throw ValidationException::withMessages(['publication' => ['Sans devis, lancez la demande de devis (« Rechercher un technicien »).']]);
+        }
+
         return DB::transaction(function () use ($site, $author): Offer {
             $contract = $this->drafts->type($site) === OfferDraft::CONTRACT;
             $type = match (true) {
@@ -48,7 +53,7 @@ class SitePublisher
                 default => OfferType::Ponctuelle,
             };
             $amount = $contract ? (int) $site->offer_draft['contract']['amount'] : null;
-            $mode = $contract ? ContractPaymentMode::from($site->offer_draft['contract']['payment_mode']) : null;
+            $mode = $contract ? $this->drafts->paymentMode($site) : null;
 
             $offer = $site->offers()->create([
                 'reference' => $this->reference('OF', 'offer_reference_seq'),
@@ -59,13 +64,15 @@ class SitePublisher
                 'start_date' => $site->planned_start_date,
                 'end_date' => $site->planned_end_date,
                 'contract_total_amount' => $amount,
+                'quote_document_id' => $contract ? $this->drafts->quotes($site)->first()?->getKey() : null,
                 'payment_mode' => $mode,
                 'visibility' => OfferVisibility::Ciblee,
-                'status' => OfferStatus::Soumise,
+                'status' => $contract ? OfferStatus::Publiee : OfferStatus::Soumise,
                 'submitted_at' => now(),
+                'published_at' => $contract ? now() : null,
                 'created_by_user_id' => $author->getKey(),
             ]);
-            $this->history($offer, null, OfferStatus::Soumise->value, $author);
+            $this->history($offer, null, $offer->status->value, $author);
             $offer->refresh();
 
             if ($contract) {
@@ -74,8 +81,10 @@ class SitePublisher
                 $this->createNeeds($offer, $site, $author, $type, $site->offer_draft);
             }
 
-            $site->forceFill(['status' => SiteStatus::Soumis, 'submitted_at' => now(), 'lock_version' => $site->lock_version + 1])->save();
-            $site->statusHistories()->create(['from_status' => SiteStatus::Brouillon, 'to_status' => SiteStatus::Soumis, 'actor_type' => $author->getMorphClass(), 'actor_id' => $author->getKey()]);
+            // L’offre contractuelle part directement aux entrepreneurs ; l’offre journalière passe par le Back office.
+            $to = $contract ? SiteStatus::Recherche : SiteStatus::Soumis;
+            $site->forceFill(['status' => $to, 'submitted_at' => now(), 'lock_version' => $site->lock_version + 1])->save();
+            $site->statusHistories()->create(['from_status' => SiteStatus::Brouillon, 'to_status' => $to, 'actor_type' => $author->getMorphClass(), 'actor_id' => $author->getKey()]);
 
             return $offer;
         });
@@ -184,8 +193,8 @@ class SitePublisher
     }
 
     /**
-     * Échéances du solde d’une offre contractuelle payée par étape ou en fin de chantier (le paiement hebdomadaire
-     * est calculé avec l’échéancier).
+     * Échéances du solde d’une offre contractuelle payée par étape (le paiement hebdomadaire est calculé avec
+     * l’échéancier ; « Fin de chantier » n’est plus proposé à la publication).
      */
     private function createMilestones(Offer $offer, Site $site, int $amount, ContractPaymentMode $mode): void
     {
