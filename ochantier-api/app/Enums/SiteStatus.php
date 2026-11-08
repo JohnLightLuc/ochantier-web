@@ -8,6 +8,7 @@ namespace App\Enums;
 enum SiteStatus: string
 {
     case Brouillon = 'brouillon';
+    case Devis = 'devis';
     case Soumis = 'soumis';
     case Recherche = 'recherche';
     case Paiement = 'paiement';
@@ -21,6 +22,7 @@ enum SiteStatus: string
     {
         return match ($this) {
             self::Brouillon => 'Brouillon',
+            self::Devis => 'Demande de devis',
             self::Soumis => 'Soumis',
             self::Recherche => 'Recherche',
             self::Paiement => 'Paiement',

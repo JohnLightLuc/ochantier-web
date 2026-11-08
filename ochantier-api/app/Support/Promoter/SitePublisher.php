@@ -40,9 +40,8 @@ class SitePublisher
             throw ValidationException::withMessages(['publication' => array_column($errors, 'label')]);
         }
 
-        // Le circuit de la demande de devis (techniciens de l’application Ouvriers) n’est pas encore en place.
         if ($this->drafts->requestsQuote($site)) {
-            throw ValidationException::withMessages(['publication' => ['La demande de devis n’est pas encore disponible. Joignez votre devis pour publier.']]);
+            throw ValidationException::withMessages(['publication' => ['Sans devis, lancez la demande de devis (« Rechercher un technicien »).']]);
         }
 
         return DB::transaction(function () use ($site, $author): Offer {

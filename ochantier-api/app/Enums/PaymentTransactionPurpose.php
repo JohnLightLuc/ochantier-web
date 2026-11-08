@@ -13,6 +13,7 @@ enum PaymentTransactionPurpose: string
     case GainCommercial = 'gain_commercial';
     case Remboursement = 'remboursement';
     case Abonnement = 'abonnement';
+    case CommandeDevis = 'commande_devis';
 
     public function label(): string
     {
@@ -23,6 +24,7 @@ enum PaymentTransactionPurpose: string
             self::GainCommercial => 'Gain commercial',
             self::Remboursement => 'Remboursement',
             self::Abonnement => 'Abonnement',
+            self::CommandeDevis => 'Commande des devis',
         };
     }
 }

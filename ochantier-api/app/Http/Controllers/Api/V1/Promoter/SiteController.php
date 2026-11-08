@@ -55,15 +55,15 @@ class SiteController extends Controller
         $sites = $mine()
             ->with(self::WITH)
             ->tap($search)
-            ->when($filters['filter'] ?? null, fn ($query, $filter) => $query->whereIn('status', SiteManager::FILTERS[$filter]))
+            ->when($filters['filter'] ?? null, fn ($query, $filter) => $this->sites->filter($query, $filter))
             ->latest('updated_at')
             ->paginate((int) ($filters['per_page'] ?? 20))
             ->withQueryString();
 
         $counts = ['tous' => $mine()->tap($search)->count()];
 
-        foreach (SiteManager::FILTERS as $filter => $statuses) {
-            $counts[$filter] = $mine()->tap($search)->whereIn('status', $statuses)->count();
+        foreach (array_keys(SiteManager::FILTERS) as $filter) {
+            $counts[$filter] = $this->sites->filter($mine()->tap($search), $filter)->count();
         }
 
         return SiteResource::collection($sites)->additional(['meta' => ['counts' => $counts]]);

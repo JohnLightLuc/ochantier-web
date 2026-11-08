@@ -3,6 +3,7 @@
 namespace App\Support\Promoter;
 
 use App\Enums\OrganizationMemberStatus;
+use App\Enums\QuoteRequestStatus;
 use App\Enums\SiteStatus;
 use App\Models\Document;
 use App\Models\DocumentType;
@@ -13,6 +14,8 @@ use App\Support\Documents\DocumentStore;
 use App\Support\Media\MediaStore;
 use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
@@ -41,6 +44,7 @@ class SiteManager
      */
     public const DISPLAY = [
         'brouillon' => ['brouillon', 'Brouillon'],
+        'devis' => ['devis_recherche', 'Recherche de technicien pour devis'],
         'soumis' => ['recherche', 'Recherche d’ouvriers en cours'],
         'recherche' => ['recherche', 'Recherche d’ouvriers en cours'],
         'paiement' => ['propose', 'Ouvriers trouvés'],
@@ -58,7 +62,7 @@ class SiteManager
      */
     public const FILTERS = [
         'brouillons' => [SiteStatus::Brouillon],
-        'recherche' => [SiteStatus::Soumis, SiteStatus::Recherche, SiteStatus::Paiement],
+        'recherche' => [SiteStatus::Devis, SiteStatus::Soumis, SiteStatus::Recherche, SiteStatus::Paiement],
         'en_cours' => [SiteStatus::Confirme, SiteStatus::EnCours, SiteStatus::Suspendu],
         'termines' => [SiteStatus::Termine],
     ];
@@ -122,6 +126,10 @@ class SiteManager
     {
         if ($site->status !== SiteStatus::Brouillon) {
             throw ValidationException::withMessages(['site' => 'Seul un brouillon peut être supprimé.']);
+        }
+
+        if (app(QuoteRequests::class)->hasOrder($site)) {
+            throw ValidationException::withMessages(['site' => 'Des devis ont été commandés pour ce chantier : il ne peut plus être supprimé.']);
         }
 
         $site->delete();
@@ -193,13 +201,38 @@ class SiteManager
     }
 
     /**
+     * Restreint la liste à un onglet de « Mes chantiers ». Un brouillon dont les devis sont reçus (« Devis reçu ·
+     * offre à définir ») figure dans « En recherche » plutôt que dans « Brouillons ».
+     *
+     * @template TQuery of Builder|Relation
+     *
+     * @param  TQuery  $query
+     * @return TQuery
+     */
+    public function filter(Builder|Relation $query, string $filter): Builder|Relation
+    {
+        $quotesReceived = fn ($query) => $query->where('sites.status', SiteStatus::Brouillon->value)
+            ->whereHas('quoteRequests', fn ($query) => $query->where('status', QuoteRequestStatus::Recu->value)->whereRaw('quote_requests.submitted_at = (select max(q.submitted_at) from quote_requests q where q.site_id = sites.id and q.status <> ?)', [QuoteRequestStatus::Annule->value]));
+
+        return match ($filter) {
+            'brouillons' => $query->where('sites.status', SiteStatus::Brouillon->value)->whereNot($quotesReceived),
+            'recherche' => $query->where(fn ($query) => $query->whereIn('sites.status', self::FILTERS['recherche'])->orWhere($quotesReceived)),
+            default => $query->whereIn('sites.status', self::FILTERS[$filter]),
+        };
+    }
+
+    /**
      * Badge de la carte : statut de la maquette et libellé.
      *
      * @return array{value: string, label: string}
      */
     public function displayStatus(Site $site): array
     {
-        [$value, $label] = self::DISPLAY[$site->status->value];
+        [$value, $label] = match (true) {
+            $site->status === SiteStatus::Devis && app(QuoteRequests::class)->current($site)?->status === QuoteRequestStatus::Commande => ['devis_commande', 'Devis commandé'],
+            $site->status === SiteStatus::Brouillon && app(QuoteRequests::class)->current($site)?->status === QuoteRequestStatus::Recu => ['devis_recu', 'Devis reçu · offre à définir'],
+            default => self::DISPLAY[$site->status->value],
+        };
 
         return compact('value', 'label');
     }
@@ -285,6 +318,10 @@ class SiteManager
 
     public function ensureEditable(Site $site): void
     {
+        if ($site->status === SiteStatus::Devis) {
+            throw ValidationException::withMessages(['site' => 'Une demande de devis est en cours : le chantier ne peut pas être modifié avant la réception des devis.']);
+        }
+
         if ($site->status !== SiteStatus::Brouillon) {
             throw ValidationException::withMessages(['site' => 'Ce chantier est publié : il ne peut plus être modifié depuis l’application.']);
         }

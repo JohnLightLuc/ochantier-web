@@ -93,13 +93,14 @@ class PromoterPayments
      * Ce que règle le paiement demandé : acompte d’une proposition acceptée, échéances non payées d’une même
      * réservation, versement d’un paiement flexible, formule ou facture d’abonnement.
      *
-     * @param  array{proposal_id?: string|null, schedule_ids?: list<string>|null, installment_id?: string, plan_code?: string, subscription_invoice_id?: string}  $target
+     * @param  array{proposal_id?: string|null, schedule_ids?: list<string>|null, installment_id?: string, plan_code?: string, subscription_invoice_id?: string, quote_bid_ids?: list<string>}  $target
      * @return array{kind: string, label: string, amount: int, site: Site|null, proposal: Proposal|null, schedules: Collection<int, PaymentSchedule>, lines: list<array{label: string, amount: int}>, done_text: string}
      */
     public function payable(User $user, array $target): array
     {
         return match (true) {
             isset($target['proposal_id']) => $this->deposit($user, $target['proposal_id']),
+            isset($target['quote_bid_ids']) => app(QuoteRequests::class)->payable($user, $target['quote_bid_ids']),
             isset($target['installment_id']) => $this->flexibleInstallment($user, $target['installment_id']),
             isset($target['plan_code']) || isset($target['subscription_invoice_id']) => $this->subscriptions->payable($this->access->profile($user), $target),
             default => $this->installments($user, $target['schedule_ids'] ?? []),
@@ -199,6 +200,7 @@ class PromoterPayments
             'purpose' => match ($payable['kind']) {
                 'acompte' => PaymentTransactionPurpose::Acompte,
                 'abonnement' => PaymentTransactionPurpose::Abonnement,
+                'commande_devis' => PaymentTransactionPurpose::CommandeDevis,
                 default => PaymentTransactionPurpose::Echeance,
             },
             'payer_type' => $profile->getMorphClass(),
@@ -223,6 +225,8 @@ class PromoterPayments
                 'installment_id' => ($payable['installment'] ?? null)?->getKey(),
                 'installments' => isset($payable['installments']) ? count($payable['installments']) : null,
                 'plan_code' => ($payable['plan'] ?? null)?->code,
+                'quote_request_id' => ($payable['quote_request'] ?? null)?->getKey(),
+                'quote_bid_ids' => isset($payable['bids']) ? $payable['bids']->modelKeys() : null,
                 'schedule_ids' => $this->keys($payable['schedules']),
                 'phone' => $phone->masked(),
                 'lines' => $quote['lines'],
@@ -247,6 +251,16 @@ class PromoterPayments
                 $this->history($transaction, PaymentTransactionStatus::Initiee, PaymentTransactionStatus::Reussie, $user);
                 $this->issueReceipt($transaction, $profile, null, $invoice);
                 app(PromoterNotifier::class)->paymentSucceeded($transaction, $profile, null);
+
+                return $transaction->refresh();
+            }
+
+            if ($payable['kind'] === 'commande_devis') {
+                app(QuoteRequests::class)->order($payable['quote_request'], $payable['bids'], $transaction, $user);
+                $transaction->forceFill(['status' => PaymentTransactionStatus::Reussie, 'provider_reference' => $result->providerReference, 'completed_at' => now()])->save();
+                $this->history($transaction, PaymentTransactionStatus::Initiee, PaymentTransactionStatus::Reussie, $user);
+                $this->issueReceipt($transaction, $profile, $payable['site'], $payable['site']);
+                app(PromoterNotifier::class)->paymentSucceeded($transaction, $profile, $payable['site']);
 
                 return $transaction->refresh();
             }

@@ -23,7 +23,7 @@ class PaymentDirectory
 {
     public const TRANSACTION_STATUSES = ['initiee', 'en_attente', 'reussie', 'echouee', 'expiree', 'annulee'];
 
-    public const PURPOSES = ['acompte', 'echeance', 'abonnement'];
+    public const PURPOSES = ['acompte', 'echeance', 'abonnement', 'commande_devis'];
 
     public const TRANSACTION_SORTS = ['date' => 'payment_transactions.initiated_at', 'amount' => 'payment_transactions.amount', 'status' => 'payment_transactions.status'];
 

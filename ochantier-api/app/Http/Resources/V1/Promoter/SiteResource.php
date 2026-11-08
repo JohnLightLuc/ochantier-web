@@ -8,6 +8,7 @@ use App\Http\Resources\V1\Resource;
 use App\Models\Site;
 use App\Support\Media\MediaStore;
 use App\Support\Promoter\OfferDraft;
+use App\Support\Promoter\QuoteRequests;
 use App\Support\Promoter\SiteManager;
 use Illuminate\Http\Request;
 
@@ -58,8 +59,14 @@ class SiteResource extends Resource
             'status' => $this->status($this->status),
             'display_status' => $sites->displayStatus($this->resource),
             'schedule' => $sites->schedule($this->resource),
+            'quote_request' => ($quote = app(QuoteRequests::class)->current($this->resource)) ? [
+                'id' => $quote->id,
+                'reference' => $quote->reference,
+                'status' => $this->status($quote->status),
+                'action' => app(QuoteRequests::class)->action($quote),
+            ] : null,
             'can_edit' => $this->status === SiteStatus::Brouillon,
-            'can_delete' => $this->status === SiteStatus::Brouillon,
+            'can_delete' => $this->status === SiteStatus::Brouillon && ! app(QuoteRequests::class)->hasOrder($this->resource),
             'missing_for_publication' => $this->status === SiteStatus::Brouillon ? $sites->missingForPublication($this->resource) : [],
             'client_uuid' => $this->client_uuid,
             'lock_version' => $this->lock_version,

@@ -22,7 +22,7 @@ class PromoterTabs
         'activite' => 'Activité',
     ];
 
-    private const SITE_TONES = ['brouillon' => 'n', 'soumis' => 'b', 'recherche' => 'b', 'paiement' => 'a', 'confirme' => 'g', 'en_cours' => 'g', 'suspendu' => 'o', 'termine' => 'p', 'annule' => 'r'];
+    private const SITE_TONES = ['brouillon' => 'n', 'devis' => 'b', 'soumis' => 'b', 'recherche' => 'b', 'paiement' => 'a', 'confirme' => 'g', 'en_cours' => 'g', 'suspendu' => 'o', 'termine' => 'p', 'annule' => 'r'];
 
     private const OFFER_TONES = ['brouillon' => 'n', 'soumise' => 'b', 'en_controle' => 'b', 'a_corriger' => 'a', 'publiee' => 'g', 'suspendue' => 'o', 'pourvue' => 'g', 'cloturee' => 'n', 'annulee' => 'r'];
 

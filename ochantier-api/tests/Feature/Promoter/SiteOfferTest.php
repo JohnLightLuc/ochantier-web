@@ -271,9 +271,10 @@ class SiteOfferTest extends PromoterTestCase
 
         $this->getJson("/api/v1/promoter/sites/{$site['id']}")->assertJsonPath('data.missing_for_publication', []);
 
+        // « Rechercher un technicien » lance la demande de devis, sans créer d’offre (voir QuoteRequestTest).
         $this->postJson("/api/v1/promoter/sites/{$site['id']}/publish")
-            ->assertUnprocessable()
-            ->assertJsonPath('errors.publication', ['La demande de devis n’est pas encore disponible. Joignez votre devis pour publier.']);
+            ->assertOk()
+            ->assertJsonPath('data.status.value', 'devis');
         $this->assertSame(0, Offer::query()->count());
     }
 

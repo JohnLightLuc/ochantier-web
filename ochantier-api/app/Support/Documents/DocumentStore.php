@@ -6,6 +6,7 @@ use App\Enums\DocumentVerificationStatus;
 use App\Models\Admin;
 use App\Models\Document;
 use App\Models\DocumentType;
+use App\Models\MediaFile;
 use App\Models\User;
 use App\Support\Media\MediaStore;
 use Illuminate\Database\Eloquent\Model;
@@ -66,6 +67,26 @@ class DocumentStore
             $previous->forceFill(['verification_status' => DocumentVerificationStatus::Remplace])->save();
         }
 
+        $owner->unsetRelation('documents');
+
+        return $document->load(['documentType', 'files']);
+    }
+
+    /**
+     * Enregistre une pièce produite par l’API (devis réalisé par un technicien…), sur une seule page.
+     */
+    public function attachGenerated(Model $owner, Model $author, DocumentType $type, MediaFile $media, ?string $label = null): Document
+    {
+        /** @var Document $document */
+        $document = $owner->documents()->create([
+            'document_type_id' => $type->getKey(),
+            'label' => $label ?? $type->label,
+            'version' => 1,
+            'verification_status' => DocumentVerificationStatus::EnAttente,
+            'uploaded_by_type' => $author->getMorphClass(),
+            'uploaded_by_id' => $author->getKey(),
+        ]);
+        $document->files()->attach($media->getKey(), ['side' => 'page', 'page_number' => 1]);
         $owner->unsetRelation('documents');
 
         return $document->load(['documentType', 'files']);
