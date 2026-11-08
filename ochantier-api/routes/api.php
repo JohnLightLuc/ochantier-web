@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\Promoter\AttendanceController;
 use App\Http\Controllers\Api\V1\Promoter\ClaimController;
+use App\Http\Controllers\Api\V1\Promoter\ContractorOfferController;
 use App\Http\Controllers\Api\V1\Promoter\DisputeController;
 use App\Http\Controllers\Api\V1\Promoter\HomeController;
 use App\Http\Controllers\Api\V1\Promoter\NotificationController;
@@ -124,6 +125,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
                     Route::get('sites/{site}/attendance/history', [AttendanceController::class, 'history'])->name('sites.attendance.history');
                     Route::get('sites/{site}/steps', [SiteStepController::class, 'index'])->name('sites.steps.index');
                     Route::get('sites/{site}/quote-request', [QuoteRequestController::class, 'show'])->name('sites.quote-request.show');
+                    Route::get('sites/{site}/contractor-offers', [ContractorOfferController::class, 'index'])->name('sites.contractor-offers.index');
                     Route::get('replacements/{replacement}', [ReplacementController::class, 'show'])->name('replacements.show');
                     Route::get('sites/{site}/ratings', [RatingController::class, 'site'])->name('sites.ratings.index');
                     Route::get('ratings', [RatingController::class, 'index'])->name('ratings.index');
@@ -139,6 +141,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
                     Route::put('sites/{site}/offer', [SiteOfferController::class, 'update'])->name('sites.offer.update');
                     Route::post('sites/{site}/publish', [SiteOfferController::class, 'publish'])->name('sites.publish');
                     Route::delete('sites/{site}/quote-request', [QuoteRequestController::class, 'destroy'])->name('sites.quote-request.destroy');
+                    Route::post('sites/{site}/contractor-offers/{bid}/choose', [ContractorOfferController::class, 'choose'])->whereUuid('bid')->name('sites.contractor-offers.choose');
                     Route::post('sites/{site}/reservations', [ReservationController::class, 'store'])->name('sites.reservations.store');
                 });
 

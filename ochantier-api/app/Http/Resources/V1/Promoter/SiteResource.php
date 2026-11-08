@@ -7,6 +7,7 @@ use App\Enums\SiteStatus;
 use App\Http\Resources\V1\Resource;
 use App\Models\Site;
 use App\Support\Media\MediaStore;
+use App\Support\Promoter\ContractorOffers;
 use App\Support\Promoter\OfferDraft;
 use App\Support\Promoter\QuoteRequests;
 use App\Support\Promoter\SiteManager;
@@ -65,6 +66,7 @@ class SiteResource extends Resource
                 'status' => $this->status($quote->status),
                 'action' => app(QuoteRequests::class)->action($quote),
             ] : null,
+            'contractor_offers' => in_array($this->status, [SiteStatus::Recherche, SiteStatus::Paiement], true) && ($action = app(ContractorOffers::class)->action($this->resource)) ? ['action' => $action] : null,
             'can_edit' => $this->status === SiteStatus::Brouillon,
             'can_delete' => $this->status === SiteStatus::Brouillon && ! app(QuoteRequests::class)->hasOrder($this->resource),
             'missing_for_publication' => $this->status === SiteStatus::Brouillon ? $sites->missingForPublication($this->resource) : [],

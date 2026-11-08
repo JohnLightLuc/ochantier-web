@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Promoter;
 
+use App\Enums\OfferType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Promoter\OfferDraftRequest;
 use App\Http\Resources\V1\Promoter\SiteDetailResource;
@@ -40,9 +41,11 @@ class SiteOfferController extends Controller
                 ->additional(['message' => 'Demande de devis envoyée — recherche de technicien lancée']);
         }
 
-        $this->publisher->publish($site, $request->user());
+        $offer = $this->publisher->publish($site, $request->user());
 
         return SiteDetailResource::make($site->refresh()->load(SiteController::WITH))
-            ->additional(['message' => 'Chantier publié — recherche d’ouvriers lancée']);
+            ->additional(['message' => $offer->offer_type === OfferType::Contractuelle
+                ? 'Chantier publié — recherche d’entrepreneurs lancée'
+                : 'Chantier publié — recherche d’ouvriers lancée']);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Support\Promoter;
 
+use App\Enums\ContractorBidStatus;
 use App\Enums\OrganizationMemberStatus;
 use App\Enums\QuoteRequestStatus;
 use App\Enums\SiteStatus;
@@ -231,6 +232,11 @@ class SiteManager
         [$value, $label] = match (true) {
             $site->status === SiteStatus::Devis && app(QuoteRequests::class)->current($site)?->status === QuoteRequestStatus::Commande => ['devis_commande', 'Devis commandé'],
             $site->status === SiteStatus::Brouillon && app(QuoteRequests::class)->current($site)?->status === QuoteRequestStatus::Recu => ['devis_recu', 'Devis reçu · offre à définir'],
+            in_array($site->status, [SiteStatus::Recherche, SiteStatus::Paiement], true) && ($offer = app(ContractorOffers::class)->openOffer($site)) => match (true) {
+                $offer->contractorBids()->where('status', ContractorBidStatus::Choisie->value)->exists() => ['offre_choisie', 'Offre choisie · acompte à payer'],
+                $offer->contractorBids()->where('status', ContractorBidStatus::Proposee->value)->exists() => ['offres_entrepreneurs', 'Offres d’entrepreneurs reçues'],
+                default => ['recherche_entrepreneurs', 'Recherche d’entrepreneurs en cours'],
+            },
             default => self::DISPLAY[$site->status->value],
         };
 

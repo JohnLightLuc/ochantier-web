@@ -2,6 +2,7 @@
 
 namespace App\Support\Admin;
 
+use App\Enums\ContractorBidStatus;
 use App\Enums\OfferStatus;
 use App\Enums\ProposalStatus;
 use App\Enums\SiteStatus;
@@ -56,7 +57,7 @@ class SiteOperations
     }
 
     /**
-     * Annule le chantier, ses offres et les propositions en attente.
+     * Annule le chantier, ses offres, les propositions en attente et les offres d’entrepreneurs.
      */
     public function cancel(Site $site, Admin $admin, string $reason, Request $request): void
     {
@@ -70,6 +71,7 @@ class SiteOperations
             foreach ($site->offers()->whereNotIn('status', [OfferStatus::Cloturee, OfferStatus::Annulee])->get() as $offer) {
                 /** @var Offer $offer */
                 $this->offers->closeNeeds($offer, $admin, $reason);
+                $offer->contractorBids()->whereIn('status', [ContractorBidStatus::Proposee->value, ContractorBidStatus::Choisie->value])->update(['status' => ContractorBidStatus::Annulee->value]);
                 $offer->statusHistories()->create(['from_status' => $offer->status->value, 'to_status' => OfferStatus::Annulee->value, 'actor_type' => $admin->getMorphClass(), 'actor_id' => $admin->getKey()]);
                 $offer->update(['status' => OfferStatus::Annulee, 'cancellation_reason' => $reason]);
             }

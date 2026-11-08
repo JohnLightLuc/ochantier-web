@@ -2,7 +2,9 @@
 
 namespace App\Support\Promoter;
 
+use App\Enums\ContractorBidStatus;
 use App\Enums\MissionStatus;
+use App\Enums\OfferType;
 use App\Enums\PaymentInstallmentStatus;
 use App\Enums\PaymentMethodStatus;
 use App\Enums\PaymentMethodType;
@@ -16,6 +18,7 @@ use App\Enums\ProposalStatus;
 use App\Enums\ReceiptType;
 use App\Enums\TransactionStatusSource;
 use App\Enums\WorkerReservationStatus;
+use App\Models\ContractorBid;
 use App\Models\Mission;
 use App\Models\PaymentInstallment;
 use App\Models\PaymentMethod;
@@ -93,7 +96,7 @@ class PromoterPayments
      * Ce que règle le paiement demandé : acompte d’une proposition acceptée, échéances non payées d’une même
      * réservation, versement d’un paiement flexible, formule ou facture d’abonnement.
      *
-     * @param  array{proposal_id?: string|null, schedule_ids?: list<string>|null, installment_id?: string, plan_code?: string, subscription_invoice_id?: string, quote_bid_ids?: list<string>}  $target
+     * @param  array{proposal_id?: string|null, schedule_ids?: list<string>|null, installment_id?: string, plan_code?: string, subscription_invoice_id?: string, quote_bid_ids?: list<string>, contractor_bid_id?: string}  $target
      * @return array{kind: string, label: string, amount: int, site: Site|null, proposal: Proposal|null, schedules: Collection<int, PaymentSchedule>, lines: list<array{label: string, amount: int}>, done_text: string}
      */
     public function payable(User $user, array $target): array
@@ -101,6 +104,7 @@ class PromoterPayments
         return match (true) {
             isset($target['proposal_id']) => $this->deposit($user, $target['proposal_id']),
             isset($target['quote_bid_ids']) => app(QuoteRequests::class)->payable($user, $target['quote_bid_ids']),
+            isset($target['contractor_bid_id']) => app(ContractorOffers::class)->payable($user, $target['contractor_bid_id']),
             isset($target['installment_id']) => $this->flexibleInstallment($user, $target['installment_id']),
             isset($target['plan_code']) || isset($target['subscription_invoice_id']) => $this->subscriptions->payable($this->access->profile($user), $target),
             default => $this->installments($user, $target['schedule_ids'] ?? []),
@@ -222,6 +226,7 @@ class PromoterPayments
                 'label' => $payable['label'],
                 'site_id' => $payable['site']?->getKey(),
                 'proposal_id' => $payable['proposal']?->getKey(),
+                'contractor_bid_id' => ($payable['contractor_bid'] ?? null)?->getKey(),
                 'installment_id' => ($payable['installment'] ?? null)?->getKey(),
                 'installments' => isset($payable['installments']) ? count($payable['installments']) : null,
                 'plan_code' => ($payable['plan'] ?? null)?->code,
@@ -265,9 +270,11 @@ class PromoterPayments
                 return $transaction->refresh();
             }
 
-            $schedules = $payable['kind'] === 'acompte'
-                ? $this->planner->confirm(Proposal::query()->lockForUpdate()->findOrFail($payable['proposal']->getKey()), $user)
-                : $payable['schedules'];
+            $schedules = match (true) {
+                isset($payable['contractor_bid']) => app(ContractorOffers::class)->confirm($payable['contractor_bid'], $user),
+                $payable['kind'] === 'acompte' => $this->planner->confirm(Proposal::query()->lockForUpdate()->findOrFail($payable['proposal']->getKey()), $user),
+                default => $payable['schedules'],
+            };
 
             if (isset($payable['installments']) || $payable['kind'] === 'versement') {
                 $this->allocate($transaction, $schedules, $transaction->amount);
@@ -318,7 +325,13 @@ class PromoterPayments
             ->whereDoesntHave('suggestions.need.missions')
             ->with(['site', 'offer'])
             ->get()
-            ->map(fn (Proposal $proposal) => $this->depositRow($proposal));
+            ->map(fn (Proposal $proposal) => $this->depositRow($proposal))
+            ->concat(ContractorBid::query()
+                ->where('status', ContractorBidStatus::Choisie)
+                ->whereHas('offer.site', $mine)
+                ->with(['offer.site', 'contractor'])
+                ->get()
+                ->map(fn (ContractorBid $bid) => $this->contractorDepositRow($bid)));
 
         $flexible = PaymentInstallment::query()
             ->whereIn('group_id', PaymentInstallment::query()->where('status', PaymentInstallmentStatus::APayer)->whereHas('site', $mine)->select('group_id'))
@@ -515,6 +528,38 @@ class PromoterPayments
     }
 
     /**
+     * Acompte de l’offre d’entrepreneur choisie.
+     *
+     * @return array<string, mixed>
+     */
+    private function contractorDepositRow(ContractorBid $bid): array
+    {
+        $prices = app(ContractorOffers::class)->prices($bid);
+        $site = $bid->offer->site;
+
+        return [
+            'key' => 'contractor_bid:'.$bid->id,
+            'target' => ['contractor_bid_id' => $bid->id],
+            'kind' => ['value' => 'acompte', 'label' => 'Acompte'],
+            'short' => 'Acompte ('.$this->percent($this->pricing->value(PricingVariable::X)).')',
+            'title' => 'Acompte · '.$site->label,
+            'site' => ['id' => $site->id, 'title' => $site->label],
+            'reservation_id' => $bid->offer_id,
+            'who' => $bid->contractor->name,
+            'amount' => $prices['deposit'],
+            'status' => ['value' => 'a_payer', 'label' => self::STATES['a_payer']],
+            'due_date' => null,
+            'when' => 'À régler pour confirmer l’entrepreneur',
+            'contract_amount' => $prices['total'],
+            'paid_at' => null,
+            'method' => null,
+            'transaction_reference' => null,
+            'receipt' => null,
+            'can_pay' => true,
+        ];
+    }
+
+    /**
      * @param  Collection<int, PaymentSchedule>  $group
      * @return array<string, mixed>
      */
@@ -549,12 +594,18 @@ class PromoterPayments
         return [
             'key' => 'schedule:'.$first->id,
             'target' => ['schedule_ids' => $this->keys($group)],
-            'kind' => $deposit ? ['value' => 'acompte', 'label' => 'Acompte'] : ['value' => 'echeance', 'label' => $regularisation ? 'Régularisation' : 'Échéance hebdomadaire'],
+            'kind' => $deposit ? ['value' => 'acompte', 'label' => 'Acompte'] : ['value' => 'echeance', 'label' => match (true) {
+                $regularisation => 'Régularisation',
+                $first->schedule_type === PaymentScheduleType::Jalon => 'Échéance par étape',
+                default => 'Échéance hebdomadaire',
+            }],
             'short' => $short,
             'title' => $short.' · '.$site->label,
             'site' => ['id' => $site->id, 'title' => $site->label],
             'reservation_id' => $first->mission->need->offer_id,
-            'who' => $workers.' ouvrier'.($workers > 1 ? 's' : ''),
+            'who' => $first->mission->need->offer_type === OfferType::Contractuelle
+                ? (string) $first->mission->need->role_label
+                : $workers.' ouvrier'.($workers > 1 ? 's' : ''),
             'amount' => (int) $group->sum('amount_due'),
             'status' => ['value' => $state, 'label' => self::STATES[$state]],
             'due_date' => $due?->toDateString(),

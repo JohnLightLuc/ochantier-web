@@ -22,7 +22,7 @@ class PaymentRequest extends FormRequest
     /**
      * Ce que l’on peut payer : une seule cible par paiement.
      */
-    private const TARGETS = ['proposal_id', 'schedule_ids', 'installment_id', 'plan_code', 'subscription_invoice_id', 'quote_bid_ids'];
+    private const TARGETS = ['proposal_id', 'schedule_ids', 'installment_id', 'plan_code', 'subscription_invoice_id', 'quote_bid_ids', 'contractor_bid_id'];
 
     /**
      * @return array<string, mixed>
@@ -38,6 +38,7 @@ class PaymentRequest extends FormRequest
             'installment_id' => ['nullable', 'uuid'],
             'plan_code' => ['nullable', 'string', 'max:30'],
             'subscription_invoice_id' => ['nullable', 'uuid'],
+            'contractor_bid_id' => ['nullable', 'uuid'],
             'quote_bid_ids' => ['nullable', 'array', 'min:1', 'max:20'],
             'quote_bid_ids.*' => ['uuid', 'distinct'],
             'installments' => ['sometimes', 'integer', 'in:1,2,3'],
@@ -58,11 +59,11 @@ class PaymentRequest extends FormRequest
 
                 if ($targets->count() !== 1) {
                     $validator->errors()->add($targets->first() ?? 'proposal_id', $targets->isEmpty()
-                        ? 'Indiquez ce que vous payez : proposal_id (acompte), schedule_ids (échéances), installment_id (versement), plan_code (formule), subscription_invoice_id (facture d’abonnement) ou quote_bid_ids (commande des devis).'
+                        ? 'Indiquez ce que vous payez : proposal_id (acompte), schedule_ids (échéances), installment_id (versement), plan_code (formule), subscription_invoice_id (facture d’abonnement) quote_bid_ids (commande des devis) ou contractor_bid_id (acompte de l’offre contractuelle).'
                         : 'Payez une seule chose à la fois.');
                 }
 
-                if ($this->installments() > 1 && ! $targets->intersect(['proposal_id', 'schedule_ids'])->count()) {
+                if ($this->installments() > 1 && ! $targets->intersect(['proposal_id', 'schedule_ids', 'contractor_bid_id'])->count()) {
                     $validator->errors()->add('installments', 'Seuls un acompte ou des échéances peuvent être réglés en plusieurs fois.');
                 }
 
@@ -96,7 +97,7 @@ class PaymentRequest extends FormRequest
     }
 
     /**
-     * @return array{proposal_id?: string, schedule_ids?: list<string>, installment_id?: string, plan_code?: string, subscription_invoice_id?: string, quote_bid_ids?: list<string>}
+     * @return array{proposal_id?: string, schedule_ids?: list<string>, installment_id?: string, plan_code?: string, subscription_invoice_id?: string, quote_bid_ids?: list<string>, contractor_bid_id?: string}
      */
     public function target(): array
     {
