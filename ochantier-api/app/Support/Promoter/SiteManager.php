@@ -267,15 +267,16 @@ class SiteManager
     }
 
     /**
-     * Personnes pouvant être désignées responsables : le propriétaire du compte, puis les collaborateurs actifs ou
-     * invités de son équipe (un technicien invité depuis le formulaire peut être désigné aussitôt).
+     * Personnes pouvant être désignées responsables : le propriétaire du compte, puis, sous un abonnement en cours,
+     * les collaborateurs actifs ou invités de son équipe (un technicien invité depuis le formulaire peut être désigné
+     * aussitôt).
      *
      * @return list<array<string, mixed>>
      */
     public function responsibles(PromoterProfile $profile, User $me): array
     {
         $organization = $profile->user->ownedOrganizations()->first();
-        $members = $organization
+        $members = $organization && $this->teamAvailable($profile)
             ? $organization->members()->whereIn('status', self::TEAM_STATUSES)->with('user')->oldest()->get()
             : collect();
 
@@ -294,6 +295,10 @@ class SiteManager
             return true;
         }
 
+        if (! $this->teamAvailable($profile)) {
+            return false;
+        }
+
         return (bool) $profile->user->ownedOrganizations()->first()?->members()
             ->where('user_id', $userId)
             ->whereIn('status', self::TEAM_STATUSES)
@@ -303,6 +308,15 @@ class SiteManager
     /**
      * @return array<string, mixed>
      */
+    /**
+     * Les collaborateurs ne peuvent être désignés que sous un abonnement en cours (sans lui, ils n’ont plus accès au
+     * compte) ; les chantiers déjà confiés à l’un d’eux le gardent.
+     */
+    private function teamAvailable(PromoterProfile $profile): bool
+    {
+        return app(PromoterSubscriptions::class)->isSubscribed($profile);
+    }
+
     public function person(User $user, ?string $role = null): array
     {
         $name = trim($user->first_name.' '.$user->last_name);
