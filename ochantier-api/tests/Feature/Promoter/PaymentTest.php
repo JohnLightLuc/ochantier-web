@@ -226,6 +226,11 @@ class PaymentTest extends PromoterTestCase
 
         $this->getJson('/api/v1/promoter/payments?limit=2')
             ->assertOk()
+            ->assertJsonStructure([
+                'data',
+                'links' => ['first', 'last', 'prev', 'next'],
+                'meta' => ['current_page', 'from', 'last_page', 'links', 'path', 'per_page', 'to', 'total', 'totals', 'counts', 'next'],
+            ])
             ->assertJsonPath('data.*.short', ['Échéance 1/2', 'Échéance 2/2'])
             ->assertJsonPath('meta.per_page', 2)
             ->assertJsonPath('meta.total', 3)
