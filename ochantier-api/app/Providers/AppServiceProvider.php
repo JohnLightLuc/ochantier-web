@@ -9,6 +9,7 @@ use App\Support\Payments\PaymentGateway;
 use App\Support\Payments\SimulatedPaymentGateway;
 use App\Support\PhoneNumber;
 use App\Support\Promoter\PromoterAccess;
+use App\Support\Push\FcmPushGateway;
 use App\Support\Push\LogPushGateway;
 use App\Support\Push\PushGateway;
 use App\Support\Sms\LogSmsGateway;
@@ -40,6 +41,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->app->bind(PushGateway::class, fn () => match (config('services.push.driver')) {
+            'fcm' => $this->app->make(FcmPushGateway::class),
             default => new LogPushGateway,
         });
 

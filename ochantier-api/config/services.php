@@ -57,7 +57,7 @@ return [
         'url' => env('REFERRAL_URL', 'https://ochantier.ci/i'),
     ],
 
-    // Notifications push : « log » (journal) en attendant le fournisseur retenu (FCM).
+    // Notifications push : « log » (journal) ou « fcm » (Firebase Cloud Messaging, identifiants dans config/firebase.php).
     'push' => [
         'driver' => env('PUSH_DRIVER', 'log'),
     ],
