@@ -17,6 +17,9 @@ use App\Support\Promoter\PromoterPayments;
 use App\Support\Promoter\PromoterSubscriptions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -42,29 +45,38 @@ class PaymentController extends Controller
     public function __construct(private PromoterPayments $payments, private PromoterSubscriptions $subscriptions, private PromoterAccess $access) {}
 
     /**
-     * Acomptes et échéances, les plus urgents d’abord. Filtres : filter (a_payer, en_retard, a_venir, effectues,
-     * finalises), site_id. meta.totals : à régler, à venir, payés ; meta.counts : nombre par onglet ; meta.next :
-     * prochain paiement à faire.
+     * Acomptes et échéances, les plus urgents d’abord, avec pagination. Filtres : filter (a_payer, en_retard,
+     * a_venir, effectues, finalises), site_id. Taille de page : per_page (ou son alias limit, pour le mobile), 20 par
+     * défaut. Sur l’ensemble des paiements, pas seulement la page : meta.totals (à régler, à venir, payés),
+     * meta.counts (nombre par onglet), meta.next (prochain paiement à faire).
      */
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): AnonymousResourceCollection
     {
         $filters = $request->validate([
             'filter' => ['nullable', 'in:'.implode(',', array_keys(self::FILTERS))],
             'site_id' => ['nullable', 'uuid'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $rows = $this->payments->rows($request->user(), $filters['site_id'] ?? null);
         $sum = fn (array $states) => (int) $rows->whereIn('status.value', $states)->sum('amount');
         $pending = $rows->whereIn('status.value', ['en_retard', 'a_payer', 'a_venir']);
 
-        return response()->json([
-            'data' => $rows->when($filters['filter'] ?? null, fn ($rows, $filter) => $rows->whereIn('status.value', self::FILTERS[$filter]))->values(),
-            'meta' => [
-                'totals' => ['a_regler' => $sum(['a_payer', 'en_retard']), 'a_venir' => $sum(['a_venir']), 'payes' => $sum(['effectue', 'finalise'])],
-                'counts' => ['tous' => $rows->count(), ...collect(self::FILTERS)->map(fn (array $states) => $rows->whereIn('status.value', $states)->count())->all()],
-                'next' => $pending->first(),
-            ],
+        $listed = $rows->when($filters['filter'] ?? null, fn ($rows, $filter) => $rows->whereIn('status.value', self::FILTERS[$filter]))->values();
+        $perPage = (int) ($filters['per_page'] ?? $filters['limit'] ?? 20);
+        $page = (int) ($filters['page'] ?? 1);
+        $paginated = new LengthAwarePaginator($listed->forPage($page, $perPage)->values(), $listed->count(), $perPage, $page, [
+            'path' => $request->url(),
+            'query' => $request->query(),
         ]);
+
+        return JsonResource::collection($paginated)->additional(['meta' => [
+            'totals' => ['a_regler' => $sum(['a_payer', 'en_retard']), 'a_venir' => $sum(['a_venir']), 'payes' => $sum(['effectue', 'finalise'])],
+            'counts' => ['tous' => $rows->count(), ...collect(self::FILTERS)->map(fn (array $states) => $rows->whereIn('status.value', $states)->count())->all()],
+            'next' => $pending->first(),
+        ]]);
     }
 
     /**
