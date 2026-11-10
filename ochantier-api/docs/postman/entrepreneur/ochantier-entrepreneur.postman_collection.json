@@ -1,0 +1,649 @@
+{
+  "info": {
+    "_postman_id": "a86af9c3-f682-553f-a780-3728504d68cc",
+    "name": "O’CHANTIER API v1 · Entrepreneurs et Techniciens",
+    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Cette première version couvre l’**authentification** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "id": "1fdb92f6-3cba-543a-9dbf-d0572d27b20c",
+      "name": "Inscription",
+      "item": [
+        {
+          "id": "5b7481da-f02d-57be-90ac-4232be484280",
+          "name": "Créer un compte",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Numéro neuf à chaque exécution : l’inscription n’est possible qu’une fois par numéro.",
+                  "pm.collectionVariables.set('contractor_phone', '07' + String(Math.floor(Math.random() * 1e8)).padStart(8, '0'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 202', () => pm.response.to.have.status(202));",
+                  "pm.test('Code envoyé par SMS', () => pm.expect(pm.response.json().data.channel).to.eql('sms'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/contractor/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "contractor",
+                "register"
+              ]
+            },
+            "description": "Écran « Créer un compte » : téléphone ou e-mail, mot de passe et consentements. Le compte est créé **en attente d’activation** et un code est envoyé par SMS ou e-mail.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `dial_code` | oui, sans `email` | Indicatif du pays sans `+` : `225`. |\n| `phone_number` | oui, sans `email` | Numéro national : 10 chiffres pour la Côte d’Ivoire. |\n| `email` | oui, sans téléphone | Adresse e-mail (le code est alors envoyé par e-mail). |\n| `password` | oui | 8 caractères minimum, dont un chiffre. |\n| `password_confirmation` | oui | Même valeur que `password`. |\n| `accept_terms` | oui | `true` : conditions générales d’utilisation. |\n| `accept_data_processing` | oui | `true` : traitement des données pour la vérification du profil. |\n\nUne inscription non terminée peut être reprise (nouveau code, mot de passe remplacé). Erreurs : **422** « Un compte existe déjà avec ces coordonnées. Connectez-vous. », mot de passe trop court ou sans chiffre, confirmation différente, consentement manquant.\n\n**Réponse 202** : `message` à afficher et, dans `data`, `channel` (`sms` ou `email`), `destination` masquée, `expires_in` (validité du code en secondes), `resend_in` (délai avant un nouveau code), `code_length` (nombre de chiffres).\nUne nouvelle demande avant ce délai renvoie **429** avec `retry_after` et l’en-tête `Retry-After`.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dial_code\": \"{{dial_code}}\",\n  \"phone_number\": \"{{contractor_phone}}\",\n  \"password\": \"{{contractor_password}}\",\n  \"password_confirmation\": \"{{contractor_password}}\",\n  \"accept_terms\": true,\n  \"accept_data_processing\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "142f8202-5fd4-537f-a636-bdeb6b031e40",
+          "name": "Valider le code d’inscription",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Session ouverte', () => pm.expect(body.data.access_token).to.be.a('string'));",
+                  "pm.collectionVariables.set('access_token', body.data.access_token);",
+                  "pm.collectionVariables.set('refresh_token', body.data.refresh_token);",
+                  "pm.collectionVariables.set('session_id', body.data.session_id);",
+                  "pm.test('Profil à choisir', () => pm.expect(body.data.user.contractor.profile_chosen).to.eql(false));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/contractor/register/verify",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "contractor",
+                "register",
+                "verify"
+              ]
+            },
+            "description": "Écran « Vérification » : le code reçu active le compte, enregistre les consentements (CGU, confidentialité, traitement des données) et ouvre la session sur cet appareil.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `dial_code` | oui, sans `email` | Indicatif du pays sans `+` : `225`. |\n| `phone_number` | oui, sans `email` | Numéro national : 10 chiffres pour la Côte d’Ivoire. |\n| `email` | oui, sans téléphone | Adresse e-mail (le code est alors envoyé par e-mail). |\n| `code` | oui | Code reçu (`code_length` chiffres). |\n| `device_name` | oui | Nom de l’appareil. |\n| `device_id`, `platform`, `app_version` | non | Appareil (`android`, `ios` ou `web`). |\n\nErreur : **422** « Code incorrect ou expiré. » (5 essais par code).\n\n**Réponse 201** : `access_token`, `refresh_token`, `expires_in`, `refresh_expires_at`, `session_id`. `data.user` : compte connecté. `type.value` vaut `contractor` ; `contractor.profile_chosen` vaut `false` tant que le profil (entreprise ou indépendant) n’a pas été choisi, et `contractor.profile` donne alors `null` (sinon `id`, `reference`, `kind`, `name`, `status`).\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dial_code\": \"{{dial_code}}\",\n  \"phone_number\": \"{{contractor_phone}}\",\n  \"code\": \"{{otp_code}}\",\n  \"device_name\": \"{{device_name}}\",\n  \"device_id\": \"{{device_id}}\",\n  \"platform\": \"{{platform}}\",\n  \"app_version\": \"{{app_version}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "id": "61a4a33a-d63f-504f-a2d1-851cc145f017",
+      "name": "Compte",
+      "item": [
+        {
+          "id": "08f67db9-46e6-5353-95be-e433fc835bab",
+          "name": "Mon compte",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Compte entrepreneur', () => pm.expect(pm.response.json().data.type.value).to.eql('contractor'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "me"
+              ]
+            },
+            "description": "Compte connecté. `data.user` : compte connecté. `type.value` vaut `contractor` ; `contractor.profile_chosen` vaut `false` tant que le profil (entreprise ou indépendant) n’a pas été choisi, et `contractor.profile` donne alors `null` (sinon `id`, `reference`, `kind`, `name`, `status`).\n"
+          },
+          "response": []
+        },
+        {
+          "id": "8a961056-9afe-524f-a4ec-b449a9ae8972",
+          "name": "Changer le mot de passe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "password"
+              ]
+            },
+            "description": "« Sécurité » : remplace le mot de passe et ferme les autres sessions.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `current_password` | oui | Mot de passe actuel. |\n| `password` | oui | Nouveau : 8 caractères minimum, dont un chiffre, différent de l’actuel. |\n| `password_confirmation` | oui | Même valeur. |\n\nErreurs : **422** « Mot de passe actuel incorrect. », « Choisissez un mot de passe différent de l’actuel. ».",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"{{contractor_password}}\",\n  \"password\": \"{{new_password}}\",\n  \"password_confirmation\": \"{{new_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "eb44ac68-0eaf-5f94-9605-160b6d2f3149",
+          "name": "Se déconnecter",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Ferme la session de cet appareil."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "id": "35c0578a-6a54-55e1-a55b-ea0dc15a715c",
+      "name": "Connexion",
+      "item": [
+        {
+          "id": "08786339-d89e-5271-a3ce-40c8d77a5028",
+          "name": "Se connecter",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Session ouverte', () => pm.expect(body.data.access_token).to.be.a('string'));",
+                  "pm.collectionVariables.set('access_token', body.data.access_token);",
+                  "pm.collectionVariables.set('refresh_token', body.data.refresh_token);",
+                  "pm.collectionVariables.set('session_id', body.data.session_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/contractor/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "contractor",
+                "login"
+              ]
+            },
+            "description": "Écran « Connexion » : téléphone ou e-mail et mot de passe ouvrent directement la session (pas de code).\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `dial_code` | oui, sans `email` | Indicatif du pays sans `+` : `225`. |\n| `phone_number` | oui, sans `email` | Numéro national : 10 chiffres pour la Côte d’Ivoire. |\n| `email` | oui, sans téléphone | Adresse e-mail (le code est alors envoyé par e-mail). |\n| `password` | oui | Mot de passe. |\n| `device_name` | oui | Nom de l’appareil. |\n| `device_id`, `platform`, `app_version` | non | Appareil. |\n\nErreurs :\n- **422** « Identifiant ou mot de passe incorrect. » (même message si le compte est inconnu) ;\n- **423** après **5 échecs** : compte verrouillé 15 minutes, `locked_until` en ISO 8601 ;\n- **403** compte suspendu ou désactivé.\n\nInscription non terminée : **202** avec `data.activation_required` = `true` et un nouveau code ; valider ensuite avec « Valider le code d’inscription ».\n\n**Réponse 200** : jetons et `data.user`. `data.user` : compte connecté. `type.value` vaut `contractor` ; `contractor.profile_chosen` vaut `false` tant que le profil (entreprise ou indépendant) n’a pas été choisi, et `contractor.profile` donne alors `null` (sinon `id`, `reference`, `kind`, `name`, `status`).\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dial_code\": \"{{dial_code}}\",\n  \"phone_number\": \"{{contractor_phone}}\",\n  \"password\": \"{{new_password}}\",\n  \"device_name\": \"{{device_name}}\",\n  \"device_id\": \"{{device_id}}\",\n  \"platform\": \"{{platform}}\",\n  \"app_version\": \"{{app_version}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "id": "600ae363-98d2-5ac6-946f-708fdeca3171",
+      "name": "Mot de passe oublié",
+      "item": [
+        {
+          "id": "e2c03a70-8abb-533e-9e51-f79fee62f292",
+          "name": "Recevoir un code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 202', () => pm.response.to.have.status(202));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/contractor/password/forgot",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "contractor",
+                "password",
+                "forgot"
+              ]
+            },
+            "description": "Écran « Récupérer l’accès » : envoie un code de réinitialisation par SMS ou e-mail si un compte actif correspond. La réponse est la même pour un compte inconnu.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `dial_code` | oui, sans `email` | Indicatif du pays sans `+` : `225`. |\n| `phone_number` | oui, sans `email` | Numéro national : 10 chiffres pour la Côte d’Ivoire. |\n| `email` | oui, sans téléphone | Adresse e-mail (le code est alors envoyé par e-mail). |\n\n**Réponse 202** : `message` à afficher et, dans `data`, `channel` (`sms` ou `email`), `destination` masquée, `expires_in` (validité du code en secondes), `resend_in` (délai avant un nouveau code), `code_length` (nombre de chiffres).\nUne nouvelle demande avant ce délai renvoie **429** avec `retry_after` et l’en-tête `Retry-After`.\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dial_code\": \"{{dial_code}}\",\n  \"phone_number\": \"{{contractor_phone}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "e56a6cec-6804-5344-8ced-0a13fac94e4c",
+          "name": "Vérifier le code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/contractor/password/verify",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "contractor",
+                "password",
+                "verify"
+              ]
+            },
+            "description": "Écran « Vérification » avant « Nouveau mot de passe » : contrôle le code **sans le consommer** (chaque erreur compte parmi les 5 essais). Le même code est renvoyé ensuite avec le nouveau mot de passe.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `dial_code` | oui, sans `email` | Indicatif du pays sans `+` : `225`. |\n| `phone_number` | oui, sans `email` | Numéro national : 10 chiffres pour la Côte d’Ivoire. |\n| `email` | oui, sans téléphone | Adresse e-mail (le code est alors envoyé par e-mail). |\n| `code` | oui | Code reçu. |\n\nErreur : **422** « Code incorrect ou expiré. ».",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dial_code\": \"{{dial_code}}\",\n  \"phone_number\": \"{{contractor_phone}}\",\n  \"code\": \"{{otp_code}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "9606920b-09ff-59e5-9f60-b12ea50778f9",
+          "name": "Enregistrer le nouveau mot de passe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/contractor/password/reset",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "contractor",
+                "password",
+                "reset"
+              ]
+            },
+            "description": "Écran « Nouveau mot de passe » : vérifie et consomme le code, remplace le mot de passe, lève un éventuel verrouillage et **ferme toutes les sessions**.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `dial_code` | oui, sans `email` | Indicatif du pays sans `+` : `225`. |\n| `phone_number` | oui, sans `email` | Numéro national : 10 chiffres pour la Côte d’Ivoire. |\n| `email` | oui, sans téléphone | Adresse e-mail (le code est alors envoyé par e-mail). |\n| `code` | oui | Code vérifié à l’écran précédent. |\n| `password` | oui | 8 caractères minimum, dont un chiffre. |\n| `password_confirmation` | oui | Même valeur. |\n\nErreur : **422** « Code incorrect ou expiré. ».",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dial_code\": \"{{dial_code}}\",\n  \"phone_number\": \"{{contractor_phone}}\",\n  \"code\": \"{{otp_code}}\",\n  \"password\": \"{{reset_password}}\",\n  \"password_confirmation\": \"{{reset_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "351519cc-757e-57f3-84a5-dc32289da530",
+          "name": "Se connecter avec le nouveau mot de passe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Session ouverte', () => pm.expect(body.data.access_token).to.be.a('string'));",
+                  "pm.collectionVariables.set('access_token', body.data.access_token);",
+                  "pm.collectionVariables.set('refresh_token', body.data.refresh_token);",
+                  "pm.collectionVariables.set('session_id', body.data.session_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/contractor/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "contractor",
+                "login"
+              ]
+            },
+            "description": "Même requête que « Se connecter », avec le mot de passe choisi après « Mot de passe oublié ».",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dial_code\": \"{{dial_code}}\",\n  \"phone_number\": \"{{contractor_phone}}\",\n  \"password\": \"{{reset_password}}\",\n  \"device_name\": \"{{device_name}}\",\n  \"device_id\": \"{{device_id}}\",\n  \"platform\": \"{{platform}}\",\n  \"app_version\": \"{{app_version}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api/v1",
+      "type": "string",
+      "description": "Racine de l’API v1."
+    },
+    {
+      "key": "otp_code",
+      "value": "123456",
+      "type": "string",
+      "description": "Code OTP de test (OTP_TEST_CODE, hors production)."
+    },
+    {
+      "key": "dial_code",
+      "value": "225",
+      "type": "string",
+      "description": "Indicatif de la Côte d’Ivoire."
+    },
+    {
+      "key": "contractor_phone",
+      "value": "",
+      "type": "string",
+      "description": "Tiré au hasard par « Créer un compte »."
+    },
+    {
+      "key": "contractor_password",
+      "value": "chantier2026",
+      "type": "string",
+      "description": "Mot de passe choisi à l’inscription."
+    },
+    {
+      "key": "new_password",
+      "value": "chantier2027",
+      "type": "string",
+      "description": "Nouveau mot de passe pour « Changer le mot de passe »."
+    },
+    {
+      "key": "reset_password",
+      "value": "chantier2028",
+      "type": "string",
+      "description": "Mot de passe choisi après « Mot de passe oublié »."
+    },
+    {
+      "key": "device_name",
+      "value": "Postman",
+      "type": "string"
+    },
+    {
+      "key": "device_id",
+      "value": "postman-device",
+      "type": "string"
+    },
+    {
+      "key": "platform",
+      "value": "android",
+      "type": "string"
+    },
+    {
+      "key": "app_version",
+      "value": "1.0.0",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string",
+      "description": "Renseigné automatiquement."
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string",
+      "description": "Renseigné automatiquement."
+    },
+    {
+      "key": "session_id",
+      "value": "",
+      "type": "string",
+      "description": "Renseigné automatiquement."
+    }
+  ]
+}
