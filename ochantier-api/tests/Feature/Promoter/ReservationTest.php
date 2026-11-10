@@ -245,6 +245,41 @@ class ReservationTest extends PromoterTestCase
         $this->assertSame(4, Need::query()->where('trade_id', $this->trade('peintre')->id)->where('start_date', $start)->sole()->duration_days);
     }
 
+    public function test_the_site_detail_separates_the_initial_reservation_from_the_additional_ones(): void
+    {
+        $site = $this->publishedSite();
+        $initial = Offer::query()->sole();
+
+        $this->travel(1)->minutes();
+        $this->postJson("/api/v1/promoter/sites/{$site['id']}/reservations", ['needs' => [['trade_id' => $this->trade('peintre')->id, 'headcount' => 2, 'daily_rate' => 18000]]])->assertCreated();
+        $additional = Offer::query()->whereKeyNot($initial->getKey())->sole();
+
+        $this->getJson("/api/v1/promoter/sites/{$site['id']}")
+            ->assertOk()
+            ->assertJsonPath('data.offer.published.id', $initial->id)
+            ->assertJsonPath('data.offer.published.needs.*.headcount', [2, 1])
+            ->assertJsonCount(2, 'data.reservations')
+            ->assertJsonPath('data.reservations.*.id', [$initial->id, $additional->id])
+            ->assertJsonPath('data.reservations.*.kind.value', ['initiale', 'supplementaire'])
+            ->assertJsonPath('data.reservations.0.workers_count', 3)
+            ->assertJsonPath('data.reservations.1.workers_count', 2)
+            ->assertJsonPath('data.reservations.1.needs.0.trade.code', 'peintre')
+            ->assertJsonPath('data.reservations.1.state.value', 'recherche')
+            ->assertJsonPath('data.reservations.1.start_date', $initial->start_date->toDateString())
+            ->assertJsonPath('data.workers_total', 5);
+    }
+
+    public function test_a_draft_site_has_no_reservation(): void
+    {
+        $draft = $this->postJson('/api/v1/promoter/sites', ['title' => 'Duplex Bingerville'])->json('data');
+
+        $this->getJson("/api/v1/promoter/sites/{$draft['id']}")
+            ->assertOk()
+            ->assertJsonPath('data.offer.published', null)
+            ->assertJsonPath('data.reservations', [])
+            ->assertJsonPath('data.workers_total', 0);
+    }
+
     /**
      * Chantier publié avec ses besoins : métier => [effectif, tarif proposé].
      *
