@@ -37,6 +37,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         // Le serveur du Back Office relaie l’adresse IP de l’administrateur (X-Forwarded-For) : liste blanche, journal.
         $middleware->trustProxies(at: array_filter(explode(',', (string) env('TRUSTED_PROXIES'))));
+        // API sans écran de connexion : un appel non authentifié reçoit une 401 JSON, jamais une redirection.
+        $middleware->redirectGuestsTo(fn () => null);
         $middleware->throttleApi();
         $middleware->api(append: [EnsureResponseMessage::class]);
     })
