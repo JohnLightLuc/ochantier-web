@@ -151,6 +151,16 @@ class SiteTest extends PromoterTestCase
         $this->getJson('/api/v1/promoter/sites?filter=autre')->assertJsonValidationErrors(['filter']);
     }
 
+    public function test_limit_is_accepted_as_an_alias_of_per_page(): void
+    {
+        $this->createSite(['title' => 'Duplex Bingerville']);
+        $this->createSite(['title' => 'Résidence Les Palmiers']);
+
+        $this->getJson('/api/v1/promoter/sites?limit=1')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('meta.per_page', 1);
+        $this->getJson('/api/v1/promoter/sites?limit=1&per_page=2')->assertJsonCount(2, 'data');
+        $this->getJson('/api/v1/promoter/sites?limit=500')->assertJsonValidationErrors(['limit']);
+    }
+
     public function test_a_published_site_can_no_longer_be_edited_or_deleted(): void
     {
         $draft = $this->createSite();

@@ -220,6 +220,33 @@ class PaymentTest extends PromoterTestCase
             ->assertJsonValidationErrors(['schedule_ids' => 'Cette échéance est déjà payée.']);
     }
 
+    public function test_the_list_is_paginated_with_limit_as_an_alias_of_per_page(): void
+    {
+        $this->postJson('/api/v1/promoter/payments', $this->deposit())->assertCreated();
+
+        $this->getJson('/api/v1/promoter/payments?limit=2')
+            ->assertOk()
+            ->assertJsonStructure([
+                'data',
+                'links' => ['first', 'last', 'prev', 'next'],
+                'meta' => ['current_page', 'from', 'last_page', 'links', 'path', 'per_page', 'to', 'total', 'totals', 'counts', 'next'],
+            ])
+            ->assertJsonPath('data.*.short', ['Échéance 1/2', 'Échéance 2/2'])
+            ->assertJsonPath('meta.per_page', 2)
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('meta.last_page', 2)
+            ->assertJsonPath('meta.counts.tous', 3)
+            ->assertJsonPath('meta.totals.payes', 223000)
+            ->assertJsonPath('meta.next.short', 'Échéance 1/2');
+
+        $this->getJson('/api/v1/promoter/payments?limit=2&page=2')
+            ->assertJsonPath('data.*.short', ['Acompte (30 %)'])
+            ->assertJsonPath('meta.current_page', 2);
+
+        $this->getJson('/api/v1/promoter/payments?limit=1&per_page=3')->assertJsonCount(3, 'data');
+        $this->getJson('/api/v1/promoter/payments?limit=500')->assertJsonValidationErrors(['limit']);
+    }
+
     public function test_an_unpaid_installment_past_its_due_date_is_late(): void
     {
         $this->postJson('/api/v1/promoter/payments', $this->deposit())->assertCreated();

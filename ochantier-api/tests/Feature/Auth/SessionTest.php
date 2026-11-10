@@ -32,6 +32,13 @@ class SessionTest extends AuthTestCase
         $this->withAccessToken($tokens->accessToken)->getJson('/api/v1/me')->assertUnauthorized();
     }
 
+    public function test_an_unauthenticated_call_without_json_accept_header_gets_a_json_401(): void
+    {
+        $this->get('/api/v1/promoter/home')
+            ->assertUnauthorized()
+            ->assertJsonPath('message', 'Session expirée : reconnectez-vous.');
+    }
+
     public function test_refreshing_rotates_both_tokens(): void
     {
         $user = User::factory()->promoter()->create();

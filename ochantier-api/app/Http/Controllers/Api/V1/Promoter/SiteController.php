@@ -34,7 +34,8 @@ class SiteController extends Controller
 
     /**
      * Chantiers du plus récemment modifié au plus ancien. Filtres : filter (brouillons, recherche, en_cours,
-     * termines), search (titre ou adresse). Le nombre de chantiers par onglet est renvoyé dans meta.counts.
+     * termines), search (titre ou adresse). Taille de page : per_page (ou son alias limit, pour le mobile), 20 par
+     * défaut. Le nombre de chantiers par onglet est renvoyé dans meta.counts.
      */
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -42,6 +43,7 @@ class SiteController extends Controller
             'filter' => ['nullable', 'in:'.implode(',', array_keys(SiteManager::FILTERS))],
             'search' => ['nullable', 'string', 'max:80'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
         $profile = ProfileController::profile($request);
@@ -57,7 +59,7 @@ class SiteController extends Controller
             ->tap($search)
             ->when($filters['filter'] ?? null, fn ($query, $filter) => $this->sites->filter($query, $filter))
             ->latest('updated_at')
-            ->paginate((int) ($filters['per_page'] ?? 20))
+            ->paginate((int) ($filters['per_page'] ?? $filters['limit'] ?? 20))
             ->withQueryString();
 
         $counts = ['tous' => $mine()->tap($search)->count()];
