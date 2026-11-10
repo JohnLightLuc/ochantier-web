@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Auth\CommercialLoginController;
+use App\Http\Controllers\Api\V1\Auth\ContractorLoginController;
+use App\Http\Controllers\Api\V1\Auth\ContractorPasswordController;
+use App\Http\Controllers\Api\V1\Auth\ContractorRegistrationController;
 use App\Http\Controllers\Api\V1\Auth\DeviceController;
 use App\Http\Controllers\Api\V1\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Auth\ProfileController;
@@ -49,11 +52,13 @@ use Illuminate\Support\Facades\Route;
 | API des applications mobiles O’CHANTIER — v1
 |--------------------------------------------------------------------------
 |
-| Applications Promoteur et Commercial (Ouvrier en V2). Jetons JWT adossés aux sessions (auth_sessions) :
+| Applications Promoteur, Commercial et Entrepreneurs et Techniciens (Ouvrier en V2). Jetons JWT adossés aux sessions (auth_sessions) :
 | jeton d’accès court envoyé en Bearer, jeton de rafraîchissement à usage unique.
 |
 | Promoteur : inscription et connexion sans mot de passe, par code SMS ou e-mail.
 | Commercial : compte créé par le Back Office, connexion par mot de passe puis code SMS.
+| Entrepreneur ou technicien (contractor) : inscription par téléphone ou e-mail et mot de passe, activée par un code ;
+| connexion par mot de passe ; mot de passe oublié par code SMS ou e-mail.
 | Espace commercial (prefix commercial) : prospects et dossiers ouvriers, ouvriers transmis et corrections, gains,
 | accueil, objectifs et classement, profil et zone, préférences et notifications ; contrat actif exigé.
 | Espace promoteur (prefix promoter) : profil, vérification, préférences, chantiers, réservations, paiements et suivi
@@ -77,6 +82,15 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('login/verify', [CommercialLoginController::class, 'verify'])->middleware('throttle:10,1')->name('login.verify');
         });
 
+        Route::prefix('contractor')->name('contractor.')->group(function () {
+            Route::post('register', [ContractorRegistrationController::class, 'store'])->middleware('throttle:otp')->name('register');
+            Route::post('register/verify', [ContractorRegistrationController::class, 'verify'])->middleware('throttle:10,1')->name('register.verify');
+            Route::post('login', [ContractorLoginController::class, 'store'])->middleware('throttle:login')->name('login');
+            Route::post('password/forgot', [ContractorPasswordController::class, 'forgot'])->middleware('throttle:otp')->name('password.forgot');
+            Route::post('password/verify', [ContractorPasswordController::class, 'verify'])->middleware('throttle:10,1')->name('password.verify');
+            Route::post('password/reset', [ContractorPasswordController::class, 'reset'])->middleware('throttle:10,1')->name('password.reset');
+        });
+
         Route::post('password/forgot', [PasswordController::class, 'forgot'])->middleware('throttle:otp')->name('password.forgot');
         Route::post('password/reset', [PasswordController::class, 'reset'])->middleware('throttle:10,1')->name('password.reset');
         Route::post('refresh', [SessionController::class, 'refresh'])->middleware('throttle:30,1')->name('refresh');
@@ -86,7 +100,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         // Accessibles avant le remplacement du mot de passe provisoire.
         Route::get('me', [ProfileController::class, 'show'])->name('me');
         Route::post('auth/logout', [SessionController::class, 'logout'])->name('auth.logout');
-        Route::put('auth/password', [PasswordController::class, 'update'])->middleware('user.type:commercial')->name('auth.password.update');
+        Route::put('auth/password', [PasswordController::class, 'update'])->middleware('user.type:commercial,contractor')->name('auth.password.update');
 
         Route::middleware('password.changed')->group(function () {
             Route::get('auth/sessions', [SessionController::class, 'index'])->name('auth.sessions.index');

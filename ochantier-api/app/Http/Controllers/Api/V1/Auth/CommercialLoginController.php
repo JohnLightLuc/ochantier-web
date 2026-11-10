@@ -97,12 +97,4 @@ class CommercialLoginController extends AuthController
             ? 'Votre accès commercial n’est plus actif. Contactez votre responsable O’CHANTIER.'
             : null;
     }
-
-    private function locked(User $user): JsonResponse
-    {
-        return response()->json([
-            'message' => 'Trop de tentatives. Réessayez à '.$user->locked_until->timezone('Africa/Abidjan')->format('H:i').'.',
-            'locked_until' => $user->locked_until->toIso8601String(),
-        ], 423);
-    }
 }

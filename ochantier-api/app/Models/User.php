@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 /**
- * Utilisateurs des applications (promoteurs, commerciaux, ouvriers en V2).
+ * Utilisateurs des applications (promoteurs, commerciaux, entrepreneurs et techniciens, ouvriers en V2).
  */
 class User extends Authenticatable
 {
@@ -114,6 +114,17 @@ class User extends Authenticatable
     public function commercialProfile(): HasOne
     {
         return $this->hasOne(CommercialProfile::class);
+    }
+
+    /**
+     * Profil entrepreneur (entreprise ou indépendant) d’un compte de l’application Entrepreneurs et Techniciens,
+     * créé au choix du profil.
+     *
+     * @return HasOne<Contractor, $this>
+     */
+    public function contractor(): HasOne
+    {
+        return $this->hasOne(Contractor::class);
     }
 
     /**

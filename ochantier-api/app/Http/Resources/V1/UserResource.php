@@ -9,7 +9,7 @@ use App\Support\Promoter\PromoterAccess;
 use Illuminate\Http\Request;
 
 /**
- * Compte connecté : identité, coordonnées et profil propre à l’application (promoteur ou commercial).
+ * Compte connecté : identité, coordonnées et profil propre à l’application (promoteur, commercial ou entrepreneur).
  *
  * @mixin User
  */
@@ -46,6 +46,16 @@ class UserResource extends Resource
                 'status' => $this->status($this->commercialProfile->status),
                 'verification_status' => $this->status($this->commercialProfile->verification_status),
             ] : null),
+            'contractor' => $this->when($this->user_type === UserType::Contractor, fn () => [
+                'profile_chosen' => $this->contractor !== null,
+                'profile' => $this->contractor ? [
+                    'id' => $this->contractor->id,
+                    'reference' => $this->contractor->reference,
+                    'kind' => $this->status($this->contractor->kind),
+                    'name' => $this->contractor->name,
+                    'status' => $this->status($this->contractor->status),
+                ] : null,
+            ]),
         ];
     }
 }

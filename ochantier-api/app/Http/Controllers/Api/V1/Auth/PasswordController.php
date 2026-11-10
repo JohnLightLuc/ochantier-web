@@ -15,7 +15,7 @@ use App\Support\Auth\JwtAuthenticator;
 use Illuminate\Http\JsonResponse;
 
 /**
- * Mot de passe des commerciaux : oubli (code SMS), réinitialisation et changement depuis l’application.
+ * Mot de passe des commerciaux : oubli (code SMS) et réinitialisation ; changement depuis l’application, aussi pour les entrepreneurs.
  */
 class PasswordController extends AuthController
 {
@@ -72,7 +72,7 @@ class PasswordController extends AuthController
         $this->sessions->revokeAll($user, 'password_changed', JwtAuthenticator::session($request));
 
         return ApiResponse::success(
-            UserResource::make($user->load(['promoterProfile', 'commercialProfile', 'ownedOrganizations'])),
+            UserResource::make($user->load(['promoterProfile', 'commercialProfile', 'contractor', 'ownedOrganizations'])),
             'Mot de passe mis à jour',
         );
     }

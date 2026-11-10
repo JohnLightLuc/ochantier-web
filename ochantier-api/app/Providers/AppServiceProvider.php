@@ -123,7 +123,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Au-dessus du seuil de verrouillage du compte (config auth.lockout) pour que le verrouillage s’applique d’abord.
         RateLimiter::for('login', fn (Request $request) => [
-            Limit::perMinute(10)->by('login:'.self::requestedPhone($request)),
+            Limit::perMinute(10)->by('login:'.(self::requestedPhone($request) ?? mb_strtolower(trim((string) $request->input('email'))))),
             Limit::perMinute(20)->by('login-ip:'.$request->ip()),
         ]);
     }

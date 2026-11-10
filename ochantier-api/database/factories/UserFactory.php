@@ -51,6 +51,14 @@ class UserFactory extends Factory
     }
 
     /**
+     * Entrepreneur ou technicien sans profil choisi ; mot de passe « motdepasse1 » par défaut.
+     */
+    public function contractor(string $password = 'motdepasse1'): static
+    {
+        return $this->state(['user_type' => UserType::Contractor, 'password_hash' => $password]);
+    }
+
+    /**
      * Compte créé par le Back Office avec un mot de passe provisoire, jamais encore utilisé.
      */
     public function provisional(): static
