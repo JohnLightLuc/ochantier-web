@@ -16,7 +16,8 @@ use Illuminate\Http\Request;
 
 /**
  * Fiche d’un ouvrier transmis par le commercial (« Voir le dossier », « Voir le profil ») : état du dossier,
- * identité, activité, contact d’urgence, pièces, commission et, une fois validé, son activité sur la plateforme.
+ * identité, activité, contact d’urgence, pièces, commission et, une fois validé, le remplissage de son profil et son
+ * activité sur la plateforme.
  * Le dossier se corrige toujours par son prospect (prospect_id).
  *
  * @mixin Worker
@@ -28,7 +29,7 @@ class WorkerDetailResource extends Resource
      */
     public const WITH = [
         'workerTrades.trade', 'residenceCommune', 'residenceNeighborhood', 'photoMedia', 'specialties', 'skills', 'references',
-        'verificationReviews.verificationCorrections.document.documentType', 'commercialEarnings',
+        'verificationReviews.verificationCorrections.document.documentType', 'commercialEarnings', 'certifications', 'mobilityZones',
     ];
 
     /**
@@ -78,6 +79,7 @@ class WorkerDetailResource extends Resource
             'documents' => DocumentResource::collection(app(DocumentStore::class)->active($this->resource))->resolve(),
             'submission' => $workers->submission($this->resource),
             'commission' => $earning ? $this->commission($earning) : null,
+            'profile_completion' => $workers->profileCompletion($this->resource),
             'performance' => $this->verification_status === WorkerVerificationStatus::Valide ? [
                 'validated_at' => $this->validated_at?->toIso8601String(),
                 'availability' => $this->status($this->availability_status),

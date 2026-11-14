@@ -4,9 +4,12 @@ namespace App\Support\Commercial;
 
 use App\Enums\WorkerVerificationStatus;
 use App\Models\CommercialProfile;
+use App\Models\Document;
 use App\Models\VerificationCorrection;
 use App\Models\VerificationReview;
 use App\Models\Worker;
+use App\Support\Admin\PayoutMethods;
+use App\Support\Documents\DocumentStore;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,6 +20,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class CommercialWorkers
 {
+    public function __construct(private DocumentStore $documents, private PayoutMethods $payoutMethods) {}
+
     /**
      * Onglet => [libellé, statuts de vérification].
      *
@@ -92,6 +97,51 @@ class CommercialWorkers
                 'priority' => ['value' => $correction->priority->value, 'label' => $correction->priority->label()],
             ])->all(),
             'can_correct' => $worker->verification_status === WorkerVerificationStatus::ACorriger,
+        ];
+    }
+
+    /**
+     * Profil complet d’un ouvrier validé (12 éléments) : dossier de base, puis profil professionnel, mobilité et moyen
+     * de paiement. Null tant que l’ouvrier n’est pas validé.
+     *
+     * @return array{percent: int, done: int, total: int, complete: bool, items: list<array{key: string, label: string, done: bool}>, missing: list<array{key: string, label: string}>}|null
+     */
+    public function profileCompletion(Worker $worker): ?array
+    {
+        if ($worker->verification_status !== WorkerVerificationStatus::Valide) {
+            return null;
+        }
+
+        $documents = $this->documents->active($worker);
+        $has = fn (string ...$codes) => $documents->contains(fn (Document $document) => in_array($document->documentType->code, $codes, true) && $document->files->isNotEmpty());
+        $item = fn (string $key, string $label, bool $done) => compact('key', 'label', 'done');
+        $primary = $worker->workerTrades->firstWhere('is_primary', true);
+
+        $items = [
+            $item('photo', 'Photo d’identité', filled($worker->photo_media_id) || $has(ProspectDossier::PHOTO_DOCUMENT)),
+            $item('identity', 'Pièce d’identité', $documents->contains(fn (Document $document) => $this->documents->isCompleteIdentity($document))),
+            $item('trade', 'Métier principal et niveau', $primary !== null && $primary->level !== null),
+            $item('daily_rate', 'Coût journalier', filled($worker->estimated_daily_rate)),
+            $item('emergency_contact', 'Contact d’urgence', filled($worker->emergency_contact_phone_number)),
+            $item('specialties', 'Spécialités', $worker->specialties->isNotEmpty()),
+            $item('skills', 'Compétences', $worker->skills->isNotEmpty()),
+            $item('experiences', 'Expériences', $worker->references->isNotEmpty()),
+            $item('qualification', 'Diplôme ou attestation', $has('worker_diploma', 'worker_work_certificate') || $worker->certifications->isNotEmpty()),
+            $item('proof_of_address', 'Justificatif de domicile', $has('worker_proof_of_address')),
+            $item('mobility', 'Zone de mobilité', $worker->mobilityZones->isNotEmpty() || (int) $worker->mobility_radius_km > 0),
+            $item('payment_method', 'Moyen de paiement', $this->payoutMethods->current($worker) !== null),
+        ];
+
+        $done = count(array_filter($items, fn (array $i) => $i['done']));
+        $missing = array_values(array_map(fn (array $i) => ['key' => $i['key'], 'label' => $i['label']], array_filter($items, fn (array $i) => ! $i['done'])));
+
+        return [
+            'percent' => (int) round($done / count($items) * 100),
+            'done' => $done,
+            'total' => count($items),
+            'complete' => $missing === [],
+            'items' => $items,
+            'missing' => $missing,
         ];
     }
 
