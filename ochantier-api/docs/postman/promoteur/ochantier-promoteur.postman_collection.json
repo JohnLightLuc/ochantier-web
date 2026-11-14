@@ -16769,7 +16769,7 @@
                 "unread-count"
               ]
             },
-            "description": "Badge de la cloche : nombre de notifications **non lues** de l’utilisateur connecté, sur tout l’historique, sans télécharger la liste. Sans paramètre.\n\n**Réponse 200** : `data.unread_count` (entier ≥ 0, `0` sans notification), en-tête `Cache-Control: no-store, private`. Toujours cohérent avec la liste : même valeur que `meta.unread_count` de « Notifications » et que `data.unread_count` renvoyé par « Marquer une notification lue » et « Tout marquer lu ».\n\nÀ relire à la réception d’un push, au retour au premier plan et au retour du réseau. **401** « Session expirée : reconnectez-vous. » sans jeton valide (rafraîchir puis rejouer), **403**, **429** (`retry_after`).",
+            "description": "Badge de la cloche : nombre de notifications **non lues** de l’utilisateur connecté, sur tout l’historique, sans télécharger la liste. Sans paramètre.\n\n**Réponse 200** : `data.unread_count` (entier ≥ 0, `0` sans notification), en-tête `Cache-Control: no-store, private`. Toujours cohérent avec la liste : même valeur que `meta.unread_count` de « Notifications » et que `data.unread_count` renvoyé par « Marquer une notification lue » et « Tout marquer lu ».\n\nÀ relire au retour au premier plan et au retour du réseau ; à la réception d’un push, utiliser d’abord `data.unread_count` du push (voir le dossier « Appareils »). **401** « Session expirée : reconnectez-vous. » sans jeton valide (rafraîchir puis rejouer), **403**, **429** (`retry_after`).",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -17627,7 +17627,7 @@
           ]
         }
       ],
-      "description": "Jetons de notification push."
+      "description": "Jetons de notification push.\n\n## Contenu d’un push reçu\n\nChaque notification envoyée en push (FCM, APNs pour iOS) a cette forme :\n\n```json\n{\n  \"notification\": { \"title\": \"Dossier validé\", \"body\": \"Jean Kouassi a été validé(e). Commission de 25 000 FCFA confirmée.\" },\n  \"data\": {\n    \"event\": \"worker.validated\",\n    \"target\": \"{\\\"type\\\":\\\"worker\\\",\\\"id\\\":\\\"…\\\"}\",\n    \"unread_count\": \"3\"\n  },\n  \"apns\": { \"payload\": { \"aps\": { \"badge\": 3, \"sound\": \"default\" } } }\n}\n```\n\n| Champ | Description |\n|---|---|\n| `data.event` | Code de l’événement (`worker.validated`, `proposal.received`…). |\n| `data.target` | Écran à ouvrir, **encodé en JSON dans une chaîne** (à décoder). |\n| `data.unread_count` | Notifications non lues du destinataire, **notification envoyée comprise**, en chaîne (FCM n’accepte que des chaînes) : à convertir en entier. |\n| `apns.payload.aps.badge` | Même nombre en entier : iOS met à jour le badge de l’icône, même app fermée. |\n\n`unread_count` permet de mettre le badge à jour **sans requête** à la réception du push. C’est une indication : « Nombre de non lues » fait foi à la prochaine relecture (retour au premier plan, retour du réseau), car une lecture sur un autre appareil ne déclenche pas de push. Si `unread_count` est absent ou illisible, relire « Nombre de non lues ». Aucun push n’est envoyé à la lecture : après « Tout marquer lu », remettre le badge iOS à 0 côté app."
     },
     {
       "id": "8378033b-186a-5669-af79-288384cf35d3",
