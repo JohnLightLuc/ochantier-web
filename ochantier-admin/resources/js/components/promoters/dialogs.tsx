@@ -44,12 +44,16 @@ type NotifyDialogProps = {
     recipient: string;
     url: string;
     subject?: string;
+    /** Longueur maximale du message (1 000 par défaut). */
+    maxLength?: number;
+    /** Propose l’envoi par SMS en plus du push. */
+    allowSms?: boolean;
     onClose: () => void;
 };
 
 /** Message au promoteur : centre de notifications de l’application et notification push. */
-export function NotifyDialog({ recipient, url, subject = '', onClose }: NotifyDialogProps) {
-    const form = useForm({ subject, message: '' });
+export function NotifyDialog({ recipient, url, subject = '', maxLength = 1000, allowSms = false, onClose }: NotifyDialogProps) {
+    const form = useForm({ subject, message: '', send_sms: false, client_uuid: crypto.randomUUID() });
     const errors = form.errors as Record<string, string | undefined>;
 
     return (
@@ -61,8 +65,14 @@ export function NotifyDialog({ recipient, url, subject = '', onClose }: NotifyDi
                 <TextInput value={form.data.subject} onChange={(e) => form.setData('subject', e.target.value)} invalid={!!(errors.title ?? form.errors.subject)} maxLength={120} placeholder="Ex. Document KYC à mettre à jour" />
             </Field>
             <Field label="Message" required error={errors.body ?? form.errors.message}>
-                <TextArea value={form.data.message} onChange={(e) => form.setData('message', e.target.value)} invalid={!!(errors.body ?? form.errors.message)} rows={4} maxLength={1000} placeholder="Votre message…" />
+                <TextArea value={form.data.message} onChange={(e) => form.setData('message', e.target.value)} invalid={!!(errors.body ?? form.errors.message)} rows={4} maxLength={maxLength} placeholder="Votre message…" />
             </Field>
+            {allowSms && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--fs-md)' }}>
+                    <input type="checkbox" checked={form.data.send_sms} onChange={(e) => form.setData('send_sms', e.target.checked)} />
+                    Envoyer aussi par SMS (si le destinataire l’accepte dans ses préférences)
+                </label>
+            )}
         </Dialog>
     );
 }

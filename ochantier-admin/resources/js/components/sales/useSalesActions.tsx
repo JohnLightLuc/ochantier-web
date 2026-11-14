@@ -1,5 +1,5 @@
 import FormDialog from '@/components/overlays/FormDialog';
-import { ReasonDialog } from '@/components/promoters/dialogs';
+import { NotifyDialog, ReasonDialog } from '@/components/promoters/dialogs';
 import { useAdminUi } from '@/contexts/AdminUiContext';
 import { formatNumber } from '@/lib/format';
 import type { Option } from '@/components/ui/Field';
@@ -48,6 +48,9 @@ export function useSalesActions() {
 
         refuseAdjustment: (a: AgentRef, x: SalesAdjustment) =>
             setDialog(<ReasonDialog title={`Refuser cette ${x.kind.label.toLowerCase()} ?`} body={`${fcfa(x.amount)} · ${x.reason}`} icon="cancel" okLabel="Refuser" reasonLabel="Motif du refus *" categories={['Montant incorrect', 'Motif insuffisant', 'Doublon', 'Autre']} url={`${base(a)}/ajustements/${x.id}/refus`} onClose={close} />),
+
+        /** Message reçu dans l’application du commercial (centre de notifications et push), SMS en option. */
+        notify: (a: AgentRef) => setDialog(<NotifyDialog recipient={a.name} url={`${base(a)}/notifications`} maxLength={500} allowSms onClose={close} />),
 
         appreciation: (a: AgentRef) =>
             setDialog(<FormDialog title="Ajouter une appréciation" body="Visible uniquement par l’équipe O’CHANTIER." icon="rate_review" okLabel="Enregistrer" url={`${base(a)}/appreciations`} onClose={close} fields={[{ name: 'body', label: 'Appréciation', type: 'textarea', required: true }]} />),

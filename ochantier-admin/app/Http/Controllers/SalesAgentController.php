@@ -138,7 +138,7 @@ class SalesAgentController extends Controller
      */
     private function can(Request $request): array
     {
-        return ['create' => $this->allowed($request, 'commercials.create'), 'update' => $this->allowed($request, 'commercials.update'), 'terminate' => $this->allowed($request, 'commercials.delete'), 'export' => $this->allowed($request, 'commercials.export'), 'documents' => $this->allowed($request, 'documents.validate'), 'validate' => $this->allowed($request, 'commercials.validate'), 'proposeAdjustment' => $this->allowed($request, 'commercial_earnings.update'), 'approveAdjustment' => $this->allowed($request, 'commercial_earnings.approve')];
+        return ['create' => $this->allowed($request, 'commercials.create'), 'update' => $this->allowed($request, 'commercials.update'), 'terminate' => $this->allowed($request, 'commercials.delete'), 'export' => $this->allowed($request, 'commercials.export'), 'documents' => $this->allowed($request, 'documents.validate'), 'validate' => $this->allowed($request, 'commercials.validate'), 'proposeAdjustment' => $this->allowed($request, 'commercial_earnings.update'), 'approveAdjustment' => $this->allowed($request, 'commercial_earnings.approve'), 'notify' => $this->allowed($request, 'notifications.create')];
     }
 
     /**

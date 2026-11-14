@@ -290,7 +290,44 @@ class SalesAgentsTest extends TestCase
         $this->signIn(['commercials.read']);
         Http::fake([self::API.'/commercials*' => Http::response($this->listResponse([]))]);
 
-        $this->get('/commerciaux')->assertOk()->assertInertia(fn (Assert $page) => $page->where('can', ['create' => false, 'update' => false, 'terminate' => false, 'export' => false, 'documents' => false, 'validate' => false, 'proposeAdjustment' => false, 'approveAdjustment' => false]));
+        $this->get('/commerciaux')->assertOk()->assertInertia(fn (Assert $page) => $page->where('can', ['create' => false, 'update' => false, 'terminate' => false, 'export' => false, 'documents' => false, 'validate' => false, 'proposeAdjustment' => false, 'approveAdjustment' => false, 'notify' => false]));
+    }
+
+    public function test_the_message_button_needs_the_notifications_permission(): void
+    {
+        $this->signIn(['commercials.read', 'notifications.create']);
+        Http::fake([self::API.'/commercials*' => Http::response($this->listResponse([]))]);
+
+        $this->get('/commerciaux')->assertOk()->assertInertia(fn (Assert $page) => $page->where('can.notify', true)->where('can.update', false));
+    }
+
+    public function test_a_message_to_the_commercial_reaches_the_notifications_api(): void
+    {
+        $this->signIn(['commercials.read', 'notifications.create']);
+        Http::fake([
+            self::API.'/notifications' => Http::sequence()
+                ->push(['message' => 'Notification envoyée.', 'data' => ['id' => 'n1']], 201)
+                ->push(['message' => 'Ce compte n’est pas actif : la notification ne peut pas lui être envoyée.', 'errors' => ['recipient_id' => ['Ce compte n’est pas actif : la notification ne peut pas lui être envoyée.']]], 422)
+                ->push(['message' => 'Indiquez le titre de la notification.', 'errors' => ['title' => ['Indiquez le titre de la notification.']]], 422),
+        ]);
+
+        $this->from('/commerciaux/'.self::ID)->post('/commerciaux/'.self::ID.'/notifications', ['subject' => 'Réunion', 'message' => 'Lundi à 9 h.', 'send_sms' => true, 'client_uuid' => '5f0c3c1e-8b7a-4d2e-9f61-0a3b2c4d5e6f'])
+            ->assertRedirect('/commerciaux/'.self::ID)
+            ->assertSessionHas('inertia.flash_data.toast', 'Notification envoyée.');
+        Http::assertSent(fn (ClientRequest $request) => str_ends_with($request->url(), '/admin/notifications') && $request->data() === [
+            'recipient_type' => 'commercial',
+            'recipient_id' => self::ID,
+            'title' => 'Réunion',
+            'body' => 'Lundi à 9 h.',
+            'send_sms' => true,
+            'client_uuid' => '5f0c3c1e-8b7a-4d2e-9f61-0a3b2c4d5e6f',
+        ]);
+
+        $this->from('/commerciaux/'.self::ID)->post('/commerciaux/'.self::ID.'/notifications', ['subject' => 'Réunion', 'message' => 'Lundi à 9 h.'])
+            ->assertSessionHas('inertia.flash_data.toastError', 'Ce compte n’est pas actif : la notification ne peut pas lui être envoyée.');
+
+        $this->from('/commerciaux/'.self::ID)->post('/commerciaux/'.self::ID.'/notifications', ['subject' => '', 'message' => 'Lundi à 9 h.'])
+            ->assertSessionHasErrors(['title']);
     }
 
     public function test_the_mobile_money_number_needs_the_earnings_permission(): void

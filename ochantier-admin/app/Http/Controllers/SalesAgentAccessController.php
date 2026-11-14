@@ -107,6 +107,21 @@ class SalesAgentAccessController extends Controller
         return $this->send(fn () => $this->api->post("commercials/{$commercial}/adjustments/{$adjustment}/refuse", ['reason' => $this->reason($request)]));
     }
 
+    /**
+     * Message reçu dans l’application du commercial : centre de notifications et push, SMS en option.
+     */
+    public function notify(Request $request, string $commercial): RedirectResponse
+    {
+        return $this->send(fn () => $this->api->post('notifications', [
+            'recipient_type' => 'commercial',
+            'recipient_id' => $commercial,
+            'title' => $request->input('subject'),
+            'body' => $request->input('message'),
+            'send_sms' => $request->boolean('send_sms'),
+            'client_uuid' => $request->input('client_uuid'),
+        ]));
+    }
+
     public function storeAppreciation(Request $request, string $commercial): RedirectResponse
     {
         return $this->send(fn () => $this->api->post("commercials/{$commercial}/appreciations", ['body' => trim((string) $request->input('body')) ?: null]));
@@ -133,7 +148,7 @@ class SalesAgentAccessController extends Controller
         try {
             $response = $call();
         } catch (ValidationException $e) {
-            $refusal = array_intersect_key($e->errors(), array_flip(['commercial', 'api']));
+            $refusal = array_intersect_key($e->errors(), array_flip(['commercial', 'api', 'recipient_type', 'recipient_id']));
 
             if ($refusal === []) {
                 throw $e;

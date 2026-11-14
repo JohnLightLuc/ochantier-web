@@ -63,6 +63,7 @@ export default function SalesAgentHeader({ agent: a, banner, can, actions }: Pro
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', alignItems: 'center', position: 'relative' }}>
                     {can.update && a.can.edit && <Button label="Modifier" icon="edit" variant="secondary" onClick={() => router.visit(`/commerciaux/${a.id}/modifier`)} />}
                     {can.update && a.can.send_link && a.status.value === 'en_attente_activation' && <Button label="Envoyer le lien" icon="forward_to_inbox" variant="primary" onClick={() => actions.sendLink(a)} />}
+                    {can.notify && a.status.value === 'actif' && <Button label="Envoyer un message" icon="send" variant="secondary" onClick={() => actions.notify(a)} />}
                     {can.update && a.can.suspend && <Button label="Suspendre" icon="block" variant="danger-soft" onClick={() => actions.suspend(a)} />}
                     {can.update && a.can.reactivate && <Button label="Réactiver" icon="settings_backup_restore" variant="primary" onClick={() => actions.reactivate(a)} />}
                     <Button icon="more_horiz" variant="secondary" aria-label="Plus d’actions" aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)} />
