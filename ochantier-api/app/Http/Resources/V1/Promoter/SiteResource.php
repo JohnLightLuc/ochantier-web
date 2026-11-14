@@ -9,6 +9,7 @@ use App\Enums\SiteStatus;
 use App\Http\Resources\V1\Resource;
 use App\Models\Need;
 use App\Models\Offer;
+use App\Models\Proposal;
 use App\Models\Site;
 use App\Support\Media\MediaStore;
 use App\Support\Promoter\ContractorOffers;
@@ -69,12 +70,12 @@ class SiteResource extends Resource
                 ->sum(fn (Offer $offer) => $offer->needs
                     ->reject(fn (Need $need) => $need->status === NeedStatus::Annule)
                     ->sum('headcount')),
-            'pending_proposal' => ($proposal = $this->proposals()->whereIn('status', [ProposalStatus::AValider, ProposalStatus::Acceptee])->latest('published_at')->first()) ? [
-                'id' => $proposal->id,
-                'reservation_id' => $proposal->offer_id,
-                'status' => $this->status($proposal->status),
-                'deposit_amount' => $proposal->deposit_amount,
-            ] : null,
+            'pending_proposal' => ($proposal = $this->proposals()
+                ->whereIn('status', [ProposalStatus::AValider, ProposalStatus::Acceptee])
+                ->with(['suggestions.worker', 'suggestions.need.trade', 'offer'])
+                ->latest('published_at')
+                ->first()
+            ) ? $this->pendingProposal($proposal) : null,
             'status' => $this->status($this->status),
             'display_status' => $sites->displayStatus($this->resource),
             'schedule' => $sites->schedule($this->resource),
@@ -93,5 +94,84 @@ class SiteResource extends Resource
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Récapitulatif complet d'une proposition en attente d'action promoteur
+     * (statut `à valider` ou `acceptée`). Le mobile l'affiche sur la bannière
+     * de la carte chantier ET sur la page « Proposition d'équipe » : un seul
+     * payload évite d'enchaîner un second appel `/reservations/{id}`.
+     *
+     * Les montants (`total_amount`, `deposit_amount`, …) sont ceux calculés
+     * et stockés par l'admin au moment de la publication (`Proposal` model) ;
+     * `balance_amount` = total − acompte.
+     *
+     * `lines[]` agrège les `suggestions` par besoin (donc par métier) :
+     * chaque ligne porte les ouvriers nommément proposés avec leur tarif
+     * promoteur (`worker_daily_rate`, fallback au tarif retenu du besoin).
+     *
+     * @return array<string, mixed>
+     */
+    private function pendingProposal(Proposal $proposal): array
+    {
+        $deposit = (int) $proposal->deposit_amount;
+        $total = (int) $proposal->total_amount;
+
+        return [
+            'id' => $proposal->id,
+            'reservation_id' => $proposal->offer_id,
+            'status' => $this->status($proposal->status),
+            'days' => (int) $proposal->days,
+            'proposed_count' => (int) $proposal->proposed_count,
+            'is_partial' => (bool) $proposal->is_partial,
+            'daily_amount' => (int) $proposal->daily_amount,
+            'workers_amount' => (int) $proposal->workers_amount,
+            'commission_amount' => (int) $proposal->commission_amount,
+            'total_amount' => $total,
+            'deposit_amount' => $deposit,
+            'balance_amount' => max(0, $total - $deposit),
+            'expires_at' => $proposal->expires_at?->toIso8601String(),
+            'lines' => $this->pendingProposalLines($proposal),
+        ];
+    }
+
+    /**
+     * Agrège les `suggestions` d'une proposition par `need_id` : une entrée
+     * par métier, les ouvriers nommés groupés dessous. Shape alignée avec
+     * `SiteDetailResource.composition[]` pour que le mobile puisse
+     * potentiellement réutiliser le même parseur.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function pendingProposalLines(Proposal $proposal): array
+    {
+        $byNeed = [];
+        foreach ($proposal->suggestions as $suggestion) {
+            $need = $suggestion->need;
+            if ($need === null) {
+                continue;
+            }
+            $key = $need->id;
+            if (! isset($byNeed[$key])) {
+                $byNeed[$key] = [
+                    'trade' => $need->trade->only(['id', 'code', 'label']),
+                    'count' => (int) $need->headcount,
+                    'daily_rate' => (int) $need->indicative_daily_budget,
+                    'workers' => [],
+                ];
+            }
+            $worker = $suggestion->worker;
+            if ($worker === null) {
+                continue;
+            }
+            $byNeed[$key]['workers'][] = [
+                'id' => $worker->id,
+                'name' => trim($worker->first_name.' '.$worker->last_name),
+                'daily_rate' => (int) ($suggestion->worker_daily_rate
+                    ?? $need->indicative_daily_budget),
+            ];
+        }
+
+        return array_values($byNeed);
     }
 }
