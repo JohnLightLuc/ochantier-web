@@ -59,7 +59,7 @@ Format habituel de l’API : `{"message": "…"}`.
 |---|---|---|
 | `401` | « Session expirée : reconnectez-vous. » | Rafraîchir le jeton (`POST /auth/refresh`), puis rejouer une fois. |
 | `403` | « Votre accès commercial n’est plus actif. Contactez votre responsable O’CHANTIER. » (commercial) ou « Cette fonctionnalité n’est pas disponible pour votre application. » | Ne pas réessayer ; garder le badge masqué. |
-| `404` | — | Serveur pas encore à jour : utiliser le repli (section 5). |
+| `404` | — | Serveur pas encore à jour : utiliser le repli (section 6). |
 | `429` | « Trop de tentatives. Réessayez dans quelques instants. » + `retry_after` (secondes) | Garder la dernière valeur, réessayer après `retry_after`. |
 | `5xx` / réseau | — | Garder la dernière valeur connue, réessayer au prochain déclencheur. |
 
@@ -93,6 +93,7 @@ Chaque push O’CHANTIER contient le nombre de non lues du destinataire, **notif
 {
   "notification": { "title": "Dossier validé", "body": "Jean Kouassi a été validé(e). Commission de 25 000 FCFA confirmée." },
   "data": {
+    "notification_id": "01a1d9a0-4b5c-7d6e-8f90-a1b2c3d4e5f6",
     "event": "worker.validated",
     "target": "{\"type\":\"worker\",\"id\":\"…\",\"prospect_id\":\"…\"}",
     "unread_count": "3"
@@ -103,14 +104,18 @@ Chaque push O’CHANTIER contient le nombre de non lues du destinataire, **notif
 
 | Champ | Description |
 |---|---|
+| `data.notification_id` | Identifiant de la notification dans le centre de notifications (même `id` que dans la liste). |
 | `data.event` | Code de l’événement (`worker.validated`, `proposal.received`…). |
-| `data.target` | Écran à ouvrir, **encodé en JSON dans une chaîne** : faire un `JSON.parse` / décodage. |
+| `data.target` | Écran à ouvrir, **encodé en JSON dans une chaîne** : faire un `JSON.parse` / décodage (types possibles : section 4). |
 | `data.unread_count` | Nombre de non lues, **en chaîne** (FCM n’accepte que des chaînes) : convertir en entier. |
 | `apns.payload.aps.badge` | Même nombre, en entier : iOS met à jour le badge de l’icône **même app fermée**. |
 
 - **Android** : mettre à jour le badge de la cloche (et de l’icône si le lanceur le gère) avec `data.unread_count`.
 - **iOS** : le badge de l’icône est mis à jour par le système ; à l’ouverture de l’app, mettre la cloche à jour avec
   `data.unread_count` ou relire `unread-count`.
+- **Au tap sur le push** : ouvrir l’écran de `data.target`, puis marquer la notification lue avec
+  `POST …/notifications/{data.notification_id}/read` ; sa réponse donne `unread_count` pour mettre le badge à jour. Si
+  `notification_id` est absent (ancien serveur), ne rien marquer.
 - C’est une **indication** : la prochaine relecture (section 2) fait foi. Si `unread_count` est absent (ancien serveur) ou
   illisible, relire `unread-count`.
 - Après « Tout marquer lu » ou la lecture de toutes les notifications, remettre le badge de l’icône iOS à 0 côté app (aucun
@@ -166,7 +171,59 @@ l’ouverture de l’accueil, inutile d’appeler `unread-count` en plus.
 
 ---
 
-## 4. Cohérence garantie
+## 4. Écran à ouvrir : `target`
+
+Chaque notification porte un `target` qui indique l’écran à ouvrir au tap, dans le push (`data.target`) comme dans la liste
+(`items[].target`) :
+
+```json
+{ "type": "reservation", "id": "01a1…", "proposal_id": "01a1…" }
+```
+
+- `type` : écran à ouvrir (tables ci-dessous) ; `id` : élément à afficher, ou `null` pour un écran sans élément précis.
+- Des champs en plus précisent l’onglet ou le filtre (`proposal_id`, `date`, `month`, `filter`, `prospect_id`).
+- **Push** : `data.target` est une **chaîne JSON** à décoder. **Liste** : `items[].target` est déjà un objet.
+- `target` peut être **absent** (push) ou `null` (liste) : message du Back office (`event` = `admin.message`).
+- Router sur `type` avec un **cas par défaut** : un type absent ou inconnu ouvre le centre de notifications. De nouveaux types
+  pourront s’ajouter sans nouvelle version de l’app.
+
+### App Promoteur
+
+| `type` | `id` | Champs en plus | Événements (`event`) |
+|---|---|---|---|
+| `reservation` | id de l’offre (réservation) | `proposal_id` | `proposal.received` (ouvriers trouvés) |
+| `replacement` | id du remplacement | — | `replacement.proposed` |
+| `transaction` | id de la transaction | — | `payment.succeeded` |
+| `payments` | `null` | `filter: "en_retard"` (retard uniquement) | `payment.due`, `payment.late`, `payment.regularisation` |
+| `site` | id du chantier | — | `site.confirmed`, `site.started`, `site.ended`, `payment.refunded`, décisions du Back office sur le chantier, l’offre et les incidents |
+| `report` | id du chantier | — | `report.available` |
+| `attendance` | id du chantier | `date` (`AAAA-MM-JJ`) | `attendance.pending` (journée à valider) |
+| `subscription_invoice` | id de la facture | — | `subscription.invoice`, `subscription.reminder` |
+| `subscription` | id de l’abonnement | — | `subscription.updated` |
+| `claim` | id de la réclamation | — | `claim.updated` |
+| `dispute` | id du litige | — | `dispute.updated` |
+| `rating` | id de l’avis | — | `rating.moderated` |
+| `referrals` | `null` | — | `referral.registered` (parrainage) |
+| `team` | id du membre de l’équipe | — | `team.joined` |
+| `profile` | `null` | — | événements du compte (vérification), message du Back office envoyé depuis la fiche promoteur |
+
+### App Commercial
+
+| `type` | `id` | Champs en plus | Événements (`event`) |
+|---|---|---|---|
+| `worker` | id de l’ouvrier | `prospect_id` | `worker.validated`, `worker.correction`, `worker.refused`, `worker.updated` |
+| `earnings` | `null` | `month` (`AAAA-MM`, sauf commission confirmée) | `worker.validated` (commission confirmée), `payout.paid`, `adjustment.approved` |
+| `prospect` | id du prospect | — | `prospect.follow_up` (relance conseillée) |
+| `ranking` | `null` | — | `ranking.published`, `ranking.updated` |
+| `home` | `null` | — | `objective.reminder` |
+| `profile` | `null` | — | événements du compte (zone, accès…) |
+
+Pour `worker`, un dossier « À corriger » s’ouvre par son prospect (`prospect_id`) ; les autres par
+`GET /commercial/workers/{id}`.
+
+---
+
+## 5. Cohérence garantie
 
 Après chaque écriture, toutes les sources renvoient immédiatement la même valeur :
 
@@ -179,7 +236,7 @@ Après chaque écriture, toutes les sources renvoient immédiatement la même va
 
 ---
 
-## 5. Repli pour un serveur pas encore à jour
+## 6. Repli pour un serveur pas encore à jour
 
 Tant que `GET …/notifications/unread-count` répond `404`, calculer le badge comme avant, avec `meta.unread` de
 `GET …/notifications` (une seule requête, pas de pagination). Dès qu’il répond `200`, l’utiliser. Aucune coordination de
@@ -187,6 +244,6 @@ version n’est nécessaire.
 
 ---
 
-## 6. Non prévu
+## 7. Non prévu
 
 - **`ETag` / `304`** sur le compteur : non prévu, la réponse est déjà minime.

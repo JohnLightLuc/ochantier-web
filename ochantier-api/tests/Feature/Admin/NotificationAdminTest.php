@@ -59,7 +59,7 @@ class NotificationAdminTest extends CommercialTestCase
     {
         $admin = Admin::factory()->role('support')->create();
 
-        $this->asAdmin($admin)->postJson('/api/v1/admin/notifications', [
+        $sent = $this->asAdmin($admin)->postJson('/api/v1/admin/notifications', [
             'recipient_type' => 'commercial',
             'recipient_id' => $this->commercial->commercialProfile->id,
             'title' => '  Réunion d’équipe  ',
@@ -73,13 +73,14 @@ class NotificationAdminTest extends CommercialTestCase
             ->assertJsonPath('data.recipient.type', ['value' => 'commercial', 'label' => 'Commercial'])
             ->assertJsonPath('data.push', ['sent' => true, 'devices' => 1])
             ->assertJsonPath('data.sms', ['sent' => false])
-            ->assertJsonPath('data.read_at', null);
+            ->assertJsonPath('data.read_at', null)
+            ->json('data');
 
         $this->assertCount(1, $this->pushes);
         [$tokens, $title, $body, $data] = $this->pushes[0];
         $this->assertSame(['jeton-commercial'], $tokens);
         $this->assertSame(['Réunion d’équipe', 'Rendez-vous lundi à 9 h au bureau de Cocody.'], [$title, $body]);
-        $this->assertSame(['event' => 'admin.message', 'target' => null, 'unread_count' => 1], $data);
+        $this->assertSame(['notification_id' => $sent['id'], 'event' => 'admin.message', 'target' => null, 'unread_count' => 1], $data);
         $this->assertSame([], $this->sms->sent);
 
         $audit = AuditLog::query()->where('action', 'notification.sent')->sole();

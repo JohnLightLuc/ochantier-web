@@ -4,6 +4,7 @@ namespace Tests\Feature\Push;
 
 use App\Enums\DevicePlatform;
 use App\Models\DeviceToken;
+use App\Models\Notification;
 use App\Models\User;
 use App\Support\Commercial\CommercialNotifier;
 use App\Support\Notifications\NotificationInbox;
@@ -51,6 +52,10 @@ class NotificationInboxPushTest extends TestCase
         $this->assertSame([1, 2], array_map(fn (array $push) => $push[2]['unread_count'], $this->sent));
         $this->assertSame(['jeton-a'], $this->sent[1][0]);
         $this->assertSame('worker.validated', $this->sent[1][2]['event']);
+        $this->assertSame(
+            Notification::query()->where('recipient_id', $user->id)->where('title', 'Second dossier validé')->value('id'),
+            $this->sent[1][2]['notification_id'],
+        );
 
         app(NotificationInbox::class)->markRead($user);
         $this->notify($user, 'Troisième dossier validé');
