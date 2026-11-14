@@ -34,6 +34,7 @@
         <env name="DB_SSLMODE" value="prefer" force="true"/>
         <env name="JWT_SECRET" value="phpunit-jwt-secret-with-at-least-32-bytes"/>
         <env name="OTP_TEST_CODE" value="123456"/>
+        <env name="PUSH_DRIVER" value="log" force="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
