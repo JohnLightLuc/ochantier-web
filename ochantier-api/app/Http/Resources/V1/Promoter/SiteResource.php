@@ -2,9 +2,13 @@
 
 namespace App\Http\Resources\V1\Promoter;
 
+use App\Enums\NeedStatus;
+use App\Enums\OfferStatus;
 use App\Enums\ProposalStatus;
 use App\Enums\SiteStatus;
 use App\Http\Resources\V1\Resource;
+use App\Models\Need;
+use App\Models\Offer;
 use App\Models\Site;
 use App\Support\Media\MediaStore;
 use App\Support\Promoter\ContractorOffers;
@@ -51,6 +55,20 @@ class SiteResource extends Resource
                 'amount' => $offer['amount'] ?? $offer['estimate'] ?? null,
                 'payment_mode' => $offer['payment_mode'] ?? null,
             ] : null,
+            // Nombre d'ouvriers RÉELLEMENT demandés toutes offres confondues,
+            // ajouts post-publication inclus. `offer_summary.workers_count`
+            // ci-dessus ne reflète que l'offre initiale / le brouillon et
+            // devient faux dès qu'une réservation supplémentaire est créée
+            // (`Reservations::createAdditional`). Même formule que
+            // `SiteDetailResource.workers_total`, pour que la liste et le
+            // détail soient toujours cohérents.
+            'workers_total' => (int) $this->offers()
+                ->where('status', '!=', OfferStatus::Annulee)
+                ->with('needs')
+                ->get()
+                ->sum(fn (Offer $offer) => $offer->needs
+                    ->reject(fn (Need $need) => $need->status === NeedStatus::Annule)
+                    ->sum('headcount')),
             'pending_proposal' => ($proposal = $this->proposals()->whereIn('status', [ProposalStatus::AValider, ProposalStatus::Acceptee])->latest('published_at')->first()) ? [
                 'id' => $proposal->id,
                 'reservation_id' => $proposal->offer_id,
