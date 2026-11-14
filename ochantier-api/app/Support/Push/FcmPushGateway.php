@@ -5,13 +5,14 @@ namespace App\Support\Push;
 use App\Models\DeviceToken;
 use Illuminate\Support\Facades\Log;
 use Kreait\Firebase\Contract\Messaging;
+use Kreait\Firebase\Messaging\ApnsConfig;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Messaging\MulticastSendReport;
 use Kreait\Firebase\Messaging\Notification;
 use Throwable;
 
 /**
- * Envoi par Firebase Cloud Messaging (PUSH_DRIVER=fcm). Les jetons que FCM déclare invalides ou inconnus (application
+ * Envoi par Firebase Cloud Messaging (PUSH_DRIVER=fcm), avec le nombre de non lues en badge sur iOS. Les jetons que FCM déclare invalides ou inconnus (application
  * désinstallée, jeton expiré) sont révoqués. Un échec d’envoi est journalisé sans interrompre l’action en cours : la
  * notification reste dans le centre de notifications.
  */
@@ -35,6 +36,7 @@ class FcmPushGateway implements PushGateway
         $message = CloudMessage::new()
             ->withNotification(Notification::create($title, $body))
             ->withData(self::data($data))
+            ->withApnsConfig(self::apns($data))
             ->withDefaultSounds()
             ->withHighestPossiblePriority();
 
@@ -71,6 +73,18 @@ class FcmPushGateway implements PushGateway
         }
 
         return $values;
+    }
+
+    /**
+     * Configuration iOS : le nombre de non lues (unread_count) devient le badge de l’icône de l’application.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function apns(array $data): ApnsConfig
+    {
+        $config = ApnsConfig::new();
+
+        return is_numeric($data['unread_count'] ?? null) ? $config->withBadge(max(0, (int) $data['unread_count'])) : $config;
     }
 
     private function handle(MulticastSendReport $report, string $title): void

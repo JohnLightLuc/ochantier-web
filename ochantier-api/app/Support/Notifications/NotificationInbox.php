@@ -71,7 +71,7 @@ class NotificationInbox
             $tokens = DeviceToken::query()->where('owner_type', $user->getMorphClass())->where('owner_id', $user->getKey())->whereNull('revoked_at')->pluck('push_token')->all();
 
             if ($tokens !== []) {
-                $this->push->send($tokens, $title, $body, ['event' => $event, 'target' => $data['target'] ?? null]);
+                $this->push->send($tokens, $title, $body, ['event' => $event, 'target' => $data['target'] ?? null, 'unread_count' => $this->unreadCount($user)]);
             }
         }
 

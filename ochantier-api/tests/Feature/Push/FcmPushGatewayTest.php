@@ -47,7 +47,8 @@ class FcmPushGatewayTest extends TestCase
                     && $payload['notification']['title'] === 'Proposition d’équipe reçue'
                     && $payload['notification']['body'] === '3 ouvriers vous sont proposés.'
                     && $payload['data'] === ['event' => 'proposal.received', 'target' => '{"type":"reservation","id":"0a1b"}']
-                    && $payload['android']['priority'] === 'high';
+                    && $payload['android']['priority'] === 'high'
+                    && ! isset($payload['apns']['payload']['aps']['badge']);
             })
             ->andReturn($this->report(['jeton-a' => null, 'jeton-b' => null]));
 
@@ -56,6 +57,22 @@ class FcmPushGatewayTest extends TestCase
             'target' => ['type' => 'reservation', 'id' => '0a1b'],
             'extra' => null,
         ]);
+    }
+
+    public function test_the_unread_count_is_sent_in_the_data_and_as_the_ios_badge(): void
+    {
+        $this->messaging()->shouldReceive('sendMulticast')
+            ->once()
+            ->withArgs(function (CloudMessage $message): bool {
+                $payload = $message->jsonSerialize();
+
+                return $payload['data'] === ['event' => 'worker.validated', 'unread_count' => '3']
+                    && $payload['apns']['payload']['aps']['badge'] === 3
+                    && $payload['apns']['payload']['aps']['sound'] === 'default';
+            })
+            ->andReturn($this->report(['jeton-a' => null]));
+
+        app(FcmPushGateway::class)->send(['jeton-a'], 'Dossier validé', 'Jean Kouassi a été validé.', ['event' => 'worker.validated', 'unread_count' => 3]);
     }
 
     public function test_tokens_rejected_by_fcm_are_revoked(): void
