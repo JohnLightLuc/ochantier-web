@@ -229,6 +229,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
                 Route::get('home', CommercialHomeController::class)->name('home');
                 Route::get('workers', [CommercialWorkerController::class, 'index'])->name('workers.index');
+                Route::get('workers/{worker}', [CommercialWorkerController::class, 'show'])->whereUuid('worker')->name('workers.show');
                 Route::get('earnings', [CommercialEarningController::class, 'index'])->name('earnings.index');
                 Route::get('objectives', [CommercialPerformanceController::class, 'objectives'])->name('objectives');
                 Route::get('ranking', [CommercialPerformanceController::class, 'ranking'])->name('ranking');

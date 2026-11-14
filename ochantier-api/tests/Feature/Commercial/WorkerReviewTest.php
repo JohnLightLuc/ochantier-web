@@ -6,10 +6,12 @@ use App\Enums\CommercialEarningStatus;
 use App\Enums\WorkerVerificationStatus;
 use App\Models\CommercialEarning;
 use App\Models\Notification;
+use App\Models\User;
 use App\Models\VerificationCorrection;
 use App\Models\Worker;
 use Database\Seeders\AdminAccessSeeder;
 use Database\Seeders\PlatformRulesSeeder;
+use Illuminate\Support\Str;
 
 class WorkerReviewTest extends CommercialTestCase
 {
@@ -110,6 +112,47 @@ class WorkerReviewTest extends CommercialTestCase
             ->assertJsonPath('data.0.status', ['value' => 'refuse', 'label' => 'Refusé'])
             ->assertJsonPath('data.0.issue', 'Identité non vérifiable');
         $this->artisan('ochantier:simulate-worker-review', ['worker' => 'OUV-999999', 'decision' => 'valider'])->assertFailed();
+    }
+
+    public function test_the_commercial_opens_the_detail_of_a_submitted_worker(): void
+    {
+        $worker = $this->submit();
+
+        $this->getJson("/api/v1/commercial/workers/{$worker->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $worker->id)
+            ->assertJsonPath('data.prospect_id', $worker->prospect_id)
+            ->assertJsonPath('data.reference', $worker->reference)
+            ->assertJsonPath('data.name', 'Jean Kouassi')
+            ->assertJsonPath('data.status', ['value' => 'attente', 'label' => 'En attente'])
+            ->assertJsonPath('data.trade.code', 'macon')
+            ->assertJsonPath('data.commune.name', 'Cocody')
+            ->assertJsonPath('data.identity.birth_place', 'Bouaké')
+            ->assertJsonPath('data.activity.daily_rate', 15000)
+            ->assertJsonPath('data.activity.trades.0.trade.code', 'macon')
+            ->assertJsonPath('data.activity.trades.0.is_primary', true)
+            ->assertJsonPath('data.submission.status.value', 'attente')
+            ->assertJsonPath('data.commission', ['amount' => 25000, 'status' => ['value' => 'estime', 'label' => CommercialEarningStatus::Estime->label()]])
+            ->assertJsonPath('data.performance', null);
+
+        $this->artisan('ochantier:simulate-worker-review', ['worker' => $worker->reference, 'decision' => 'valider'])->assertSuccessful();
+
+        $this->getJson("/api/v1/commercial/workers/{$worker->id}")
+            ->assertJsonPath('data.status.value', 'valide')
+            ->assertJsonPath('data.cta', 'Voir le profil')
+            ->assertJsonPath('data.commission.status.value', 'acquis')
+            ->assertJsonPath('data.performance.rating_count', 0)
+            ->assertJsonPath('data.performance.missions_completed', 0);
+    }
+
+    public function test_the_detail_of_another_commercials_worker_is_not_found(): void
+    {
+        $worker = $this->submit();
+
+        $this->actingAsCommercial(User::factory()->commercial()->create(['dial_code' => '225', 'phone_number' => '0500000002']));
+
+        $this->getJson("/api/v1/commercial/workers/{$worker->id}")->assertNotFound();
+        $this->getJson('/api/v1/commercial/workers/'.Str::uuid())->assertNotFound();
     }
 
     private function submit(string $phone = '0700000099'): Worker

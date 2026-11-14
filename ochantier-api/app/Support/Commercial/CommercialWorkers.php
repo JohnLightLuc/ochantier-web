@@ -101,9 +101,11 @@ class CommercialWorkers
     }
 
     /**
+     * Ligne de la liste « Ouvriers », reprise en tête de la fiche de l’ouvrier.
+     *
      * @return array<string, mixed>
      */
-    private function row(Worker $worker): array
+    public function row(Worker $worker): array
     {
         $submission = $this->submission($worker);
         $trade = $worker->workerTrades->firstWhere('is_primary', true)?->trade;
