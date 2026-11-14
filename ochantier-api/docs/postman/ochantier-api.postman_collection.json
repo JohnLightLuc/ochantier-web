@@ -18279,7 +18279,8 @@
                     "exec": [
                       "pm.test('Statut 200', () => pm.response.to.have.status(200));",
                       "const row = pm.response.json().data.find(w => w.can_correct);",
-                      "pm.collectionVariables.set('correction_prospect_id', row ? row.prospect_id : '');"
+                      "pm.collectionVariables.set('correction_prospect_id', row ? row.prospect_id : '');",
+                      "pm.collectionVariables.set('commercial_worker_id', pm.response.json().data.length ? pm.response.json().data[0].worker_id : '');"
                     ]
                   }
                 }
@@ -18512,6 +18513,142 @@
                     }
                   ],
                   "body": "{\n  \"message\": \"Filtre inconnu.\",\n  \"errors\": {\n    \"filter\": [\n      \"Filtre inconnu.\"\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "03c6d25e-7a0d-571b-a9b9-d85f2aadd5e6",
+              "name": "Détail d’un ouvrier",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.collectionVariables.get('commercial_worker_id')) { pm.execution.skipRequest(); }"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "const worker = pm.response.json().data;",
+                      "pm.test('Ouvrier demandé', () => pm.expect(worker.id).to.eql(pm.collectionVariables.get('commercial_worker_id')));",
+                      "pm.test('Performance seulement si validé', () => pm.expect(worker.performance === null).to.eql(worker.status.value !== 'valide'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/workers/{{commercial_worker_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "workers",
+                    "{{commercial_worker_id}}"
+                  ]
+                },
+                "description": "« Voir le dossier » / « Voir le profil » : fiche d’un ouvrier transmis par le commercial connecté.\n\nReprend la ligne de « Mes ouvriers » (`status`, `issue`, `date_label`, `cta`, `can_correct`, `prospect_id`), puis : téléphone et `photo_url`, `identity` (sexe, naissance), `activity` (tarif journalier, niveau, `trades[]` avec le métier principal `is_primary`, spécialités, compétences, expériences), `emergency_contact`, `documents` (pièces actives), `submission` (statut, motif, corrections demandées), `commission` (`amount`, `status` : estimé, acquis, payé, annulé…) et `performance` (validé le, disponibilité, note, missions terminées) — `null` tant que l’ouvrier n’est pas validé.\n\nConsultation seule : un dossier « À corriger » se corrige toujours par son prospect (`prospect_id`). **404** pour un ouvrier d’un autre commercial, un brouillon ou un identifiant inconnu. Sautée sans ouvrier transmis.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "fa4fa6b0-d3d5-5926-b2de-a87a9d93f613",
+                  "name": "200 · Ouvrier validé",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/workers/01a17701-a6ac-71b8-a966-b0f399b9a8a4",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "workers",
+                        "01a17701-a6ac-71b8-a966-b0f399b9a8a4"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"worker_id\": \"01a17701-a6ac-71b8-a966-b0f399b9a8a4\",\n    \"prospect_id\": null,\n    \"reference\": \"OUV-D00004\",\n    \"name\": \"Yao Koffi\",\n    \"initials\": \"YK\",\n    \"trade\": {\n      \"id\": \"01a17701-9bd8-72e3-b3bd-53765c249ba2\",\n      \"code\": \"macon\",\n      \"label\": \"Maçon\"\n    },\n    \"commune\": {\n      \"id\": \"01a17701-9ba8-73d1-9104-815e4460e348\",\n      \"name\": \"Marcory\"\n    },\n    \"status\": {\n      \"value\": \"valide\",\n      \"label\": \"Validé\"\n    },\n    \"issue\": null,\n    \"date_label\": \"Validé le 26 oct. 2026\",\n    \"cta\": \"Voir le profil\",\n    \"can_correct\": false,\n    \"id\": \"01a17701-a6ac-71b8-a966-b0f399b9a8a4\",\n    \"first_name\": \"Yao\",\n    \"last_name\": \"Koffi\",\n    \"dial_code\": \"225\",\n    \"phone_number\": \"0707070704\",\n    \"phone\": \"+225 07 07 07 07 04\",\n    \"photo_url\": null,\n    \"neighborhood\": null,\n    \"identity\": {\n      \"gender\": {\n        \"value\": \"M\",\n        \"label\": \"Homme\"\n      },\n      \"birth_date\": \"1990-03-15\",\n      \"birth_place\": \"Bouaké\"\n    },\n    \"activity\": {\n      \"daily_rate\": 15000,\n      \"level\": {\n        \"value\": \"confirme\",\n        \"label\": \"Confirmé\"\n      },\n      \"experience_years\": 8,\n      \"trades\": [\n        {\n          \"trade\": {\n            \"id\": \"01a17701-9bd8-72e3-b3bd-53765c249ba2\",\n            \"code\": \"macon\",\n            \"label\": \"Maçon\"\n          },\n          \"is_primary\": true,\n          \"level\": {\n            \"value\": \"confirme\",\n            \"label\": \"Confirmé\"\n          },\n          \"experience_years\": 8\n        }\n      ],\n      \"specialties\": [],\n      \"skills\": [],\n      \"experiences\": []\n    },\n    \"emergency_contact\": {\n      \"name\": \"Awa Koffi\",\n      \"dial_code\": \"225\",\n      \"phone_number\": \"0598765432\",\n      \"phone\": \"+225 05 98 76 54 32\"\n    },\n    \"documents\": [],\n    \"submission\": {\n      \"worker_id\": \"01a17701-a6ac-71b8-a966-b0f399b9a8a4\",\n      \"reference\": \"OUV-D00004\",\n      \"status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      },\n      \"submitted_at\": \"2026-10-24T09:12:00+00:00\",\n      \"submission_number\": 1,\n      \"decision_reason\": null,\n      \"corrections\": [],\n      \"can_correct\": false\n    },\n    \"commission\": {\n      \"amount\": 25000,\n      \"status\": {\n        \"value\": \"acquis\",\n        \"label\": \"Acquis\"\n      }\n    },\n    \"performance\": {\n      \"validated_at\": \"2026-10-26T10:30:00+00:00\",\n      \"availability\": {\n        \"value\": \"disponible\",\n        \"label\": \"Disponible\"\n      },\n      \"rating_avg\": null,\n      \"rating_count\": 0,\n      \"missions_completed\": 0\n    }\n  }\n}"
+                },
+                {
+                  "id": "b76e1aeb-ec69-5416-a42e-0610ecf38e84",
+                  "name": "404 · Ouvrier d’un autre commercial",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/workers/01a17701-0000-7000-8000-000000000000",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "workers",
+                        "01a17701-0000-7000-8000-000000000000"
+                      ]
+                    }
+                  },
+                  "status": "Not Found",
+                  "code": 404,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Élément introuvable.\"\n}"
                 }
               ]
             },
@@ -22601,6 +22738,12 @@
       "value": "",
       "type": "string",
       "description": "Commune demandée en plus de Cocody (renseignée par « Référentiels des formulaires »)."
+    },
+    {
+      "key": "commercial_worker_id",
+      "value": "",
+      "type": "string",
+      "description": "Ouvrier transmis ouvert par « Détail d’un ouvrier » (renseigné par « Mes ouvriers »)."
     },
     {
       "key": "correction_prospect_id",
