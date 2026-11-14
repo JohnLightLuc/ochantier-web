@@ -5180,7 +5180,7 @@
                 "notifications"
               ]
             },
-            "description": "Groupes `AUJOURD’HUI`, `CETTE SEMAINE`, `PLUS ANCIENNES` ; chaque notification : titre, texte, `time`, `unread`, bouton (`cta`) et écran à ouvrir (`target` : `worker`, `prospect`, `earnings`…).\n\nFiltre `filter` : `toutes`, `non_lues`, `dossiers`, `paiements`. `meta` : non lues et onglets avec leurs non lues.",
+            "description": "Groupes `AUJOURD’HUI`, `CETTE SEMAINE`, `PLUS ANCIENNES` ; chaque notification : titre, texte, `time`, `unread`, bouton (`cta`) et écran à ouvrir (`target` : `worker`, `prospect`, `earnings`…).\n\nFiltre `filter` : `toutes`, `non_lues`, `dossiers`, `paiements`. `meta` : non lues et onglets avec leurs non lues. `meta.unread` et `meta.unread_count` portent sur tout l’historique (la liste affiche les 100 plus récentes) ; pour le seul badge, préférer « Nombre de non lues ».",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -5236,7 +5236,7 @@
                   "value": "68"
                 }
               ],
-              "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a17702-535c-70a9-9c6d-aebe93de1eb3\",\n          \"event\": \"ranking.updated\",\n          \"tab\": \"infos\",\n          \"title\": \"Classement mis à jour\",\n          \"body\": \"Vous êtes 1ᵉʳ sur 2 commerciaux ce mois-ci.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:03+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"ranking\"\n          },\n          \"cta\": null\n        },\n        {\n          \"id\": \"01a17702-50f4-72ea-87d1-4b79ffc7f9e2\",\n          \"event\": \"payout.paid\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement reçu\",\n          \"body\": \"25 000 FCFA versés sur votre compte Mobile Money.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:02+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"earnings\",\n            \"month\": \"2026-10\"\n          },\n          \"cta\": \"Voir mes gains\"\n        },\n        {\n          \"id\": \"01a17702-4a26-708b-a109-36d81bb1c486\",\n          \"event\": \"worker.refused\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Dossier refusé\",\n          \"body\": \"Marc Kouassi — Identité non vérifiable.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:01+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3f07-71ce-ba1d-d6b57e6704ab\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-3e33-71ce-9a9c-e36cbf47398d\"\n          },\n          \"cta\": \"Voir le dossier\"\n        },\n        {\n          \"id\": \"01a17702-487c-7270-8f92-8caca8f0b1d9\",\n          \"event\": \"worker.correction\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Correction demandée\",\n          \"body\": \"Issa Traoré — Photo de la pièce d’identité illisible.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:00+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3b8c-700b-a84a-0bd16218aa98\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-3af4-709b-945c-5f1ca9bbb290\"\n          },\n          \"cta\": \"Corriger le dossier\"\n        },\n        {\n          \"id\": \"01a17702-468e-72b1-ae43-7bf3b3076632\",\n          \"event\": \"worker.validated\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Dossier validé\",\n          \"body\": \"Aïcha Koné a été validé(e). Commission de 25 000 FCFA confirmée.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:00+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3866-7095-84da-2c8193087040\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-37cf-71e5-b569-c20373c5c02b\"\n          },\n          \"cta\": \"Voir le dossier\"\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 5,\n    \"summary\": \"5 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"toutes\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"non_lues\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"dossiers\",\n        \"label\": \"Dossiers\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 1\n      }\n    ]\n  }\n}"
+              "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a17702-535c-70a9-9c6d-aebe93de1eb3\",\n          \"event\": \"ranking.updated\",\n          \"tab\": \"infos\",\n          \"title\": \"Classement mis à jour\",\n          \"body\": \"Vous êtes 1ᵉʳ sur 2 commerciaux ce mois-ci.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:03+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"ranking\"\n          },\n          \"cta\": null\n        },\n        {\n          \"id\": \"01a17702-50f4-72ea-87d1-4b79ffc7f9e2\",\n          \"event\": \"payout.paid\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement reçu\",\n          \"body\": \"25 000 FCFA versés sur votre compte Mobile Money.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:02+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"earnings\",\n            \"month\": \"2026-10\"\n          },\n          \"cta\": \"Voir mes gains\"\n        },\n        {\n          \"id\": \"01a17702-4a26-708b-a109-36d81bb1c486\",\n          \"event\": \"worker.refused\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Dossier refusé\",\n          \"body\": \"Marc Kouassi — Identité non vérifiable.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:01+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3f07-71ce-ba1d-d6b57e6704ab\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-3e33-71ce-9a9c-e36cbf47398d\"\n          },\n          \"cta\": \"Voir le dossier\"\n        },\n        {\n          \"id\": \"01a17702-487c-7270-8f92-8caca8f0b1d9\",\n          \"event\": \"worker.correction\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Correction demandée\",\n          \"body\": \"Issa Traoré — Photo de la pièce d’identité illisible.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:00+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3b8c-700b-a84a-0bd16218aa98\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-3af4-709b-945c-5f1ca9bbb290\"\n          },\n          \"cta\": \"Corriger le dossier\"\n        },\n        {\n          \"id\": \"01a17702-468e-72b1-ae43-7bf3b3076632\",\n          \"event\": \"worker.validated\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Dossier validé\",\n          \"body\": \"Aïcha Koné a été validé(e). Commission de 25 000 FCFA confirmée.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:00+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3866-7095-84da-2c8193087040\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-37cf-71e5-b569-c20373c5c02b\"\n          },\n          \"cta\": \"Voir le dossier\"\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 5,\n    \"unread_count\": 5,\n    \"summary\": \"5 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"toutes\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"non_lues\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"dossiers\",\n        \"label\": \"Dossiers\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 1\n      }\n    ]\n  }\n}"
             },
             {
               "id": "c852f118-9f72-5b91-b6d3-550e024df299",
@@ -5287,7 +5287,133 @@
                   "value": "67"
                 }
               ],
-              "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a17702-50f4-72ea-87d1-4b79ffc7f9e2\",\n          \"event\": \"payout.paid\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement reçu\",\n          \"body\": \"25 000 FCFA versés sur votre compte Mobile Money.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:02+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"earnings\",\n            \"month\": \"2026-10\"\n          },\n          \"cta\": \"Voir mes gains\"\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 5,\n    \"summary\": \"5 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"toutes\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"non_lues\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"dossiers\",\n        \"label\": \"Dossiers\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 1\n      }\n    ]\n  }\n}"
+              "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a17702-50f4-72ea-87d1-4b79ffc7f9e2\",\n          \"event\": \"payout.paid\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement reçu\",\n          \"body\": \"25 000 FCFA versés sur votre compte Mobile Money.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:02+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"earnings\",\n            \"month\": \"2026-10\"\n          },\n          \"cta\": \"Voir mes gains\"\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 5,\n    \"unread_count\": 5,\n    \"summary\": \"5 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"toutes\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"non_lues\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"dossiers\",\n        \"label\": \"Dossiers\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 1\n      }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "id": "9ee86f09-d749-5ace-bb0d-511ec2ce6a9d",
+          "name": "Nombre de non lues",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Compteur entier', () => pm.expect(pm.response.json().data.unread_count).to.be.a('number').and.to.be.at.least(0));",
+                  "pm.test('Jamais en cache', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/commercial/notifications/unread-count",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "commercial",
+                "notifications",
+                "unread-count"
+              ]
+            },
+            "description": "Badge de la cloche : nombre de notifications **non lues** de l’utilisateur connecté, sur tout l’historique, sans télécharger la liste. Sans paramètre.\n\n**Réponse 200** : `data.unread_count` (entier ≥ 0, `0` sans notification), en-tête `Cache-Control: no-store, private`. Toujours cohérent avec la liste : même valeur que `meta.unread_count` de « Notifications » et que `data.unread_count` renvoyé par « Marquer une notification lue » et « Tout marquer lu ».\n\nÀ relire à la réception d’un push, au retour au premier plan et au retour du réseau. **401** « Session expirée : reconnectez-vous. » sans jeton valide (rafraîchir puis rejouer), **403**, **429** (`retry_after`).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{commercial_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "id": "c71ff244-bc82-57b3-8428-769191aa9181",
+              "name": "200 · Non lues",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{commercial_access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/notifications/unread-count",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "notifications",
+                    "unread-count"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Cache-Control",
+                  "value": "no-store, private"
+                }
+              ],
+              "body": "{\n  \"message\": null,\n  \"data\": {\n    \"unread_count\": 5\n  }\n}"
+            },
+            {
+              "id": "12b18d80-a8ef-5d78-9291-8b2bcdc75cc7",
+              "name": "401 · Session expirée",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/notifications/unread-count",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "notifications",
+                    "unread-count"
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"Session expirée : reconnectez-vous.\"\n}"
             }
           ]
         },
@@ -5309,7 +5435,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Compteur du badge', () => pm.expect(pm.response.json().data.unread_count).to.eql(pm.response.json().data.unread));"
                 ]
               }
             }
@@ -5334,7 +5461,7 @@
                 "read"
               ]
             },
-            "description": "À l’ouverture d’une notification. **Réponse 200** : non lues restantes (`data.unread`). Sautée sans notification.",
+            "description": "À l’ouverture d’une notification. **Réponse 200** : non lues restantes (`data.unread` et `data.unread_count`, même valeur). Sautée sans notification.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -5392,7 +5519,7 @@
                   "value": "66"
                 }
               ],
-              "body": "{\n  \"message\": null,\n  \"data\": {\n    \"unread\": 4\n  }\n}"
+              "body": "{\n  \"message\": null,\n  \"data\": {\n    \"unread\": 4,\n    \"unread_count\": 4\n  }\n}"
             }
           ]
         },
@@ -5405,7 +5532,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Compteur du badge', () => pm.expect(pm.response.json().data.unread_count).to.eql(pm.response.json().data.unread));"
                 ]
               }
             }
@@ -5429,7 +5557,7 @@
                 "read-all"
               ]
             },
-            "description": "« Tout marquer lu ». **Réponse 200** : `data.unread` à 0 ; `message` « Toutes les notifications sont lues » s’il y en avait.",
+            "description": "« Tout marquer lu ». **Réponse 200** : `data.unread` et `data.unread_count` à 0 ; `message` « Toutes les notifications sont lues » s’il y en avait.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -5486,7 +5614,7 @@
                   "value": "65"
                 }
               ],
-              "body": "{\n  \"message\": \"Toutes les notifications sont lues\",\n  \"data\": {\n    \"unread\": 0\n  }\n}"
+              "body": "{\n  \"message\": \"Toutes les notifications sont lues\",\n  \"data\": {\n    \"unread\": 0,\n    \"unread_count\": 0\n  }\n}"
             }
           ]
         }

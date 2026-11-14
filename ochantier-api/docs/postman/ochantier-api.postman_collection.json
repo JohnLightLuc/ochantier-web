@@ -14032,7 +14032,7 @@
                     "notifications"
                   ]
                 },
-                "description": "Centre « Notifications » de l’utilisateur connecté : groupes `AUJOURD’HUI`, `CETTE SEMAINE`, `PLUS ANCIENNES`. Chaque notification : titre, texte, `time` (« À l’instant », « Il y a 5 min »…), `unread`, chantier, écran à ouvrir (`target`), `tag` (« Acompte réglé », « Action requise ») et `actions` (`voir_offre`, `payer_acompte`).\n\nFiltre `filter` : `all`, `unread`, `offres`, `paiements`, `chantiers`. `meta` : nombre de non lues, `summary` et non lues par onglet.",
+                "description": "Centre « Notifications » de l’utilisateur connecté : groupes `AUJOURD’HUI`, `CETTE SEMAINE`, `PLUS ANCIENNES`. Chaque notification : titre, texte, `time` (« À l’instant », « Il y a 5 min »…), `unread`, chantier, écran à ouvrir (`target`), `tag` (« Acompte réglé », « Action requise ») et `actions` (`voir_offre`, `payer_acompte`).\n\nFiltre `filter` : `all`, `unread`, `offres`, `paiements`, `chantiers`. `meta` : nombre de non lues, `summary` et non lues par onglet. `meta.unread` et `meta.unread_count` portent sur tout l’historique (la liste affiche les 100 plus récentes) ; pour le seul badge, préférer « Nombre de non lues ».",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -14088,7 +14088,7 @@
                       "value": "75"
                     }
                   ],
-                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a174dc-0f7b-720e-bdf2-a96283627f2f\",\n          \"event\": \"report.available\",\n          \"tab\": \"chantiers\",\n          \"title\": \"Rapport de fin de chantier disponible\",\n          \"body\": \"Le bilan complet de Résidence Les Palmiers est prêt à télécharger.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:59:01+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"type\": \"report\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-0f6d-7020-a422-1584cea8239e\",\n          \"event\": \"site.ended\",\n          \"tab\": \"chantiers\",\n          \"title\": \"Chantier terminé · Résidence Les Palmiers\",\n          \"body\": \"Notez votre équipe et chaque ouvrier.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:59:01+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"type\": \"site\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-093a-7119-88b6-0e946a5c7f0c\",\n          \"event\": \"team.joined\",\n          \"tab\": \"chantiers\",\n          \"title\": \"Awa Traoré a rejoint votre équipe\",\n          \"body\": \"Rôle : Technicien.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:59+00:00\",\n          \"unread\": true,\n          \"site\": null,\n          \"target\": {\n            \"id\": \"01a174dc-0579-70fb-b2d8-861cb42f8472\",\n            \"type\": \"team\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-032f-70e5-9ccf-e6e45f823a85\",\n          \"event\": \"payment.succeeded\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement confirmé · 75 516 FCFA\",\n          \"body\": \"Versement 2/3 réglé.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:58+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174dc-0305-708c-8874-980a916f8a1c\",\n            \"type\": \"transaction\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-0129-7355-ac01-75c2beb19d76\",\n          \"event\": \"site.confirmed\",\n          \"tab\": \"chantiers\",\n          \"title\": \"Équipe confirmée · Résidence Les Palmiers\",\n          \"body\": \"Acompte réglé : l’équipe est réservée pour votre chantier.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:57+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"type\": \"site\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-011f-7101-bf2e-04efd5871f62\",\n          \"event\": \"payment.succeeded\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement confirmé · 75 415 FCFA\",\n          \"body\": \"Équipe confirmée. Démarrage prévu le 30 oct. 2026. Prochain versement le 1 nov. 2026.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:57+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174dc-00b2-716c-9efd-bd263b11c3ca\",\n            \"type\": \"transaction\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174db-fd76-71bb-b7f5-cfbe92b74eaf\",\n          \"event\": \"payment.succeeded\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement confirmé · 15 225 FCFA\",\n          \"body\": \"Votre formule Équipe est active. Invitez jusqu’à 4 collaborateurs.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:56+00:00\",\n          \"unread\": true,\n          \"site\": null,\n          \"target\": {\n            \"id\": \"01a174db-fd45-732c-a2f4-61057953abed\",\n            \"type\": \"transaction\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174db-f864-7072-98a7-82d5916cfa82\",\n          \"event\": \"proposal.received\",\n          \"tab\": \"offres\",\n          \"title\": \"Ouvriers trouvés · Résidence Les Palmiers\",\n          \"body\": \"3 ouvriers proposés. Acompte à régler : 223 000 FCFA.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:55+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f5c7-72b3-8bd5-c126da9e0a48\",\n            \"type\": \"reservation\",\n            \"proposal_id\": \"01a174db-f840-71cd-b4ee-f3f0e8811417\"\n          },\n          \"tag\": {\n            \"label\": \"Acompte réglé\",\n            \"tone\": \"positive\"\n          },\n          \"actions\": []\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 8,\n    \"summary\": \"8 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"all\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"unread\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"offres\",\n        \"label\": \"Offres\",\n        \"unread\": 1\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"chantiers\",\n        \"label\": \"Chantiers\",\n        \"unread\": 4\n      }\n    ]\n  }\n}"
+                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a174dc-0f7b-720e-bdf2-a96283627f2f\",\n          \"event\": \"report.available\",\n          \"tab\": \"chantiers\",\n          \"title\": \"Rapport de fin de chantier disponible\",\n          \"body\": \"Le bilan complet de Résidence Les Palmiers est prêt à télécharger.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:59:01+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"type\": \"report\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-0f6d-7020-a422-1584cea8239e\",\n          \"event\": \"site.ended\",\n          \"tab\": \"chantiers\",\n          \"title\": \"Chantier terminé · Résidence Les Palmiers\",\n          \"body\": \"Notez votre équipe et chaque ouvrier.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:59:01+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"type\": \"site\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-093a-7119-88b6-0e946a5c7f0c\",\n          \"event\": \"team.joined\",\n          \"tab\": \"chantiers\",\n          \"title\": \"Awa Traoré a rejoint votre équipe\",\n          \"body\": \"Rôle : Technicien.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:59+00:00\",\n          \"unread\": true,\n          \"site\": null,\n          \"target\": {\n            \"id\": \"01a174dc-0579-70fb-b2d8-861cb42f8472\",\n            \"type\": \"team\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-032f-70e5-9ccf-e6e45f823a85\",\n          \"event\": \"payment.succeeded\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement confirmé · 75 516 FCFA\",\n          \"body\": \"Versement 2/3 réglé.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:58+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174dc-0305-708c-8874-980a916f8a1c\",\n            \"type\": \"transaction\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-0129-7355-ac01-75c2beb19d76\",\n          \"event\": \"site.confirmed\",\n          \"tab\": \"chantiers\",\n          \"title\": \"Équipe confirmée · Résidence Les Palmiers\",\n          \"body\": \"Acompte réglé : l’équipe est réservée pour votre chantier.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:57+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"type\": \"site\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-011f-7101-bf2e-04efd5871f62\",\n          \"event\": \"payment.succeeded\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement confirmé · 75 415 FCFA\",\n          \"body\": \"Équipe confirmée. Démarrage prévu le 30 oct. 2026. Prochain versement le 1 nov. 2026.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:57+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174dc-00b2-716c-9efd-bd263b11c3ca\",\n            \"type\": \"transaction\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174db-fd76-71bb-b7f5-cfbe92b74eaf\",\n          \"event\": \"payment.succeeded\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement confirmé · 15 225 FCFA\",\n          \"body\": \"Votre formule Équipe est active. Invitez jusqu’à 4 collaborateurs.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:56+00:00\",\n          \"unread\": true,\n          \"site\": null,\n          \"target\": {\n            \"id\": \"01a174db-fd45-732c-a2f4-61057953abed\",\n            \"type\": \"transaction\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174db-f864-7072-98a7-82d5916cfa82\",\n          \"event\": \"proposal.received\",\n          \"tab\": \"offres\",\n          \"title\": \"Ouvriers trouvés · Résidence Les Palmiers\",\n          \"body\": \"3 ouvriers proposés. Acompte à régler : 223 000 FCFA.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:55+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f5c7-72b3-8bd5-c126da9e0a48\",\n            \"type\": \"reservation\",\n            \"proposal_id\": \"01a174db-f840-71cd-b4ee-f3f0e8811417\"\n          },\n          \"tag\": {\n            \"label\": \"Acompte réglé\",\n            \"tone\": \"positive\"\n          },\n          \"actions\": []\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 8,\n    \"unread_count\": 8,\n    \"summary\": \"8 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"all\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"unread\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"offres\",\n        \"label\": \"Offres\",\n        \"unread\": 1\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"chantiers\",\n        \"label\": \"Chantiers\",\n        \"unread\": 4\n      }\n    ]\n  }\n}"
                 },
                 {
                   "id": "8d56d790-7afd-576f-8410-ebcf47de219e",
@@ -14139,7 +14139,133 @@
                       "value": "74"
                     }
                   ],
-                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a174db-f864-7072-98a7-82d5916cfa82\",\n          \"event\": \"proposal.received\",\n          \"tab\": \"offres\",\n          \"title\": \"Ouvriers trouvés · Résidence Les Palmiers\",\n          \"body\": \"3 ouvriers proposés. Acompte à régler : 223 000 FCFA.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:55+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f5c7-72b3-8bd5-c126da9e0a48\",\n            \"type\": \"reservation\",\n            \"proposal_id\": \"01a174db-f840-71cd-b4ee-f3f0e8811417\"\n          },\n          \"tag\": {\n            \"label\": \"Acompte réglé\",\n            \"tone\": \"positive\"\n          },\n          \"actions\": []\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 8,\n    \"summary\": \"8 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"all\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"unread\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"offres\",\n        \"label\": \"Offres\",\n        \"unread\": 1\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"chantiers\",\n        \"label\": \"Chantiers\",\n        \"unread\": 4\n      }\n    ]\n  }\n}"
+                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a174db-f864-7072-98a7-82d5916cfa82\",\n          \"event\": \"proposal.received\",\n          \"tab\": \"offres\",\n          \"title\": \"Ouvriers trouvés · Résidence Les Palmiers\",\n          \"body\": \"3 ouvriers proposés. Acompte à régler : 223 000 FCFA.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:55+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f5c7-72b3-8bd5-c126da9e0a48\",\n            \"type\": \"reservation\",\n            \"proposal_id\": \"01a174db-f840-71cd-b4ee-f3f0e8811417\"\n          },\n          \"tag\": {\n            \"label\": \"Acompte réglé\",\n            \"tone\": \"positive\"\n          },\n          \"actions\": []\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 8,\n    \"unread_count\": 8,\n    \"summary\": \"8 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"all\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"unread\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"offres\",\n        \"label\": \"Offres\",\n        \"unread\": 1\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"chantiers\",\n        \"label\": \"Chantiers\",\n        \"unread\": 4\n      }\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "42859d3a-0d96-523c-ba4a-40ba83dd5244",
+              "name": "Nombre de non lues",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Compteur entier', () => pm.expect(pm.response.json().data.unread_count).to.be.a('number').and.to.be.at.least(0));",
+                      "pm.test('Jamais en cache', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/notifications/unread-count",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "notifications",
+                    "unread-count"
+                  ]
+                },
+                "description": "Badge de la cloche : nombre de notifications **non lues** de l’utilisateur connecté, sur tout l’historique, sans télécharger la liste. Sans paramètre.\n\n**Réponse 200** : `data.unread_count` (entier ≥ 0, `0` sans notification), en-tête `Cache-Control: no-store, private`. Toujours cohérent avec la liste : même valeur que `meta.unread_count` de « Notifications » et que `data.unread_count` renvoyé par « Marquer une notification lue » et « Tout marquer lu ».\n\nÀ relire à la réception d’un push, au retour au premier plan et au retour du réseau. **401** « Session expirée : reconnectez-vous. » sans jeton valide (rafraîchir puis rejouer), **403**, **429** (`retry_after`).",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "6e185fa8-15a1-5aa3-8fa0-541dd146ff3f",
+                  "name": "200 · Non lues",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/notifications/unread-count",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "notifications",
+                        "unread-count"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "Cache-Control",
+                      "value": "no-store, private"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"unread_count\": 8\n  }\n}"
+                },
+                {
+                  "id": "30e391c1-1d34-583f-a1dd-dab52f1b0169",
+                  "name": "401 · Session expirée",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/notifications/unread-count",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "notifications",
+                        "unread-count"
+                      ]
+                    }
+                  },
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Session expirée : reconnectez-vous.\"\n}"
                 }
               ]
             },
@@ -14161,7 +14287,8 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Compteur du badge', () => pm.expect(pm.response.json().data.unread_count).to.eql(pm.response.json().data.unread));"
                     ]
                   }
                 }
@@ -14186,7 +14313,7 @@
                     "read"
                   ]
                 },
-                "description": "À l’ouverture d’une notification. **Réponse 200** : nombre de non lues restantes (`data.unread`). Sautée lors de l’exécution de la collection sans notification.",
+                "description": "À l’ouverture d’une notification. **Réponse 200** : nombre de non lues restantes (`data.unread` et `data.unread_count`, même valeur). Sautée lors de l’exécution de la collection sans notification.",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -14244,7 +14371,7 @@
                       "value": "73"
                     }
                   ],
-                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"unread\": 7\n  }\n}"
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"unread\": 7,\n    \"unread_count\": 7\n  }\n}"
                 }
               ]
             },
@@ -14257,7 +14384,8 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Compteur du badge', () => pm.expect(pm.response.json().data.unread_count).to.eql(pm.response.json().data.unread));"
                     ]
                   }
                 }
@@ -14281,7 +14409,7 @@
                     "read-all"
                   ]
                 },
-                "description": "« Tout marquer lu ». **Réponse 200** : `data.unread` à 0 ; `message` « Toutes les notifications sont lues » s’il y en avait.",
+                "description": "« Tout marquer lu ». **Réponse 200** : `data.unread` et `data.unread_count` à 0 ; `message` « Toutes les notifications sont lues » s’il y en avait.",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -14338,7 +14466,7 @@
                       "value": "72"
                     }
                   ],
-                  "body": "{\n  \"message\": \"Toutes les notifications sont lues\",\n  \"data\": {\n    \"unread\": 0\n  }\n}"
+                  "body": "{\n  \"message\": \"Toutes les notifications sont lues\",\n  \"data\": {\n    \"unread\": 0,\n    \"unread_count\": 0\n  }\n}"
                 }
               ]
             }
@@ -20380,7 +20508,7 @@
                     "notifications"
                   ]
                 },
-                "description": "Groupes `AUJOURD’HUI`, `CETTE SEMAINE`, `PLUS ANCIENNES` ; chaque notification : titre, texte, `time`, `unread`, bouton (`cta`) et écran à ouvrir (`target` : `worker`, `prospect`, `earnings`…).\n\nFiltre `filter` : `toutes`, `non_lues`, `dossiers`, `paiements`. `meta` : non lues et onglets avec leurs non lues.",
+                "description": "Groupes `AUJOURD’HUI`, `CETTE SEMAINE`, `PLUS ANCIENNES` ; chaque notification : titre, texte, `time`, `unread`, bouton (`cta`) et écran à ouvrir (`target` : `worker`, `prospect`, `earnings`…).\n\nFiltre `filter` : `toutes`, `non_lues`, `dossiers`, `paiements`. `meta` : non lues et onglets avec leurs non lues. `meta.unread` et `meta.unread_count` portent sur tout l’historique (la liste affiche les 100 plus récentes) ; pour le seul badge, préférer « Nombre de non lues ».",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -20436,7 +20564,7 @@
                       "value": "68"
                     }
                   ],
-                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a17702-535c-70a9-9c6d-aebe93de1eb3\",\n          \"event\": \"ranking.updated\",\n          \"tab\": \"infos\",\n          \"title\": \"Classement mis à jour\",\n          \"body\": \"Vous êtes 1ᵉʳ sur 2 commerciaux ce mois-ci.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:03+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"ranking\"\n          },\n          \"cta\": null\n        },\n        {\n          \"id\": \"01a17702-50f4-72ea-87d1-4b79ffc7f9e2\",\n          \"event\": \"payout.paid\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement reçu\",\n          \"body\": \"25 000 FCFA versés sur votre compte Mobile Money.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:02+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"earnings\",\n            \"month\": \"2026-10\"\n          },\n          \"cta\": \"Voir mes gains\"\n        },\n        {\n          \"id\": \"01a17702-4a26-708b-a109-36d81bb1c486\",\n          \"event\": \"worker.refused\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Dossier refusé\",\n          \"body\": \"Marc Kouassi — Identité non vérifiable.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:01+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3f07-71ce-ba1d-d6b57e6704ab\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-3e33-71ce-9a9c-e36cbf47398d\"\n          },\n          \"cta\": \"Voir le dossier\"\n        },\n        {\n          \"id\": \"01a17702-487c-7270-8f92-8caca8f0b1d9\",\n          \"event\": \"worker.correction\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Correction demandée\",\n          \"body\": \"Issa Traoré — Photo de la pièce d’identité illisible.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:00+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3b8c-700b-a84a-0bd16218aa98\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-3af4-709b-945c-5f1ca9bbb290\"\n          },\n          \"cta\": \"Corriger le dossier\"\n        },\n        {\n          \"id\": \"01a17702-468e-72b1-ae43-7bf3b3076632\",\n          \"event\": \"worker.validated\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Dossier validé\",\n          \"body\": \"Aïcha Koné a été validé(e). Commission de 25 000 FCFA confirmée.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:00+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3866-7095-84da-2c8193087040\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-37cf-71e5-b569-c20373c5c02b\"\n          },\n          \"cta\": \"Voir le dossier\"\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 5,\n    \"summary\": \"5 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"toutes\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"non_lues\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"dossiers\",\n        \"label\": \"Dossiers\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 1\n      }\n    ]\n  }\n}"
+                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a17702-535c-70a9-9c6d-aebe93de1eb3\",\n          \"event\": \"ranking.updated\",\n          \"tab\": \"infos\",\n          \"title\": \"Classement mis à jour\",\n          \"body\": \"Vous êtes 1ᵉʳ sur 2 commerciaux ce mois-ci.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:03+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"ranking\"\n          },\n          \"cta\": null\n        },\n        {\n          \"id\": \"01a17702-50f4-72ea-87d1-4b79ffc7f9e2\",\n          \"event\": \"payout.paid\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement reçu\",\n          \"body\": \"25 000 FCFA versés sur votre compte Mobile Money.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:02+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"earnings\",\n            \"month\": \"2026-10\"\n          },\n          \"cta\": \"Voir mes gains\"\n        },\n        {\n          \"id\": \"01a17702-4a26-708b-a109-36d81bb1c486\",\n          \"event\": \"worker.refused\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Dossier refusé\",\n          \"body\": \"Marc Kouassi — Identité non vérifiable.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:01+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3f07-71ce-ba1d-d6b57e6704ab\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-3e33-71ce-9a9c-e36cbf47398d\"\n          },\n          \"cta\": \"Voir le dossier\"\n        },\n        {\n          \"id\": \"01a17702-487c-7270-8f92-8caca8f0b1d9\",\n          \"event\": \"worker.correction\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Correction demandée\",\n          \"body\": \"Issa Traoré — Photo de la pièce d’identité illisible.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:00+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3b8c-700b-a84a-0bd16218aa98\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-3af4-709b-945c-5f1ca9bbb290\"\n          },\n          \"cta\": \"Corriger le dossier\"\n        },\n        {\n          \"id\": \"01a17702-468e-72b1-ae43-7bf3b3076632\",\n          \"event\": \"worker.validated\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Dossier validé\",\n          \"body\": \"Aïcha Koné a été validé(e). Commission de 25 000 FCFA confirmée.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:00+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3866-7095-84da-2c8193087040\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-37cf-71e5-b569-c20373c5c02b\"\n          },\n          \"cta\": \"Voir le dossier\"\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 5,\n    \"unread_count\": 5,\n    \"summary\": \"5 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"toutes\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"non_lues\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"dossiers\",\n        \"label\": \"Dossiers\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 1\n      }\n    ]\n  }\n}"
                 },
                 {
                   "id": "c852f118-9f72-5b91-b6d3-550e024df299",
@@ -20487,7 +20615,133 @@
                       "value": "67"
                     }
                   ],
-                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a17702-50f4-72ea-87d1-4b79ffc7f9e2\",\n          \"event\": \"payout.paid\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement reçu\",\n          \"body\": \"25 000 FCFA versés sur votre compte Mobile Money.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:02+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"earnings\",\n            \"month\": \"2026-10\"\n          },\n          \"cta\": \"Voir mes gains\"\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 5,\n    \"summary\": \"5 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"toutes\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"non_lues\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"dossiers\",\n        \"label\": \"Dossiers\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 1\n      }\n    ]\n  }\n}"
+                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a17702-50f4-72ea-87d1-4b79ffc7f9e2\",\n          \"event\": \"payout.paid\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement reçu\",\n          \"body\": \"25 000 FCFA versés sur votre compte Mobile Money.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:02+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"earnings\",\n            \"month\": \"2026-10\"\n          },\n          \"cta\": \"Voir mes gains\"\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 5,\n    \"unread_count\": 5,\n    \"summary\": \"5 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"toutes\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"non_lues\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"dossiers\",\n        \"label\": \"Dossiers\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 1\n      }\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "95e00f55-91e0-5339-b536-59efdb39767c",
+              "name": "Nombre de non lues",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Compteur entier', () => pm.expect(pm.response.json().data.unread_count).to.be.a('number').and.to.be.at.least(0));",
+                      "pm.test('Jamais en cache', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/notifications/unread-count",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "notifications",
+                    "unread-count"
+                  ]
+                },
+                "description": "Badge de la cloche : nombre de notifications **non lues** de l’utilisateur connecté, sur tout l’historique, sans télécharger la liste. Sans paramètre.\n\n**Réponse 200** : `data.unread_count` (entier ≥ 0, `0` sans notification), en-tête `Cache-Control: no-store, private`. Toujours cohérent avec la liste : même valeur que `meta.unread_count` de « Notifications » et que `data.unread_count` renvoyé par « Marquer une notification lue » et « Tout marquer lu ».\n\nÀ relire à la réception d’un push, au retour au premier plan et au retour du réseau. **401** « Session expirée : reconnectez-vous. » sans jeton valide (rafraîchir puis rejouer), **403**, **429** (`retry_after`).",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "d3264547-570b-58aa-80b5-ba80ccadc375",
+                  "name": "200 · Non lues",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/notifications/unread-count",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "notifications",
+                        "unread-count"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "Cache-Control",
+                      "value": "no-store, private"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"unread_count\": 5\n  }\n}"
+                },
+                {
+                  "id": "a8676a28-9a16-56da-bfaa-df66bdc0f432",
+                  "name": "401 · Session expirée",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/notifications/unread-count",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "notifications",
+                        "unread-count"
+                      ]
+                    }
+                  },
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Session expirée : reconnectez-vous.\"\n}"
                 }
               ]
             },
@@ -20509,7 +20763,8 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Compteur du badge', () => pm.expect(pm.response.json().data.unread_count).to.eql(pm.response.json().data.unread));"
                     ]
                   }
                 }
@@ -20534,7 +20789,7 @@
                     "read"
                   ]
                 },
-                "description": "À l’ouverture d’une notification. **Réponse 200** : non lues restantes (`data.unread`). Sautée sans notification.",
+                "description": "À l’ouverture d’une notification. **Réponse 200** : non lues restantes (`data.unread` et `data.unread_count`, même valeur). Sautée sans notification.",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -20592,7 +20847,7 @@
                       "value": "66"
                     }
                   ],
-                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"unread\": 4\n  }\n}"
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"unread\": 4,\n    \"unread_count\": 4\n  }\n}"
                 }
               ]
             },
@@ -20605,7 +20860,8 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Compteur du badge', () => pm.expect(pm.response.json().data.unread_count).to.eql(pm.response.json().data.unread));"
                     ]
                   }
                 }
@@ -20629,7 +20885,7 @@
                     "read-all"
                   ]
                 },
-                "description": "« Tout marquer lu ». **Réponse 200** : `data.unread` à 0 ; `message` « Toutes les notifications sont lues » s’il y en avait.",
+                "description": "« Tout marquer lu ». **Réponse 200** : `data.unread` et `data.unread_count` à 0 ; `message` « Toutes les notifications sont lues » s’il y en avait.",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -20686,7 +20942,7 @@
                       "value": "65"
                     }
                   ],
-                  "body": "{\n  \"message\": \"Toutes les notifications sont lues\",\n  \"data\": {\n    \"unread\": 0\n  }\n}"
+                  "body": "{\n  \"message\": \"Toutes les notifications sont lues\",\n  \"data\": {\n    \"unread\": 0,\n    \"unread_count\": 0\n  }\n}"
                 }
               ]
             }
