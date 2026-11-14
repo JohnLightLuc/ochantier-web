@@ -40,7 +40,7 @@ class NotificationAdminTest extends CommercialTestCase
              */
             public function __construct(private array &$pushes) {}
 
-            public function send(array $tokens, string $title, string $body, array $data = []): void
+            public function send(array $tokens, string $title, string $body, array $data = [], ?string $audience = null): void
             {
                 $this->pushes[] = [$tokens, $title, $body, $data];
             }

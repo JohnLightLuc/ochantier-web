@@ -19,6 +19,7 @@ use Kreait\Firebase\Messaging\MessageTarget;
 use Kreait\Firebase\Messaging\MulticastSendReport;
 use Kreait\Firebase\Messaging\SendReport;
 use Mockery\MockInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class FcmPushGatewayTest extends TestCase
@@ -73,6 +74,46 @@ class FcmPushGatewayTest extends TestCase
             ->andReturn($this->report(['jeton-a' => null]));
 
         app(FcmPushGateway::class)->send(['jeton-a'], 'Dossier validé', 'Jean Kouassi a été validé.', ['event' => 'worker.validated', 'unread_count' => 3]);
+    }
+
+    /**
+     * @return array<string, array{0: string|null, 1: string, 2: string}>
+     */
+    public static function applications(): array
+    {
+        return [
+            'Commercial' => ['commercial', 'ochantier_commercial', 'ochantier_commercial.wav'],
+            'Promoteur' => ['promoter', 'ochantier_promoteur', 'ochantier_promoteur.wav'],
+            'application inconnue' => ['worker', 'default', 'default'],
+            'sans application' => [null, 'default', 'default'],
+        ];
+    }
+
+    #[DataProvider('applications')]
+    public function test_each_application_gets_its_own_sound_on_the_shared_android_channel(?string $audience, string $androidSound, string $iosSound): void
+    {
+        $this->messaging()->shouldReceive('sendMulticast')
+            ->once()
+            ->withArgs(function (CloudMessage $message) use ($androidSound, $iosSound): bool {
+                $payload = $message->jsonSerialize();
+
+                return $payload['android']['notification'] === ['channel_id' => 'ochantier_default_v2', 'sound' => $androidSound]
+                    && $payload['android']['priority'] === 'high'
+                    && $payload['apns']['payload']['aps']['sound'] === $iosSound
+                    && $payload['apns']['headers']['apns-priority'] === '10'
+                    && $payload['data'] === ['event' => 'worker.validated']
+                    && $payload['notification']['title'] === 'Dossier validé';
+            })
+            ->andReturn($this->report(['jeton-a' => null]));
+
+        app(FcmPushGateway::class)->send(['jeton-a'], 'Dossier validé', 'Jean Kouassi a été validé.', ['event' => 'worker.validated'], $audience);
+    }
+
+    public function test_the_android_channel_follows_the_configuration(): void
+    {
+        config(['services.push.android_channel' => 'ochantier_default_v3']);
+
+        $this->assertSame('ochantier_default_v3', FcmPushGateway::android('commercial')->jsonSerialize()['notification']['channel_id']);
     }
 
     public function test_tokens_rejected_by_fcm_are_revoked(): void

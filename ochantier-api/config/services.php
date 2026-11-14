@@ -60,6 +60,13 @@ return [
     // Notifications push : « log » (journal) ou « fcm » (Firebase Cloud Messaging, identifiants dans config/firebase.php).
     'push' => [
         'driver' => env('PUSH_DRIVER', 'log'),
+        // Canal Android créé par les applications : son nom change (…_v3) quand un son change.
+        'android_channel' => env('PUSH_ANDROID_CHANNEL', 'ochantier_default_v2'),
+        // Son de chaque application (type d’utilisateur => fichier embarqué, sans extension). Sans son connu : son système.
+        'sounds' => [
+            'commercial' => 'ochantier_commercial',
+            'promoter' => 'ochantier_promoteur',
+        ],
     ],
 
     // Encaissement Mobile Money : « simulation » hors production, en attendant le prestataire retenu.

@@ -98,9 +98,21 @@ Chaque push O’CHANTIER contient le nombre de non lues du destinataire, **notif
     "target": "{\"type\":\"worker\",\"id\":\"…\",\"prospect_id\":\"…\"}",
     "unread_count": "3"
   },
-  "apns": { "payload": { "aps": { "badge": 3, "sound": "default" } } }
+  "android": { "priority": "high", "notification": { "channel_id": "ochantier_default_v2", "sound": "ochantier_commercial" } },
+  "apns": { "headers": { "apns-priority": "10" }, "payload": { "aps": { "badge": 3, "sound": "ochantier_commercial.wav" } } }
 }
 ```
+
+**Son** : chaque app a son son, choisi d’après le type du destinataire (canal Android `ochantier_default_v2`, commun aux
+apps) :
+
+| App | Android (`android.notification.sound`) | iOS (`aps.sound`) |
+|---|---|---|
+| Commercial | `ochantier_commercial` | `ochantier_commercial.wav` |
+| Promoteur | `ochantier_promoteur` | `ochantier_promoteur.wav` |
+
+Pour une application inconnue, le son vaut `default` (son système). Un changement de son impose un nouveau canal Android
+(`ochantier_default_v3`…) : prévenir le backend, qui modifie `PUSH_ANDROID_CHANNEL`.
 
 | Champ | Description |
 |---|---|

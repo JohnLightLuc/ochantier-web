@@ -19,7 +19,7 @@ class NotificationInboxPushTest extends TestCase
     /**
      * Envois reçus par le faux pilote push : [jetons, titre, données].
      *
-     * @var list<array{0: list<string>, 1: string, 2: array<string, mixed>}>
+     * @var list<array{0: list<string>, 1: string, 2: array<string, mixed>, 3: string|null}>
      */
     private array $sent = [];
 
@@ -30,13 +30,13 @@ class NotificationInboxPushTest extends TestCase
         $this->app->instance(PushGateway::class, new class($this->sent) implements PushGateway
         {
             /**
-             * @param  list<array{0: list<string>, 1: string, 2: array<string, mixed>}>  $sent
+             * @param  list<array{0: list<string>, 1: string, 2: array<string, mixed>, 3: string|null}>  $sent
              */
             public function __construct(private array &$sent) {}
 
-            public function send(array $tokens, string $title, string $body, array $data = []): void
+            public function send(array $tokens, string $title, string $body, array $data = [], ?string $audience = null): void
             {
-                $this->sent[] = [$tokens, $title, $data];
+                $this->sent[] = [$tokens, $title, $data, $audience];
             }
         });
     }
@@ -52,6 +52,7 @@ class NotificationInboxPushTest extends TestCase
         $this->assertSame([1, 2], array_map(fn (array $push) => $push[2]['unread_count'], $this->sent));
         $this->assertSame(['jeton-a'], $this->sent[1][0]);
         $this->assertSame('worker.validated', $this->sent[1][2]['event']);
+        $this->assertSame('commercial', $this->sent[1][3]);
         $this->assertSame(
             Notification::query()->where('recipient_id', $user->id)->where('title', 'Second dossier validé')->value('id'),
             $this->sent[1][2]['notification_id'],

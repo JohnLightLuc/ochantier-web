@@ -5,6 +5,7 @@ namespace App\Support\Push;
 use App\Models\DeviceToken;
 use Illuminate\Support\Facades\Log;
 use Kreait\Firebase\Contract\Messaging;
+use Kreait\Firebase\Messaging\AndroidConfig;
 use Kreait\Firebase\Messaging\ApnsConfig;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Messaging\MulticastSendReport;
@@ -12,7 +13,8 @@ use Kreait\Firebase\Messaging\Notification;
 use Throwable;
 
 /**
- * Envoi par Firebase Cloud Messaging (PUSH_DRIVER=fcm), avec le nombre de non lues en badge sur iOS. Les jetons que FCM déclare invalides ou inconnus (application
+ * Envoi par Firebase Cloud Messaging (PUSH_DRIVER=fcm), avec le son de l’application destinataire (canal Android
+ * services.push.android_channel) et le nombre de non lues en badge sur iOS. Les jetons que FCM déclare invalides ou inconnus (application
  * désinstallée, jeton expiré) sont révoqués. Un échec d’envoi est journalisé sans interrompre l’action en cours : la
  * notification reste dans le centre de notifications.
  */
@@ -25,7 +27,7 @@ class FcmPushGateway implements PushGateway
 
     public function __construct(private Messaging $messaging) {}
 
-    public function send(array $tokens, string $title, string $body, array $data = []): void
+    public function send(array $tokens, string $title, string $body, array $data = [], ?string $audience = null): void
     {
         $tokens = array_values(array_unique(array_filter($tokens)));
 
@@ -36,8 +38,8 @@ class FcmPushGateway implements PushGateway
         $message = CloudMessage::new()
             ->withNotification(Notification::create($title, $body))
             ->withData(self::data($data))
-            ->withApnsConfig(self::apns($data))
-            ->withDefaultSounds()
+            ->withAndroidConfig(self::android($audience))
+            ->withApnsConfig(self::apns($data, $audience))
             ->withHighestPossiblePriority();
 
         foreach (array_chunk($tokens, self::BATCH_SIZE) as $batch) {
@@ -76,13 +78,36 @@ class FcmPushGateway implements PushGateway
     }
 
     /**
-     * Configuration iOS : le nombre de non lues (unread_count) devient le badge de l’icône de l’application.
+     * Son embarqué dans l’application destinataire (sans extension), null s’il n’est pas connu.
+     */
+    public static function sound(?string $audience): ?string
+    {
+        $sound = $audience ? config('services.push.sounds.'.$audience) : null;
+
+        return is_string($sound) && $sound !== '' ? $sound : null;
+    }
+
+    /**
+     * Configuration Android : canal créé par l’application et son de l’application (son système à défaut).
+     */
+    public static function android(?string $audience): AndroidConfig
+    {
+        return AndroidConfig::fromArray(['notification' => [
+            'channel_id' => (string) config('services.push.android_channel'),
+            'sound' => self::sound($audience) ?? 'default',
+        ]]);
+    }
+
+    /**
+     * Configuration iOS : son de l’application (fichier .wav embarqué, son système à défaut) et nombre de non lues
+     * (unread_count) en badge de l’icône.
      *
      * @param  array<string, mixed>  $data
      */
-    public static function apns(array $data): ApnsConfig
+    public static function apns(array $data, ?string $audience = null): ApnsConfig
     {
-        $config = ApnsConfig::new();
+        $sound = self::sound($audience);
+        $config = ApnsConfig::new()->withSound($sound ? $sound.'.wav' : 'default');
 
         return is_numeric($data['unread_count'] ?? null) ? $config->withBadge(max(0, (int) $data['unread_count'])) : $config;
     }
