@@ -84,6 +84,34 @@ class SessionTest extends AuthTestCase
         $this->assertNotNull(DeviceToken::sole()->revoked_at);
     }
 
+    public function test_the_user_removes_the_push_token_of_the_device_without_touching_other_accounts(): void
+    {
+        $user = User::factory()->promoter()->create();
+        $tokens = $this->openSession($user);
+        $other = $this->openSession(User::factory()->promoter()->create());
+
+        $this->withAccessToken($tokens->accessToken)
+            ->postJson('/api/v1/devices', ['push_token' => 'fcm:abc/123', 'platform' => 'android', 'device_id' => 'device-pixel'])
+            ->assertOk();
+        $this->withAccessToken($other->accessToken)
+            ->postJson('/api/v1/devices', ['push_token' => 'fcm:other-456', 'platform' => 'ios', 'device_id' => 'device-other'])
+            ->assertOk();
+
+        $this->withAccessToken($tokens->accessToken)->deleteJson('/api/v1/devices/fcm:other-456')->assertOk()->assertJsonPath('data', null);
+        $this->assertNull(DeviceToken::query()->where('push_token', 'fcm:other-456')->sole()->revoked_at);
+
+        $this->withAccessToken($tokens->accessToken)->deleteJson('/api/v1/devices/fcm:abc/123')->assertOk()->assertJsonPath('data', null);
+        $this->assertNotNull(DeviceToken::query()->where('push_token', 'fcm:abc/123')->sole()->revoked_at);
+
+        $this->withAccessToken($tokens->accessToken)->deleteJson('/api/v1/devices/fcm:inconnu')->assertOk();
+        $this->withAccessToken($tokens->accessToken)->getJson('/api/v1/me')->assertOk();
+    }
+
+    public function test_removing_a_push_token_requires_authentication(): void
+    {
+        $this->deleteJson('/api/v1/devices/fcm:abc-123')->assertUnauthorized();
+    }
+
     public function test_the_user_lists_and_disconnects_other_devices(): void
     {
         $user = User::factory()->promoter()->create();
