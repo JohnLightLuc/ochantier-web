@@ -14,6 +14,7 @@ use App\Models\Site;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Models\WorkerReservation;
+use App\Support\Promoter\Reservations;
 use Database\Seeders\AdminAccessSeeder;
 use Database\Seeders\PlatformRulesSeeder;
 
@@ -123,7 +124,32 @@ class ReservationTest extends PromoterTestCase
         $this->assertSame(NeedStatus::PaiementEnAttente, Need::query()->whereBelongsTo($this->trade('macon'))->sole()->status);
 
         $this->postJson("/api/v1/promoter/proposals/{$proposal->id}/accept")
+            ->assertOk()
+            ->assertJsonPath('message', 'Proposition déjà acceptée.')
+            ->assertJsonPath('data.state.value', 'acompte')
+            ->assertJsonPath('data.can_pay_deposit', true);
+
+        $this->assertSame(3, WorkerReservation::query()->where('status', 'active')->count());
+        $this->assertSame(3, $proposal->offer->needs()->withCount('selections')->get()->sum('selections_count'));
+        $this->postJson("/api/v1/promoter/proposals/{$proposal->id}/refuse", ['reason_code' => 'tarif_eleve'])
             ->assertJsonValidationErrors(['proposal' => 'Vous avez déjà accepté cette proposition.']);
+    }
+
+    public function test_a_second_acceptance_from_a_stale_copy_does_not_select_the_workers_twice(): void
+    {
+        $this->publishedSite();
+        $this->artisan('ochantier:simulate-matching', ['--missing' => 1])->assertSuccessful();
+        $proposal = Proposal::query()->sole();
+        $stale = Proposal::query()->sole();
+        $needs = Need::query()->count();
+
+        app(Reservations::class)->accept($proposal, $this->promoter);
+        $accepted = app(Reservations::class)->accept($stale, $this->promoter);
+
+        $this->assertSame(ProposalStatus::Acceptee, $accepted->status);
+        $this->assertSame(2, WorkerReservation::query()->where('status', 'active')->count());
+        $this->assertSame(2, $proposal->offer->needs()->withCount('selections')->get()->sum('selections_count'));
+        $this->assertSame($needs + 1, Need::query()->count());
     }
 
     public function test_a_partial_proposal_keeps_searching_for_the_missing_workers(): void
