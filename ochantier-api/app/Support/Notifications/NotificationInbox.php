@@ -23,6 +23,12 @@ use Illuminate\Database\Eloquent\Model;
  */
 class NotificationInbox
 {
+    /**
+     * Notifications affichées dans le centre (les plus récentes) ; les compteurs de non lues portent sur tout
+     * l’historique.
+     */
+    public const CENTER_LIMIT = 100;
+
     public function __construct(
         private NotificationPreferences $preferences,
         private PushGateway $push,
@@ -87,8 +93,9 @@ class NotificationInbox
      */
     public function center(User $user, string $filter, array $tabs, Closure $matches, ?Closure $extra = null, array $countless = []): array
     {
-        $notifications = $this->query($user)->latest('created_at')->limit(100)->get();
+        $notifications = $this->query($user)->latest('created_at')->limit(self::CENTER_LIMIT)->get();
         $unread = $notifications->whereNull('read_at');
+        $unreadCount = $this->unreadCount($user);
         $today = CarbonImmutable::today();
         $list = $notifications->filter(fn (Notification $notification) => $matches($notification, $filter));
 
@@ -106,8 +113,9 @@ class NotificationInbox
                 ->values()
                 ->all(),
             'meta' => [
-                'unread' => $unread->count(),
-                'summary' => $unread->isEmpty() ? 'Tout est lu' : $unread->count().' non lue'.($unread->count() > 1 ? 's' : ''),
+                'unread' => $unreadCount,
+                'unread_count' => $unreadCount,
+                'summary' => $unreadCount === 0 ? 'Tout est lu' : $unreadCount.' non lue'.($unreadCount > 1 ? 's' : ''),
                 'tabs' => collect($tabs)->map(fn (string $label, string $key) => [
                     'key' => $key,
                     'label' => $label,
@@ -117,6 +125,9 @@ class NotificationInbox
         ];
     }
 
+    /**
+     * Notifications non lues sur tout l’historique (badge de la cloche), sans charger les lignes.
+     */
     public function unreadCount(User $user): int
     {
         return $this->query($user)->whereNull('read_at')->count();

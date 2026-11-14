@@ -107,6 +107,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::middleware('promoter.can:sites.view')->group(function () {
                     Route::get('home', HomeController::class)->name('home');
                     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+                    Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
                     Route::post('notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
                     Route::post('notifications/{notification}/read', [NotificationController::class, 'read'])->whereUuid('notification')->name('notifications.read');
                     Route::get('referrals', [ReferralController::class, 'show'])->name('referrals.show');
@@ -239,6 +240,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::get('notification-preferences', [NotificationPreferenceController::class, 'show'])->name('notification-preferences.show');
                 Route::put('notification-preferences', [NotificationPreferenceController::class, 'update'])->name('notification-preferences.update');
                 Route::get('notifications', [CommercialNotificationController::class, 'index'])->name('notifications.index');
+                Route::get('notifications/unread-count', [CommercialNotificationController::class, 'unreadCount'])->name('notifications.unread-count');
                 Route::post('notifications/read-all', [CommercialNotificationController::class, 'readAll'])->name('notifications.read-all');
                 Route::post('notifications/{notification}/read', [CommercialNotificationController::class, 'read'])->whereUuid('notification')->name('notifications.read');
             });
