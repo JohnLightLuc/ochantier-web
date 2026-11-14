@@ -3,7 +3,6 @@
 namespace App\Support\Admin;
 
 use App\Enums\Priority;
-use App\Enums\UserType;
 use App\Models\Admin;
 use App\Models\DeviceToken;
 use App\Models\Notification;
@@ -26,13 +25,6 @@ class AdminNotifications
      */
     public const EVENT = 'admin.message';
 
-    /**
-     * Utilisateurs qui ont un centre de notifications.
-     *
-     * @var list<UserType>
-     */
-    public const RECIPIENT_TYPES = [UserType::Promoter, UserType::Commercial];
-
     public const TITLE_MAX = 120;
 
     public const BODY_MAX = 500;
@@ -48,7 +40,7 @@ class AdminNotifications
     public function send(User $user, string $title, string $body, bool $sms, ?string $clientUuid, Admin $admin, Request $request): array
     {
         if (! $user->canSignIn()) {
-            throw ValidationException::withMessages(['user_id' => 'Ce compte n’est pas actif : la notification ne peut pas lui être envoyée.']);
+            throw ValidationException::withMessages(['recipient_id' => 'Ce compte n’est pas actif : la notification ne peut pas lui être envoyée.']);
         }
 
         $dedup = self::EVENT.':'.($clientUuid ?? (string) Str::uuid());
@@ -65,7 +57,7 @@ class AdminNotifications
         $smsSent = $sms && PhoneNumber::of($user) !== null && $this->preferences->allows($user, 'sms');
 
         AdminAudit::record($admin, 'notifications', 'notification.sent', $request, $notification, after: [
-            'recipient_id' => $user->getKey(),
+            'recipient_user_id' => $user->getKey(),
             'title' => $title,
             'body' => $body,
             'send_sms' => $sms,

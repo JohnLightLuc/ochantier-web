@@ -60,7 +60,8 @@ class NotificationAdminTest extends CommercialTestCase
         $admin = Admin::factory()->role('support')->create();
 
         $this->asAdmin($admin)->postJson('/api/v1/admin/notifications', [
-            'user_id' => $this->commercial->id,
+            'recipient_type' => 'commercial',
+            'recipient_id' => $this->commercial->commercialProfile->id,
             'title' => '  Réunion d’équipe  ',
             'body' => 'Rendez-vous lundi à 9 h au bureau de Cocody.',
         ])
@@ -68,8 +69,8 @@ class NotificationAdminTest extends CommercialTestCase
             ->assertJsonPath('message', 'Notification envoyée.')
             ->assertJsonPath('data.event', 'admin.message')
             ->assertJsonPath('data.title', 'Réunion d’équipe')
-            ->assertJsonPath('data.recipient.id', $this->commercial->id)
-            ->assertJsonPath('data.recipient.type.value', 'commercial')
+            ->assertJsonPath('data.recipient.id', $this->commercial->commercialProfile->id)
+            ->assertJsonPath('data.recipient.type', ['value' => 'commercial', 'label' => 'Commercial'])
             ->assertJsonPath('data.push', ['sent' => true, 'devices' => 1])
             ->assertJsonPath('data.sms', ['sent' => false])
             ->assertJsonPath('data.read_at', null);
@@ -82,7 +83,7 @@ class NotificationAdminTest extends CommercialTestCase
         $this->assertSame([], $this->sms->sent);
 
         $audit = AuditLog::query()->where('action', 'notification.sent')->sole();
-        $this->assertSame([$admin->id, $this->commercial->id], [$audit->actor_id, $audit->after_values['recipient_id']]);
+        $this->assertSame([$admin->id, $this->commercial->id], [$audit->actor_id, $audit->after_values['recipient_user_id']]);
 
         $this->app['auth']->forgetGuards();
         $this->actingAsCommercial($this->commercial)->getJson('/api/v1/commercial/notifications')
@@ -95,7 +96,8 @@ class NotificationAdminTest extends CommercialTestCase
     public function test_the_sms_is_sent_only_on_request(): void
     {
         $this->asAdmin()->postJson('/api/v1/admin/notifications', [
-            'user_id' => $this->commercial->id,
+            'recipient_type' => 'commercial',
+            'recipient_id' => $this->commercial->commercialProfile->id,
             'title' => 'Paiement des commissions',
             'body' => 'Vos commissions d’octobre sont versées.',
             'send_sms' => true,
@@ -106,7 +108,7 @@ class NotificationAdminTest extends CommercialTestCase
 
     public function test_a_replayed_client_uuid_does_not_send_twice(): void
     {
-        $payload = ['user_id' => $this->commercial->id, 'title' => 'Rappel', 'body' => 'Pensez à relancer vos prospects.', 'client_uuid' => (string) Str::uuid()];
+        $payload = ['recipient_type' => 'commercial', 'recipient_id' => $this->commercial->commercialProfile->id, 'title' => 'Rappel', 'body' => 'Pensez à relancer vos prospects.', 'client_uuid' => (string) Str::uuid()];
 
         $first = $this->asAdmin()->postJson('/api/v1/admin/notifications', $payload)->assertCreated()->json('data.id');
         $this->postJson('/api/v1/admin/notifications', $payload)
@@ -120,14 +122,18 @@ class NotificationAdminTest extends CommercialTestCase
 
     public function test_only_active_mobile_users_can_be_notified(): void
     {
-        $this->asAdmin()->postJson('/api/v1/admin/notifications', ['user_id' => (string) Str::uuid(), 'title' => 'Titre', 'body' => 'Message'])
-            ->assertJsonValidationErrors(['user_id' => 'Destinataire introuvable : seuls les promoteurs et les commerciaux reçoivent des notifications.']);
-        $this->postJson('/api/v1/admin/notifications', ['user_id' => $this->commercial->id, 'title' => '', 'body' => str_repeat('a', 501)])
+        $this->asAdmin()->postJson('/api/v1/admin/notifications', ['recipient_type' => 'commercial', 'recipient_id' => (string) Str::uuid(), 'title' => 'Titre', 'body' => 'Message'])
+            ->assertJsonValidationErrors(['recipient_id' => 'Destinataire introuvable.']);
+        $this->postJson('/api/v1/admin/notifications', ['recipient_type' => 'promoter', 'recipient_id' => $this->commercial->commercialProfile->id, 'title' => 'Titre', 'body' => 'Message'])
+            ->assertJsonValidationErrors(['recipient_id' => 'Destinataire introuvable.']);
+        $this->postJson('/api/v1/admin/notifications', ['recipient_type' => 'worker', 'recipient_id' => (string) Str::uuid(), 'title' => 'Titre', 'body' => 'Message'])
+            ->assertJsonValidationErrors(['recipient_type' => 'Type de destinataire attendu : promoter ou commercial.']);
+        $this->postJson('/api/v1/admin/notifications', ['recipient_type' => 'commercial', 'recipient_id' => $this->commercial->commercialProfile->id, 'title' => '', 'body' => str_repeat('a', 501)])
             ->assertJsonValidationErrors(['title' => 'Indiquez le titre de la notification.', 'body' => 'Le message ne doit pas dépasser 500 caractères.']);
 
         $suspended = User::factory()->commercial()->create(['phone_number' => '0500000077', 'status' => UserStatus::Suspendu]);
-        $this->postJson('/api/v1/admin/notifications', ['user_id' => $suspended->id, 'title' => 'Titre', 'body' => 'Message'])
-            ->assertJsonValidationErrors(['user_id' => 'Ce compte n’est pas actif : la notification ne peut pas lui être envoyée.']);
+        $this->postJson('/api/v1/admin/notifications', ['recipient_type' => 'commercial', 'recipient_id' => $suspended->commercialProfile->id, 'title' => 'Titre', 'body' => 'Message'])
+            ->assertJsonValidationErrors(['recipient_id' => 'Ce compte n’est pas actif : la notification ne peut pas lui être envoyée.']);
 
         $this->assertSame(0, Notification::query()->count());
         $this->assertSame([], $this->pushes);
@@ -136,7 +142,7 @@ class NotificationAdminTest extends CommercialTestCase
     public function test_sending_requires_the_notifications_create_permission(): void
     {
         $this->asAdmin(Admin::factory()->role('finance')->create())
-            ->postJson('/api/v1/admin/notifications', ['user_id' => $this->commercial->id, 'title' => 'Titre', 'body' => 'Message'])
+            ->postJson('/api/v1/admin/notifications', ['recipient_type' => 'commercial', 'recipient_id' => $this->commercial->commercialProfile->id, 'title' => 'Titre', 'body' => 'Message'])
             ->assertForbidden();
 
         $this->assertSame(0, Notification::query()->count());
