@@ -1,73 +1,68 @@
-# Handoff : Back-office O’CHANTIER ADMIN
+# Mise à jour — Modules O’CHANTIER PRO
 
-## Mise en ligne sur GitHub avec Claude Code (à faire en premier)
+Ajoute au Back Office O’CHANTIER trois modules issus de la « Documentation O’CHANTIER PRO » : **Entrepreneurs / Techniciens**, **Demandes de devis** et **Offres contractuelles**, avec la commission de service O’CHANTIER propre à chaque type d’opportunité, collectée puis reversée à O’CHANTIER.
 
-1. Décompressez cette archive dans le dossier local de votre dépôt GitHub (déjà cloné), par exemple dans `backoffice/`.
-2. Ouvrez un terminal dans le dépôt, lancez `claude`, puis donnez-lui cette consigne :
-   > « Ajoute le dossier `backoffice/` tel quel au dépôt, crée un commit "Back-office O’CHANTIER ADMIN – maquette" et pousse-le sur la branche main. Ne modifie aucun fichier. »
-   **Mise à jour d’un dépôt existant** : remplacez le contenu de `backoffice/` par cette archive, puis demandez à Claude Code :
-   > « Remplace les fichiers de `backoffice/` par ceux-ci, crée un commit "Back-office O’CHANTIER ADMIN – mise à jour (Avis & Litiges, Rapports, Matching automatique, filtres et pagination)" et pousse-le sur main. »
-3. Facultatif, pour une URL publique : demandez à Claude Code d’activer GitHub Pages (branche `main`, dossier racine), ou faites-le dans **Settings → Pages**. Ouvrez ensuite `…/backoffice/Back%20Office%20OChantier.dc.html`.
+Prérequis : le dépôt contient la version **avec le module Landing Page** (mise à jour précédente `landing-page-update`).
 
-Tous les fichiers doivent rester **dans le même dossier** : le fichier principal charge `support.js`, `ochantier-tokens.css` et les composants `*.dc.html` en chemins relatifs. La maquette fonctionne sans serveur applicatif, mais pas en `file://` (elle charge des fichiers voisins) : utilisez GitHub Pages ou `npx serve .` en local.
+## Contenu
+- `Back Office OChantier.dc.html` — fichier principal complet, à jour (remplace celui du dépôt).
+- `ProSection.dc.html` — **nouveau** composant partagé (sections des fiches PRO : clés/valeurs, listes, tableaux, détail financier, historique).
+- `CLAUDE.md` — notes projet mises à jour (section O’CHANTIER PRO).
+- `o-chantier-pro.patch` — les mêmes modifications en diff unifié (alternative au remplacement).
 
-## Vue d’ensemble
-Maquette haute fidélité et entièrement interactive du back-office d’O’CHANTIER, une plateforme de mise en relation entre promoteurs immobiliers et ouvriers du BTP en Côte d’Ivoire. Toutes les données sont fictives et réalistes. Les montants sont affichés en FCFA, les dates au format JJ/MM/AAAA, les heures en 24 h.
+Fichiers inchangés : Avatar, Button, StatCard, StateBlock, StatusBadge, ochantier-tokens.css, image-slot.js, support.js.
 
-## À propos des fichiers
-Les fichiers sont des **références de design créées en HTML** (« Design Components » `.dc.html`, exécutés par `support.js`). Ce ne sont pas du code de production. Pour une application réelle, **recréez ces écrans dans l’environnement du projet** (React, Vue…) en suivant ses conventions ; sans environnement existant, choisissez le framework le plus adapté. Le fichier principal regroupe toute la logique dans une classe `Component` (JavaScript classique), avec un gabarit à attributs `{{ }}`.
+## Appliquer
+Option A — remplacer / ajouter les fichiers :
+```bash
+cp "Back Office OChantier.dc.html" ProSection.dc.html CLAUDE.md /chemin/du/depot/
+cd /chemin/du/depot
+git add "Back Office OChantier.dc.html" ProSection.dc.html CLAUDE.md
+git commit -m "feat(pro): Entrepreneurs/Techniciens, Demandes de devis, Offres contractuelles + commission de service"
+git push
+```
 
-## Fidélité
-**Haute fidélité** : couleurs, typographie, espacements et interactions sont définitifs. Toutes les valeurs proviennent des variables de `ochantier-tokens.css`, à reprendre à l’identique.
+Option B — appliquer le patch (dépôt à la version Landing Page) :
+```bash
+cd /chemin/du/depot
+git apply --check /chemin/o-chantier-pro.patch && git apply /chemin/o-chantier-pro.patch
+```
 
-## Écrans et modules (routes par hash)
-| Module | Route | Contenu |
-|---|---|---|
-| Connexion | écran initial | Authentification, états d’erreur |
-| Tableau de bord | `#/` | KPI, activité récente |
-| Promoteurs | `#/promoteurs/…` | Liste, fiche, KYC, litiges |
-| Ouvriers | `#/ouvriers/…` | Liste, fiche, documents, calendrier, formulaire en étapes |
-| Commerciaux | `#/commerciaux/…` | Objectifs, score, commissions |
-| Chantiers | `#/chantiers/…` | Liste, fiche, progression, documents |
-| Besoins & Offres | `#/besoins/…` | Besoins par métier, couverture, affectations |
-| Affectations & Offres | `#/affectations/…` | Offres des promoteurs, remplacements |
-| Matching | `#/matching/…` | Matching automatique (même métier, un ouvrier par poste), sélection multiple des besoins, validation groupée ; propositions et remplaçants automatiques dans Affectations & Offres |
-| Pointages | `#/pointages/…` | Arrivées/départs, contrôles, clôture |
-| Paiements | `#/paiements/…` | Calcul brut/commission Y-Z/net, reversements, remboursements |
-| Finance & Reporting | `#/finance-reporting/…` | 33 KPI, rapprochement, clôtures, rapports |
-| Avis & Litiges | `#/avis-litiges/…` | Liste d’origine fonctionnelle (avis, signalements, litiges), sous-pages : avis, modération, réclamations, litiges, médiation, audit |
-| Rapports | `#/rapports/…` | Vue d’ensemble dynamique (graphiques avec infobulles), sous-pages : financier, missions, chantiers (+ détail), ouvriers, rapports générés/programmés |
-| Paramètres | `#/parametres/<catégorie>` | Commissions & frais (X, Y, Z, R et seuils de paiement successifs), Général, Métiers (ajout, suppression, activation), Paiements, Matching & affectations, Utilisateurs & rôles, Notifications, Sécurité, Intégrations, Journal d’audit |
+## Changements
 
-La mise en page commune (AdminLayout) comprend une Sidebar repliable, une Topbar, un en-tête de page avec fil d’Ariane, des onglets, des cartes KPI, des filtres, des tableaux paginés (8 lignes par page), des panneaux latéraux et des modales.
+### Navigation
+- Menu latéral : « Entrepreneurs / Techniciens », « Demandes de devis », « Offres contractuelles » après Chantiers, avec badges (dossiers à vérifier, visites à payer / devis acceptés, acomptes en attente).
+- Routes : `#/entrepreneurs[/:id]`, `#/demandes-devis[/:id]`, `#/offres-contractuelles[/:id]` (`prRoute` / `prOpen`, retour navigateur dans `syncHash`).
 
-## Interactions et comportements
-- Navigation par hash, avec prise en charge du bouton retour (`syncHash`).
-- Modales génériques `openModal({ kind: 'fields' | 'reason' | … })`, avec validation par champ.
-- Toasts de succès, d’information et d’erreur (avec bouton « Réessayer »).
-- Actions simulées : chargement ≈ 450 à 900 ms, puis succès ou erreur.
-- **Paramètres** :
-  - enregistrement d’un brouillon, avec indicateur « Modifications non enregistrées » ;
-  - garde de sortie si des modifications ne sont pas enregistrées ;
-  - validation bloquante : bornes, entiers, sommes de pondérations à 100 %, seuils strictement croissants ;
-  - historique et journal d’audit.
-- **Données sensibles** : secrets et identifiants toujours masqués, visibilité selon le rôle.
-- **Responsive** : prévu pour 1728, 1440, 1280 et 1024 px. À 1024 px, la Sidebar se replie et les tableaux défilent horizontalement.
+### Commission de service
+- Chaque offre émise par un professionnel est majorée d’une commission : total promoteur = montant du professionnel + commission ; le professionnel perçoit son montant net.
+- **Un taux par type d’opportunité** : demandes de devis (frais de visite, devis) et offres contractuelles (réponses). 10 % par défaut chacun.
+- Taux figé sur chaque offre au moment de son émission.
+- Collecte à chaque encaissement (visite, acompte), statut À collecter → Collectée → Reversée ; onglet « Commissions » avec reversement unitaire ou groupé vers O’CHANTIER.
+- Règles (taux devis, taux offres, nombre d’offres comparées, validité d’une demande) modifiables **uniquement** depuis la page Entrepreneurs / Techniciens (« Règles & commissions »).
+- L’acompte d’attribution n’est plus un réglage PRO : il reprend le taux d’acompte X de Paramètres.
+- Aucune lettre « R » affichée dans l’interface (libellé « commission de service »).
 
-## Gestion d’état
-- État React par écran : `screen`, routes par module (`wroute`, `croute`, `chroute`, `yroute`, `froute`, `lroute`…), filtres, période et pagination.
-- Paramètres : `state.ps` avec `saved` (valeurs publiées lues par les autres modules), `draft`/`sd` (brouillons), `log` (audit) et `cat` (catégorie active).
-- Jeux de données de démonstration générés au chargement : `this.P`, `this.W`, `this.C`, `this.CHS`, `this.PY`, `this.FIN`, `this.ALD`.
+### Entrepreneurs / Techniciens
+- Liste filtrable (type, métier, zone, formule) et onglets (À vérifier, Vérifiés, Rejetés & suspendus, Brouillons).
+- Fiche : parcours d’inscription KYB (entreprise) / KYC (indépendant), identité, formule, réputation, réponses aux opportunités, commissions générées, historique.
+- **Visionneuse de pièces** : aperçu, zoom, rotation, navigation entre pièces, téléchargement ; actions **Confirmer**, **Demander un complément** (SMS, statut « Complément demandé »), **Rejeter** (motif).
+- Actions dossier : valider (toutes pièces confirmées), rejeter, suspendre, réactiver, rouvrir, relancer.
 
-## Design tokens
-Voir `ochantier-tokens.css`, qui fait foi : couleurs `--c-*`, espacements `--space-*`, tailles de texte `--fs-*`, rayons `--radius-*`, ombres `--shadow-*`, hauteurs de contrôle `--control-*`. La page `Design System OChantier.dc.html` présente l’ensemble des composants et tokens.
+### Demandes de devis
+- Propositions de visite (comparaison), paiement de la visite (Mobile Money, frais opérateur), mission de visite (report, empêchement, reprogrammation), devis versionnés (correction = nouvelle version).
+- **Devis consultable et téléchargeable en PDF** (aperçu A4, impression « Enregistrer au format PDF »), pour chaque version.
+- **Un devis accepté ne vaut pas attribution** : le promoteur publie ensuite une offre contractuelle liée, ouverte à tous ; l’auteur du devis y est prioritaire. Plus d’acompte côté demande de devis.
 
-## Assets
-Icônes : Material Symbols Rounded (Google Fonts). Aucune image propriétaire.
+### Offres contractuelles
+- Réponses conformes ou contre-propositions, contrôle d’échéancier, comparatif côte à côte, réponse retenue, acompte puis chantier attribué.
+- Offre issue d’un devis : auteur du devis **prioritaire** (notifié en premier, en tête des réponses, badge dans le comparatif, relance dédiée) ; le promoteur reste libre de retenir un autre professionnel (avertissement à la sélection).
+- Actions du promoteur simulées (« Simulation · … »).
 
-## Fichiers
-- `Back Office OChantier.dc.html` : application complète (fichier principal)
-- `Avatar`, `Button`, `StatCard`, `StateBlock`, `StatusBadge` (`.dc.html`) : composants partagés
-- `Design System OChantier.dc.html` : référence du design system
-- `ochantier-tokens.css` : variables globales
-- `support.js`, `image-slot.js` : moteur d’exécution des Design Components (ne pas modifier)
+### Vue d’ensemble (tableau de bord)
+- Nouveau bloc « O’CHANTIER PRO » : professionnels vérifiés, demandes de devis et offres contractuelles en cours, commissions de service (à collecter / à reverser / reversées).
+- Priorités : dossiers PRO à vérifier, paiements PRO en attente, commissions à reverser ; total « à traiter » calculé.
+
+## Notes
+- Données de démonstration seedées par `prData` (13 professionnels, 10 demandes, 8 offres).
+- Le fichier principal est volumineux (~2,4 Mo) : le premier chargement peut prendre 30 à 45 s ; recharger si la page reste sur les gabarits bruts.
