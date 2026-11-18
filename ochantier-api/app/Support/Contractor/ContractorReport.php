@@ -34,6 +34,7 @@ class ContractorReport
         private SiteAttendance $attendance,
         private SiteRatings $ratings,
         private MediaStore $media,
+        private ContractorSubscriptions $subscriptions,
     ) {}
 
     /**
@@ -42,15 +43,22 @@ class ContractorReport
     public function report(Contractor $contractor, Site $site, User $viewer): array
     {
         $ended = $site->status === SiteStatus::Termine;
+        $subscribed = $this->subscriptions->isSubscribed($contractor);
         $base = [
-            'available' => $ended,
-            'lock_message' => $ended ? null : 'Le rapport de fin de chantier (pointages, étapes, bilan financier, évaluation) sera disponible une fois le chantier terminé.',
+            'available' => $ended && $subscribed,
+            'ended' => $ended,
+            'subscribed' => $subscribed,
+            'lock_message' => match (true) {
+                $ended && $subscribed => null,
+                $ended => 'Le rapport de fin de chantier est inclus dans l’abonnement Essentiel ou Pro.',
+                default => 'Le rapport de fin de chantier (pointages, étapes, bilan financier, évaluation) sera disponible une fois le chantier terminé'.($subscribed ? '.' : ', avec un abonnement actif.'),
+            },
             'reference' => $site->reference,
             'title' => 'Rapport de fin de chantier',
             'subtitle' => 'Bilan complet · '.$site->reference,
         ];
 
-        if (! $ended) {
+        if (! $base['available']) {
             return $base;
         }
 

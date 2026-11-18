@@ -12,6 +12,7 @@ use App\Models\Site;
 use App\Support\ApiResponse;
 use App\Support\Contractor\ContractorAttendance;
 use App\Support\Contractor\ContractorSites;
+use App\Support\Contractor\ContractorSubscriptions;
 use App\Support\Promoter\SiteAttendance;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +25,7 @@ use Illuminate\Http\Request;
  */
 class AttendanceController extends Controller
 {
-    public function __construct(private SiteAttendance $attendance, private ContractorAttendance $contractorAttendance, private ContractorSites $sites) {}
+    public function __construct(private SiteAttendance $attendance, private ContractorAttendance $contractorAttendance, private ContractorSites $sites, private ContractorSubscriptions $subscriptions) {}
 
     /**
      * Feuille de pointage d’une journée (date=AAAA-MM-JJ, aujourd’hui par défaut).
@@ -48,6 +49,7 @@ class AttendanceController extends Controller
      */
     public function storeEvent(AttendanceEventRequest $request, string $contractorSite): JsonResponse
     {
+        $this->subscriptions->ensureSubscribed(ProfileController::contractor($request), 'Pointage');
         $site = $this->site($request, $contractorSite);
         $this->ensureTeam($request, $site, $request->validated('assignment_id'));
         [$event, $created] = $this->attendance->record($site, $request->user(), $request->validated(), $request->file('photo'), $request->file('signature'));
@@ -63,6 +65,7 @@ class AttendanceController extends Controller
 
     public function storeAbsence(AttendanceAbsenceRequest $request, string $contractorSite): JsonResponse
     {
+        $this->subscriptions->ensureSubscribed(ProfileController::contractor($request), 'Pointage');
         $site = $this->site($request, $contractorSite);
         $this->ensureTeam($request, $site, (string) $request->input('assignment_id'));
         $date = $this->date($request->input('date'));
@@ -76,6 +79,7 @@ class AttendanceController extends Controller
      */
     public function validateDay(Request $request, string $contractorSite, string $date): JsonResponse
     {
+        $this->subscriptions->ensureSubscribed(ProfileController::contractor($request), 'Pointage');
         $day = $this->date($date);
 
         return ApiResponse::success($this->contractorAttendance->validateDay($this->site($request, $contractorSite), $request->user(), $day),
@@ -91,6 +95,7 @@ class AttendanceController extends Controller
 
     public function correct(AttendanceCorrectionRequest $request, string $contractorSite, string $workDay): JsonResponse
     {
+        $this->subscriptions->ensureSubscribed(ProfileController::contractor($request), 'Pointage');
         $contractor = ProfileController::contractor($request);
         $site = $this->sites->find($contractor, $contractorSite);
         $day = $this->contractorAttendance->correct($this->contractorAttendance->findDay($contractor, $site, $workDay), $request->user(), $request->validated());

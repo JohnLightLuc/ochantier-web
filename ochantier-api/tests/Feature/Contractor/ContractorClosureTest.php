@@ -27,6 +27,7 @@ class ContractorClosureTest extends ContractorMarketTestCase
         parent::setUp();
 
         $this->contractor->update(['verification_status' => ContractorVerificationStatus::Valide]);
+        $this->subscribe();
         $this->offer = $this->publishedContract('Résidence Les Acacias', 'Cocody');
         $this->site = $this->offer->site_id;
 

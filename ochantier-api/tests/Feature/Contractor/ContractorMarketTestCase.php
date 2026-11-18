@@ -7,11 +7,14 @@ use App\Enums\ContractorKind;
 use App\Enums\ContractorStatus;
 use App\Enums\ContractorVerificationStatus;
 use App\Enums\SkillLevel;
+use App\Enums\SubscriptionStatus;
 use App\Enums\WorkerVerificationStatus;
 use App\Models\Commune;
 use App\Models\Contractor;
 use App\Models\Offer;
 use App\Models\QuoteRequestTrade;
+use App\Models\Subscription;
+use App\Models\SubscriptionPlan;
 use App\Models\Trade;
 use App\Models\User;
 use App\Models\Worker;
@@ -161,5 +164,22 @@ abstract class ContractorMarketTestCase extends ContractorTestCase
         $worker->workerTrades()->create(['trade_id' => $this->trade($trade), 'is_primary' => true, 'years_experience' => 6, 'level' => SkillLevel::Confirme]);
 
         return $worker;
+    }
+
+    /**
+     * Abonnement actif de l’entrepreneur connecté (Essentiel par défaut : 5 membres).
+     */
+    protected function subscribe(string $plan = 'entrepreneur_essentiel'): Subscription
+    {
+        return Subscription::query()->create([
+            'reference' => 'ABO-TEST-'.random_int(100000, 999999),
+            'contractor_id' => $this->contractor->id,
+            'plan_id' => SubscriptionPlan::query()->where('code', $plan)->value('id'),
+            'status' => SubscriptionStatus::Active,
+            'started_at' => today()->toDateString(),
+            'current_period_start' => today()->toDateString(),
+            'current_period_end' => today()->addYear()->toDateString(),
+            'auto_renew' => true,
+        ]);
     }
 }

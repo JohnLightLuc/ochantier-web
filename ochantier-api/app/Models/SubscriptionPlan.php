@@ -21,7 +21,7 @@ class SubscriptionPlan extends Model
      */
     protected $fillable = [
         'code', 'name', 'subtitle', 'description', 'price_amount', 'billing_period', 'max_users', 'features',
-        'is_featured', 'sort_order', 'is_active',
+        'is_featured', 'sort_order', 'is_active', 'audience',
     ];
 
     /**

@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\V1\Contractor\ProfileDocumentController as Contract
 use App\Http\Controllers\Api\V1\Contractor\QuoteProposalController as ContractorQuoteProposalController;
 use App\Http\Controllers\Api\V1\Contractor\SiteController as ContractorSiteController;
 use App\Http\Controllers\Api\V1\Contractor\StaffingController as ContractorStaffingController;
+use App\Http\Controllers\Api\V1\Contractor\SubscriptionController as ContractorSubscriptionController;
 use App\Http\Controllers\Api\V1\Contractor\TeamController as ContractorTeamController;
 use App\Http\Controllers\Api\V1\HelpController;
 use App\Http\Controllers\Api\V1\MediaController;
@@ -270,6 +271,12 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::post('payments/installments/{installment}/quote', [ContractorStaffingController::class, 'installmentQuote'])->name('payments.installments.quote');
                 Route::post('payments/installments/{installment}/pay', [ContractorStaffingController::class, 'payInstallment'])->middleware('throttle:10,1')->name('payments.installments.pay');
                 Route::put('ratings/{contractorRating}', [ContractorClosureController::class, 'update'])->name('ratings.update');
+                Route::get('subscription', [ContractorSubscriptionController::class, 'show'])->name('subscription.show');
+                Route::post('subscription/quote', [ContractorSubscriptionController::class, 'quote'])->name('subscription.quote');
+                Route::post('subscription', [ContractorSubscriptionController::class, 'pay'])->middleware('throttle:10,1')->name('subscription.pay');
+                Route::post('subscription/cancel', [ContractorSubscriptionController::class, 'cancel'])->name('subscription.cancel');
+                Route::post('subscription/reactivate', [ContractorSubscriptionController::class, 'reactivate'])->name('subscription.reactivate');
+                Route::get('subscription/invoices/{invoice}/pdf', [ContractorSubscriptionController::class, 'invoicePdf'])->name('subscription.invoices.pdf');
                 Route::get('workers', [ContractorTeamController::class, 'catalog'])->name('workers.index');
                 Route::get('workers/{catalogWorker}', [ContractorTeamController::class, 'worker'])->name('workers.show');
                 Route::get('sites', [ContractorSiteController::class, 'index'])->name('sites.index');

@@ -53,7 +53,7 @@ class ContractorTeam
 
     private const WORKER_WITH = ['worker.photoMedia', 'worker.workerTrades.trade', 'worker.residenceCommune', 'mission'];
 
-    public function __construct(private WorkerCatalog $catalog, private ContractorSites $sites, private ContractorNotifier $notifier, private MediaStore $media) {}
+    public function __construct(private WorkerCatalog $catalog, private ContractorSites $sites, private ContractorNotifier $notifier, private MediaStore $media, private ContractorSubscriptions $subscriptions) {}
 
     /**
      * Catalogue « Choisir des ouvriers » : ouvriers validés, disponibles d’abord, avec leur tarif net déclaré.
@@ -109,6 +109,7 @@ class ContractorTeam
     public function assign(Contractor $contractor, Site $site, User $author, CarbonImmutable $start, CarbonImmutable $end, array $workers): Collection
     {
         $this->ensureManageable($site);
+        $this->ensureCapacity($contractor, $site, count($workers));
         [$first, $last] = $this->window($contractor, $site);
 
         if ($start->lt(CarbonImmutable::today())) {
@@ -164,6 +165,12 @@ class ContractorTeam
             'history' => $all->reject(fn (Assignment $assignment) => in_array($assignment->status, self::LIVE, true))->sortByDesc('planned_end_date')->map(fn (Assignment $assignment) => $this->member($assignment))->values()->all(),
             'window' => ['start_date' => $first->toDateString(), 'end_date' => $last->toDateString()],
             'can_manage' => $this->manageable($site),
+            'subscription' => [
+                'subscribed' => $this->subscriptions->isSubscribed($contractor),
+                'seats' => $this->subscriptions->seats($contractor),
+                'available_seats' => max(0, $this->subscriptions->seats($contractor) - $live->count()),
+                'lock_message' => $this->subscriptions->isSubscribed($contractor) ? null : 'L’ajout de membres d’équipe, le pointage et le rapport de fin de chantier sont activés par abonnement.',
+            ],
             'payment_notice' => 'Vous payez directement les ouvriers que vous affectez, au tarif journalier convenu.',
         ];
     }
@@ -215,6 +222,7 @@ class ContractorTeam
     {
         $site = $assignment->mission->site;
         $this->ensureManageable($site);
+        $this->subscriptions->ensureSubscribed($assignment->mission->contractor, 'Remplacement d’un ouvrier');
 
         if (! in_array($assignment->status, [AssignmentStatus::Confirmee, AssignmentStatus::Active], true)) {
             throw ValidationException::withMessages(['assignment' => $assignment->status === AssignmentStatus::EnAttente
@@ -344,6 +352,24 @@ class ContractorTeam
     public static function isContractorSite(Site $site): bool
     {
         return $site->offers()->whereNotNull('contractor_bid_id')->exists();
+    }
+
+    /**
+     * Abonnement actif et place disponible : ouvriers actifs sur le chantier, plus les nouveaux, dans la limite de la
+     * formule (5 ou 20).
+     */
+    public function ensureCapacity(Contractor $contractor, Site $site, int $adding): void
+    {
+        $this->subscriptions->ensureSubscribed($contractor, 'Ajout d’ouvriers');
+        $seats = $this->subscriptions->seats($contractor);
+        $active = Assignment::query()
+            ->whereHas('mission', fn (Builder $query) => $query->where('site_id', $site->getKey())->where('contractor_id', $contractor->getKey()))
+            ->whereIn('status', array_map(fn (AssignmentStatus $status) => $status->value, self::LIVE))
+            ->count();
+
+        if ($active + $adding > $seats) {
+            throw ValidationException::withMessages(['workers' => 'Plafond de votre abonnement atteint ('.$seats.' membres actifs par chantier).'.($seats < 20 ? ' Passez à Pro pour en affecter jusqu’à 20.' : '')]);
+        }
     }
 
     private function manageable(Site $site): bool

@@ -58,8 +58,9 @@ class ContractorPayments
      * @param  list<array{label: string, amount: int}>  $lines
      * @param  array<string, mixed>  $metadata
      * @param  Closure(PaymentTransaction): void  $settle
+     * @param  array<string, mixed>  $attributes  Colonnes du paiement (facture d’abonnement…).
      */
-    public function pay(Contractor $contractor, User $user, string $label, array $lines, int $amount, PaymentOperator $operator, PhoneNumber $phone, string $idempotencyKey, array $metadata, Closure $settle): PaymentTransaction
+    public function pay(Contractor $contractor, User $user, string $label, array $lines, int $amount, PaymentOperator $operator, PhoneNumber $phone, string $idempotencyKey, array $metadata, Closure $settle, PaymentTransactionPurpose $purpose = PaymentTransactionPurpose::Effectifs, array $attributes = []): PaymentTransaction
     {
         if ($existing = PaymentTransaction::query()->where('idempotency_key', $idempotencyKey)->first()) {
             return $existing;
@@ -70,7 +71,8 @@ class ContractorPayments
         $transaction = PaymentTransaction::query()->create([
             'reference' => sprintf('PAY-%s-%06d', now()->format('Y'), DB::scalar("SELECT nextval('payment_transaction_reference_seq')")),
             'direction' => PaymentTransactionDirection::Encaissement,
-            'purpose' => PaymentTransactionPurpose::Effectifs,
+            'purpose' => $purpose,
+            ...$attributes,
             'payer_type' => $contractor->getMorphClass(),
             'payer_id' => $contractor->getKey(),
             'payee_type' => 'plateforme',

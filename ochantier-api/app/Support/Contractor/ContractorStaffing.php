@@ -62,6 +62,10 @@ class ContractorStaffing
      */
     public function create(Contractor $contractor, Site $site, User $author, CarbonImmutable $start, int $days, array $lines, ?StaffingRequest $parent = null): StaffingRequest
     {
+        if (! $parent) {
+            $this->team->ensureCapacity($contractor, $site, (int) array_sum(array_column($lines, 'headcount')));
+        }
+
         $end = $start->addDays($days - 1);
         [$first, $last] = $this->team->window($contractor, $site);
 

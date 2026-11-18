@@ -51,6 +51,9 @@ class ContractorNotifier
         'staffing.paid' => ['tab' => 'paiements', 'alert' => 'paiements', 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir l’équipe'],
         'attendance.pending' => ['tab' => 'chantiers', 'alert' => 'pointages', 'priority' => Priority::Haute, 'sms' => false, 'cta' => 'Pointer l’équipe'],
         'site.ended' => ['tab' => 'chantiers', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Noter l’équipe'],
+        'subscription.paid' => ['tab' => 'compte', 'alert' => 'abonnement', 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir l’abonnement'],
+        'subscription.renewal' => ['tab' => 'compte', 'alert' => 'abonnement', 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Renouveler'],
+        'subscription.expired' => ['tab' => 'compte', 'alert' => 'abonnement', 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Renouveler'],
         'payment.received' => ['tab' => 'paiements', 'alert' => 'paiements', 'priority' => Priority::Normale, 'sms' => true, 'cta' => 'Voir les paiements'],
     ];
 

@@ -58,7 +58,7 @@ class SubscriptionOperations
             $subscription = $this->locked($subscription);
             $this->ensure(($refusal = $this->planChangeRefusal($subscription)) === null, (string) $refusal);
 
-            $plan = SubscriptionPlan::query()->where('code', $code)->where('is_active', true)->first();
+            $plan = SubscriptionPlan::query()->where('audience', 'promoter')->where('code', $code)->where('is_active', true)->first();
             $this->ensure($plan !== null, 'Cette formule n’est plus proposée.');
             $this->ensure($plan->code !== PromoterSubscriptions::FREE_PLAN, 'Pour revenir à Solo, résiliez l’abonnement.');
             $this->ensure(! $plan->is($subscription->plan), 'C’est déjà la formule de cet abonnement.');

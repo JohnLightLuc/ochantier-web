@@ -21,7 +21,7 @@ class Subscription extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'reference', 'promoter_profile_id', 'organization_id', 'plan_id', 'previous_plan_id', 'pending_plan_id',
+        'reference', 'promoter_profile_id', 'contractor_id', 'organization_id', 'plan_id', 'previous_plan_id', 'pending_plan_id',
         'pending_effective_at', 'status', 'started_at', 'current_period_start', 'current_period_end', 'next_due_date',
         'auto_renew', 'payment_method_id', 'cancelled_at', 'cancellation_reason',
     ];
@@ -115,5 +115,15 @@ class Subscription extends Model
     public function pricingSnapshots(): HasMany
     {
         return $this->hasMany(PricingSnapshot::class);
+    }
+
+    /**
+     * Entrepreneur abonné (sinon, l’abonnement est celui d’un promoteur).
+     *
+     * @return BelongsTo<Contractor, $this>
+     */
+    public function contractor(): BelongsTo
+    {
+        return $this->belongsTo(Contractor::class);
     }
 }

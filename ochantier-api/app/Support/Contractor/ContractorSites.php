@@ -166,7 +166,7 @@ class ContractorSites
             'documents' => ['count' => $documents->count(), 'latest' => $documents->take(3)->values()->all()],
             'closure' => $site->status === SiteStatus::Termine ? [
                 'closed_at' => $site->closed_at?->toIso8601String(),
-                'report_available' => true,
+                'report_available' => app(ContractorSubscriptions::class)->isSubscribed($contractor),
                 'evaluation' => collect(app(SiteRatings::class)->summary($site, $contractor->user))->only(['title', 'subtitle', 'rated_count', 'total'])->all(),
             ] : null,
         ];

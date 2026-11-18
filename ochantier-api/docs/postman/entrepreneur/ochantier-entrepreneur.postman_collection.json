@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a86af9c3-f682-553f-a780-3728504d68cc",
     "name": "O’CHANTIER API v1 · Entrepreneurs et Techniciens",
-    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) les **opportunités** les **propositions de devis** les **réponses aux offres contractuelles** **Mes chantiers** et l’**équipe** le **pointage** et la **fin de chantier** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
+    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) les **opportunités** les **propositions de devis** les **réponses aux offres contractuelles** **Mes chantiers** et l’**équipe** le **pointage** la **fin de chantier** et l’**abonnement** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -3388,6 +3388,279 @@
           "response": []
         }
       ]
+    },
+    {
+      "id": "6b44e5f1-de34-5e7b-bcf2-acb2693bf6ed",
+      "name": "Abonnement",
+      "description": "Formules Solo, Essentiel et Pro, paiement Mobile Money, résiliation, renouvellement et factures.",
+      "item": [
+        {
+          "id": "edd1f7da-796d-5407-8d2b-8c88538a563b",
+          "name": "Mon abonnement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const i = pm.response.json().data.invoices; if (i.length) { pm.collectionVariables.set('subscription_invoice_id', i[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/subscription",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "subscription"
+              ]
+            },
+            "description": "Écran « Abonnement et factures ».\n\nL’abonnement (Essentiel ou Pro) donne accès à l’**ajout d’ouvriers** (affectation, recherche d’effectifs, remplacement ; 5 ou 20 ouvriers actifs par chantier), au **pointage**, au **rapport de fin de chantier** et aux collaborateurs du compte. Sans abonnement (Solo), ces actions renvoient **403** avec un message ; les données restent consultables.\n\nRéponse : `current` (formule, `status` gratuit / actif / résilié / paiement en attente / expiré, `line`, `period_end`, `days_left`, `seats` = membres par chantier et utilisateurs du compte), `plans[]` (Solo gratuit, Essentiel 15 000 FCFA · 5, Pro 35 000 FCFA · 20 : `features`, `recommended`, `current`), `open_invoice` (renouvellement à régler), `invoices[]`, `actions` (`cancel`, `reactivate`)."
+          },
+          "response": []
+        },
+        {
+          "id": "c277ba4e-de80-5bcb-a3bf-e72b64043de7",
+          "name": "Détail du paiement de l’abonnement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/subscription/quote",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "subscription",
+                "quote"
+              ]
+            },
+            "description": "| Champ | Obligatoire | Description |\n|---|---|---|\n| `plan_code` | oui | `entrepreneur_essentiel` ou `entrepreneur_pro`. |\n| `operator_code` | oui | Opérateur Mobile Money. |\n\nRéponse : `lines`, `amount`, `fees`, `total`. **422** pour Solo (gratuite) ou la formule déjà active.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan_code\": \"entrepreneur_pro\",\n  \"operator_code\": \"orange_money\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "558e4a0e-d7f7-528d-911b-413d430ec08f",
+          "name": "Souscrire ou changer de formule",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/subscription",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "subscription"
+              ]
+            },
+            "description": "« Souscrire à … » / « Passer à … » / régler la facture de renouvellement, par Mobile Money (`plan_code`, `operator_code`, `dial_code`, `phone_number`, en-tête `Idempotency-Key`). Un changement de formule démarre une nouvelle période d’un mois ; l’ancienne formule est résiliée. Seule la confirmation du paiement active les droits.\n\n**201** si le paiement réussit ; **200** avec `transaction.status` = `echouee` sinon. Réponse : `current` (formule, `status` gratuit / actif / résilié / paiement en attente / expiré, `line`, `period_end`, `days_left`, `seats` = membres par chantier et utilisateurs du compte), `plans[]` (Solo gratuit, Essentiel 15 000 FCFA · 5, Pro 35 000 FCFA · 20 : `features`, `recommended`, `current`), `open_invoice` (renouvellement à régler), `invoices[]`, `actions` (`cancel`, `reactivate`).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan_code\": \"entrepreneur_pro\",\n  \"operator_code\": \"orange_money\",\n  \"dial_code\": \"225\",\n  \"phone_number\": \"0700000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "90e13286-e323-5b2c-966e-a81ece68d389",
+          "name": "Résilier l’abonnement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/subscription/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "subscription",
+                "cancel"
+              ]
+            },
+            "description": "Plus de renouvellement ; l’accès reste ouvert jusqu’à la fin de la période (`reason` facultatif). **422** sans abonnement en cours.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Activité en pause\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "29aab8dd-116a-5396-85e4-286490349df2",
+          "name": "Réactiver l’abonnement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/subscription/reactivate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "subscription",
+                "reactivate"
+              ]
+            },
+            "description": "Annule la résiliation : l’abonnement sera renouvelé à l’échéance. À l’échéance, une facture de renouvellement est émise ; impayée après 7 jours, l’abonnement expire (notifications)."
+          },
+          "response": []
+        },
+        {
+          "id": "103649ea-edfe-599a-b02a-880dc2b730c9",
+          "name": "Télécharger une facture",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 404', () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/subscription/invoices/{{subscription_invoice_id}}/pdf",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "subscription",
+                "invoices",
+                "{{subscription_invoice_id}}",
+                "pdf"
+              ]
+            },
+            "description": "Facture d’abonnement en PDF."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "auth": {
@@ -3600,6 +3873,12 @@
       "value": "",
       "type": "string",
       "description": "Dernière évaluation publiée."
+    },
+    {
+      "key": "subscription_invoice_id",
+      "value": "",
+      "type": "string",
+      "description": "Dernière facture d’abonnement."
     }
   ]
 }
