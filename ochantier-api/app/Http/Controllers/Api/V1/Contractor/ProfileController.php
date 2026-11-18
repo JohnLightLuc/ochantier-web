@@ -10,6 +10,7 @@ use App\Http\Requests\V1\Contractor\SubmitContractorProfileRequest;
 use App\Http\Requests\V1\Contractor\UpdateContractorProfileRequest;
 use App\Http\Resources\V1\Contractor\ContractorProfileResource;
 use App\Models\Contractor;
+use App\Support\Contractor\ContractorAccess;
 use App\Support\Contractor\ContractorAccount;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -77,7 +78,7 @@ class ProfileController extends Controller
      */
     public static function contractor(Request $request): Contractor
     {
-        $contractor = Contractor::query()->where('user_id', $request->user()->getKey())->with(ContractorAccount::WITH)->first();
+        $contractor = app(ContractorAccess::class)->contractor($request->user())?->load(ContractorAccount::WITH);
 
         abort_unless($contractor, 404, 'Choisissez d’abord votre profil : entreprise ou indépendant.');
 

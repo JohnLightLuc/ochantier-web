@@ -54,6 +54,7 @@ class ContractorNotifier
         'subscription.paid' => ['tab' => 'compte', 'alert' => 'abonnement', 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir l’abonnement'],
         'subscription.renewal' => ['tab' => 'compte', 'alert' => 'abonnement', 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Renouveler'],
         'subscription.expired' => ['tab' => 'compte', 'alert' => 'abonnement', 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Renouveler'],
+        'team.joined' => ['tab' => 'compte', 'alert' => null, 'priority' => Priority::Basse, 'sms' => false, 'cta' => 'Voir mon équipe'],
         'payment.received' => ['tab' => 'paiements', 'alert' => 'paiements', 'priority' => Priority::Normale, 'sms' => true, 'cta' => 'Voir les paiements'],
     ];
 

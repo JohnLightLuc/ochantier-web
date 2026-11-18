@@ -3,11 +3,13 @@
 namespace App\Support\Contractor;
 
 use App\Enums\ContractorKind;
+use App\Enums\ContractorMemberStatus;
 use App\Enums\ContractorStatus;
 use App\Enums\ContractorVerificationStatus;
 use App\Enums\DocumentVerificationStatus;
 use App\Enums\VerificationReviewStatus;
 use App\Models\Contractor;
+use App\Models\ContractorMember;
 use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\User;
@@ -80,6 +82,10 @@ class ContractorAccount
     {
         if ($user->contractor()->exists()) {
             throw ValidationException::withMessages(['kind' => 'Votre profil est déjà choisi : modifiez votre dossier.']);
+        }
+
+        if (ContractorMember::query()->where('user_id', $user->getKey())->where('status', '!=', ContractorMemberStatus::Revoque->value)->exists()) {
+            throw ValidationException::withMessages(['kind' => 'Vous collaborez au compte d’un entrepreneur : vous ne pouvez pas créer votre propre dossier.']);
         }
 
         return DB::transaction(function () use ($user, $kind, $data): Contractor {

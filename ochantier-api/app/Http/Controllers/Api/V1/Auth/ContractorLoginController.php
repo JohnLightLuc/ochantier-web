@@ -8,6 +8,7 @@ use App\Enums\UserType;
 use App\Http\Requests\V1\Auth\ContractorLoginRequest;
 use App\Models\User;
 use App\Support\Auth\DeviceContext;
+use App\Support\Contractor\ContractorMembers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -54,6 +55,7 @@ class ContractorLoginController extends AuthController
         }
 
         $this->recordAttempt($request, $destination, true, $user);
+        app(ContractorMembers::class)->acceptInvitations($user);
 
         return $this->signedIn($this->sessions->open($user, DeviceContext::fromRequest($request)), $user);
     }

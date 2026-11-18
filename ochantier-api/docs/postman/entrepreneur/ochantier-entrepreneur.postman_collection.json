@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a86af9c3-f682-553f-a780-3728504d68cc",
     "name": "O’CHANTIER API v1 · Entrepreneurs et Techniciens",
-    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) les **opportunités** les **propositions de devis** les **réponses aux offres contractuelles** **Mes chantiers** et l’**équipe** le **pointage** la **fin de chantier** et l’**abonnement** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
+    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) les **opportunités** les **propositions de devis** les **réponses aux offres contractuelles** **Mes chantiers** et l’**équipe** le **pointage** la **fin de chantier** l’**abonnement** et **Mon équipe** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -3661,6 +3661,187 @@
           "response": []
         }
       ]
+    },
+    {
+      "id": "0b32fb9d-05e9-5de4-9ffa-016b2643c9e6",
+      "name": "Mon équipe",
+      "description": "Collaborateurs du compte : invitation par SMS ou e-mail, rôles et droits, retrait.",
+      "item": [
+        {
+          "id": "c1088b0c-f7ae-5462-9099-94a087e8febc",
+          "name": "Mon équipe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 403', () => pm.expect(pm.response.code).to.be.oneOf([200, 403]));",
+                  "if (pm.response.code === 200) { const m = pm.response.json().data.members; if (m.length > 1) { pm.collectionVariables.set('member_id', m[1].id); } }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "members"
+              ]
+            },
+            "description": "Écran « Mon équipe » (titulaire du compte). Réponse : `plan`, `seats`, `used`, `usage_label` (« 2 / 5 utilisateurs »), `can_invite`, `hint`, `members[]` (titulaire puis collaborateurs : nom, rôle, contact, `status` invite / actif), `roles[]` (valeur, libellé, description).\n\n**Droits par rôle** (le titulaire a tous les droits ; une action non autorisée renvoie **403** « Votre rôle ne permet pas cette action. ») :\n\n| Rôle | Peut |\n|---|---|\n| Chef de chantier | Consulter, gérer l’équipe d’ouvriers (affectation, remplacement, recherche d’effectifs sans paiement), étapes, évaluations, pointer et valider ou corriger les journées, voir les paiements des chantiers et les rapports. |\n| Technicien | Consulter et pointer (arrivées, départs, absences). |\n| Comptable | Consulter, voir les paiements, les échéances, les rapports, l’abonnement et les factures. |\n| Observateur | Consulter uniquement. |\n\nRéservé au titulaire : dossier KYC/KYB, réponses aux opportunités et propositions de devis, paiements (acomptes, échéances, abonnement), « Mon équipe ».\n\n`GET /me` donne `contractor.role` et `contractor.abilities` pour adapter l’application."
+          },
+          "response": []
+        },
+        {
+          "id": "2ccd881f-a063-5671-a300-dc4d9d820e75",
+          "name": "Inviter un collaborateur",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201, 403 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([201, 403, 422]));",
+                  "if (pm.response.code === 201) { const m = pm.response.json().data.members; pm.collectionVariables.set('member_id', m[m.length - 1].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "members"
+              ]
+            },
+            "description": "Invite un collaborateur par SMS ou e-mail, avec un abonnement actif et dans la limite des places de la formule (titulaire compris : 5 ou 20). L’invité crée son mot de passe avec « Mot de passe oublié » puis se connecte : l’invitation (valable 7 jours) est alors acceptée et le titulaire est notifié.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `first_name` | oui | Prénom (ou nom affiché). |\n| `last_name` | non | Nom. |\n| `role` | oui | `chef_chantier`, `technicien`, `comptable`, `observateur`. |\n| `channel` | oui | `sms` (avec `dial_code` et `phone_number`) ou `email` (avec `email`). |\n\n**403** sans abonnement. **422** : limite de places, déjà dans l’équipe, vous-même, ou contact d’un autre compte O’CHANTIER Pro. Réponse : `plan`, `seats`, `used`, `usage_label` (« 2 / 5 utilisateurs »), `can_invite`, `hint`, `members[]` (titulaire puis collaborateurs : nom, rôle, contact, `status` invite / actif), `roles[]` (valeur, libellé, description).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Awa\",\n  \"last_name\": \"Konan\",\n  \"role\": \"chef_chantier\",\n  \"channel\": \"sms\",\n  \"dial_code\": \"225\",\n  \"phone_number\": \"0701010101\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "b0eb4d78-ebeb-5928-8b8b-50ec94202741",
+          "name": "Changer le rôle",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 403, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/members/{{member_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "members",
+                "{{member_id}}"
+              ]
+            },
+            "description": "| Champ | Obligatoire | Description |\n|---|---|---|\n| `role` | oui | Nouveau rôle. |\n\nLes droits changent dès la requête suivante du collaborateur. Réponse : `plan`, `seats`, `used`, `usage_label` (« 2 / 5 utilisateurs »), `can_invite`, `hint`, `members[]` (titulaire puis collaborateurs : nom, rôle, contact, `status` invite / actif), `roles[]` (valeur, libellé, description).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"technicien\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "9d206d61-9bb2-5328-b8fe-eb81b604e16a",
+          "name": "Retirer un collaborateur",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 403, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/members/{{member_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "members",
+                "{{member_id}}"
+              ]
+            },
+            "description": "Retire le collaborateur : accès révoqué, invitation annulée et sessions fermées (**401** à sa requête suivante). Réponse : `plan`, `seats`, `used`, `usage_label` (« 2 / 5 utilisateurs »), `can_invite`, `hint`, `members[]` (titulaire puis collaborateurs : nom, rôle, contact, `status` invite / actif), `roles[]` (valeur, libellé, description)."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "auth": {
@@ -3879,6 +4060,12 @@
       "value": "",
       "type": "string",
       "description": "Dernière facture d’abonnement."
+    },
+    {
+      "key": "member_id",
+      "value": "",
+      "type": "string",
+      "description": "Dernier collaborateur invité."
     }
   ]
 }

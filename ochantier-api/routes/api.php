@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\Commercial\ProspectDocumentController;
 use App\Http\Controllers\Api\V1\Commercial\WorkerController as CommercialWorkerController;
 use App\Http\Controllers\Api\V1\Contractor\AttendanceController as ContractorAttendanceController;
 use App\Http\Controllers\Api\V1\Contractor\ClosureController as ContractorClosureController;
+use App\Http\Controllers\Api\V1\Contractor\MemberController as ContractorMemberController;
 use App\Http\Controllers\Api\V1\Contractor\OfferResponseController as ContractorOfferResponseController;
 use App\Http\Controllers\Api\V1\Contractor\OpportunityController as ContractorOpportunityController;
 use App\Http\Controllers\Api\V1\Contractor\ProfileController as ContractorProfileController;
@@ -247,7 +248,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
             // Application Commercial : prospects, dossiers ouvriers, gains, activité, profil et notifications.
             // Application Entrepreneurs et Techniciens : choix du profil, dossier de vérification (KYB ou KYC) et opportunités.
-            Route::middleware('user.type:contractor')->prefix('contractor')->name('contractor.')->group(function () {
+            Route::middleware(['user.type:contractor', 'contractor.access'])->prefix('contractor')->name('contractor.')->group(function () {
                 Route::get('profile', [ContractorProfileController::class, 'show'])->name('profile.show');
                 Route::post('profile', [ContractorProfileController::class, 'store'])->name('profile.store');
                 Route::patch('profile', [ContractorProfileController::class, 'update'])->name('profile.update');
@@ -271,6 +272,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::post('payments/installments/{installment}/quote', [ContractorStaffingController::class, 'installmentQuote'])->name('payments.installments.quote');
                 Route::post('payments/installments/{installment}/pay', [ContractorStaffingController::class, 'payInstallment'])->middleware('throttle:10,1')->name('payments.installments.pay');
                 Route::put('ratings/{contractorRating}', [ContractorClosureController::class, 'update'])->name('ratings.update');
+                Route::get('members', [ContractorMemberController::class, 'index'])->name('members.index');
+                Route::post('members', [ContractorMemberController::class, 'store'])->middleware('throttle:20,1')->name('members.store');
+                Route::patch('members/{member}', [ContractorMemberController::class, 'update'])->name('members.update');
+                Route::delete('members/{member}', [ContractorMemberController::class, 'destroy'])->name('members.destroy');
                 Route::get('subscription', [ContractorSubscriptionController::class, 'show'])->name('subscription.show');
                 Route::post('subscription/quote', [ContractorSubscriptionController::class, 'quote'])->name('subscription.quote');
                 Route::post('subscription', [ContractorSubscriptionController::class, 'pay'])->middleware('throttle:10,1')->name('subscription.pay');

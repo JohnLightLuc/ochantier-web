@@ -4,6 +4,7 @@ namespace App\Http\Resources\V1;
 
 use App\Enums\UserType;
 use App\Models\User;
+use App\Support\Contractor\ContractorAccess;
 use App\Support\Contractor\ContractorAccount;
 use App\Support\PhoneNumber;
 use App\Support\Promoter\PromoterAccess;
@@ -47,18 +48,26 @@ class UserResource extends Resource
                 'status' => $this->status($this->commercialProfile->status),
                 'verification_status' => $this->status($this->commercialProfile->verification_status),
             ] : null),
-            'contractor' => $this->when($this->user_type === UserType::Contractor, fn () => [
-                'profile_chosen' => $this->contractor !== null,
-                'profile' => $this->contractor ? [
-                    'id' => $this->contractor->id,
-                    'reference' => $this->contractor->reference,
-                    'kind' => $this->status($this->contractor->kind),
-                    'name' => $this->contractor->name ?: null,
-                    'status' => $this->status($this->contractor->status),
-                    'verification_status' => $this->status($this->contractor->verification_status),
-                    'verification_state' => app(ContractorAccount::class)->state($this->contractor),
-                ] : null,
-            ]),
+            'contractor' => $this->when($this->user_type === UserType::Contractor, function (): array {
+                $access = app(ContractorAccess::class);
+                $contractor = $access->contractor($this->resource);
+                $role = $access->role($this->resource);
+
+                return [
+                    'profile_chosen' => $contractor !== null,
+                    'role' => $role ? ['value' => $role, 'label' => ContractorAccess::roleLabel($role)] : null,
+                    'abilities' => $access->abilities($this->resource),
+                    'profile' => $contractor ? [
+                        'id' => $contractor->id,
+                        'reference' => $contractor->reference,
+                        'kind' => $this->status($contractor->kind),
+                        'name' => $contractor->name ?: null,
+                        'status' => $this->status($contractor->status),
+                        'verification_status' => $this->status($contractor->verification_status),
+                        'verification_state' => app(ContractorAccount::class)->state($contractor),
+                    ] : null,
+                ];
+            }),
         ];
     }
 }

@@ -142,6 +142,14 @@ class Contractor extends Model
         return $this->hasMany(QuoteBid::class);
     }
 
+    /**
+     * @return HasMany<ContractorMember, $this>
+     */
+    public function members(): HasMany
+    {
+        return $this->hasMany(ContractorMember::class);
+    }
+
     public function isCompany(): bool
     {
         return $this->kind === ContractorKind::Entreprise;
