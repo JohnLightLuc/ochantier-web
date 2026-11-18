@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Promoter;
 
+use App\Enums\OrganizationMemberStatus;
+use App\Enums\OrganizationRole;
 use App\Enums\PaymentTransactionStatus;
 use App\Enums\SubscriptionStatus;
 use App\Models\Assignment;
@@ -98,6 +100,19 @@ class SiteReportTest extends PromoterTestCase
             ->getContent();
         $this->assertStringStartsWith('%PDF-1.4', $pdf);
         $this->assertStringContainsString('Kouam'.mb_convert_encoding('é', 'Windows-1252', 'UTF-8').' Koffi', $pdf);
+        $this->assertStringContainsString('Bilan financier', $pdf);
+
+        $chef = User::factory()->create(['user_type' => 'promoter']);
+        $this->promoter->ownedOrganizations()->create(['legal_name' => 'ADJEMIN'])->members()->create(['user_id' => $chef->id, 'role' => OrganizationRole::ChefProjet, 'status' => OrganizationMemberStatus::Actif, 'joined_at' => now()]);
+        $this->actingAsPromoter($chef);
+
+        $this->getJson("/api/v1/promoter/sites/{$this->site->id}/report")
+            ->assertOk()
+            ->assertJsonPath('data.available', true)
+            ->assertJsonPath('data.finances', null)
+            ->assertJsonPath('data.evaluation.label', 'Équipe : 4/5');
+        $pdf = $this->get("/api/v1/promoter/sites/{$this->site->id}/report/pdf")->assertOk()->getContent();
+        $this->assertStringNotContainsString('Bilan financier', $pdf);
     }
 
     public function test_invoices_list_the_receipts_and_the_cost_of_the_site(): void

@@ -133,9 +133,12 @@ Route::prefix('v1')->name('v1.')->group(function () {
                     Route::get('ratings', [RatingController::class, 'index'])->name('ratings.index');
                 });
 
-                // Chantiers, besoins et réservations : propriétaire, administrateur, chef de chantier.
+                // Création et suppression d’un chantier : propriétaire, administrateur, chef de chantier.
+                Route::apiResource('sites', SiteController::class)->only(['store', 'destroy'])->middleware('promoter.can:sites.create');
+
+                // Chantier, besoins et réservations : propriétaire, administrateur, chef de chantier, technicien (ses chantiers).
                 Route::middleware('promoter.can:sites.manage')->group(function () {
-                    Route::apiResource('sites', SiteController::class)->only(['store', 'update', 'destroy']);
+                    Route::apiResource('sites', SiteController::class)->only(['update']);
                     Route::post('sites/{site}/photo', [SiteMediaController::class, 'storePhoto'])->name('sites.photo.store');
                     Route::delete('sites/{site}/photo', [SiteMediaController::class, 'destroyPhoto'])->name('sites.photo.destroy');
                     Route::post('sites/{site}/documents', [SiteMediaController::class, 'storeDocument'])->name('sites.documents.store');
@@ -184,12 +187,16 @@ Route::prefix('v1')->name('v1.')->group(function () {
                     Route::put('ratings/{rating}', [RatingController::class, 'update'])->name('ratings.update');
                 });
 
-                // Finances : paiements (propriétaire, administrateur, comptable), factures et rapport.
+                // Finances : paiements et factures (propriétaire, administrateur, comptable, observateur).
                 Route::middleware('promoter.can:finance.view')->group(function () {
                     Route::get('payments', [PaymentController::class, 'index'])->name('payments.index');
                     Route::get('payments/schedules/{schedule}', [PaymentController::class, 'show'])->name('payments.show');
                     Route::get('payments/transactions/{transaction}', [PaymentController::class, 'transaction'])->name('payments.transactions.show');
                     Route::get('sites/{site}/invoices', [SiteReportController::class, 'invoices'])->name('sites.invoices');
+                });
+
+                // Rapport de fin de chantier : tous les rôles ; le bilan financier seulement avec finance.view.
+                Route::middleware('promoter.can:reports.view')->group(function () {
                     Route::get('sites/{site}/report', [SiteReportController::class, 'show'])->name('sites.report');
                     Route::get('sites/{site}/report/pdf', [SiteReportController::class, 'pdf'])->name('sites.report.pdf');
                 });

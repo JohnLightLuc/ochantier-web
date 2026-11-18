@@ -63,7 +63,15 @@ class SiteRequest extends FormRequest
                 }
 
                 $responsible = $this->input('responsible_user_id');
-                $profile = app(PromoterAccess::class)->profile($this->user());
+                $access = app(PromoterAccess::class);
+                $profile = $access->profile($this->user());
+
+                // Le technicien ne confie pas son chantier à quelqu’un d’autre.
+                if ($this->has('responsible_user_id') && $access->limitedToOwnSites($this->user()) && $responsible !== $this->site()?->responsible_user_id) {
+                    $validator->errors()->add('responsible_user_id', 'Seul le chef de chantier ou l’administrateur change le responsable du chantier.');
+
+                    return;
+                }
 
                 // Le responsable déjà désigné reste accepté, même si l’abonnement a pris fin depuis.
                 if ($responsible && $responsible !== $this->site()?->responsible_user_id && ! app(SiteManager::class)->isAllowedResponsible($profile, $responsible)) {

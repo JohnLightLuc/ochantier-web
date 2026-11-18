@@ -69,7 +69,7 @@ class PromoterNotifier
         'offer.cancelled' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'sites.view', 'priority' => Priority::Haute, 'sms' => false],
         'site.incident' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'sites.view', 'priority' => Priority::Haute, 'sms' => false],
         'site.incident_resolved' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'sites.view', 'priority' => Priority::Normale, 'sms' => false],
-        'report.available' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'finance.view', 'priority' => Priority::Normale, 'sms' => false],
+        'report.available' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'reports.view', 'priority' => Priority::Normale, 'sms' => false],
         'attendance.pending' => ['tab' => 'chantiers', 'alert' => 'pointages', 'ability' => 'attendance.manage', 'priority' => Priority::Haute, 'sms' => false],
         'referral.registered' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'account.manage', 'priority' => Priority::Basse, 'sms' => false],
         'team.joined' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'team.manage', 'priority' => Priority::Basse, 'sms' => false],
