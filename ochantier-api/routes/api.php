@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\Commercial\PerformanceController as CommercialPe
 use App\Http\Controllers\Api\V1\Commercial\ProspectController;
 use App\Http\Controllers\Api\V1\Commercial\ProspectDocumentController;
 use App\Http\Controllers\Api\V1\Commercial\WorkerController as CommercialWorkerController;
+use App\Http\Controllers\Api\V1\Contractor\AttendanceController as ContractorAttendanceController;
 use App\Http\Controllers\Api\V1\Contractor\OfferResponseController as ContractorOfferResponseController;
 use App\Http\Controllers\Api\V1\Contractor\OpportunityController as ContractorOpportunityController;
 use App\Http\Controllers\Api\V1\Contractor\ProfileController as ContractorProfileController;
@@ -284,6 +285,13 @@ Route::prefix('v1')->name('v1.')->group(function () {
                     Route::get('assignments/{teamAssignment}', [ContractorTeamController::class, 'show'])->name('assignments.show');
                     Route::post('assignments/{teamAssignment}/replace', [ContractorTeamController::class, 'replace'])->name('assignments.replace');
                     Route::post('assignments/{teamAssignment}/cancel', [ContractorTeamController::class, 'cancel'])->name('assignments.cancel');
+                    Route::get('attendance', [ContractorAttendanceController::class, 'index'])->name('attendance.index');
+                    Route::get('attendance/history', [ContractorAttendanceController::class, 'history'])->name('attendance.history');
+                    Route::post('attendance/events', [ContractorAttendanceController::class, 'storeEvent'])->name('attendance.events.store');
+                    Route::post('attendance/absences', [ContractorAttendanceController::class, 'storeAbsence'])->name('attendance.absences.store');
+                    Route::post('attendance/{date}/validate', [ContractorAttendanceController::class, 'validateDay'])->where('date', '\d{4}-\d{2}-\d{2}')->name('attendance.validate');
+                    Route::get('attendance/days/{workDay}', [ContractorAttendanceController::class, 'show'])->name('attendance.days.show');
+                    Route::post('attendance/days/{workDay}/correction', [ContractorAttendanceController::class, 'correct'])->name('attendance.days.correct');
                     Route::get('staffing-requests', [ContractorStaffingController::class, 'index'])->name('staffing.index');
                     Route::post('staffing-requests', [ContractorStaffingController::class, 'store'])->name('staffing.store');
                     Route::get('staffing-requests/{staffingRequest}', [ContractorStaffingController::class, 'show'])->name('staffing.show');

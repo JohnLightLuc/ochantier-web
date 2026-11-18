@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a86af9c3-f682-553f-a780-3728504d68cc",
     "name": "O’CHANTIER API v1 · Entrepreneurs et Techniciens",
-    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) les **opportunités** les **propositions de devis** les **réponses aux offres contractuelles** **Mes chantiers** et l’**équipe** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
+    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) les **opportunités** les **propositions de devis** les **réponses aux offres contractuelles** **Mes chantiers** et l’**équipe** et le **pointage** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -2808,6 +2808,361 @@
           "response": []
         }
       ]
+    },
+    {
+      "id": "05398610-dd28-51ec-8d74-69abe6124d91",
+      "name": "Pointage",
+      "description": "Pointage de l’équipe : feuille du jour, arrivées et départs (position, photo, signature), absences, validation de la journée, historique et corrections motivées.",
+      "item": [
+        {
+          "id": "aae768bd-4a45-5aa4-9b7d-8912b4efd14b",
+          "name": "Feuille de pointage du jour",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 404', () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));",
+                  "if (pm.response.code === 200) { const r = pm.response.json().data.rows; if (r.length) { pm.collectionVariables.set('attendance_assignment_id', r[0].assignment_id); } }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/attendance",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "attendance"
+              ]
+            },
+            "description": "Onglet « Pointage » : feuille d’une journée (`date` = AAAA-MM-JJ, aujourd’hui par défaut). Le pointage ouvre au démarrage du chantier.\n\nRéponse : la feuille de la journée (`date`, `label`, `is_open`, `opens_on`, `closed_message`, `stats` présents / total / absents / à compléter, `amount` = coût de la main-d’œuvre de la journée au tarif convenu, `validated`, `can_validate`, `validation_hint`, `rows[]` : ouvrier, rôle, `daily_rate`, `state` (`non_pointe`, `arrive`, `termine`, `absent`), `arrival` / `departure` (heure, distance, hors zone, photo, signature), `anomalies` (retard…), `actions` : `arrivee`, `absent`, `depart`). Seuls les ouvriers confirmés (accord donné) dont l’affectation couvre la date figurent sur la feuille."
+          },
+          "response": []
+        },
+        {
+          "id": "73cd330d-e5ba-50d3-b626-f82490c3cb93",
+          "name": "Pointer une arrivée ou un départ",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201, 200, 404 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/attendance/events",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "attendance",
+                "events"
+              ]
+            },
+            "description": "Arrivée ou départ d’un ouvrier de votre équipe (`multipart/form-data`), avec position, photo et signature. Un retard est signalé selon l’heure de début du chantier et la tolérance.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `assignment_id` | oui | Affectation de l’ouvrier (`rows[].assignment_id`). |\n| `type` | oui | `arrivee` ou `depart`. |\n| `client_uuid` | oui | Identifiant généré par l’appareil : un envoi rejoué (hors connexion) renvoie **200** sans doublon. |\n| `latitude`, `longitude`, `accuracy` | oui | Position et précision (m) ; trop imprécise : **422**. |\n| `photo` | oui | Photo de l’ouvrier (JPEG/PNG, 8 Mo). |\n| `signature` | oui | Signature (PNG/JPEG, 2 Mo). |\n| `device_recorded_at` | non | Heure de l’appareil (pointage hors connexion, 48 h au plus). |\n\n**201** : Réponse : la feuille de la journée (`date`, `label`, `is_open`, `opens_on`, `closed_message`, `stats` présents / total / absents / à compléter, `amount` = coût de la main-d’œuvre de la journée au tarif convenu, `validated`, `can_validate`, `validation_hint`, `rows[]` : ouvrier, rôle, `daily_rate`, `state` (`non_pointe`, `arrive`, `termine`, `absent`), `arrival` / `departure` (heure, distance, hors zone, photo, signature), `anomalies` (retard…), `actions` : `arrivee`, `absent`, `depart`). Seuls les ouvriers confirmés (accord donné) dont l’affectation couvre la date figurent sur la feuille.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "assignment_id",
+                  "value": "{{attendance_assignment_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "type",
+                  "value": "arrivee",
+                  "type": "text"
+                },
+                {
+                  "key": "client_uuid",
+                  "value": "{{$guid}}",
+                  "type": "text"
+                },
+                {
+                  "key": "latitude",
+                  "value": "5.36",
+                  "type": "text"
+                },
+                {
+                  "key": "longitude",
+                  "value": "-3.98",
+                  "type": "text"
+                },
+                {
+                  "key": "accuracy",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "photo",
+                  "type": "file",
+                  "src": "fixtures/photo-ouvrier.png"
+                },
+                {
+                  "key": "signature",
+                  "type": "file",
+                  "src": "fixtures/signature.png"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "ad34bbfc-fed9-540f-ae08-da44cc2d3a85",
+          "name": "Déclarer une absence",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/attendance/absences",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "attendance",
+                "absences"
+              ]
+            },
+            "description": "L’ouvrier n’est pas venu : la journée n’est pas comptée. Visible par le promoteur.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `assignment_id` | oui | Affectation de l’ouvrier. |\n| `date` | non | AAAA-MM-JJ (aujourd’hui par défaut). |\n\nRéponse : la feuille de la journée (`date`, `label`, `is_open`, `opens_on`, `closed_message`, `stats` présents / total / absents / à compléter, `amount` = coût de la main-d’œuvre de la journée au tarif convenu, `validated`, `can_validate`, `validation_hint`, `rows[]` : ouvrier, rôle, `daily_rate`, `state` (`non_pointe`, `arrive`, `termine`, `absent`), `arrival` / `departure` (heure, distance, hors zone, photo, signature), `anomalies` (retard…), `actions` : `arrivee`, `absent`, `depart`). Seuls les ouvriers confirmés (accord donné) dont l’affectation couvre la date figurent sur la feuille.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignment_id\": \"{{attendance_assignment_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "ce07ba15-4c14-5e33-90c4-1f572e8e6ff6",
+          "name": "Valider la journée",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/attendance/2030-02-01/validate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "attendance",
+                "2030-02-01",
+                "validate"
+              ]
+            },
+            "description": "« Valider la journée » (date dans l’URL) : chaque ouvrier a son départ ou son absence. La synthèse est transmise au promoteur (notification). **422** si des pointages restent à compléter ou si la journée est déjà validée.\n\nRéponse : la feuille de la journée (`date`, `label`, `is_open`, `opens_on`, `closed_message`, `stats` présents / total / absents / à compléter, `amount` = coût de la main-d’œuvre de la journée au tarif convenu, `validated`, `can_validate`, `validation_hint`, `rows[]` : ouvrier, rôle, `daily_rate`, `state` (`non_pointe`, `arrive`, `termine`, `absent`), `arrival` / `departure` (heure, distance, hors zone, photo, signature), `anomalies` (retard…), `actions` : `arrivee`, `absent`, `depart`). Seuls les ouvriers confirmés (accord donné) dont l’affectation couvre la date figurent sur la feuille."
+          },
+          "response": []
+        },
+        {
+          "id": "9c75a615-02a3-52f5-97f5-b4cf7e39580a",
+          "name": "Historique des pointages",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/attendance/history",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "attendance",
+                "history"
+              ]
+            },
+            "description": "Journées passées ou validées, de la plus récente à la plus ancienne : `date`, `validated`, `present`, `total`, `presence_rate`, `amount`, `rows[]` (ouvrier, arrivée, départ, durée). `meta.rates` : taux de présence par ouvrier."
+          },
+          "response": []
+        },
+        {
+          "id": "27f5ff1c-75b3-5732-abd8-c52c5cdc7c8d",
+          "name": "Fiche d’un pointage",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/attendance/days/{{work_day_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "attendance",
+                "days",
+                "{{work_day_id}}"
+              ]
+            },
+            "description": "Journée pointée d’un ouvrier (identifiant d’une journée, `work_day_id`) : `member`, `state` (`present`, `retard`, `absent`), `arrival` / `departure` (heure, distance au chantier, photo, signature), `duration`, `observation`, `author`, `anomalies`, `corrections[]` (motif, anciennes et nouvelles valeurs), `can_correct`."
+          },
+          "response": []
+        },
+        {
+          "id": "8c7b3537-561b-5569-94aa-54371dd2d2b1",
+          "name": "Corriger un pointage",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/attendance/days/{{work_day_id}}/correction",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "attendance",
+                "days",
+                "{{work_day_id}}",
+                "correction"
+              ]
+            },
+            "description": "Correction appliquée tout de suite et tracée : la valeur précédente est conservée dans l’historique (`corrections`).\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | Motif de la correction. |\n| `arrival_time`, `departure_time` | non | Nouvelles heures (HH:MM) ; le départ doit suivre l’arrivée. |\n| `absent` | non | `true` : l’ouvrier passe absent (pointages annulés). |\n| `observation` | non | Observation de la journée. |\n\n**422** : motif manquant, rien à changer, journée facturée, ou absence à transformer en présence (impossible sans pointage).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Départ pointé en avance\",\n  \"departure_time\": \"18:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "auth": {
@@ -2996,6 +3351,18 @@
       "value": "",
       "type": "string",
       "description": "Première échéance à payer."
+    },
+    {
+      "key": "attendance_assignment_id",
+      "value": "",
+      "type": "string",
+      "description": "Première ligne de la feuille de pointage."
+    },
+    {
+      "key": "work_day_id",
+      "value": "",
+      "type": "string",
+      "description": "Journée pointée (historique ou fiche)."
     }
   ]
 }

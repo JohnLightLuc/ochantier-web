@@ -8,6 +8,7 @@ use App\Enums\PaymentScheduleStatus;
 use App\Enums\Priority;
 use App\Enums\ProposalStatus;
 use App\Models\Claim;
+use App\Models\Contractor;
 use App\Models\Dispute;
 use App\Models\Notification;
 use App\Models\OrganizationMember;
@@ -25,6 +26,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionInvoice;
 use App\Models\User;
 use App\Models\WorkDay;
+use App\Support\Contractor\ContractorNotifier;
 use App\Support\Notifications\NotificationInbox;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -73,6 +75,7 @@ class PromoterNotifier
         'site.incident_resolved' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'sites.view', 'priority' => Priority::Normale, 'sms' => false],
         'report.available' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'finance.view', 'priority' => Priority::Normale, 'sms' => false],
         'attendance.pending' => ['tab' => 'chantiers', 'alert' => 'pointages', 'ability' => 'attendance.manage', 'priority' => Priority::Haute, 'sms' => false],
+        'attendance.validated' => ['tab' => 'chantiers', 'alert' => 'pointages', 'ability' => 'sites.view', 'priority' => Priority::Basse, 'sms' => false],
         'referral.registered' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'account.manage', 'priority' => Priority::Basse, 'sms' => false],
         'team.joined' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'team.manage', 'priority' => Priority::Basse, 'sms' => false],
         'account.approved' => ['tab' => 'compte', 'alert' => null, 'ability' => 'account.manage', 'priority' => Priority::Normale, 'sms' => false],
@@ -271,6 +274,17 @@ class PromoterNotifier
 
         foreach ($pending as $days) {
             $site = $days->first()->mission->site;
+
+            // Équipe d’un entrepreneur : c’est lui qui valide le pointage.
+            if ($contractorId = $days->first()->mission->contractor_id) {
+                app(ContractorNotifier::class)->notify(Contractor::query()->findOrFail($contractorId), 'attendance.pending', 'Journée à valider · '.$site->label,
+                    'Validez le pointage du '.$this->date($today->subDay()).' ('.$days->count().' ouvrier'.($days->count() > 1 ? 's' : '').').',
+                    ['type' => 'site_attendance', 'id' => $site->id, 'date' => $today->subDay()->toDateString()], $site, 'attendance.pending:'.$site->id.':'.$today->subDay()->toDateString());
+                $counts['attendance']++;
+
+                continue;
+            }
+
             $counts['attendance'] += $this->notify($site->promoterProfile, 'attendance.pending', 'Journée à valider · '.$site->label,
                 'Validez le pointage du '.$this->date($today->subDay()).' ('.$days->count().' ouvrier'.($days->count() > 1 ? 's' : '').').', $site,
                 ['type' => 'attendance', 'id' => $site->id, 'date' => $today->subDay()->toDateString()], $site, 'attendance.pending:'.$site->id.':'.$today->subDay()->toDateString()) > 0 ? 1 : 0;
