@@ -20,7 +20,7 @@ class SupportTest extends TestCase
 
         $this->getJson('/api/v1/support')
             ->assertOk()
-            ->assertExactJsonStructure(['success', 'message', 'data' => ['opening_days', 'working_hours', 'phone', 'whatsapp', 'email']])
+            ->assertExactJsonStructure(['message', 'data' => ['opening_days', 'working_hours', 'phone', 'whatsapp', 'email']])
             ->assertJsonPath('data.opening_days', 'Du lundi au samedi')
             ->assertJsonPath('data.working_hours', 'De 8 h à 18 h')
             ->assertJsonPath('data.phone', '+225 27 22 00 00 00')

@@ -1074,6 +1074,89 @@
       "description": "Listes des formulaires (communes, métiers, pièces, motifs)."
     },
     {
+      "id": "7f226029-4d7f-478e-b4f4-e81377d56125",
+      "name": "Support",
+      "item": [
+        {
+          "id": "df1143fe-7a99-4ce7-a914-413cee1a1266",
+          "name": "Coordonnées du support",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const support = pm.response.json().data;",
+                  "pm.test('Coordonnées du support', () => pm.expect(support).to.have.all.keys('opening_days', 'working_hours', 'phone', 'whatsapp', 'email'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/support",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "support"
+              ]
+            },
+            "description": "Coordonnées du support, **sans connexion** : à afficher dès les écrans de connexion et d’inscription. Limité à 30 appels par minute. À mettre en cache (`Cache-Control: public, max-age=3600`).\n\n**Réponse** (`data`), chaque champ est un texte ou `null` s’il n’est pas renseigné :\n- `opening_days` : jours d’ouverture (ex. « Du lundi au samedi ») ;\n- `working_hours` : heures de travail (ex. « De 8 h à 18 h ») ;\n- `phone` : numéro de téléphone ;\n- `whatsapp` : numéro WhatsApp ;\n- `email` : adresse e-mail.\n\nLes valeurs se règlent dans le Back Office (Paramètres › Support). Le « Centre d’aide » (`GET /help`, connecté) garde son propre bloc `support`."
+          },
+          "response": [
+            {
+              "id": "0ca8e86f-37ce-4232-9745-046a32934502",
+              "name": "200 · Coordonnées du support",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/support",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "support"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Cache-Control",
+                  "value": "max-age=3600, public"
+                }
+              ],
+              "body": "{\n  \"message\": null,\n  \"data\": {\n    \"opening_days\": \"Du lundi au samedi\",\n    \"working_hours\": \"De 8 h à 18 h\",\n    \"phone\": \"+225 27 22 00 00 00\",\n    \"whatsapp\": \"+225 07 00 00 00 00\",\n    \"email\": \"support@ochantier.ci\"\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "afc1ecb8-a25d-5aad-9035-9e3cb10357ae",
       "name": "Compte",
       "item": [
@@ -3231,7 +3314,7 @@
                 "help"
               ]
             },
-            "description": "« Centre d’aide », dans `data` : questions fréquentes de l’application (`faq` : `section`, `question`, `answer`) et contacts du support (`support` : `phone`, `whatsapp`, `email`, `hours`).\n\nCommun aux applications Promoteur et Commercial (chacune reçoit ses questions ; voir « Commercial › Profil et préférences › Centre d’aide »). À mettre en cache (`Cache-Control: private, max-age=3600`).",
+            "description": "« Centre d’aide », dans `data` : questions fréquentes de l’application (`faq` : `section`, `question`, `answer`) et contacts du support (`support` : `phone`, `whatsapp`, `email`, `hours`).\n\nCommun aux applications Promoteur et Commercial (chacune reçoit ses questions ; voir « Commercial › Profil et préférences › Centre d’aide »). À mettre en cache (`Cache-Control: private, max-age=3600`).\n\nCoordonnées seules, sans connexion : « Support › Coordonnées du support » (`GET /support`).",
             "auth": {
               "type": "bearer",
               "bearer": [
