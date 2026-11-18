@@ -4,6 +4,7 @@ namespace App\Http\Resources\V1;
 
 use App\Enums\UserType;
 use App\Models\User;
+use App\Support\Contractor\ContractorAccount;
 use App\Support\PhoneNumber;
 use App\Support\Promoter\PromoterAccess;
 use Illuminate\Http\Request;
@@ -52,8 +53,10 @@ class UserResource extends Resource
                     'id' => $this->contractor->id,
                     'reference' => $this->contractor->reference,
                     'kind' => $this->status($this->contractor->kind),
-                    'name' => $this->contractor->name,
+                    'name' => $this->contractor->name ?: null,
                     'status' => $this->status($this->contractor->status),
+                    'verification_status' => $this->status($this->contractor->verification_status),
+                    'verification_state' => app(ContractorAccount::class)->state($this->contractor),
                 ] : null,
             ]),
         ];

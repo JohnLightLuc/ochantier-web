@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\V1\Commercial\PerformanceController as CommercialPe
 use App\Http\Controllers\Api\V1\Commercial\ProspectController;
 use App\Http\Controllers\Api\V1\Commercial\ProspectDocumentController;
 use App\Http\Controllers\Api\V1\Commercial\WorkerController as CommercialWorkerController;
+use App\Http\Controllers\Api\V1\Contractor\ProfileController as ContractorProfileController;
+use App\Http\Controllers\Api\V1\Contractor\ProfileDocumentController as ContractorProfileDocumentController;
 use App\Http\Controllers\Api\V1\HelpController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
@@ -233,6 +235,18 @@ Route::prefix('v1')->name('v1.')->group(function () {
             });
 
             // Application Commercial : prospects, dossiers ouvriers, gains, activité, profil et notifications.
+            // Application Entrepreneurs et Techniciens : choix du profil et dossier de vérification (KYB ou KYC).
+            Route::middleware('user.type:contractor')->prefix('contractor')->name('contractor.')->group(function () {
+                Route::get('profile', [ContractorProfileController::class, 'show'])->name('profile.show');
+                Route::post('profile', [ContractorProfileController::class, 'store'])->name('profile.store');
+                Route::patch('profile', [ContractorProfileController::class, 'update'])->name('profile.update');
+                Route::post('profile/submit', [ContractorProfileController::class, 'submit'])->middleware('throttle:10,1')->name('profile.submit');
+                Route::post('profile/photo', [ContractorProfileController::class, 'storePhoto'])->name('profile.photo.store');
+                Route::delete('profile/photo', [ContractorProfileController::class, 'destroyPhoto'])->name('profile.photo.destroy');
+                Route::post('profile/documents', [ContractorProfileDocumentController::class, 'store'])->name('profile.documents.store');
+                Route::delete('profile/documents/{document}', [ContractorProfileDocumentController::class, 'destroy'])->name('profile.documents.destroy');
+            });
+
             Route::middleware(['user.type:commercial', 'commercial'])->prefix('commercial')->name('commercial.')->group(function () {
                 Route::get('prospects/phone-check', [ProspectController::class, 'checkPhone'])->name('prospects.phone-check');
                 Route::apiResource('prospects', ProspectController::class)->except('destroy');

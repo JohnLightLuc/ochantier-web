@@ -11,6 +11,7 @@ enum DocumentAudience: string
     case Promoter = 'promoter';
     case Organization = 'organization';
     case Commercial = 'commercial';
+    case Contractor = 'contractor';
     case Site = 'site';
     case Offer = 'offer';
     case Need = 'need';
@@ -29,6 +30,7 @@ enum DocumentAudience: string
             self::Promoter => 'Promoteur',
             self::Organization => 'Organisation',
             self::Commercial => 'Commercial',
+            self::Contractor => 'Entrepreneur',
             self::Site => 'Chantier',
             self::Offer => 'Offre',
             self::Need => 'Besoin',

@@ -4,6 +4,7 @@ namespace App\Support\Promoter;
 
 use App\Enums\ContractorKind;
 use App\Enums\ContractorStatus;
+use App\Enums\ContractorVerificationStatus;
 use App\Enums\OfferStatus;
 use App\Enums\OfferType;
 use App\Enums\PricingVariable;
@@ -85,7 +86,7 @@ class ContractorSimulator
     private function contractors(): Collection
     {
         foreach (self::DEMO as [$name, $kind, $rating, $sites, $team]) {
-            if (Contractor::query()->where('status', ContractorStatus::Actif->value)->count() >= self::BIDS_PER_OFFER) {
+            if ($this->eligible()->count() >= self::BIDS_PER_OFFER) {
                 break;
             }
 
@@ -97,9 +98,21 @@ class ContractorSimulator
                 'completed_sites_count' => $sites,
                 'team_size' => $team,
                 'status' => ContractorStatus::Actif,
+                'verification_status' => ContractorVerificationStatus::Valide,
+                'validated_at' => now(),
             ]);
         }
 
-        return Contractor::query()->where('status', ContractorStatus::Actif->value)->inRandomOrder()->limit(self::BIDS_PER_OFFER)->get();
+        return $this->eligible()->inRandomOrder()->limit(self::BIDS_PER_OFFER)->get();
+    }
+
+    /**
+     * Entrepreneurs actifs dont le dossier est vérifié.
+     *
+     * @return Builder<Contractor>
+     */
+    private function eligible(): Builder
+    {
+        return Contractor::query()->where('status', ContractorStatus::Actif->value)->where('verification_status', ContractorVerificationStatus::Valide->value);
     }
 }

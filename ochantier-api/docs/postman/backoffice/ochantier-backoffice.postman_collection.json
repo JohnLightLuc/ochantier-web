@@ -4183,6 +4183,323 @@
       ]
     },
     {
+      "id": "cefaf9b6-f61d-5f00-8b69-88f0c752fc7b",
+      "name": "Entrepreneurs",
+      "description": "Entrepreneurs et techniciens : liste, fiche et décision sur le dossier KYB/KYC (validation, corrections, refus), suspension et réactivation.",
+      "item": [
+        {
+          "id": "86491611-6f1b-584a-8f96-bf78f7c21b36",
+          "name": "Liste des entrepreneurs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.data.length) { pm.collectionVariables.set('admin_contractor_id', body.data[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors?verification_status=soumis",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors"
+              ],
+              "query": [
+                {
+                  "key": "verification_status",
+                  "value": "soumis"
+                }
+              ]
+            },
+            "description": "Entrepreneurs et techniciens, dossiers à vérifier en premier. Enregistre le premier (`admin_contractor_id`).\n\n| Paramètre | Description |\n|---|---|\n| `search` | Nom, référence, e-mail ou téléphone. |\n| `verification_status` | brouillon, soumis, en_controle, a_corriger, valide, refuse. |\n| `kind` | entreprise ou independant. |\n| `status` | actif, suspendu, exclu. |\n| `per_page` | 1 à 100 (20 par défaut). |\n\n`meta` : pagination et `counts` (nombre de dossiers par statut de vérification).\n\nPermission : `contractors.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "0d96ec22-aada-56b6-83b4-5787d12c2180",
+          "name": "Fiche d’un entrepreneur",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}"
+              ]
+            },
+            "description": "Réponse : la fiche, avec le dossier complet (comme dans l’application), `status` du compte (actif, suspendu, exclu), `account`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `suspend`, `reactivate`).\n\nPermission : `contractors.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "e22e3ec2-375a-5713-af5b-bd7d788bbe31",
+          "name": "Demander des corrections",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/corrections",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "corrections"
+              ]
+            },
+            "description": "Dossier soumis → **à corriger**. Le motif est affiché à l’entrepreneur ; les pièces de `document_ids` sont rejetées avec ce motif. Notification et SMS « Des corrections sont demandées ». Journal d’audit : `contractor.corrections_requested`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | Motif (5 à 1000 caractères). |\n| `document_ids` | non | Pièces du dossier à remplacer. |\n\n**422** si le dossier n’est pas en attente de vérification.\n\nRéponse : la fiche, avec le dossier complet (comme dans l’application), `status` du compte (actif, suspendu, exclu), `account`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `suspend`, `reactivate`).\n\nPermission : `contractors.validate`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Pièce d’identité illisible : envoyez une photo nette.\",\n  \"document_ids\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "3d9157a0-a981-51fe-b4f6-186431ab7c6e",
+          "name": "Valider le dossier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "approve"
+              ]
+            },
+            "description": "Dossier soumis et complet → **vérifié** : les pièces en attente sont validées et l’entrepreneur peut répondre aux opportunités. Notification et SMS « Votre profil est vérifié ». Journal d’audit : `contractor.approved`.\n\n**422** si le dossier n’est pas en attente de vérification ou est incomplet.\n\nRéponse : la fiche, avec le dossier complet (comme dans l’application), `status` du compte (actif, suspendu, exclu), `account`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `suspend`, `reactivate`).\n\nPermission : `contractors.validate`."
+          },
+          "response": []
+        },
+        {
+          "id": "66715dc5-8ac9-58fa-b2a1-90cca944d332",
+          "name": "Refuser le dossier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/reject",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "reject"
+              ]
+            },
+            "description": "Dossier soumis → **rejeté**, avec le motif affiché à l’entrepreneur (« Corriger mon dossier »). Journal d’audit : `contractor.rejected`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | Motif (5 à 1000 caractères). |\n\n**422** si le dossier n’est pas en attente de vérification.\n\nPermission : `contractors.validate`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Identité incohérente avec la pièce fournie.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "4972cce4-a706-5633-910a-22532a29ca4c",
+          "name": "Suspendre le compte",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/suspension",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "suspension"
+              ]
+            },
+            "description": "Compte **suspendu** : l’entrepreneur garde l’accès en consultation, sans pouvoir modifier son dossier ni répondre. Journal d’audit : `contractor.suspended`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | Motif (5 à 1000 caractères), affiché à l’entrepreneur. |\n\n**422** si le compte est déjà suspendu.\n\nPermission : `contractors.update`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Vérification complémentaire en cours.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "c3b39aa6-bd09-5ff9-9887-84d65e0d20b7",
+          "name": "Réactiver le compte",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/suspension",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "suspension"
+              ]
+            },
+            "description": "Lève la suspension. Journal d’audit : `contractor.reactivated`. **422** si le compte n’est pas suspendu.\n\nPermission : `contractors.update`."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "id": "ae25e3cc-e1bb-56fe-86e9-ac863848bce3",
       "name": "Mot de passe oublié",
       "item": [
@@ -5281,6 +5598,12 @@
       "value": "",
       "type": "string",
       "description": "Pièce renseignée par la requête d’ajout correspondante."
+    },
+    {
+      "key": "admin_contractor_id",
+      "value": "",
+      "type": "string",
+      "description": "Premier entrepreneur de la liste (dossier soumis)."
     }
   ]
 }

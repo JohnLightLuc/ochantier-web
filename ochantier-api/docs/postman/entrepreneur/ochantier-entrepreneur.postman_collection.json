@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a86af9c3-f682-553f-a780-3728504d68cc",
     "name": "O’CHANTIER API v1 · Entrepreneurs et Techniciens",
-    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Cette première version couvre l’**authentification** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
+    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification** et le **profil à vérifier** (KYB ou KYC) : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -552,6 +552,355 @@
           "response": []
         }
       ]
+    },
+    {
+      "id": "75eca917-1965-5d97-98e2-b9e6b32600ea",
+      "name": "Profil et vérification",
+      "description": "Choix du profil (entreprise ou indépendant), dossier de vérification KYB ou KYC, pièces et soumission au Back Office.",
+      "item": [
+        {
+          "id": "aa921cfd-a838-5501-9411-f4e47c1c3b19",
+          "name": "Référentiels",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('city_id', body.data.cities[0].id);",
+                  "pm.collectionVariables.set('zone_city_id', body.data.cities[1].id);",
+                  "pm.collectionVariables.set('trade_id', body.data.trades[0].id);",
+                  "pm.collectionVariables.set('second_trade_id', body.data.trades[1].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/referentials",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "referentials"
+              ]
+            },
+            "description": "Villes et métiers à proposer dans le dossier. Enregistre la première ville (`city_id`), la deuxième (`zone_city_id`) et deux métiers (`trade_id`, `second_trade_id`)."
+          },
+          "response": []
+        },
+        {
+          "id": "65d68e24-fcf1-5a73-b3aa-ad714689e6cf",
+          "name": "Choisir le profil",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Brouillon', () => pm.expect(body.data.verification.state.value).to.eql('brouillon'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "profile"
+              ]
+            },
+            "description": "Écran « Quel est votre profil ? ». Crée le dossier en **brouillon**, prérempli avec le téléphone et l’e-mail du compte. Les champs du dossier (voir « Enregistrer le dossier ») peuvent être envoyés en même temps.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `kind` | oui | `entreprise` (vérification KYB) ou `independant` (vérification KYC). Le profil Ouvrier n’est pas encore disponible. |\n\n**Réponse 201** : le dossier. **422** si le profil est déjà choisi.\n\nAvant ce choix, `GET /me` renvoie `contractor.profile_chosen: false` et `GET /contractor/profile` renvoie **404**.\n\n**Réponse** (`data`) : le dossier complet.\n\n| Bloc | Contenu |\n|---|---|\n| `kind`, `verification_type` | `entreprise` (KYB) ou `independant` (KYC). |\n| `name`, `initials`, `photo_url` | Nom affiché (raison sociale ou prénoms et nom), initiales, logo ou photo (lien signé 30 min). |\n| `company` | Entreprise : `legal_name`, `legal_form`, `rccm`, `ncc`, `representative_name` (null pour un indépendant). |\n| `identity` | Indépendant : `last_name`, `first_name`, `birth_date` (null pour une entreprise). |\n| `contact` | `dial_code`, `phone_number`, `phone`, `email`, `city`, `address`. |\n| `activity` | `trades`, `zones` (villes en plus de la ville principale), `experience_years`, `description`. |\n| `verification` | `status` (brouillon, soumis, en_controle, a_corriger, valide, refuse), `state` affiché (`brouillon`, `en_verification`, `verifie`, `a_corriger`, `rejete`, `suspendu`), `reason` (motif du refus, des corrections ou de la suspension), `can_edit`, `can_change_kind`, `can_submit`, `edit_warning` (à confirmer avant de modifier un dossier vérifié). |\n| `limits` | `can_respond` (répondre aux opportunités) et `message` à afficher tant que le profil n’est pas vérifié. |\n| `completion` | `percent`, `complete`, `items` et `missing` (`key`, `label`, `step` : entreprise, representant, identite, coordonnees, activite, pieces). |\n| `documents` | Pièces en vigueur : type, `number_last4`, `status`, fichiers (lien signé). |\n| `document_types` | Pièces proposées : `code`, `label`, `group` (`identity` : une seule pièce d’identité au choix), `hint` (Obligatoire, Selon votre statut, Facultatif), `has_back_side`, `requires_number`, formats et taille. |\n| `options.legal_forms` | Formes juridiques proposées. |\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"independant\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "08f9111f-cc7d-57d0-b7dd-db02909298b4",
+          "name": "Enregistrer le dossier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Pièce d’identité encore attendue', () => pm.expect(body.data.completion.missing.map(i => i.key)).to.eql(['identity']));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "profile"
+              ]
+            },
+            "description": "Étapes « Identité », « Coordonnées », « Activité » (indépendant) ou « Entreprise », « Représentant », « Activité » (entreprise). Le brouillon peut être enregistré à chaque étape.\n\n| Champ | Profil | Description |\n|---|---|---|\n| `legal_name` | entreprise | Raison sociale (2 à 200 caractères). |\n| `legal_form` | entreprise | Une des `options.legal_forms` : SARL, SA, SAS, SASU, SUARL, Entreprise individuelle, GIE, Société coopérative. |\n| `rccm`, `ncc` | entreprise | Facultatifs (« Selon votre statut »). |\n| `representative_name` | entreprise | Représentant légal (nom et prénoms). |\n| `last_name`, `first_name` | indépendant | Nom et prénoms. |\n| `birth_date` | indépendant | `AAAA-MM-JJ`, majeur. |\n| `dial_code`, `phone_number` | tous | Téléphone de contact (prérempli avec celui du compte). |\n| `email` | tous | Obligatoire pour soumettre une entreprise, facultatif pour un indépendant. |\n| `city_id` | tous | Ville principale (`GET /referentials` → `cities`). |\n| `address` | tous | Adresse (quartier, rue) ou adresse du siège. |\n| `trade_ids` | tous | Au moins un métier (`GET /referentials` → `trades`). |\n| `zone_city_ids` | tous | Villes d’intervention en plus de la ville principale (elle est retirée si envoyée). |\n| `experience_years` | tous | 0 à 60. |\n| `description` | tous | Présentation de l’activité (facultatif). |\n\nUn champ de l’autre profil renvoie **422** « Ce champ ne concerne pas votre type de profil. ». Seuls les champs envoyés sont enregistrés.\n\nSur un dossier **vérifié**, la modification d’une donnée sensible (identité, entreprise, métiers) le remet en **brouillon** : il faut le soumettre de nouveau, et `limits.can_respond` repasse à `false`. Le type de profil ne change plus après la validation. **422** pendant la vérification ou si le compte est suspendu.\n\n**Réponse** (`data`) : le dossier complet.\n\n| Bloc | Contenu |\n|---|---|\n| `kind`, `verification_type` | `entreprise` (KYB) ou `independant` (KYC). |\n| `name`, `initials`, `photo_url` | Nom affiché (raison sociale ou prénoms et nom), initiales, logo ou photo (lien signé 30 min). |\n| `company` | Entreprise : `legal_name`, `legal_form`, `rccm`, `ncc`, `representative_name` (null pour un indépendant). |\n| `identity` | Indépendant : `last_name`, `first_name`, `birth_date` (null pour une entreprise). |\n| `contact` | `dial_code`, `phone_number`, `phone`, `email`, `city`, `address`. |\n| `activity` | `trades`, `zones` (villes en plus de la ville principale), `experience_years`, `description`. |\n| `verification` | `status` (brouillon, soumis, en_controle, a_corriger, valide, refuse), `state` affiché (`brouillon`, `en_verification`, `verifie`, `a_corriger`, `rejete`, `suspendu`), `reason` (motif du refus, des corrections ou de la suspension), `can_edit`, `can_change_kind`, `can_submit`, `edit_warning` (à confirmer avant de modifier un dossier vérifié). |\n| `limits` | `can_respond` (répondre aux opportunités) et `message` à afficher tant que le profil n’est pas vérifié. |\n| `completion` | `percent`, `complete`, `items` et `missing` (`key`, `label`, `step` : entreprise, representant, identite, coordonnees, activite, pieces). |\n| `documents` | Pièces en vigueur : type, `number_last4`, `status`, fichiers (lien signé). |\n| `document_types` | Pièces proposées : `code`, `label`, `group` (`identity` : une seule pièce d’identité au choix), `hint` (Obligatoire, Selon votre statut, Facultatif), `has_back_side`, `requires_number`, formats et taille. |\n| `options.legal_forms` | Formes juridiques proposées. |\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"last_name\": \"Koffi\",\n  \"first_name\": \"Yao Serge\",\n  \"birth_date\": \"1990-04-12\",\n  \"city_id\": \"{{city_id}}\",\n  \"address\": \"Cocody, Riviera 3\",\n  \"trade_ids\": [\n    \"{{trade_id}}\",\n    \"{{second_trade_id}}\"\n  ],\n  \"zone_city_ids\": [\n    \"{{zone_city_id}}\"\n  ],\n  \"experience_years\": 8,\n  \"description\": \"Électricité et plomberie du bâtiment.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "7c16186f-879f-508d-bd07-3b9a4fdccd1a",
+          "name": "Ajouter la pièce d’identité",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('document_id', body.meta.document_id);",
+                  "pm.test('Dossier complet', () => pm.expect(body.data.completion.complete).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/profile/documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "profile",
+                "documents"
+              ]
+            },
+            "description": "Étape « Pièces » (`multipart/form-data`). Une nouvelle pièce d’identité remplace la précédente, quel que soit son type.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `document_type` | oui | Un code de `document_types` : `contractor_cni`, `contractor_passport`, `contractor_consular_card`, `contractor_identity_certificate` ; indépendant : `contractor_trade_certificate` ; entreprise : `contractor_rccm`, `contractor_tax_certificate`, `contractor_site_references`. |\n| `number` | indépendant, pour une pièce d’identité | Numéro de la pièce (facultatif pour le représentant d’une entreprise). |\n| `recto`, `verso` | si `has_back_side` | Les deux faces (le passeport n’a pas de verso). |\n| `file` | sinon | Le fichier de la pièce. |\n| `expires_at` | non | Date d’expiration future. |\n\n**Réponse 201** : le dossier, et `meta.document_id`. **422** si la pièce n’est pas demandée pour ce profil.\n\nRetrait : `DELETE /contractor/profile/documents/{id}` (une pièce d’identité vérifiée ne peut qu’être remplacée).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document_type",
+                  "value": "contractor_cni",
+                  "type": "text"
+                },
+                {
+                  "key": "number",
+                  "value": "CI-DEMO-000123",
+                  "type": "text"
+                },
+                {
+                  "key": "recto",
+                  "type": "file",
+                  "src": "fixtures/cni-recto.png"
+                },
+                {
+                  "key": "verso",
+                  "type": "file",
+                  "src": "fixtures/cni-verso.png"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "835c8ceb-6430-5553-be7b-16d8875d10f3",
+          "name": "Ajouter la photo de profil",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Photo enregistrée', () => pm.expect(pm.response.json().data.photo_url).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/profile/photo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "profile",
+                "photo"
+              ]
+            },
+            "description": "Photo de profil (indépendant) ou logo (entreprise), `multipart/form-data`, champ `photo` : JPEG ou PNG, 5 Mo au plus. Retrait : `DELETE /contractor/profile/photo`.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "photo",
+                  "type": "file",
+                  "src": "fixtures/photo-identite.png"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "c4140b90-efa4-5e00-848e-0a1e54922036",
+          "name": "Mon dossier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "profile"
+              ]
+            },
+            "description": "Écran « Profil » : dossier, avancement et état de la vérification.\n\n**Réponse** (`data`) : le dossier complet.\n\n| Bloc | Contenu |\n|---|---|\n| `kind`, `verification_type` | `entreprise` (KYB) ou `independant` (KYC). |\n| `name`, `initials`, `photo_url` | Nom affiché (raison sociale ou prénoms et nom), initiales, logo ou photo (lien signé 30 min). |\n| `company` | Entreprise : `legal_name`, `legal_form`, `rccm`, `ncc`, `representative_name` (null pour un indépendant). |\n| `identity` | Indépendant : `last_name`, `first_name`, `birth_date` (null pour une entreprise). |\n| `contact` | `dial_code`, `phone_number`, `phone`, `email`, `city`, `address`. |\n| `activity` | `trades`, `zones` (villes en plus de la ville principale), `experience_years`, `description`. |\n| `verification` | `status` (brouillon, soumis, en_controle, a_corriger, valide, refuse), `state` affiché (`brouillon`, `en_verification`, `verifie`, `a_corriger`, `rejete`, `suspendu`), `reason` (motif du refus, des corrections ou de la suspension), `can_edit`, `can_change_kind`, `can_submit`, `edit_warning` (à confirmer avant de modifier un dossier vérifié). |\n| `limits` | `can_respond` (répondre aux opportunités) et `message` à afficher tant que le profil n’est pas vérifié. |\n| `completion` | `percent`, `complete`, `items` et `missing` (`key`, `label`, `step` : entreprise, representant, identite, coordonnees, activite, pieces). |\n| `documents` | Pièces en vigueur : type, `number_last4`, `status`, fichiers (lien signé). |\n| `document_types` | Pièces proposées : `code`, `label`, `group` (`identity` : une seule pièce d’identité au choix), `hint` (Obligatoire, Selon votre statut, Facultatif), `has_back_side`, `requires_number`, formats et taille. |\n| `options.legal_forms` | Formes juridiques proposées. |\n"
+          },
+          "response": []
+        },
+        {
+          "id": "3b6b06eb-6db7-50a9-a1df-9b3874d31751",
+          "name": "Soumettre le dossier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "pm.test('En vérification', () => pm.expect(pm.response.json().data.verification.state.value).to.eql('en_verification'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/profile/submit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "profile",
+                "submit"
+              ]
+            },
+            "description": "Étape « Récapitulatif » → « Soumettre ». Le dossier passe **en vérification** et le Back Office en est saisi ; une notification « Dossier soumis » est envoyée.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `certify` | oui | `true` : « Je certifie l’exactitude des informations et j’accepte leur traitement pour la vérification de mon profil. » |\n\n**422** : une erreur par élément manquant (clés de `completion.missing`, ex. `identity`), ou dossier déjà en vérification ou déjà vérifié.\n\nPendant la vérification, le dossier ne peut plus être modifié. Décision du Back Office : **vérifié**, **à corriger** (motif et pièces à remplacer) ou **rejeté** (motif) ; le dossier peut alors être corrigé puis soumis de nouveau.\n\nHors production, la décision peut être simulée :\n`php artisan ochantier:simulate-contractor-review <téléphone|e-mail|ENT-00001> valider|corriger|refuser|suspendre|reactiver [--motif=…]`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"certify\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "auth": {
@@ -644,6 +993,36 @@
       "value": "",
       "type": "string",
       "description": "Renseigné automatiquement."
+    },
+    {
+      "key": "city_id",
+      "value": "",
+      "type": "string",
+      "description": "Ville principale (Référentiels)."
+    },
+    {
+      "key": "zone_city_id",
+      "value": "",
+      "type": "string",
+      "description": "Ville d’intervention complémentaire (Référentiels)."
+    },
+    {
+      "key": "trade_id",
+      "value": "",
+      "type": "string",
+      "description": "Premier métier (Référentiels)."
+    },
+    {
+      "key": "second_trade_id",
+      "value": "",
+      "type": "string",
+      "description": "Deuxième métier (Référentiels)."
+    },
+    {
+      "key": "document_id",
+      "value": "",
+      "type": "string",
+      "description": "Dernière pièce ajoutée."
     }
   ]
 }
