@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\Commercial\PerformanceController as CommercialPe
 use App\Http\Controllers\Api\V1\Commercial\ProspectController;
 use App\Http\Controllers\Api\V1\Commercial\ProspectDocumentController;
 use App\Http\Controllers\Api\V1\Commercial\WorkerController as CommercialWorkerController;
+use App\Http\Controllers\Api\V1\Contractor\OpportunityController as ContractorOpportunityController;
 use App\Http\Controllers\Api\V1\Contractor\ProfileController as ContractorProfileController;
 use App\Http\Controllers\Api\V1\Contractor\ProfileDocumentController as ContractorProfileDocumentController;
 use App\Http\Controllers\Api\V1\HelpController;
@@ -235,7 +236,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             });
 
             // Application Commercial : prospects, dossiers ouvriers, gains, activité, profil et notifications.
-            // Application Entrepreneurs et Techniciens : choix du profil et dossier de vérification (KYB ou KYC).
+            // Application Entrepreneurs et Techniciens : choix du profil, dossier de vérification (KYB ou KYC) et opportunités.
             Route::middleware('user.type:contractor')->prefix('contractor')->name('contractor.')->group(function () {
                 Route::get('profile', [ContractorProfileController::class, 'show'])->name('profile.show');
                 Route::post('profile', [ContractorProfileController::class, 'store'])->name('profile.store');
@@ -245,6 +246,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::delete('profile/photo', [ContractorProfileController::class, 'destroyPhoto'])->name('profile.photo.destroy');
                 Route::post('profile/documents', [ContractorProfileDocumentController::class, 'store'])->name('profile.documents.store');
                 Route::delete('profile/documents/{document}', [ContractorProfileDocumentController::class, 'destroy'])->name('profile.documents.destroy');
+
+                Route::get('opportunities', [ContractorOpportunityController::class, 'index'])->name('opportunities.index');
+                Route::get('opportunities/quotes/{quote}', [ContractorOpportunityController::class, 'showQuote'])->name('opportunities.quotes.show');
+                Route::get('opportunities/offers/{offer}', [ContractorOpportunityController::class, 'showOffer'])->name('opportunities.offers.show');
             });
 
             Route::middleware(['user.type:commercial', 'commercial'])->prefix('commercial')->name('commercial.')->group(function () {

@@ -68,6 +68,8 @@ class PlatformRulesSeeder extends Seeder
         ],
         'proposals.validity_hours' => [48, 'Durée de validité d’une proposition d’équipe avant expiration (heures).'],
         'reservations.hold_hours' => [48, 'Durée de blocage des ouvriers d’une proposition acceptée, le temps de payer l’acompte (heures).'],
+        'quotes.response_hours' => [72, 'Délai de réponse des techniciens à une demande de devis (heures).'],
+        'contractor_offers.response_hours' => [72, 'Délai de réponse des entrepreneurs à une offre contractuelle (heures).'],
         'support.phone' => ['+225 27 22 00 00 00', 'Numéro du support affiché dans le centre d’aide.'],
         'support.whatsapp' => ['+225 07 00 00 00 00', 'Numéro WhatsApp du support.'],
         'support.email' => ['support@ochantier.ci', 'Adresse e-mail du support.'],

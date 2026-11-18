@@ -12,6 +12,7 @@ use App\Models\PaymentTransaction;
 use App\Models\QuoteBid;
 use App\Models\QuoteRequest;
 use App\Models\QuoteRequestTrade;
+use App\Models\Setting;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\Worker;
@@ -69,6 +70,7 @@ class QuoteRequests
                 'notes' => $site->offer_draft['contract']['quote_request']['notes'] ?? null,
                 'requested_by_user_id' => $author->getKey(),
                 'submitted_at' => now(),
+                'response_deadline' => now()->addHours((int) (Setting::query()->whereKey('quotes.response_hours')->value('value') ?? 72)),
             ]);
 
             foreach ($this->drafts->quoteTrades($site) as $trade) {

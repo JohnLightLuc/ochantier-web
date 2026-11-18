@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a86af9c3-f682-553f-a780-3728504d68cc",
     "name": "O’CHANTIER API v1 · Entrepreneurs et Techniciens",
-    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification** et le **profil à vérifier** (KYB ou KYC) : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
+    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) et les **opportunités** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -901,6 +901,171 @@
           "response": []
         }
       ]
+    },
+    {
+      "id": "2501be09-120e-5c29-9125-a6d69bd3f0c1",
+      "name": "Opportunités",
+      "description": "Demandes de devis et offres contractuelles compatibles avec vos métiers et votre zone d’intervention (consultation).",
+      "item": [
+        {
+          "id": "a6c88a06-db42-5f8c-8651-4ca601faf322",
+          "name": "Demandes de devis",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.data.length) { pm.collectionVariables.set('quote_opportunity_id', body.data[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/opportunities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "opportunities"
+              ]
+            },
+            "description": "Onglet « Demandes de devis » de l’écran « Opportunités » : corps de métier en recherche, dans votre ville principale ou vos zones complémentaires et pour vos métiers, avant leur date limite, triés par date limite. Consultable avant la vérification du profil.\n\n| Paramètre | Description |\n|---|---|\n| `kind` | `quotes` (par défaut) ou `offers`. |\n| `search` | Titre ou référence du chantier, commune ou quartier. |\n\nChaque opportunité (`data[]`) :\n\n| Champ | Description |\n|---|---|\n| `id`, `kind` | `quote_request` (demande de devis, un corps de métier) ou `contractor_offer` (offre contractuelle). |\n| `reference` | Référence de la demande (`DV-…`) ou de l’offre (`OF-…`). |\n| `trade` / `trades` | Métier demandé ; pour une offre, métiers de la demande de devis du chantier (vide : tous les métiers). |\n| `site` | `reference`, `title`, `neighborhood`, `commune`, `city`, `place` (« Cocody, Abidjan »), `image_url`. Jamais l’adresse exacte. |\n| `deadline` | `at`, `expired`, `soon` (moins de 36 h), `remaining_seconds` (compte à rebours). |\n| `documents_count`, `photos_count` | Demande de devis : pièces non sensibles jointes au chantier. |\n| `amount`, `period` | Offre : montant proposé (FCFA), `start_date`, `end_date`, `days`. |\n| `status` | `ouverte` ou `fermee`. |\n| `my_response` | Votre réponse si vous en avez envoyé une (`amount`, `status`, `attributed`), sinon `null`. |\n\n`meta` : `counts` (opportunités par onglet), `excluded` (opportunités ouvertes hors de votre profil), `profile` (métiers et villes, pour les puces du résumé), `can_respond` et `notice` à afficher tant que le profil n’est pas vérifié.\n\n**404** tant que le profil n’est pas choisi."
+          },
+          "response": []
+        },
+        {
+          "id": "8e2b807f-0202-5b74-8a36-b95b907ddf09",
+          "name": "Offres contractuelles",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.data.length) { pm.collectionVariables.set('offer_opportunity_id', body.data[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/opportunities?kind=offers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "opportunities"
+              ],
+              "query": [
+                {
+                  "key": "kind",
+                  "value": "offers"
+                }
+              ]
+            },
+            "description": "Onglet « Offres contractuelles » : forfaits publiés par les promoteurs, sans entrepreneur retenu, dans vos villes, avant leur date limite. Quand le chantier a fait l’objet d’une demande de devis, l’offre ne vise que ses corps de métier.\n\nChaque opportunité (`data[]`) :\n\n| Champ | Description |\n|---|---|\n| `id`, `kind` | `quote_request` (demande de devis, un corps de métier) ou `contractor_offer` (offre contractuelle). |\n| `reference` | Référence de la demande (`DV-…`) ou de l’offre (`OF-…`). |\n| `trade` / `trades` | Métier demandé ; pour une offre, métiers de la demande de devis du chantier (vide : tous les métiers). |\n| `site` | `reference`, `title`, `neighborhood`, `commune`, `city`, `place` (« Cocody, Abidjan »), `image_url`. Jamais l’adresse exacte. |\n| `deadline` | `at`, `expired`, `soon` (moins de 36 h), `remaining_seconds` (compte à rebours). |\n| `documents_count`, `photos_count` | Demande de devis : pièces non sensibles jointes au chantier. |\n| `amount`, `period` | Offre : montant proposé (FCFA), `start_date`, `end_date`, `days`. |\n| `status` | `ouverte` ou `fermee`. |\n| `my_response` | Votre réponse si vous en avez envoyé une (`amount`, `status`, `attributed`), sinon `null`. |\n"
+          },
+          "response": []
+        },
+        {
+          "id": "ddf34d58-e073-5554-9198-77d80c09bb01",
+          "name": "Détail d’une demande de devis",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 404', () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/opportunities/quotes/{{quote_opportunity_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "opportunities",
+                "quotes",
+                "{{quote_opportunity_id}}"
+              ]
+            },
+            "description": "Écran « Demande de devis » : la carte, plus `need` (besoin du promoteur), `other_trades` (autres métiers du chantier, chacun faisant l’objet d’une demande distincte) et `site` détaillé.\n\n`response` : `can_respond`, `action` (libellé du bouton, « Non éligible » hors profil), `reason` affiché sous le bouton (profil non vérifié, délai expiré, opportunité fermée ou hors profil), `eligible`.\n\n`site` ajoute `description`, `constraints` (contraintes et accès), dates prévues, `area` (centre de la commune, pas la position du chantier), `masked_notice`, `promoter` (coordonnées masquées), `photos` et `documents` (liens signés 30 min).\n\nLe détail reste consultable après la date limite. **404** si la demande est introuvable ou annulée."
+          },
+          "response": []
+        },
+        {
+          "id": "a85a30db-d426-520b-8b56-4e1ddd8da140",
+          "name": "Détail d’une offre contractuelle",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 404', () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/opportunities/offers/{{offer_opportunity_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "opportunities",
+                "offers",
+                "{{offer_opportunity_id}}"
+              ]
+            },
+            "description": "Écran « Offre contractuelle » : la carte, plus `description`, `deliverables`, `payment_mode` (hebdomadaire, par étape, fin de chantier), `milestones` (échéancier : libellé, montant, date), `quote_document` (devis joint par le promoteur) et `site` détaillé.\n\n`response` : `can_respond`, `action` (libellé du bouton, « Non éligible » hors profil), `reason` affiché sous le bouton (profil non vérifié, délai expiré, opportunité fermée ou hors profil), `eligible`.\n\n`site` ajoute `description`, `constraints` (contraintes et accès), dates prévues, `area` (centre de la commune, pas la position du chantier), `masked_notice`, `promoter` (coordonnées masquées), `photos` et `documents` (liens signés 30 min).\n\n**404** si l’offre est introuvable ou n’a pas été publiée."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "auth": {
@@ -1023,6 +1188,18 @@
       "value": "",
       "type": "string",
       "description": "Dernière pièce ajoutée."
+    },
+    {
+      "key": "quote_opportunity_id",
+      "value": "",
+      "type": "string",
+      "description": "Première demande de devis de la liste."
+    },
+    {
+      "key": "offer_opportunity_id",
+      "value": "",
+      "type": "string",
+      "description": "Première offre contractuelle de la liste."
     }
   ]
 }

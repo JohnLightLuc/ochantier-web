@@ -36,6 +36,8 @@ class PlatformSettings
         'payments.dual_validation_threshold' => ['Paiements', 'Seuil de troisième validation d’un remboursement', 'int', 1000, 1000000000, 'FCFA'],
         'proposals.validity_hours' => ['Propositions', 'Validité d’une proposition d’équipe', 'int', 1, 720, 'h'],
         'reservations.hold_hours' => ['Propositions', 'Blocage des ouvriers avant le paiement de l’acompte', 'int', 1, 720, 'h'],
+        'quotes.response_hours' => ['Propositions', 'Délai de réponse à une demande de devis', 'int', 1, 720, 'h'],
+        'contractor_offers.response_hours' => ['Propositions', 'Délai de réponse à une offre contractuelle', 'int', 1, 720, 'h'],
         'matching.profiles_shown' => ['Matching', 'Profils proposés par besoin', 'int', 1, 50, 'profils'],
         'matching.obsolete_after_days' => ['Matching', 'Ancienneté d’un résultat avant recalcul', 'int', 1, 60, 'jours'],
         'attendance.late_tolerance_minutes' => ['Pointage', 'Tolérance de retard', 'int', 0, 240, 'min'],

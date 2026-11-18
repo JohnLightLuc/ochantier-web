@@ -11,6 +11,7 @@ use App\Enums\PaymentFrequency;
 use App\Enums\PriceOrigin;
 use App\Enums\SiteStatus;
 use App\Models\Offer;
+use App\Models\Setting;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\Worker;
@@ -70,6 +71,7 @@ class SitePublisher
                 'status' => $contract ? OfferStatus::Publiee : OfferStatus::Soumise,
                 'submitted_at' => now(),
                 'published_at' => $contract ? now() : null,
+                'application_deadline' => $contract ? now()->addHours((int) (Setting::query()->whereKey('contractor_offers.response_hours')->value('value') ?? 72)) : null,
                 'created_by_user_id' => $author->getKey(),
             ]);
             $this->history($offer, null, $offer->status->value, $author);
