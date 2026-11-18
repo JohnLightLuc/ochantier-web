@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\V1\Promoter\SubscriptionController;
 use App\Http\Controllers\Api\V1\Promoter\TeamController;
 use App\Http\Controllers\Api\V1\Promoter\WorkerCatalogController;
 use App\Http\Controllers\Api\V1\ReferenceController;
+use App\Http\Controllers\Api\V1\SupportController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -246,6 +247,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
             });
         });
     });
+
+    // Coordonnées du support : publiques, affichables avant la connexion.
+    Route::get('support', SupportController::class)->middleware('throttle:30,1')->name('support');
 
     // Fichiers : lien signé à durée limitée fourni dans les réponses de l’API.
     Route::get('media/{media}', MediaController::class)->middleware('signed')->name('media.show');

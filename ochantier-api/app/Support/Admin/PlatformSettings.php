@@ -49,6 +49,8 @@ class PlatformSettings
         'support.whatsapp' => ['Support', 'WhatsApp', 'text'],
         'support.email' => ['Support', 'E-mail', 'email'],
         'support.hours' => ['Support', 'Horaires', 'text'],
+        'support.opening_days' => ['Support', 'Jours d’ouverture', 'text'],
+        'support.working_hours' => ['Support', 'Heures de travail', 'text'],
     ];
 
     private const VARIABLES = ['X' => 'Acompte initial (X)', 'Y' => 'Commission promoteur (Y)', 'Z' => 'Commission ouvrier (Z)', 'R' => 'Seuil de paiement chantier (R)'];
