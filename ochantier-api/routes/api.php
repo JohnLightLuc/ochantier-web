@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\V1\Contractor\ProfileController as ContractorProfil
 use App\Http\Controllers\Api\V1\Contractor\ProfileDocumentController as ContractorProfileDocumentController;
 use App\Http\Controllers\Api\V1\Contractor\QuoteProposalController as ContractorQuoteProposalController;
 use App\Http\Controllers\Api\V1\Contractor\SiteController as ContractorSiteController;
+use App\Http\Controllers\Api\V1\Contractor\StaffingController as ContractorStaffingController;
 use App\Http\Controllers\Api\V1\Contractor\TeamController as ContractorTeamController;
 use App\Http\Controllers\Api\V1\HelpController;
 use App\Http\Controllers\Api\V1\MediaController;
@@ -263,6 +264,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::get('offer-responses/{offerResponse}', [ContractorOfferResponseController::class, 'show'])->name('offer-responses.show');
                 Route::delete('offer-responses/{offerResponse}', [ContractorOfferResponseController::class, 'destroy'])->name('offer-responses.destroy');
 
+                Route::get('payments/installments', [ContractorStaffingController::class, 'installments'])->name('payments.installments');
+                Route::post('payments/installments/{installment}/quote', [ContractorStaffingController::class, 'installmentQuote'])->name('payments.installments.quote');
+                Route::post('payments/installments/{installment}/pay', [ContractorStaffingController::class, 'payInstallment'])->middleware('throttle:10,1')->name('payments.installments.pay');
                 Route::get('workers', [ContractorTeamController::class, 'catalog'])->name('workers.index');
                 Route::get('workers/{catalogWorker}', [ContractorTeamController::class, 'worker'])->name('workers.show');
                 Route::get('sites', [ContractorSiteController::class, 'index'])->name('sites.index');
@@ -280,6 +284,13 @@ Route::prefix('v1')->name('v1.')->group(function () {
                     Route::get('assignments/{teamAssignment}', [ContractorTeamController::class, 'show'])->name('assignments.show');
                     Route::post('assignments/{teamAssignment}/replace', [ContractorTeamController::class, 'replace'])->name('assignments.replace');
                     Route::post('assignments/{teamAssignment}/cancel', [ContractorTeamController::class, 'cancel'])->name('assignments.cancel');
+                    Route::get('staffing-requests', [ContractorStaffingController::class, 'index'])->name('staffing.index');
+                    Route::post('staffing-requests', [ContractorStaffingController::class, 'store'])->name('staffing.store');
+                    Route::get('staffing-requests/{staffingRequest}', [ContractorStaffingController::class, 'show'])->name('staffing.show');
+                    Route::post('staffing-requests/{staffingRequest}/payment-quote', [ContractorStaffingController::class, 'quote'])->name('staffing.quote');
+                    Route::post('staffing-requests/{staffingRequest}/pay', [ContractorStaffingController::class, 'pay'])->middleware('throttle:10,1')->name('staffing.pay');
+                    Route::post('staffing-requests/{staffingRequest}/refuse', [ContractorStaffingController::class, 'refuse'])->name('staffing.refuse');
+                    Route::post('staffing-requests/{staffingRequest}/cancel', [ContractorStaffingController::class, 'cancel'])->name('staffing.cancel');
                 });
 
                 Route::get('quote-proposals', [ContractorQuoteProposalController::class, 'index'])->name('quote-proposals.index');

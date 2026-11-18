@@ -2336,6 +2336,478 @@
           "response": []
         }
       ]
+    },
+    {
+      "id": "89f6f8cd-562a-5adf-87be-0f638d9226c7",
+      "name": "Recherche d’effectifs",
+      "description": "Besoins par métier, offre d’ouvriers (complète ou partielle), acompte et frais payés par l’entrepreneur, échéances hebdomadaires du solde.",
+      "item": [
+        {
+          "id": "475606c7-82ae-5b44-91b6-d9a38de5e471",
+          "name": "Rechercher des ouvriers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([201, 404, 422]));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set('staffing_request_id', pm.response.json().data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/staffing-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "staffing-requests"
+              ]
+            },
+            "description": "Écran « Rechercher des ouvriers » → « Publier la demande ». O’CHANTIER recherche les ouvriers validés et disponibles du métier (ville du chantier d’abord), libres sur la période ; vous êtes notifié dès que l’offre est prête.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `start_date` | oui | Début, dans la période du forfait. |\n| `days` | oui | Nombre de jours de travail (la fin doit rester dans le forfait). |\n| `lines[].trade_id` | oui | Métier (une ligne par métier). |\n| `lines[].headcount` | oui | Nombre d’ouvriers. |\n| `lines[].daily_rate` | oui | Tarif journalier proposé (FCFA). |\n\nHors production, l’offre se constitue avec `php artisan ochantier:simulate-staffing [EF-2026-0001]`.\n\n**Réponse 201**. Réponse (`data`) : la recherche.\n\n| Bloc | Contenu |\n|---|---|\n| `status` | `recherche`, `offre`, `payee`, `refusee`, `annulee` ; `progress_label` (« Recherche… », « Offre 3/4 »). |\n| `banner` | Titre et texte du bandeau (recherche, proposition complète ou partielle, réservation validée). |\n| `wanted`, `found`, `lines[]` | Par métier : effectif, tarif, ouvriers trouvés (`workers[]` : nom, photo, note, `status` propose / retenu / libere) et manquants. |\n| `conditions` | Coût journalier, `total`, acompte (X %), solde, frais de service (5 % du total), `estimate` (avant l’offre), `calculation`. |\n| `payment` | Après paiement : référence, montant payé, acompte, frais de service, frais opérateur, opérateur, numéro masqué. |\n| `installments[]` | Solde en échéances hebdomadaires : `label`, `due_date`, `amount`, `state` (`a_payer`, `en_retard`, `paye`). |\n| `tracking` | Demande publiée, recherche, offre reçue, acompte et confirmation. |\n| `actions` | `accept_and_pay`, `refuse`, `cancel`. |\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_date\": \"2030-02-01\",\n  \"days\": 14,\n  \"lines\": [\n    {\n      \"trade_id\": \"{{trade_id}}\",\n      \"headcount\": 3,\n      \"daily_rate\": 20000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "0d7c535b-5398-5aa1-977f-56f79d51ced4",
+          "name": "Recherches d’effectifs du chantier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/staffing-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "staffing-requests"
+              ]
+            },
+            "description": "Recherches du chantier, les plus récentes d’abord (`summary`, période, `wanted`, `found`, `progress_label`, `parent_request_id` pour la recherche des ouvriers manquants)."
+          },
+          "response": []
+        },
+        {
+          "id": "9f4b71f3-8f49-5a6e-aa60-7af5cfea101f",
+          "name": "Réservation d’ouvriers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/staffing-requests/{{staffing_request_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "staffing-requests",
+                "{{staffing_request_id}}"
+              ]
+            },
+            "description": "Écran « Réservation d’ouvriers ». Réponse (`data`) : la recherche.\n\n| Bloc | Contenu |\n|---|---|\n| `status` | `recherche`, `offre`, `payee`, `refusee`, `annulee` ; `progress_label` (« Recherche… », « Offre 3/4 »). |\n| `banner` | Titre et texte du bandeau (recherche, proposition complète ou partielle, réservation validée). |\n| `wanted`, `found`, `lines[]` | Par métier : effectif, tarif, ouvriers trouvés (`workers[]` : nom, photo, note, `status` propose / retenu / libere) et manquants. |\n| `conditions` | Coût journalier, `total`, acompte (X %), solde, frais de service (5 % du total), `estimate` (avant l’offre), `calculation`. |\n| `payment` | Après paiement : référence, montant payé, acompte, frais de service, frais opérateur, opérateur, numéro masqué. |\n| `installments[]` | Solde en échéances hebdomadaires : `label`, `due_date`, `amount`, `state` (`a_payer`, `en_retard`, `paye`). |\n| `tracking` | Demande publiée, recherche, offre reçue, acompte et confirmation. |\n| `actions` | `accept_and_pay`, `refuse`, `cancel`. |\n"
+          },
+          "response": []
+        },
+        {
+          "id": "51fc3860-1f3c-5d52-b0f4-d48a6bc7d18a",
+          "name": "Détail du paiement de l’acompte",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/staffing-requests/{{staffing_request_id}}/payment-quote",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "staffing-requests",
+                "{{staffing_request_id}}",
+                "payment-quote"
+              ]
+            },
+            "description": "Montant à payer pour accepter l’offre : acompte (X % du coût total des ouvriers trouvés) + frais de service (5 % du coût total) + frais de l’opérateur.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `operator_code` | oui | `orange_money`, `mtn_momo`, `wave`, `moov_money`. |\n\nRéponse : `lines`, `amount`, `fees`, `total`, `fee_percent`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operator_code\": \"orange_money\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "22892be2-7926-5045-8605-07813c1ea488",
+          "name": "Accepter et payer l’acompte",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/staffing-requests/{{staffing_request_id}}/pay",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "staffing-requests",
+                "{{staffing_request_id}}",
+                "pay"
+              ]
+            },
+            "description": "Accepte l’offre en payant l’acompte et les frais par Mobile Money (en-tête `Idempotency-Key` : une même clé renvoie le paiement déjà demandé).\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `operator_code` | oui | Opérateur Mobile Money. |\n| `dial_code`, `phone_number` | oui | Numéro qui paie. |\n\nPaiement réussi (**201**) : les ouvriers trouvés rejoignent votre équipe (affectations confirmées), le solde est découpé en échéances hebdomadaires et les ouvriers manquants font l’objet d’une nouvelle recherche. Échec : **200** avec `transaction.status` = `echouee` et un message pour réessayer. **422** si l’offre n’est plus en attente ou si un ouvrier n’est plus disponible.\n\nRéponse : la recherche à jour et `transaction` (référence, statut, montant, frais, total).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operator_code\": \"orange_money\",\n  \"dial_code\": \"225\",\n  \"phone_number\": \"0700000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "e728c8fc-e1ee-5185-af39-e562553a5188",
+          "name": "Refuser l’offre",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/staffing-requests/{{staffing_request_id}}/refuse",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "staffing-requests",
+                "{{staffing_request_id}}",
+                "refuse"
+              ]
+            },
+            "description": "Refuse l’offre : les ouvriers proposés sont libérés ; vous pouvez publier une nouvelle demande. **422** sans offre en attente."
+          },
+          "response": []
+        },
+        {
+          "id": "2efee6a2-1036-5cdb-a0d3-90db05fb0225",
+          "name": "Annuler la recherche",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/staffing-requests/{{staffing_request_id}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "staffing-requests",
+                "{{staffing_request_id}}",
+                "cancel"
+              ]
+            },
+            "description": "Annule une recherche qui n’a pas encore d’offre. **422** sinon (refusez plutôt l’offre)."
+          },
+          "response": []
+        },
+        {
+          "id": "3d1aeb5b-cdf9-5c01-8fa5-14995b4693db",
+          "name": "Paiements à effectuer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data; if (d.length) { pm.collectionVariables.set('staffing_installment_id', d[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/payments/installments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "payments",
+                "installments"
+              ]
+            },
+            "description": "Échéances du solde de vos recherches d’effectifs, de la plus proche à la plus lointaine : `label`, `due_date`, `amount`, `state`, `staffing_request`, `site`. `meta` : `count`, `total`."
+          },
+          "response": []
+        },
+        {
+          "id": "b6cfa732-3775-5fff-b2a2-fc7a53643f95",
+          "name": "Détail du paiement d’une échéance",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/payments/installments/{{staffing_installment_id}}/quote",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "payments",
+                "installments",
+                "{{staffing_installment_id}}",
+                "quote"
+              ]
+            },
+            "description": "Montant de l’échéance et frais de l’opérateur.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `operator_code` | oui | Opérateur Mobile Money. |",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operator_code\": \"orange_money\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "945125fa-b3e8-5180-ab1f-bee54b228fd4",
+          "name": "Payer une échéance",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/payments/installments/{{staffing_installment_id}}/pay",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "payments",
+                "installments",
+                "{{staffing_installment_id}}",
+                "pay"
+              ]
+            },
+            "description": "Paie une échéance du solde par Mobile Money (`operator_code`, `dial_code`, `phone_number`, en-tête `Idempotency-Key`). **201** si le paiement réussit ; **422** si l’échéance est déjà payée.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operator_code\": \"orange_money\",\n  \"dial_code\": \"225\",\n  \"phone_number\": \"0700000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "auth": {
@@ -2512,6 +2984,18 @@
       "value": "",
       "type": "string",
       "description": "Dernière affectation créée."
+    },
+    {
+      "key": "staffing_request_id",
+      "value": "",
+      "type": "string",
+      "description": "Dernière recherche d’effectifs publiée."
+    },
+    {
+      "key": "staffing_installment_id",
+      "value": "",
+      "type": "string",
+      "description": "Première échéance à payer."
     }
   ]
 }

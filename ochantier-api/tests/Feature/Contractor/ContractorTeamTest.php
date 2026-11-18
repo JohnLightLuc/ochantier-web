@@ -5,15 +5,12 @@ namespace Tests\Feature\Contractor;
 use App\Enums\AssignmentStatus;
 use App\Enums\AvailabilityStatus;
 use App\Enums\ContractorVerificationStatus;
-use App\Enums\SkillLevel;
 use App\Enums\WorkerVerificationStatus;
 use App\Models\Admin;
 use App\Models\Assignment;
-use App\Models\Commune;
 use App\Models\Mission;
 use App\Models\Notification;
 use App\Models\Offer;
-use App\Models\User;
 use App\Models\Worker;
 use App\Support\Auth\AdminSessions;
 use App\Support\Auth\DeviceContext;
@@ -200,30 +197,5 @@ class ContractorTeamTest extends ContractorMarketTestCase
         $this->withAccessToken(app(AdminSessions::class)->open($admin, new DeviceContext('Chrome', null, 'web', null, '127.0.0.1', 'phpunit'))->accessToken);
 
         return $admin;
-    }
-
-    private function worker(string $name, string $trade, int $rate, AvailabilityStatus $availability = AvailabilityStatus::Disponible, WorkerVerificationStatus $status = WorkerVerificationStatus::Valide): Worker
-    {
-        static $phone = 2000000;
-        $commercial = User::factory()->commercial()->create()->commercialProfile;
-        [$first, $last] = explode(' ', $name, 2);
-
-        $worker = Worker::query()->create([
-            'reference' => 'OUV-C'.$phone,
-            'origin_commercial_id' => $commercial->id,
-            'current_commercial_id' => $commercial->id,
-            'first_name' => $first,
-            'last_name' => $last,
-            'dial_code' => '225',
-            'phone_number' => '05'.str_pad((string) $phone++, 8, '0', STR_PAD_LEFT),
-            'residence_commune_id' => Commune::query()->where('name', 'Cocody')->value('id'),
-            'estimated_daily_rate' => $rate,
-            'verification_status' => $status,
-            'availability_status' => $availability,
-            'rating_avg' => 4.5,
-        ]);
-        $worker->workerTrades()->create(['trade_id' => $this->trade($trade), 'is_primary' => true, 'years_experience' => 6, 'level' => SkillLevel::Confirme]);
-
-        return $worker;
     }
 }

@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialRankingController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialTerritoryController;
 use App\Http\Controllers\Api\V1\Admin\Contractor\ContractorController;
 use App\Http\Controllers\Api\V1\Admin\Contractor\ContractorReviewController;
+use App\Http\Controllers\Api\V1\Admin\Contractor\StaffingRequestController;
 use App\Http\Controllers\Api\V1\Admin\Dashboard\DashboardController;
 use App\Http\Controllers\Api\V1\Admin\Dispute\DisputeController;
 use App\Http\Controllers\Api\V1\Admin\Finance\ClosingController;
@@ -441,6 +442,10 @@ Route::middleware('auth:admin')->group(function () {
             Route::get('{workDayId}', 'show')->whereUuid('workDayId')->middleware('admin.can:attendance.read')->name('show');
             Route::post('{workDayId}/remind', 'remind')->whereUuid('workDayId')->middleware('admin.can:attendance.update')->name('remind');
         });
+
+        // Recherches d’effectifs des entrepreneurs : file et constitution de l’offre d’ouvriers.
+        Route::get('staffing-requests', [StaffingRequestController::class, 'index'])->middleware('admin.can:missions.read')->name('staffing-requests.index');
+        Route::post('staffing-requests/{staffingRequest}/offer', [StaffingRequestController::class, 'offer'])->whereUuid('staffingRequest')->middleware('admin.can:missions.update')->name('staffing-requests.offer');
 
         // Affectations : liste, export, fiche, accord de l’ouvrier (équipes d’entrepreneurs), indisponibilité et recherche de remplaçants.
         Route::prefix('assignments')->name('assignments.')->controller(AssignmentController::class)->group(function () {

@@ -4596,6 +4596,107 @@
       ]
     },
     {
+      "id": "f3d20dde-99b5-5eae-ba09-211640e2d5ff",
+      "name": "Recherches d’effectifs",
+      "description": "Recherches d’effectifs des entrepreneurs : file et constitution de l’offre d’ouvriers.",
+      "item": [
+        {
+          "id": "6fb40f33-a5f3-55b1-8ec7-fabe9eeb321d",
+          "name": "Recherches d’effectifs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data; if (d.length) { pm.collectionVariables.set('admin_staffing_request_id', d[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/staffing-requests?status=recherche",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "staffing-requests"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "recherche"
+                }
+              ]
+            },
+            "description": "Recherches d’effectifs des entrepreneurs (par défaut `status=recherche`), avec l’entrepreneur, le chantier, les besoins et les ouvriers proposés. Enregistre la première (`admin_staffing_request_id`).\n\nPermission : `missions.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "0a48fe7a-9f9e-5dc5-bc56-45e86a7af4d0",
+          "name": "Constituer l’offre d’ouvriers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/staffing-requests/{{admin_staffing_request_id}}/offer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "staffing-requests",
+                "{{admin_staffing_request_id}}",
+                "offer"
+              ]
+            },
+            "description": "Constitue l’offre envoyée à l’entrepreneur : sans corps, recherche automatique (ouvriers validés, disponibles, libres sur la période) ; avec `workers` ([{`line_id`, `worker_id`}]), les ouvriers contactés par l’équipe. L’entrepreneur est notifié. Sans ouvrier trouvé, la recherche reste ouverte. Journal d’audit : `staffing.offer_built`.\n\nPermission : `missions.update`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "id": "ae25e3cc-e1bb-56fe-86e9-ac863848bce3",
       "name": "Mot de passe oublié",
       "item": [
@@ -5706,6 +5807,12 @@
       "value": "",
       "type": "string",
       "description": "Première affectation en attente d’accord."
+    },
+    {
+      "key": "admin_staffing_request_id",
+      "value": "",
+      "type": "string",
+      "description": "Première recherche d’effectifs en attente."
     }
   ]
 }

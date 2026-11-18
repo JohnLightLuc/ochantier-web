@@ -361,7 +361,7 @@ class ContractorTeam
     /**
      * Affectation en cours ou à venir de l’ouvrier qui chevauche la période, sur n’importe quel chantier.
      */
-    private function conflict(Worker $worker, CarbonImmutable $start, CarbonImmutable $end): ?Assignment
+    public function conflict(Worker $worker, CarbonImmutable $start, CarbonImmutable $end): ?Assignment
     {
         return Assignment::query()->with('mission.site')
             ->where('worker_id', $worker->getKey())
@@ -383,9 +383,10 @@ class ContractorTeam
     }
 
     /**
-     * Besoin, instantané (sans montant) et mission « équipe de l’entrepreneur », puis l’affectation en attente.
+     * Besoin, instantané (sans montant pour le promoteur) et mission « équipe de l’entrepreneur », puis l’affectation
+     * (en attente de l’accord de l’ouvrier pour une affectation directe, confirmée pour une recherche d’effectifs).
      */
-    private function createAssignment(Contractor $contractor, Site $site, User $author, Worker $worker, string $role, int $rate, CarbonImmutable $start, CarbonImmutable $end): Assignment
+    public function createAssignment(Contractor $contractor, Site $site, User $author, Worker $worker, string $role, int $rate, CarbonImmutable $start, CarbonImmutable $end, AssignmentStatus $status = AssignmentStatus::EnAttente, ?string $description = null): Assignment
     {
         $offer = $site->offers()->whereNotNull('contractor_bid_id')->latest()->firstOrFail();
         $days = (int) $start->diffInDays($end) + 1;
@@ -399,7 +400,7 @@ class ContractorTeam
             'role_label' => $role,
             'headcount' => 1,
             'title' => 'Équipe de '.$contractor->name.' · '.$role,
-            'description' => trim($worker->first_name.' '.$worker->last_name).' affecté directement par '.$contractor->name.' (payé hors plateforme).',
+            'description' => $description ?? trim($worker->first_name.' '.$worker->last_name).' affecté directement par '.$contractor->name.' (payé hors plateforme).',
             'start_date' => $start->toDateString(),
             'end_date' => $end->toDateString(),
             'duration_days' => $days,
@@ -455,7 +456,8 @@ class ContractorTeam
             'salary_amount' => $rate,
             'salary_period' => SalaryPeriod::Jour,
             'z_rate' => 0,
-            'status' => AssignmentStatus::EnAttente,
+            'status' => $status,
+            'agreement_decided_at' => $status === AssignmentStatus::EnAttente ? null : now(),
         ])->load(self::WORKER_WITH);
     }
 

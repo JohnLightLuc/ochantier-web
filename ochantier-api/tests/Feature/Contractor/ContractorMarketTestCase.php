@@ -2,15 +2,19 @@
 
 namespace Tests\Feature\Contractor;
 
+use App\Enums\AvailabilityStatus;
 use App\Enums\ContractorKind;
 use App\Enums\ContractorStatus;
 use App\Enums\ContractorVerificationStatus;
+use App\Enums\SkillLevel;
+use App\Enums\WorkerVerificationStatus;
 use App\Models\Commune;
 use App\Models\Contractor;
 use App\Models\Offer;
 use App\Models\QuoteRequestTrade;
 use App\Models\Trade;
 use App\Models\User;
+use App\Models\Worker;
 use Database\Seeders\AdminAccessSeeder;
 use Database\Seeders\CommercialOfferSeeder;
 use Database\Seeders\PlatformRulesSeeder;
@@ -129,5 +133,33 @@ abstract class ContractorMarketTestCase extends ContractorTestCase
     protected function line(array $site, string $trade): QuoteRequestTrade
     {
         return QuoteRequestTrade::query()->whereHas('quoteRequest', fn ($query) => $query->where('site_id', $site['id']))->whereHas('trade', fn ($query) => $query->where('code', $trade))->sole();
+    }
+
+    /**
+     * Ouvrier du catalogue (dossier validé par défaut), résidant à Cocody.
+     */
+    protected function worker(string $name, string $trade, int $rate, AvailabilityStatus $availability = AvailabilityStatus::Disponible, WorkerVerificationStatus $status = WorkerVerificationStatus::Valide): Worker
+    {
+        static $phone = 2000000;
+        $commercial = User::factory()->commercial()->create()->commercialProfile;
+        [$first, $last] = explode(' ', $name, 2);
+
+        $worker = Worker::query()->create([
+            'reference' => 'OUV-C'.$phone,
+            'origin_commercial_id' => $commercial->id,
+            'current_commercial_id' => $commercial->id,
+            'first_name' => $first,
+            'last_name' => $last,
+            'dial_code' => '225',
+            'phone_number' => '05'.str_pad((string) $phone++, 8, '0', STR_PAD_LEFT),
+            'residence_commune_id' => Commune::query()->where('name', 'Cocody')->value('id'),
+            'estimated_daily_rate' => $rate,
+            'verification_status' => $status,
+            'availability_status' => $availability,
+            'rating_avg' => 4.5,
+        ]);
+        $worker->workerTrades()->create(['trade_id' => $this->trade($trade), 'is_primary' => true, 'years_experience' => 6, 'level' => SkillLevel::Confirme]);
+
+        return $worker;
     }
 }
