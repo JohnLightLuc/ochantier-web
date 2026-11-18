@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a86af9c3-f682-553f-a780-3728504d68cc",
     "name": "O’CHANTIER API v1 · Entrepreneurs et Techniciens",
-    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) les **opportunités** et les **propositions de devis** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
+    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) les **opportunités** les **propositions de devis** et les **réponses aux offres contractuelles** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -1061,7 +1061,7 @@
                 "{{offer_opportunity_id}}"
               ]
             },
-            "description": "Écran « Offre contractuelle » : la carte, plus `description`, `deliverables`, `payment_mode` (hebdomadaire, par étape, fin de chantier), `milestones` (échéancier : libellé, montant, date), `quote_document` (devis joint par le promoteur) et `site` détaillé.\n\n`response` : `can_respond`, `action` (libellé du bouton, « Non éligible » hors profil), `reason` affiché sous le bouton (profil non vérifié, délai expiré, opportunité fermée ou hors profil), `eligible`.\n\n`site` ajoute `description`, `constraints` (contraintes et accès), dates prévues, `area` (centre de la commune, pas la position du chantier), `masked_notice`, `promoter` (coordonnées masquées), `photos` et `documents` (liens signés 30 min).\n\n**404** si l’offre est introuvable ou n’a pas été publiée."
+            "description": "Écran « Offre contractuelle » : la carte, plus `description`, `deliverables`, `payment_mode` (hebdomadaire, par étape, fin de chantier), `milestones` (échéancier : libellé, montant, date), `quote_document` (devis joint par le promoteur), `terms` (conditions à reprendre : prix net hors commission, dates, durée, échéancier indicatif), `draft_id` (brouillon de réponse en cours) et `site` détaillé.\n\n`response` : `can_respond`, `action` (libellé du bouton, « Non éligible » hors profil), `reason` affiché sous le bouton (profil non vérifié, délai expiré, opportunité fermée ou hors profil), `eligible`.\n\n`site` ajoute `description`, `constraints` (contraintes et accès), dates prévues, `area` (centre de la commune, pas la position du chantier), `masked_notice`, `promoter` (coordonnées masquées), `photos` et `documents` (liens signés 30 min).\n\n**404** si l’offre est introuvable ou n’a pas été publiée."
           },
           "response": []
         }
@@ -1478,6 +1478,182 @@
           "response": []
         }
       ]
+    },
+    {
+      "id": "aa1832df-8b6d-5dba-9249-8301f09c4843",
+      "name": "Réponses aux offres contractuelles",
+      "description": "Offre conforme ou contre-proposition, brouillons, suivi jusqu’à l’attribution du chantier, et « Mes offres ».",
+      "item": [
+        {
+          "id": "7441ea9a-c689-540c-b999-304ce4319b2f",
+          "name": "Répondre à l’offre",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([201, 422]));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set('offer_response_id', pm.response.json().data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/opportunities/offers/{{offer_opportunity_id}}/response",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "opportunities",
+                "offers",
+                "{{offer_opportunity_id}}",
+                "response"
+              ]
+            },
+            "description": "Écran « Répondre à l’offre ». Réservé aux profils **vérifiés**, sur une offre ouverte de votre zone ; une réponse par offre. Le détail de l’offre (`terms`) donne les conditions du promoteur et l’échéancier pour préremplir le formulaire.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `mode` | oui | `conforme` (prix net et dates du promoteur repris) ou `contre_proposition`. |\n| `amount` | contre-proposition | Votre prix total **net** (FCFA), hors commission O’CHANTIER. Interdit pour une offre conforme. |\n| `start_date`, `end_date` | contre-proposition | Début (après aujourd’hui) et fin des travaux. |\n| `team_size` | oui | Taille de l’équipe. |\n| `message` | non | Précisions pour le promoteur. |\n| `draft` | non | `true` : brouillon (modifiable, jamais montré au promoteur). Renvoyer la requête sans `draft` envoie le brouillon. |\n\nL’échéancier n’est pas modifiable : acompte X à l’attribution, puis le solde au rythme de l’offre.\n\n**Réponse 201**. **422** (`errors.response`) : profil non vérifié, délai expiré, hors profil ou réponse déjà envoyée.\n\n**Réponse** (`data`) : la réponse.\n\n| Bloc | Contenu |\n|---|---|\n| `response_mode` | `conforme` ou `contre_proposition`. |\n| `status`, `display_status` | `brouillon`, `proposee` (En attente), `choisie` (Retenue · acompte en attente), `retenue` (Attribuée), `non_retenue`, `annulee`. |\n| `amount`, `promoter_amount` | Votre prix net, et le prix payé par le promoteur (commission O’CHANTIER incluse). |\n| `conditions` | Prix, début, fin, durée, équipe et précisions envoyés (ou du brouillon). |\n| `initial_conditions`, `comparison` | Conditions du promoteur et écarts (prix, décalage du début, durée). |\n| `money` | Net, commission, prix promoteur, acompte (X %) payé par le promoteur à l’attribution. |\n| `schedule` | Répartition indicative de votre prix : acompte, puis le solde au rythme de l’offre (semaines, étapes ou fin de chantier). |\n| `tracking` | Étapes `sent`, `decision`, `deposit`, `attributed` (`done`, `current`, `todo`, `failed`). |\n| `attribution` | Une fois attribuée : `site_id` (écran « Mes chantiers »), `start_date`, **adresse**, `location`, contact du `promoter`. |\n| `actions` | `resume_draft`, `delete_draft`, `open_site`. |\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"contre_proposition\",\n  \"amount\": 2900000,\n  \"start_date\": \"2030-02-01\",\n  \"end_date\": \"2030-03-12\",\n  \"team_size\": 8,\n  \"message\": \"Équipe de 8 personnes, démarrage possible sous 10 jours.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "752598c0-e0b7-535b-a2b3-f796c791d376",
+          "name": "Mon offre contractuelle",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 404', () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/offer-responses/{{offer_response_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "offer-responses",
+                "{{offer_response_id}}"
+              ]
+            },
+            "description": "Écran « Mon offre contractuelle ».\n\n**Réponse** (`data`) : la réponse.\n\n| Bloc | Contenu |\n|---|---|\n| `response_mode` | `conforme` ou `contre_proposition`. |\n| `status`, `display_status` | `brouillon`, `proposee` (En attente), `choisie` (Retenue · acompte en attente), `retenue` (Attribuée), `non_retenue`, `annulee`. |\n| `amount`, `promoter_amount` | Votre prix net, et le prix payé par le promoteur (commission O’CHANTIER incluse). |\n| `conditions` | Prix, début, fin, durée, équipe et précisions envoyés (ou du brouillon). |\n| `initial_conditions`, `comparison` | Conditions du promoteur et écarts (prix, décalage du début, durée). |\n| `money` | Net, commission, prix promoteur, acompte (X %) payé par le promoteur à l’attribution. |\n| `schedule` | Répartition indicative de votre prix : acompte, puis le solde au rythme de l’offre (semaines, étapes ou fin de chantier). |\n| `tracking` | Étapes `sent`, `decision`, `deposit`, `attributed` (`done`, `current`, `todo`, `failed`). |\n| `attribution` | Une fois attribuée : `site_id` (écran « Mes chantiers »), `start_date`, **adresse**, `location`, contact du `promoter`. |\n| `actions` | `resume_draft`, `delete_draft`, `open_site`. |\n"
+          },
+          "response": []
+        },
+        {
+          "id": "e8a0ed20-2981-5a32-b767-3a116aece48a",
+          "name": "Supprimer un brouillon",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/offer-responses/{{offer_response_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "offer-responses",
+                "{{offer_response_id}}"
+              ]
+            },
+            "description": "Supprime une réponse en brouillon. **422** si elle a été envoyée."
+          },
+          "response": []
+        },
+        {
+          "id": "ab16773a-6a55-53ac-a840-16737d8a9f15",
+          "name": "Mes offres",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/my-offers?tab=en_attente",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "my-offers"
+              ],
+              "query": [
+                {
+                  "key": "tab",
+                  "value": "en_attente"
+                }
+              ]
+            },
+            "description": "Écran « Mes offres » : réponses aux offres contractuelles (`kind.value` = `offer_response`) et propositions de devis (`quote_proposal`), les plus récentes d’abord.\n\n| Paramètre | Description |\n|---|---|\n| `tab` | `brouillons`, `en_attente` (par défaut), `acceptees` (retenues, attribuées, devis commandés), `refusees`, `retirees`. |\n| `search` | Titre du chantier. |\n\n`meta.tabs` : `key`, `label`, `count`.\n\nUne carte s’ouvre avec `GET /contractor/offer-responses/{id}` ou `GET /contractor/quote-proposals/{id}` selon `kind`."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "auth": {
@@ -1624,6 +1800,12 @@
       "value": "",
       "type": "string",
       "description": "Dernier brouillon de devis créé."
+    },
+    {
+      "key": "offer_response_id",
+      "value": "",
+      "type": "string",
+      "description": "Dernière réponse à une offre contractuelle."
     }
   ]
 }

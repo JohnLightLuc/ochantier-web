@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\Commercial\PerformanceController as CommercialPe
 use App\Http\Controllers\Api\V1\Commercial\ProspectController;
 use App\Http\Controllers\Api\V1\Commercial\ProspectDocumentController;
 use App\Http\Controllers\Api\V1\Commercial\WorkerController as CommercialWorkerController;
+use App\Http\Controllers\Api\V1\Contractor\OfferResponseController as ContractorOfferResponseController;
 use App\Http\Controllers\Api\V1\Contractor\OpportunityController as ContractorOpportunityController;
 use App\Http\Controllers\Api\V1\Contractor\ProfileController as ContractorProfileController;
 use App\Http\Controllers\Api\V1\Contractor\ProfileDocumentController as ContractorProfileDocumentController;
@@ -254,6 +255,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::get('opportunities/quotes/{quote}', [ContractorOpportunityController::class, 'showQuote'])->name('opportunities.quotes.show');
                 Route::get('opportunities/offers/{offer}', [ContractorOpportunityController::class, 'showOffer'])->name('opportunities.offers.show');
                 Route::post('opportunities/quotes/{quote}/proposal', [ContractorQuoteProposalController::class, 'store'])->middleware('throttle:20,1')->name('opportunities.quotes.proposal');
+                Route::post('opportunities/offers/{offer}/response', [ContractorOfferResponseController::class, 'store'])->middleware('throttle:20,1')->name('opportunities.offers.response');
+
+                Route::get('my-offers', [ContractorOfferResponseController::class, 'index'])->name('my-offers.index');
+                Route::get('offer-responses/{offerResponse}', [ContractorOfferResponseController::class, 'show'])->name('offer-responses.show');
+                Route::delete('offer-responses/{offerResponse}', [ContractorOfferResponseController::class, 'destroy'])->name('offer-responses.destroy');
 
                 Route::get('quote-proposals', [ContractorQuoteProposalController::class, 'index'])->name('quote-proposals.index');
                 Route::prefix('quote-proposals/{quoteProposal}')->name('quote-proposals.')->group(function () {

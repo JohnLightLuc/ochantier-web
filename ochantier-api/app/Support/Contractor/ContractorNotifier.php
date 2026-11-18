@@ -39,6 +39,9 @@ class ContractorNotifier
         'visit.reschedule_accepted' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Voir la mission'],
         'visit.reschedule_refused' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Voir la mission'],
         'quote.received' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir le devis'],
+        'offer.chosen' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Voir mon offre'],
+        'offer.attributed' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Ouvrir le chantier'],
+        'offer.not_retained' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir mon offre'],
     ];
 
     public function __construct(private NotificationInbox $inbox) {}

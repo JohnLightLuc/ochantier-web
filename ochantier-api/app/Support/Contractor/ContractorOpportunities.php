@@ -155,7 +155,11 @@ class ContractorOpportunities
             ])->values()->all(),
             'quote_document' => $quote,
             'site' => $this->siteDetail($offer->site),
-            'response' => $this->response($contractor, $open, $offer->application_deadline, $exclusion, 'Répondre à l’offre'),
+            'terms' => app(ContractorOfferResponses::class)->terms($offer),
+            'response' => $this->response($contractor, $open, $offer->application_deadline, $exclusion,
+                ($draft = ContractorBid::query()->where('offer_id', $offer->getKey())->where('contractor_id', $contractor->getKey())->first())?->status === ContractorBidStatus::Brouillon ? 'Reprendre mon brouillon' : 'Répondre à l’offre',
+                $draft !== null && $draft->status !== ContractorBidStatus::Brouillon),
+            'draft_id' => $draft?->status === ContractorBidStatus::Brouillon ? $draft->id : null,
         ];
     }
 

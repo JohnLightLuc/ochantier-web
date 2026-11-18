@@ -114,7 +114,9 @@ class ContractorOpportunityTest extends ContractorMarketTestCase
 
         $this->travel(73)->hours();
         $this->getJson('/api/v1/contractor/opportunities?kind=offers')->assertJsonCount(0, 'data');
-        $this->getJson('/api/v1/contractor/opportunities/offers/'.$offer->id)->assertJsonPath('data.response.reason', 'Le délai de réponse est expiré.');
+        $this->getJson('/api/v1/contractor/opportunities/offers/'.$offer->id)
+            ->assertJsonPath('data.deadline.expired', true)
+            ->assertJsonPath('data.response.reason', 'Vous avez déjà répondu : consultez votre proposition.');
     }
 
     public function test_a_contractual_offer_after_a_quote_request_targets_its_trades(): void
