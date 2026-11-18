@@ -22,6 +22,7 @@ use App\Support\Documents\DocumentStore;
 use App\Support\Media\MediaStore;
 use App\Support\PhoneNumber;
 use App\Support\Promoter\ContractorOffers;
+use App\Support\Promoter\SiteRatings;
 use App\Support\Promoter\SiteSteps;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -163,6 +164,11 @@ class ContractorSites
             ],
             'chronology' => collect($this->steps->summary($site))->except('steps')->all(),
             'documents' => ['count' => $documents->count(), 'latest' => $documents->take(3)->values()->all()],
+            'closure' => $site->status === SiteStatus::Termine ? [
+                'closed_at' => $site->closed_at?->toIso8601String(),
+                'report_available' => true,
+                'evaluation' => collect(app(SiteRatings::class)->summary($site, $contractor->user))->only(['title', 'subtitle', 'rated_count', 'total'])->all(),
+            ] : null,
         ];
     }
 

@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\Commercial\ProspectController;
 use App\Http\Controllers\Api\V1\Commercial\ProspectDocumentController;
 use App\Http\Controllers\Api\V1\Commercial\WorkerController as CommercialWorkerController;
 use App\Http\Controllers\Api\V1\Contractor\AttendanceController as ContractorAttendanceController;
+use App\Http\Controllers\Api\V1\Contractor\ClosureController as ContractorClosureController;
 use App\Http\Controllers\Api\V1\Contractor\OfferResponseController as ContractorOfferResponseController;
 use App\Http\Controllers\Api\V1\Contractor\OpportunityController as ContractorOpportunityController;
 use App\Http\Controllers\Api\V1\Contractor\ProfileController as ContractorProfileController;
@@ -268,6 +269,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::get('payments/installments', [ContractorStaffingController::class, 'installments'])->name('payments.installments');
                 Route::post('payments/installments/{installment}/quote', [ContractorStaffingController::class, 'installmentQuote'])->name('payments.installments.quote');
                 Route::post('payments/installments/{installment}/pay', [ContractorStaffingController::class, 'payInstallment'])->middleware('throttle:10,1')->name('payments.installments.pay');
+                Route::put('ratings/{contractorRating}', [ContractorClosureController::class, 'update'])->name('ratings.update');
                 Route::get('workers', [ContractorTeamController::class, 'catalog'])->name('workers.index');
                 Route::get('workers/{catalogWorker}', [ContractorTeamController::class, 'worker'])->name('workers.show');
                 Route::get('sites', [ContractorSiteController::class, 'index'])->name('sites.index');
@@ -292,6 +294,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
                     Route::post('attendance/{date}/validate', [ContractorAttendanceController::class, 'validateDay'])->where('date', '\d{4}-\d{2}-\d{2}')->name('attendance.validate');
                     Route::get('attendance/days/{workDay}', [ContractorAttendanceController::class, 'show'])->name('attendance.days.show');
                     Route::post('attendance/days/{workDay}/correction', [ContractorAttendanceController::class, 'correct'])->name('attendance.days.correct');
+                    Route::get('ratings', [ContractorClosureController::class, 'ratings'])->name('ratings.index');
+                    Route::post('ratings', [ContractorClosureController::class, 'rate'])->name('ratings.store');
+                    Route::get('report', [ContractorClosureController::class, 'report'])->name('report');
+                    Route::get('report/pdf', [ContractorClosureController::class, 'pdf'])->name('report.pdf');
                     Route::get('staffing-requests', [ContractorStaffingController::class, 'index'])->name('staffing.index');
                     Route::post('staffing-requests', [ContractorStaffingController::class, 'store'])->name('staffing.store');
                     Route::get('staffing-requests/{staffingRequest}', [ContractorStaffingController::class, 'show'])->name('staffing.show');

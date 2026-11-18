@@ -3,14 +3,19 @@
 namespace App\Support\Promoter;
 
 use App\Enums\AssignmentStatus;
+use App\Enums\ContractorBidStatus;
 use App\Enums\MissionStatus;
 use App\Enums\NeedStatus;
 use App\Enums\SiteStatus;
+use App\Enums\StaffingRequestStatus;
 use App\Models\Admin;
 use App\Models\Assignment;
+use App\Models\ContractorBid;
 use App\Models\Mission;
 use App\Models\Need;
 use App\Models\Site;
+use App\Models\StaffingRequest;
+use App\Support\Contractor\ContractorNotifier;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -54,6 +59,14 @@ class SiteClosure
                 ]);
             }
 
+            // Équipe de l’entrepreneur : affectations en attente d’accord annulées, recherches d’effectifs ouvertes closes.
+            Assignment::query()->where('status', AssignmentStatus::EnAttente->value)
+                ->whereHas('mission', fn ($query) => $query->where('site_id', $site->getKey()))
+                ->update(['status' => AssignmentStatus::Annulee->value, 'end_reason' => $reason]);
+            StaffingRequest::query()->where('site_id', $site->getKey())
+                ->whereIn('status', [StaffingRequestStatus::Recherche->value, StaffingRequestStatus::Offre->value])
+                ->update(['status' => StaffingRequestStatus::Annulee->value, 'decided_at' => $now]);
+
             foreach ($site->needs()->whereIn('status', [NeedStatus::Confirme, NeedStatus::EnCours])->get() as $need) {
                 /** @var Need $need */
                 $need->statusHistories()->create(['from_status' => $need->status->value, 'to_status' => NeedStatus::Termine->value, 'reason' => $reason, ...$actor]);
@@ -67,6 +80,12 @@ class SiteClosure
         });
 
         $this->notifier->siteEnded($site->refresh(), $this->subscriptions->isSubscribed($site->promoterProfile));
+
+        if ($bid = ContractorBid::query()->with('contractor.user')->where('status', ContractorBidStatus::Retenue->value)->whereHas('offer', fn ($query) => $query->where('site_id', $site->getKey()))->first()) {
+            $bid->contractor->increment('completed_sites_count');
+            app(ContractorNotifier::class)->notify($bid->contractor, 'site.ended', 'Chantier terminé · '.$site->label,
+                'Notez chaque ouvrier et votre équipe. Le rapport de fin de chantier est disponible.', ['type' => 'site', 'id' => $site->id], $site, 'site.ended:'.$site->id);
+        }
 
         return $count;
     }

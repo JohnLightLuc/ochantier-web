@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a86af9c3-f682-553f-a780-3728504d68cc",
     "name": "O’CHANTIER API v1 · Entrepreneurs et Techniciens",
-    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) les **opportunités** les **propositions de devis** les **réponses aux offres contractuelles** **Mes chantiers** et l’**équipe** et le **pointage** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
+    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) les **opportunités** les **propositions de devis** les **réponses aux offres contractuelles** **Mes chantiers** et l’**équipe** le **pointage** et la **fin de chantier** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -3163,6 +3163,231 @@
           "response": []
         }
       ]
+    },
+    {
+      "id": "4ac0ed1c-6207-59ea-947a-80c9a7316464",
+      "name": "Fin de chantier",
+      "description": "Évaluations des ouvriers et de l’équipe, rapport de fin de chantier (consultation et PDF).",
+      "item": [
+        {
+          "id": "a7612b56-2236-51a4-8b40-2a56a28d7e4e",
+          "name": "Évaluer l’équipe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 404', () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));",
+                  "if (pm.response.code === 200) { const w = pm.response.json().data.workers; if (w.length) { pm.collectionVariables.set('rating_assignment_id', w[0].assignment_id); } }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/ratings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "ratings"
+              ]
+            },
+            "description": "Carte « Évaluer l’équipe » : ouvriers dont la mission est terminée (`workers[]` avec `rating` ou `can_rate`) et, à la fin du chantier, l’« Équipe globale » (`team`). `meta` : `labels` (1 Très insatisfait … 5 Excellent), `tags` (satisfactions proposées par portée et par note), `questions`, `review_window_days`.\n\nLa clôture du chantier est faite par le Back Office (hors production : `php artisan ochantier:simulate-site-end <chantier>`) ; l’entrepreneur est notifié."
+          },
+          "response": []
+        },
+        {
+          "id": "1196dd07-92f9-50e2-a68e-037d96a76298",
+          "name": "Noter un ouvrier ou l’équipe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([201, 404, 422]));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set('contractor_rating_id', pm.response.json().data.rating.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/ratings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "ratings"
+              ]
+            },
+            "description": "Publie aussitôt une évaluation (modifiable pendant `review_window_days` jours).\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `scope` | oui | `individuel` (un ouvrier) ou `equipe` (fin du chantier). |\n| `assignment_id` | si `individuel` | Ouvrier à noter (`workers[].assignment_id`). |\n| `score` | oui | 1 à 5. |\n| `satisfaction_tag` | oui | Une satisfaction proposée pour cette note (`meta.tags`). |\n| `comment` | non | 1000 caractères. |\n\nLa note met à jour la moyenne de l’ouvrier. **422** : déjà noté, mission pas terminée, satisfaction non proposée.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scope\": \"individuel\",\n  \"assignment_id\": \"{{rating_assignment_id}}\",\n  \"score\": 5,\n  \"satisfaction_tag\": \"Très professionnel\",\n  \"comment\": \"Excellent chef d’équipe.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "bc983461-e85d-5784-8e66-bcbd5682da7c",
+          "name": "Modifier une évaluation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 403, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/ratings/{{contractor_rating_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "ratings",
+                "{{contractor_rating_id}}"
+              ]
+            },
+            "description": "Modifie votre évaluation (`score`, `satisfaction_tag`, `comment`) ; la version précédente est conservée. **422** après la période de modification.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"score\": 4,\n  \"satisfaction_tag\": \"Ponctuel\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "e1a0668f-6eb6-586f-ba7a-fa7608356eee",
+          "name": "Rapport de fin de chantier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 403, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/report",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "report"
+              ]
+            },
+            "description": "Disponible à la fin du chantier (`available`, sinon `lock_message`) : `kpis` (durée, présence, étapes), `description`, `attendance` (pointages de votre équipe, présence par ouvrier), `chronology`, `finances` (contrat net, perçu via O’CHANTIER, reste à percevoir, main-d’œuvre pointée et validée, payé pour les recherches d’effectifs), `evaluation`, `signature`."
+          },
+          "response": []
+        },
+        {
+          "id": "e36d1677-e92c-55fc-85b4-a6cd2cc5cf03",
+          "name": "Télécharger le rapport (PDF)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200, 403 ou 404', () => pm.expect(pm.response.code).to.be.oneOf([200, 403, 404]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/report/pdf",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "report",
+                "pdf"
+              ]
+            },
+            "description": "Le rapport en PDF (`rapport-CH-2026-0001.pdf`). **403** tant que le chantier n’est pas terminé."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "auth": {
@@ -3363,6 +3588,18 @@
       "value": "",
       "type": "string",
       "description": "Journée pointée (historique ou fiche)."
+    },
+    {
+      "key": "rating_assignment_id",
+      "value": "",
+      "type": "string",
+      "description": "Ouvrier à noter."
+    },
+    {
+      "key": "contractor_rating_id",
+      "value": "",
+      "type": "string",
+      "description": "Dernière évaluation publiée."
     }
   ]
 }
