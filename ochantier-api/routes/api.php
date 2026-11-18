@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\Commercial\PerformanceController as CommercialPe
 use App\Http\Controllers\Api\V1\Commercial\ProspectController;
 use App\Http\Controllers\Api\V1\Commercial\ProspectDocumentController;
 use App\Http\Controllers\Api\V1\Commercial\WorkerController as CommercialWorkerController;
+use App\Http\Controllers\Api\V1\Contractor\AssistanceController as ContractorAssistanceController;
 use App\Http\Controllers\Api\V1\Contractor\AttendanceController as ContractorAttendanceController;
 use App\Http\Controllers\Api\V1\Contractor\ClosureController as ContractorClosureController;
 use App\Http\Controllers\Api\V1\Contractor\MemberController as ContractorMemberController;
@@ -272,6 +273,13 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::post('payments/installments/{installment}/quote', [ContractorStaffingController::class, 'installmentQuote'])->name('payments.installments.quote');
                 Route::post('payments/installments/{installment}/pay', [ContractorStaffingController::class, 'payInstallment'])->middleware('throttle:10,1')->name('payments.installments.pay');
                 Route::put('ratings/{contractorRating}', [ContractorClosureController::class, 'update'])->name('ratings.update');
+                Route::get('notifications', [ContractorAssistanceController::class, 'notifications'])->name('notifications.index');
+                Route::post('notifications/read-all', [ContractorAssistanceController::class, 'readAll'])->name('notifications.read-all');
+                Route::post('notifications/{notification}/read', [ContractorAssistanceController::class, 'read'])->whereUuid('notification')->name('notifications.read');
+                Route::get('notification-preferences', [NotificationPreferenceController::class, 'show'])->name('notification-preferences.show');
+                Route::put('notification-preferences', [NotificationPreferenceController::class, 'update'])->name('notification-preferences.update');
+                Route::get('support/tickets', [ContractorAssistanceController::class, 'tickets'])->name('support.tickets.index');
+                Route::post('support/tickets', [ContractorAssistanceController::class, 'storeTicket'])->middleware('throttle:10,1')->name('support.tickets.store');
                 Route::get('members', [ContractorMemberController::class, 'index'])->name('members.index');
                 Route::post('members', [ContractorMemberController::class, 'store'])->middleware('throttle:20,1')->name('members.store');
                 Route::patch('members/{member}', [ContractorMemberController::class, 'update'])->name('members.update');

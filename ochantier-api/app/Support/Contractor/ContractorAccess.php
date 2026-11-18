@@ -41,6 +41,9 @@ class ContractorAccess
      */
     public const ROUTES = [
         'profile.show' => 'view',
+        'notifications.*' => 'view',
+        'notification-preferences.*' => 'view',
+        'support.*' => 'view',
         'opportunities.index' => 'view',
         'opportunities.quotes.show' => 'view',
         'opportunities.offers.show' => 'view',

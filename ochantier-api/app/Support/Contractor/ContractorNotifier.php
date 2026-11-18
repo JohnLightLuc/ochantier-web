@@ -6,11 +6,13 @@ use App\Enums\ContractorStatus;
 use App\Enums\Priority;
 use App\Models\Contractor;
 use App\Models\Mission;
+use App\Models\Notification;
 use App\Models\Offer;
 use App\Models\PaymentSchedule;
 use App\Models\QuoteBid;
 use App\Models\QuoteRequest;
 use App\Models\Site;
+use App\Models\User;
 use App\Support\Notifications\NotificationInbox;
 use App\Support\Promoter\ContractorOffers;
 use Illuminate\Database\Eloquent\Builder;
@@ -58,16 +60,119 @@ class ContractorNotifier
         'payment.received' => ['tab' => 'paiements', 'alert' => 'paiements', 'priority' => Priority::Normale, 'sms' => true, 'cta' => 'Voir les paiements'],
     ];
 
+    /**
+     * Onglets du centre de notifications (catégories de la maquette).
+     *
+     * @var array<string, string>
+     */
+    public const TABS = [
+        'toutes' => 'Toutes',
+        'non_lues' => 'Non lues',
+        'nouvelles_demandes' => 'Nouvelles demandes',
+        'offres_acceptees' => 'Offres acceptées',
+        'offres_refusees' => 'Offres refusées',
+        'paiements' => 'Paiements',
+        'rendez_vous' => 'Rendez-vous et dates',
+        'chantiers' => 'Chantiers et équipe',
+        'documents' => 'Documents',
+        'abonnement' => 'Abonnement',
+    ];
+
+    /**
+     * Catégorie de chaque événement (onglet du centre de notifications).
+     *
+     * @var array<string, string>
+     */
+    public const CATEGORIES = [
+        'opportunity.quote' => 'nouvelles_demandes',
+        'opportunity.offer' => 'nouvelles_demandes',
+        'proposal.ordered' => 'offres_acceptees',
+        'offer.chosen' => 'offres_acceptees',
+        'offer.attributed' => 'offres_acceptees',
+        'proposal.not_retained' => 'offres_refusees',
+        'offer.not_retained' => 'offres_refusees',
+        'payment.received' => 'paiements',
+        'staffing.paid' => 'paiements',
+        'visit.reschedule_accepted' => 'rendez_vous',
+        'visit.reschedule_refused' => 'rendez_vous',
+        'staffing.offer' => 'chantiers',
+        'team.accepted' => 'chantiers',
+        'team.refused' => 'chantiers',
+        'team.joined' => 'chantiers',
+        'attendance.pending' => 'chantiers',
+        'site.ended' => 'chantiers',
+        'quote.received' => 'documents',
+        'profile.submitted' => 'documents',
+        'account.approved' => 'documents',
+        'account.corrections' => 'documents',
+        'account.rejected' => 'documents',
+        'account.suspended' => 'documents',
+        'account.reactivated' => 'documents',
+        'subscription.paid' => 'abonnement',
+        'subscription.renewal' => 'abonnement',
+        'subscription.expired' => 'abonnement',
+    ];
+
+    /**
+     * Collaborateurs prévenus en plus du titulaire, par catégorie.
+     *
+     * @var array<string, list<string>>
+     */
+    private const MEMBER_CATEGORIES = [
+        'chantiers' => ['chef_chantier'],
+        'rendez_vous' => ['chef_chantier'],
+        'paiements' => ['comptable'],
+        'abonnement' => ['comptable'],
+    ];
+
     public function __construct(private NotificationInbox $inbox) {}
 
+    /**
+     * Notifie le titulaire du compte et, selon la catégorie, les collaborateurs concernés (chef de chantier pour les
+     * chantiers et l’équipe, comptable pour les paiements et l’abonnement).
+     */
     public function notify(Contractor $contractor, string $event, string $title, string $body, array $target = [], mixed $related = null, ?string $dedup = null): void
     {
-        $user = $contractor->user;
+        $roles = self::MEMBER_CATEGORIES[self::CATEGORIES[$event] ?? ''] ?? [];
+        $recipients = collect([$contractor->user])
+            ->concat($roles === [] ? [] : $contractor->members()->with('user')->where('status', 'actif')->whereIn('role', $roles)->get()->pluck('user'))
+            ->filter();
 
-        if ($user) {
+        foreach ($recipients as $user) {
             $this->inbox->send($user, $event, self::EVENTS[$event], $title, $body,
-                ['target' => $target ?: ['type' => 'profile', 'id' => $contractor->id], 'cta' => self::EVENTS[$event]['cta']], $related ?? $contractor, $dedup);
+                ['target' => $target ?: ['type' => 'profile', 'id' => $contractor->id], 'cta' => self::EVENTS[$event]['cta'], 'category' => self::CATEGORIES[$event] ?? null], $related ?? $contractor, $dedup);
         }
+    }
+
+    /**
+     * Centre de notifications : groupes par période (Aujourd’hui, Cette semaine, Plus anciennes), filtrés par onglet.
+     *
+     * @return array{data: list<array<string, mixed>>, meta: array<string, mixed>}
+     */
+    public function center(User $user, string $filter = 'toutes'): array
+    {
+        return $this->inbox->center($user, $filter, self::TABS,
+            fn (Notification $notification, string $tab) => match ($tab) {
+                'toutes' => true,
+                'non_lues' => $notification->read_at === null,
+                default => (self::CATEGORIES[$notification->event_code] ?? null) === $tab,
+            },
+            fn (Notification $notification) => [
+                'cta' => ($notification->data['cta'] ?? self::EVENTS[$notification->event_code]['cta'] ?? '') ?: null,
+                'category' => ['value' => $category = self::CATEGORIES[$notification->event_code] ?? 'documents', 'label' => self::TABS[$category]],
+            ],
+            ['toutes', 'non_lues'],
+        );
+    }
+
+    public function unreadCount(User $user): int
+    {
+        return $this->inbox->unreadCount($user);
+    }
+
+    public function markRead(User $user, ?string $id = null): int
+    {
+        return $this->inbox->markRead($user, $id);
     }
 
     /**

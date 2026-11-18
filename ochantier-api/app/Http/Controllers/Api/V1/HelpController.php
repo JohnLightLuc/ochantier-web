@@ -17,7 +17,11 @@ class HelpController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
-        $audience = $request->user()->user_type === UserType::Commercial ? 'commercial' : 'promoter';
+        $audience = match ($request->user()->user_type) {
+            UserType::Commercial => 'commercial',
+            UserType::Contractor => 'contractor',
+            default => 'promoter',
+        };
         $settings = Setting::query()->where('key', 'like', 'support.%')->pluck('value', 'key');
 
         $faq = FaqArticle::query()

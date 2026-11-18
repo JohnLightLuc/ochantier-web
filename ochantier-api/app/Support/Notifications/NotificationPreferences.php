@@ -42,6 +42,18 @@ class NotificationPreferences
         'relances' => ['Relances conseillées', 'Prospects sans nouvelles depuis 7 jours'],
     ];
 
+    /**
+     * Types d’alertes de l’application Entrepreneurs et Techniciens : code => [libellé, précision].
+     *
+     * @var array<string, array{0: string, 1: string}>
+     */
+    public const CONTRACTOR_ALERTS = [
+        'opportunites' => ['Nouvelles opportunités', 'Demandes de devis et offres de vos métiers et zones'],
+        'paiements' => ['Paiements', 'Échéances reçues et paiements confirmés'],
+        'pointages' => ['Pointages', 'Journées à valider'],
+        'abonnement' => ['Abonnement', 'Renouvellement et expiration'],
+    ];
+
     private const DEFAULT_CHANNELS = ['push' => true, 'sms' => true, 'email' => false];
 
     /**
@@ -80,7 +92,11 @@ class NotificationPreferences
      */
     public static function alertsFor(User $user): array
     {
-        return $user->user_type === UserType::Commercial ? self::COMMERCIAL_ALERTS : self::PROMOTER_ALERTS;
+        return match ($user->user_type) {
+            UserType::Commercial => self::COMMERCIAL_ALERTS,
+            UserType::Contractor => self::CONTRACTOR_ALERTS,
+            default => self::PROMOTER_ALERTS,
+        };
     }
 
     /**

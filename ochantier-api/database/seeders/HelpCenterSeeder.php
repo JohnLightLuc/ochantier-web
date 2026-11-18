@@ -18,6 +18,29 @@ class HelpCenterSeeder extends Seeder
     private const FAQ = [
         'promoter' => self::PROMOTER_FAQ,
         'commercial' => self::COMMERCIAL_FAQ,
+        'contractor' => self::CONTRACTOR_FAQ,
+    ];
+
+    /**
+     * Questions fréquentes de l’application Entrepreneurs et Techniciens.
+     *
+     * @var array<string, array<string, string>>
+     */
+    private const CONTRACTOR_FAQ = [
+        'Opportunités' => [
+            'Pourquoi je ne vois pas certaines demandes ?' => 'Les demandes sont distribuées selon vos métiers validés et votre ville ou zone d’intervention. Complétez votre profil pour en recevoir davantage.',
+            'Accepter une offre contractuelle me garantit-il le chantier ?' => 'Non. Le chantier est attribué uniquement après le choix du promoteur et la confirmation de son acompte.',
+        ],
+        'Paiements' => [
+            'Quand suis-je payé pour une visite de devis ?' => 'Après la commande et le paiement confirmé par le promoteur. Les frais de service O’CHANTIER sont à sa charge.',
+            'Comment suis-je payé sur un chantier attribué ?' => 'Le promoteur règle chaque échéance de votre forfait via O’CHANTIER. Vous suivez votre part nette dans l’onglet Paiements du chantier.',
+        ],
+        'Équipe et pointage' => [
+            'Comment pointer mon équipe ?' => 'Dans l’onglet Pointage du chantier, enregistrez l’arrivée et le départ de chaque ouvrier avec sa position, une photo et sa signature, puis validez la journée.',
+        ],
+        'Abonnement' => [
+            'Que deviennent mes données si mon abonnement expire ?' => 'Elles restent consultables. Les nouvelles saisies (équipe, pointage, rapport) nécessitent un abonnement actif.',
+        ],
     ];
 
     /**

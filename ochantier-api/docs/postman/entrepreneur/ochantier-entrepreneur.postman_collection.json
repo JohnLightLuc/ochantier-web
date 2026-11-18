@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a86af9c3-f682-553f-a780-3728504d68cc",
     "name": "O’CHANTIER API v1 · Entrepreneurs et Techniciens",
-    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) les **opportunités** les **propositions de devis** les **réponses aux offres contractuelles** **Mes chantiers** et l’**équipe** le **pointage** la **fin de chantier** l’**abonnement** et **Mon équipe** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
+    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) les **opportunités** les **propositions de devis** les **réponses aux offres contractuelles** **Mes chantiers** et l’**équipe** le **pointage** la **fin de chantier** l’**abonnement** **Mon équipe**, les **notifications** et l’**assistance** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -3842,6 +3842,338 @@
           "response": []
         }
       ]
+    },
+    {
+      "id": "4e32f92b-3eeb-5452-ba58-db6c0fc0c009",
+      "name": "Notifications et assistance",
+      "description": "Centre de notifications, préférences, centre d’aide et demandes au support.",
+      "item": [
+        {
+          "id": "8b4d710b-97e5-599b-8ea7-23ae676be115",
+          "name": "Notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const g = pm.response.json().data; if (g.length && g[0].items.length) { pm.collectionVariables.set('notification_id', g[0].items[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/notifications?filter=toutes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "filter",
+                  "value": "toutes"
+                }
+              ]
+            },
+            "description": "Écran « Notifications » : groupes par période (Aujourd’hui, Cette semaine, Plus anciennes), chaque notification avec `title`, `body`, `time`, `read`, `target` (écran à ouvrir), `cta` et `category`.\n\n| Paramètre | Description |\n|---|---|\n| `filter` | `toutes` (par défaut), `non_lues`, `nouvelles_demandes`, `offres_acceptees`, `offres_refusees`, `paiements`, `rendez_vous`, `chantiers`, `documents`, `abonnement`. |\n\n`meta` : `unread` et compteurs par onglet.\n\nLes notifications vont au titulaire ; le chef de chantier reçoit aussi celles des chantiers et des rendez-vous, le comptable celles des paiements et de l’abonnement."
+          },
+          "response": []
+        },
+        {
+          "id": "c480754d-5300-575b-b742-d9a43e2b7adb",
+          "name": "Marquer une notification lue",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/notifications/{{notification_id}}/read",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "notifications",
+                "{{notification_id}}",
+                "read"
+              ]
+            },
+            "description": "Réponse : `unread` (nombre de non lues restantes)."
+          },
+          "response": []
+        },
+        {
+          "id": "bf793a45-b5ed-5dfe-957c-01806ae2b52c",
+          "name": "Tout marquer lu",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/notifications/read-all",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "notifications",
+                "read-all"
+              ]
+            },
+            "description": "« Tout marquer lu »."
+          },
+          "response": []
+        },
+        {
+          "id": "565158ba-b3c2-5f80-86db-4c821269d31b",
+          "name": "Préférences de notification",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/notification-preferences",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "notification-preferences"
+              ]
+            },
+            "description": "Canaux (push, SMS, e-mail) et types d’alertes de l’application Pro : `opportunites`, `paiements`, `pointages`, `abonnement`. Modification : `PUT` avec `channels` et `alerts` (booléens)."
+          },
+          "response": []
+        },
+        {
+          "id": "c944c326-0d90-5cd3-8ee4-7d4c97e43392",
+          "name": "Modifier les préférences",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/notification-preferences",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "notification-preferences"
+              ]
+            },
+            "description": "Exemple : couper les alertes de nouvelles opportunités.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"alerts\": {\n    \"opportunites\": false\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "d89b76c1-c829-54df-a4e0-5636bc8b0201",
+          "name": "Centre d’aide",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/help",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "help"
+              ]
+            },
+            "description": "Questions fréquentes de l’application Entrepreneurs et Techniciens (opportunités, paiements, équipe et pointage, abonnement) et contacts du support (téléphone, WhatsApp, e-mail, horaires)."
+          },
+          "response": []
+        },
+        {
+          "id": "4a9c9086-d674-5e73-b439-d550ca7ced07",
+          "name": "Nous écrire",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([201, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/support/tickets",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "support",
+                "tickets"
+              ]
+            },
+            "description": "Envoie une demande au support O’CHANTIER (ticket `TK-…`, réponse sous 48 h).\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `subject` | oui | `Vérification du profil`, `Paiement`, `Devis`, `Chantier et équipe`, `Abonnement`, `Autre`. |\n| `message` | oui | 10 à 3000 caractères. |\n| `client_uuid` | non | Évite un doublon en cas de renvoi. |",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Paiement\",\n  \"message\": \"Je n’ai pas reçu la dernière échéance du chantier.\",\n  \"client_uuid\": \"{{$guid}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "8227df58-9572-51c5-b8e9-e0f79c8c3e44",
+          "name": "Mes demandes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/support/tickets",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "support",
+                "tickets"
+              ]
+            },
+            "description": "Demandes envoyées au support, les plus récentes d’abord (`reference`, `subject`, `status`, `answer_expected_before`). `meta.subjects` : sujets proposés."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "auth": {
@@ -4066,6 +4398,12 @@
       "value": "",
       "type": "string",
       "description": "Dernier collaborateur invité."
+    },
+    {
+      "key": "notification_id",
+      "value": "",
+      "type": "string",
+      "description": "Première notification du centre."
     }
   ]
 }
