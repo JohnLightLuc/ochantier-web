@@ -18,6 +18,7 @@ use App\Models\Setting;
 use App\Models\Site;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Support\Contractor\ContractorTeam;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -193,6 +194,10 @@ class Reservations
 
         if ($site->status === SiteStatus::Suspendu) {
             throw ValidationException::withMessages(['site' => 'Ce chantier est suspendu : il n’accepte pas de nouvelle réservation pour le moment.']);
+        }
+
+        if (ContractorTeam::isContractorSite($site)) {
+            throw ValidationException::withMessages(['site' => 'Ce chantier est confié à un entrepreneur : c’est lui qui constitue et gère l’équipe.']);
         }
 
         return $this->publisher->publishAdditional($site, $user, $data);

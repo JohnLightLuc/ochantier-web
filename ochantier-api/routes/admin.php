@@ -442,12 +442,14 @@ Route::middleware('auth:admin')->group(function () {
             Route::post('{workDayId}/remind', 'remind')->whereUuid('workDayId')->middleware('admin.can:attendance.update')->name('remind');
         });
 
-        // Affectations : liste, export, fiche, indisponibilité et recherche de remplaçants.
+        // Affectations : liste, export, fiche, accord de l’ouvrier (équipes d’entrepreneurs), indisponibilité et recherche de remplaçants.
         Route::prefix('assignments')->name('assignments.')->controller(AssignmentController::class)->group(function () {
             Route::get('/', 'index')->middleware('admin.can:missions.read')->name('index');
             Route::get('export', 'export')->middleware('admin.can:missions.export')->name('export');
+            Route::get('pending-agreements', 'pendingAgreements')->middleware('admin.can:missions.read')->name('pending-agreements');
             Route::get('{assignmentId}', 'show')->whereUuid('assignmentId')->middleware('admin.can:missions.read')->name('show');
             Route::post('{assignmentId}/unavailability', 'declareUnavailability')->whereUuid('assignmentId')->middleware('admin.can:missions.update')->name('unavailability');
+            Route::post('{assignmentId}/agreement', 'agreement')->whereUuid('assignmentId')->middleware('admin.can:missions.update')->name('agreement');
             Route::post('replacements/{replacementId}/search', 'searchReplacement')->whereUuid('replacementId')->middleware('admin.can:missions.update')->name('replacements.search');
             Route::post('replacements/{replacementId}/send', 'sendReplacement')->whereUuid('replacementId')->middleware('admin.can:missions.update')->name('replacements.send');
         });

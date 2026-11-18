@@ -45,6 +45,8 @@ class ContractorNotifier
         'offer.chosen' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Voir mon offre'],
         'offer.attributed' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Ouvrir le chantier'],
         'offer.not_retained' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir mon offre'],
+        'team.accepted' => ['tab' => 'chantiers', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir l’équipe'],
+        'team.refused' => ['tab' => 'chantiers', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Voir l’équipe'],
         'payment.received' => ['tab' => 'paiements', 'alert' => 'paiements', 'priority' => Priority::Normale, 'sms' => true, 'cta' => 'Voir les paiements'],
     ];
 

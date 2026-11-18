@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\V1\Contractor\ProfileController as ContractorProfil
 use App\Http\Controllers\Api\V1\Contractor\ProfileDocumentController as ContractorProfileDocumentController;
 use App\Http\Controllers\Api\V1\Contractor\QuoteProposalController as ContractorQuoteProposalController;
 use App\Http\Controllers\Api\V1\Contractor\SiteController as ContractorSiteController;
+use App\Http\Controllers\Api\V1\Contractor\TeamController as ContractorTeamController;
 use App\Http\Controllers\Api\V1\HelpController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
@@ -262,6 +263,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::get('offer-responses/{offerResponse}', [ContractorOfferResponseController::class, 'show'])->name('offer-responses.show');
                 Route::delete('offer-responses/{offerResponse}', [ContractorOfferResponseController::class, 'destroy'])->name('offer-responses.destroy');
 
+                Route::get('workers', [ContractorTeamController::class, 'catalog'])->name('workers.index');
+                Route::get('workers/{catalogWorker}', [ContractorTeamController::class, 'worker'])->name('workers.show');
                 Route::get('sites', [ContractorSiteController::class, 'index'])->name('sites.index');
                 Route::prefix('sites/{contractorSite}')->name('sites.')->group(function () {
                     Route::get('/', [ContractorSiteController::class, 'show'])->name('show');
@@ -272,6 +275,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
                     Route::post('steps/{step}/start', [ContractorSiteController::class, 'startStep'])->name('steps.start');
                     Route::post('steps/{step}/complete', [ContractorSiteController::class, 'completeStep'])->name('steps.complete');
                     Route::delete('steps/{step}', [ContractorSiteController::class, 'destroyStep'])->name('steps.destroy');
+                    Route::get('team', [ContractorTeamController::class, 'index'])->name('team.index');
+                    Route::post('assignments', [ContractorTeamController::class, 'store'])->name('assignments.store');
+                    Route::get('assignments/{teamAssignment}', [ContractorTeamController::class, 'show'])->name('assignments.show');
+                    Route::post('assignments/{teamAssignment}/replace', [ContractorTeamController::class, 'replace'])->name('assignments.replace');
+                    Route::post('assignments/{teamAssignment}/cancel', [ContractorTeamController::class, 'cancel'])->name('assignments.cancel');
                 });
 
                 Route::get('quote-proposals', [ContractorQuoteProposalController::class, 'index'])->name('quote-proposals.index');

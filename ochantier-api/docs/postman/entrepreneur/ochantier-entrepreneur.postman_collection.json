@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a86af9c3-f682-553f-a780-3728504d68cc",
     "name": "O’CHANTIER API v1 · Entrepreneurs et Techniciens",
-    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) les **opportunités** les **propositions de devis** les **réponses aux offres contractuelles** et **Mes chantiers** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
+    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) les **opportunités** les **propositions de devis** les **réponses aux offres contractuelles** **Mes chantiers** et l’**équipe** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -2022,6 +2022,320 @@
           "response": []
         }
       ]
+    },
+    {
+      "id": "0dff3901-0451-59c8-9739-8a6618f96984",
+      "name": "Ouvriers et équipe",
+      "description": "Catalogue, affectation directe (accord de l’ouvrier), équipe, membre, remplacement et annulation. Le promoteur voit l’équipe en lecture seule.",
+      "item": [
+        {
+          "id": "32a41d47-e521-5c1b-8b94-43dd1821f43e",
+          "name": "Catalogue des ouvriers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.data.length) { pm.collectionVariables.set('worker_id', body.data[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/workers?site_id={{contractor_site_id}}&available=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "workers"
+              ],
+              "query": [
+                {
+                  "key": "site_id",
+                  "value": "{{contractor_site_id}}"
+                },
+                {
+                  "key": "available",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Écran « Choisir des ouvriers » : ouvriers validés par O’CHANTIER, disponibles d’abord puis par note, avec leur **tarif journalier net déclaré**.\n\n| Paramètre | Description |\n|---|---|\n| `site_id` | Chantier attribué : signale `in_team` (déjà dans l’équipe). |\n| `trade_id` | Métier. |\n| `city_id` | Ville de résidence. |\n| `search` | Nom ou métier. |\n| `max_rate` | Tarif journalier maximum (FCFA). |\n| `available` | `1` : disponibles uniquement. |\n\nChaque ouvrier : `name`, `initials`, `photo_url`, `trade`, `other_trades`, `experience_years`, `commune`, `daily_rate`, `rating`, `missions_completed`, `available`, `in_team`, `selectable`, `tag` (Disponible, Indisponible, Dans l’équipe)."
+          },
+          "response": []
+        },
+        {
+          "id": "eda658ff-7c99-5704-8f60-1be7a5e34271",
+          "name": "Fiche d’un ouvrier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/workers/{{worker_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "workers",
+                "{{worker_id}}"
+              ]
+            },
+            "description": "Fiche de l’ouvrier du catalogue, avec `busy_periods` (affectations à venir qui le rendent indisponible sur ces dates)."
+          },
+          "response": []
+        },
+        {
+          "id": "8b0d680b-b974-5b21-8464-74d23cfc1c16",
+          "name": "Équipe du chantier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/team",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "team"
+              ]
+            },
+            "description": "Onglet « Équipe ». Réponse : l’équipe (`count`, `daily_cost`, `planned_cost`, `pending_agreements`, `members[]` en cours ou à venir, `history[]` remplacés / annulés / refusés / terminés, `window` = période du forfait, `can_manage`, `payment_notice`).\n\nChaque membre : `worker` (nom, initiales, photo, métier, note), `role`, `start_date`, `end_date`, `days`, `daily_rate`, `planned_cost`, `status` (`en_attente`, `confirmee`, `active`, `remplacee`, `annulee`, `refusee`, `terminee`) et `display_status` (« En attente d’accord », « Confirmée · arrive le … », « Sur le chantier depuis le … »)."
+          },
+          "response": []
+        },
+        {
+          "id": "e319e655-edba-53d4-ac36-53dc4c67d517",
+          "name": "Affecter des ouvriers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([201, 404, 422]));",
+                  "if (pm.response.code === 201) { const m = pm.response.json().data.members; if (m.length) { pm.collectionVariables.set('team_assignment_id', m[m.length - 1].id); } }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/assignments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "assignments"
+              ]
+            },
+            "description": "Écran « Affectation » : affecte directement les ouvriers choisis. Chaque affectation est **en attente de l’accord de l’ouvrier** (recueilli par le Back Office) ; l’ouvrier ne peut être pointé qu’après. Vous payez vos ouvriers directement, au tarif convenu : aucun acompte ni échéance via O’CHANTIER.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `start_date`, `end_date` | oui | Période, comprise dans celle du forfait, pas dans le passé. |\n| `workers[].worker_id` | oui | Ouvrier du catalogue. |\n| `workers[].role` | oui | Rôle sur le chantier. |\n| `workers[].daily_rate` | oui | Prix journalier (FCFA). |\n\n**422** : période hors du forfait ou passée, ouvrier indisponible au catalogue, ou déjà affecté sur des dates qui se chevauchent (`errors[\"workers.0.worker_id\"]`).\n\nHors production : `php artisan ochantier:simulate-worker-agreement accepter|refuser [affectation]`.\n\n**Réponse 201** : l’équipe. Réponse : l’équipe (`count`, `daily_cost`, `planned_cost`, `pending_agreements`, `members[]` en cours ou à venir, `history[]` remplacés / annulés / refusés / terminés, `window` = période du forfait, `can_manage`, `payment_notice`).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_date\": \"2030-02-01\",\n  \"end_date\": \"2030-02-20\",\n  \"workers\": [\n    {\n      \"worker_id\": \"{{worker_id}}\",\n      \"role\": \"Chef d’équipe\",\n      \"daily_rate\": 20000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "a239f6dc-cc44-50d8-8040-1b9ee38e5980",
+          "name": "Membre de l’équipe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/assignments/{{team_assignment_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "assignments",
+                "{{team_assignment_id}}"
+              ]
+            },
+            "description": "Écran « Membre de l’équipe » : `worker` (nom, initiales, photo, métier, note), `role`, `start_date`, `end_date`, `days`, `daily_rate`, `planned_cost`, `status` (`en_attente`, `confirmee`, `active`, `remplacee`, `annulee`, `refusee`, `terminee`) et `display_status` (« En attente d’accord », « Confirmée · arrive le … », « Sur le chantier depuis le … »). Plus `kpis` (présence, jours travaillés, absences), `replacement` (motif, date d’effet, remplaçant), `replaces`, `notice`, `actions` (`replace`, `cancel`) et `replacement_reasons`."
+          },
+          "response": []
+        },
+        {
+          "id": "ea8642e8-88e2-5a37-8776-88f563cfc150",
+          "name": "Remplacer l’ouvrier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/assignments/{{team_assignment_id}}/replace",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "assignments",
+                "{{team_assignment_id}}",
+                "replace"
+              ]
+            },
+            "description": "Affectation confirmée ou active : elle s’arrête la veille de la date d’effet ; le remplaçant reprend le reste de la période, au même rôle, **en attente de son accord**.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | `Absences répétées`, `Qualité du travail`, `Indisponible` ou `Autre`. |\n| `other_reason` | si `Autre` | Précision du motif. |\n| `effective_date` | oui | Dans l’affectation, pas dans le passé. |\n| `worker_id` | oui | Nouvel ouvrier, libre sur la période restante. |\n| `daily_rate` | non | Tarif du remplaçant (par défaut, son tarif déclaré). |\n\nRéponse : la fiche du remplaçant. **422** si l’ouvrier n’a pas encore accepté (annulez plutôt), si la date est hors période ou si le remplaçant est déjà affecté.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Absences répétées\",\n  \"effective_date\": \"2030-02-10\",\n  \"worker_id\": \"{{worker_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "ce6ae936-3054-5d5a-a2f1-c59b1ab8953c",
+          "name": "Annuler l’affectation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Réponse attendue', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/assignments/{{team_assignment_id}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "assignments",
+                "{{team_assignment_id}}",
+                "cancel"
+              ]
+            },
+            "description": "Annule une affectation qui n’a pas démarré (l’historique la conserve). **422** après son démarrage : remplacez plutôt l’ouvrier. Réponse : l’équipe."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "auth": {
@@ -2186,6 +2500,18 @@
       "value": "",
       "type": "string",
       "description": "Dernière étape de la chronologie."
+    },
+    {
+      "key": "worker_id",
+      "value": "",
+      "type": "string",
+      "description": "Premier ouvrier du catalogue."
+    },
+    {
+      "key": "team_assignment_id",
+      "value": "",
+      "type": "string",
+      "description": "Dernière affectation créée."
     }
   ]
 }

@@ -330,7 +330,7 @@ class ContractorSites
         return Assignment::query()->with('worker')
             ->whereHas('mission', fn (Builder $query) => $query->where('site_id', $site->getKey()))
             ->when($forfait, fn (Builder $query) => $query->where('mission_id', '!=', $forfait->getKey()))
-            ->whereIn('status', [AssignmentStatus::Confirmee->value, AssignmentStatus::Active->value])
+            ->whereIn('status', [AssignmentStatus::EnAttente->value, AssignmentStatus::Confirmee->value, AssignmentStatus::Active->value])
             ->get();
     }
 

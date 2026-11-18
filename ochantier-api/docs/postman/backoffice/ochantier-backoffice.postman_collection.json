@@ -4500,6 +4500,102 @@
       ]
     },
     {
+      "id": "ae835b7e-91b3-5d50-a43d-6b2be4d6ba7d",
+      "name": "Accords des ouvriers",
+      "description": "Équipes des entrepreneurs : affectations directes en attente de la réponse de l’ouvrier.",
+      "item": [
+        {
+          "id": "74aefeba-3e2a-5b1c-a268-a25dad8a8f9b",
+          "name": "Accords d’ouvriers en attente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data; if (d.length) { pm.collectionVariables.set('admin_pending_assignment_id', d[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/assignments/pending-agreements",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "assignments",
+                "pending-agreements"
+              ]
+            },
+            "description": "Affectations directes des entrepreneurs qui attendent la réponse de l’ouvrier, les plus anciennes d’abord : `worker` (nom, téléphone à appeler), `contractor`, `site`, `role`, période, `daily_rate`, `replaces_assignment_id` (remplacement). Enregistre la première (`admin_pending_assignment_id`).\n\nPermission : `missions.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "a0077f8f-5b5f-5d1b-a4ca-2677a532c6c4",
+          "name": "Enregistrer la réponse de l’ouvrier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/assignments/{{admin_pending_assignment_id}}/agreement",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "assignments",
+                "{{admin_pending_assignment_id}}",
+                "agreement"
+              ]
+            },
+            "description": "Réponse de l’ouvrier, recueillie par le Back Office, sur une affectation directe d’entrepreneur.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `decision` | oui | `accepter` (affectation confirmée : l’ouvrier pourra être pointé) ou `refuser`. |\n\nL’entrepreneur est notifié. Journal d’audit : `assignment.agreement_accepted` / `assignment.agreement_refused`. **422** si l’affectation n’attend plus de réponse. Réponse : la fiche de l’affectation.\n\nPermission : `missions.update`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"accepter\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "id": "ae25e3cc-e1bb-56fe-86e9-ac863848bce3",
       "name": "Mot de passe oublié",
       "item": [
@@ -5604,6 +5700,12 @@
       "value": "",
       "type": "string",
       "description": "Premier entrepreneur de la liste (dossier soumis)."
+    },
+    {
+      "key": "admin_pending_assignment_id",
+      "value": "",
+      "type": "string",
+      "description": "Première affectation en attente d’accord."
     }
   ]
 }
