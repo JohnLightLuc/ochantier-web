@@ -5,11 +5,14 @@ namespace App\Support\Contractor;
 use App\Enums\ContractorStatus;
 use App\Enums\Priority;
 use App\Models\Contractor;
+use App\Models\Mission;
 use App\Models\Offer;
+use App\Models\PaymentSchedule;
 use App\Models\QuoteBid;
 use App\Models\QuoteRequest;
 use App\Models\Site;
 use App\Support\Notifications\NotificationInbox;
+use App\Support\Promoter\ContractorOffers;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -42,6 +45,7 @@ class ContractorNotifier
         'offer.chosen' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Voir mon offre'],
         'offer.attributed' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Ouvrir le chantier'],
         'offer.not_retained' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir mon offre'],
+        'payment.received' => ['tab' => 'paiements', 'alert' => 'paiements', 'priority' => Priority::Normale, 'sms' => true, 'cta' => 'Voir les paiements'],
     ];
 
     public function __construct(private NotificationInbox $inbox) {}
@@ -53,6 +57,30 @@ class ContractorNotifier
         if ($user) {
             $this->inbox->send($user, $event, self::EVENTS[$event], $title, $body,
                 ['target' => $target ?: ['type' => 'profile', 'id' => $contractor->id], 'cta' => self::EVENTS[$event]['cta']], $related ?? $contractor, $dedup);
+        }
+    }
+
+    /**
+     * Échéances du forfait d’un entrepreneur réglées par le promoteur : l’entrepreneur est prévenu (part nette).
+     *
+     * @param  Collection<int, PaymentSchedule>  $schedules
+     */
+    public function paymentReceived(Collection $schedules): void
+    {
+        foreach ($schedules->groupBy('mission_id') as $group) {
+            $mission = Mission::query()->with(['site', 'need.offer.contractorBid.contractor.user', 'need.trade'])->find($group->first()->mission_id);
+            $bid = $mission?->need?->offer?->contractorBid;
+
+            if (! $bid || $mission->need->trade?->code !== ContractorOffers::TRADE) {
+                continue;
+            }
+
+            $snapshot = $mission->pricingSnapshot;
+            $net = (int) round($group->sum('amount_due') * ($snapshot && $snapshot->total_promoter_amount > 0 ? $snapshot->workers_base_amount / $snapshot->total_promoter_amount : 1));
+
+            $this->notify($bid->contractor, 'payment.received', 'Paiement reçu',
+                $mission->site->label.' : échéance de '.number_format($net, 0, ',', "\u{00A0}")."\u{00A0}FCFA (part nette) payée par le promoteur.",
+                ['type' => 'site_payments', 'id' => $mission->site_id], $mission);
         }
     }
 

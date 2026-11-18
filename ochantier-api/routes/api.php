@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\Contractor\OpportunityController as ContractorOp
 use App\Http\Controllers\Api\V1\Contractor\ProfileController as ContractorProfileController;
 use App\Http\Controllers\Api\V1\Contractor\ProfileDocumentController as ContractorProfileDocumentController;
 use App\Http\Controllers\Api\V1\Contractor\QuoteProposalController as ContractorQuoteProposalController;
+use App\Http\Controllers\Api\V1\Contractor\SiteController as ContractorSiteController;
 use App\Http\Controllers\Api\V1\HelpController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
@@ -260,6 +261,18 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::get('my-offers', [ContractorOfferResponseController::class, 'index'])->name('my-offers.index');
                 Route::get('offer-responses/{offerResponse}', [ContractorOfferResponseController::class, 'show'])->name('offer-responses.show');
                 Route::delete('offer-responses/{offerResponse}', [ContractorOfferResponseController::class, 'destroy'])->name('offer-responses.destroy');
+
+                Route::get('sites', [ContractorSiteController::class, 'index'])->name('sites.index');
+                Route::prefix('sites/{contractorSite}')->name('sites.')->group(function () {
+                    Route::get('/', [ContractorSiteController::class, 'show'])->name('show');
+                    Route::get('payments', [ContractorSiteController::class, 'payments'])->name('payments');
+                    Route::get('documents', [ContractorSiteController::class, 'documents'])->name('documents');
+                    Route::get('timeline', [ContractorSiteController::class, 'timeline'])->name('timeline');
+                    Route::post('steps', [ContractorSiteController::class, 'storeStep'])->name('steps.store');
+                    Route::post('steps/{step}/start', [ContractorSiteController::class, 'startStep'])->name('steps.start');
+                    Route::post('steps/{step}/complete', [ContractorSiteController::class, 'completeStep'])->name('steps.complete');
+                    Route::delete('steps/{step}', [ContractorSiteController::class, 'destroyStep'])->name('steps.destroy');
+                });
 
                 Route::get('quote-proposals', [ContractorQuoteProposalController::class, 'index'])->name('quote-proposals.index');
                 Route::prefix('quote-proposals/{quoteProposal}')->name('quote-proposals.')->group(function () {

@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a86af9c3-f682-553f-a780-3728504d68cc",
     "name": "O’CHANTIER API v1 · Entrepreneurs et Techniciens",
-    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) les **opportunités** les **propositions de devis** et les **réponses aux offres contractuelles** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
+    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) les **opportunités** les **propositions de devis** les **réponses aux offres contractuelles** et **Mes chantiers** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -1654,6 +1654,374 @@
           "response": []
         }
       ]
+    },
+    {
+      "id": "74351bb1-cacf-5098-a50f-c55cc7fb6a14",
+      "name": "Mes chantiers",
+      "description": "Chantiers attribués : liste, aperçu, paiements (part nette), documents et chronologie partagée avec le promoteur.",
+      "item": [
+        {
+          "id": "c75b396c-6acc-5195-8ce3-9756470f4aad",
+          "name": "Mes chantiers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.data.length) { pm.collectionVariables.set('contractor_site_id', body.data[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites"
+              ]
+            },
+            "description": "Écran « Mes chantiers » : chantiers attribués (offre retenue et acompte payé), en cours d’abord, puis à venir, puis terminés.\n\n| Paramètre | Description |\n|---|---|\n| `tab` | `tous` (par défaut), `a_venir`, `en_cours`, `termines`. |\n\nChaque chantier : `reference`, `title`, `place`, `image_url`, `stage` (`a_venir`, `en_cours`, `termine`), `start_date`, `end_date`, `duration_days`, `countdown_seconds` (compte à rebours avant le démarrage), `day` et `progress_percent` (« Jour 12 sur 30 »), `progress_label`, `amount` (contrat net) et `team` (`count`, `label`).\n\n`meta.tabs` : `key`, `label`, `count`."
+          },
+          "response": []
+        },
+        {
+          "id": "68019b3e-bbd2-5b8d-afec-42ea1f801c16",
+          "name": "Aperçu du chantier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 404', () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}"
+              ]
+            },
+            "description": "Onglet « Aperçu » : la carte, plus `info` (description, **adresse**, `location`, accès, montant du contrat, équipe prévue), `promoter` (nom et téléphone du maître d’ouvrage), `next_payment` (prochaine échéance et compte à rebours), `payments_summary` (contrat, perçu, reste, pourcentage), `team` (ouvriers affectés), `chronology` (avancement des étapes) et `documents` (nombre et 3 plus récents).\n\n**404** si le chantier ne vous est pas attribué."
+          },
+          "response": []
+        },
+        {
+          "id": "07236aca-ef92-5600-bfc6-6bc6f3d9fc0a",
+          "name": "Paiements du chantier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 404', () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/payments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "payments"
+              ]
+            },
+            "description": "Onglet « Paiements » : échéances du forfait payées par le promoteur via O’CHANTIER, en **part nette** (hors commission ; la somme des échéances égale le contrat).\n\n- `contract_amount`, `paid_amount`, `remaining_amount`, `paid_percent`, `settled` (toutes réglées) ;\n- `next` : prochaine échéance, `remaining_seconds`, `late_text` si elle est dépassée ;\n- `items[]` : `label` (Acompte, Semaine n, Étape n, Solde), `due_date`, `amount`, `percent`, `state` (`paye`, `en_retard`, `bientot`, `a_venir`).\n\nChaque échéance payée déclenche la notification « Paiement reçu »."
+          },
+          "response": []
+        },
+        {
+          "id": "4fa85bcb-67ad-54d6-99ec-cd7e5825a0fc",
+          "name": "Documents du chantier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 404', () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "documents"
+              ]
+            },
+            "description": "Onglet « Documents » : pièces rattachées au chantier (plans, devis, documents du promoteur…), avec liens signés de 30 min."
+          },
+          "response": []
+        },
+        {
+          "id": "563c6df9-d7fc-5b80-8402-fc79c866b983",
+          "name": "Chronologie du chantier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 404', () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));",
+                  "if (pm.response.code === 200) { const s = pm.response.json().data.steps.steps; if (s.length) { pm.collectionVariables.set('site_step_id', s[0].id); } }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/timeline",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "timeline"
+              ]
+            },
+            "description": "Onglet « Chronologie » : `steps` (étapes partagées avec le promoteur) et `journal` (attribution, démarrage, étapes, paiements confirmés…, du plus récent au plus ancien, avec `actor`)."
+          },
+          "response": []
+        },
+        {
+          "id": "5be68af0-c639-5345-8409-edf25b2696d4",
+          "name": "Ajouter une étape",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201, 404 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([201, 404, 422]));",
+                  "if (pm.response.code === 201) { const s = pm.response.json().data.steps.steps; pm.collectionVariables.set('site_step_id', s[s.length - 1].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/steps",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "steps"
+              ]
+            },
+            "description": "| Champ | Obligatoire | Description |\n|---|---|---|\n| `title` | oui | Intitulé de l’étape (2 à 200 caractères). |\n\nRéponse : la chronologie à jour (`steps` : `done`, `total`, `progress_percent`, `count_label`, `steps[]` avec `status` a_faire / en_cours / validee et `actions` demarrer, retirer, valider ; `journal`). Une seule étape en cours à la fois ; une étape démarrée ne peut plus être retirée. Chronologie partagée avec le promoteur, close à la fin du chantier (**422**).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Installation de chantier\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "1c9e987b-850a-5e4c-90fc-28e6bb48c610",
+          "name": "Démarrer une étape",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 2xx, 404 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/steps/{{site_step_id}}/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "steps",
+                "{{site_step_id}}",
+                "start"
+              ]
+            },
+            "description": "Réponse : la chronologie à jour (`steps` : `done`, `total`, `progress_percent`, `count_label`, `steps[]` avec `status` a_faire / en_cours / validee et `actions` demarrer, retirer, valider ; `journal`). Une seule étape en cours à la fois ; une étape démarrée ne peut plus être retirée. Chronologie partagée avec le promoteur, close à la fin du chantier (**422**)."
+          },
+          "response": []
+        },
+        {
+          "id": "fb18ff04-34d9-5a41-95fb-6459b520f949",
+          "name": "Valider une étape",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 2xx, 404 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/steps/{{site_step_id}}/complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "steps",
+                "{{site_step_id}}",
+                "complete"
+              ]
+            },
+            "description": "Réponse : la chronologie à jour (`steps` : `done`, `total`, `progress_percent`, `count_label`, `steps[]` avec `status` a_faire / en_cours / validee et `actions` demarrer, retirer, valider ; `journal`). Une seule étape en cours à la fois ; une étape démarrée ne peut plus être retirée. Chronologie partagée avec le promoteur, close à la fin du chantier (**422**)."
+          },
+          "response": []
+        },
+        {
+          "id": "232a58bd-4fbd-5cf3-a641-18d3b4688339",
+          "name": "Retirer une étape",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 2xx, 404 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 404, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/sites/{{contractor_site_id}}/steps/{{site_step_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "sites",
+                "{{contractor_site_id}}",
+                "steps",
+                "{{site_step_id}}"
+              ]
+            },
+            "description": "Réponse : la chronologie à jour (`steps` : `done`, `total`, `progress_percent`, `count_label`, `steps[]` avec `status` a_faire / en_cours / validee et `actions` demarrer, retirer, valider ; `journal`). Une seule étape en cours à la fois ; une étape démarrée ne peut plus être retirée. Chronologie partagée avec le promoteur, close à la fin du chantier (**422**)."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "auth": {
@@ -1806,6 +2174,18 @@
       "value": "",
       "type": "string",
       "description": "Dernière réponse à une offre contractuelle."
+    },
+    {
+      "key": "contractor_site_id",
+      "value": "",
+      "type": "string",
+      "description": "Premier chantier attribué."
+    },
+    {
+      "key": "site_step_id",
+      "value": "",
+      "type": "string",
+      "description": "Dernière étape de la chronologie."
     }
   ]
 }
