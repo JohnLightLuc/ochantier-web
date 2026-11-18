@@ -257,6 +257,7 @@ class AppServiceProvider extends ServiceProvider
             'quote_bid' => Models\QuoteBid::class,
             'quote_request' => Models\QuoteRequest::class,
             'quote_request_trade' => Models\QuoteRequestTrade::class,
+            'quote_version' => Models\QuoteVersion::class,
             'site_status_history' => Models\SiteStatusHistory::class,
             'site_step' => Models\SiteStep::class,
             'skill' => Models\Skill::class,

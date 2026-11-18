@@ -134,6 +134,14 @@ class Contractor extends Model
         return $this->morphMany(VerificationReview::class, 'subject');
     }
 
+    /**
+     * @return HasMany<QuoteBid, $this>
+     */
+    public function quoteBids(): HasMany
+    {
+        return $this->hasMany(QuoteBid::class);
+    }
+
     public function isCompany(): bool
     {
         return $this->kind === ContractorKind::Entreprise;

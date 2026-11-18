@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a86af9c3-f682-553f-a780-3728504d68cc",
     "name": "O’CHANTIER API v1 · Entrepreneurs et Techniciens",
-    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) et les **opportunités** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
+    "description": "API REST de l’application mobile **Entrepreneurs et Techniciens** d’O’CHANTIER (entreprises constituées et indépendants). Elle couvre l’**authentification**, le **profil à vérifier** (KYB ou KYC) les **opportunités** et les **propositions de devis** : inscription par téléphone ou e-mail et mot de passe, activée par un code ; connexion par mot de passe ; mot de passe oublié par code ; changement du mot de passe et déconnexion.\n\n## Démarrage rapide\n\n1. Importer cette collection et l’un des environnements du dossier `docs/postman/entrepreneur` :\n   - **O’CHANTIER Entrepreneur · Local** : `http://localhost:8000/api/v1`, code `123456` ;\n   - **O’CHANTIER Entrepreneur · En ligne** : `https://api.ochantier.ci/api/v1`, code de test `1234` (4 chiffres).\n2. Exécuter la collection dans l’ordre (Runner ou `postman collection run`) : « Créer un compte » tire un numéro neuf à chaque exécution, la validation du code enregistre les jetons, et les requêtes suivantes les utilisent.\n\n   En ligne de commande, depuis `ochantier-api` :\n   `postman collection run docs/postman/entrepreneur/ochantier-entrepreneur.postman_collection.json -e docs/postman/entrepreneur/ochantier-entrepreneur-local.postman_environment.json`\n\n## Conventions\n\nMêmes conventions que les collections Promoteur et Commercial : `Accept: application/json`, téléphone en deux champs `dial_code` + `phone_number`, réponses `{ \"message\", \"data\", \"meta\" }`, messages en français.\n\n## Authentification\n\n| Étape | Requête | Résultat |\n|---|---|---|\n| Inscription | `POST /auth/contractor/register` puis `POST /auth/contractor/register/verify` | Compte actif et session ouverte |\n| Connexion | `POST /auth/contractor/login` | Session ouverte (ou **202** + code si l’inscription n’est pas terminée) |\n| Mot de passe oublié | `POST /auth/contractor/password/forgot`, `…/verify`, `…/reset` | Mot de passe remplacé, sessions fermées |\n\nJetons : `access_token` JWT de 15 minutes (`Authorization: Bearer`), `refresh_token` de 30 jours à usage unique (`POST /auth/refresh`). Codes : 6 chiffres par défaut (`code_length`), valables 5 minutes, 5 essais, nouveau code après 45 secondes.\n\nLe profil (entreprise ou indépendant) et la vérification du dossier font l’objet de l’étape suivante ; jusque-là `user.contractor.profile_chosen` vaut `false`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -1066,6 +1066,418 @@
           "response": []
         }
       ]
+    },
+    {
+      "id": "3f8d4ac0-e931-5358-9a56-463f46c231da",
+      "name": "Propositions de devis",
+      "description": "Proposition sur une demande de devis, « Mes offres », mission de visite (report, visite réalisée) et devis en versions.",
+      "item": [
+        {
+          "id": "3a50267a-7e34-5e73-ad2c-9a800959f799",
+          "name": "Proposer ma prestation de devis",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([201, 422]));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set('quote_proposal_id', pm.response.json().data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/opportunities/quotes/{{quote_opportunity_id}}/proposal",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "opportunities",
+                "quotes",
+                "{{quote_opportunity_id}}",
+                "proposal"
+              ]
+            },
+            "description": "Écran « Proposer ma prestation » → « Vérifier et envoyer ». Réservé aux profils **vérifiés**, sur une demande ouverte de votre métier et de votre zone ; une seule proposition par demande.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `fee_amount` | oui | Vos frais de visite ou d’étude (FCFA, net). Le promoteur paie en plus les frais de service O’CHANTIER (10 % par défaut, paramètre `quotes.service_fee_percent`). |\n| `visit_date` | oui | `AAAA-MM-JJ`, après aujourd’hui. |\n| `visit_slot` | oui | `08:00 – 10:00`, `10:00 – 12:00`, `12:00 – 14:00`, `14:00 – 16:00` ou `16:00 – 18:00`. |\n| `visit_duration` | non | `1 h`, `2 h`, `3 h`, `Demi-journée`, `Journée`. |\n| `comment` | non | Précisions ou questions (1 000 caractères). |\n\n**Réponse 201** : la proposition. **422** (`errors.proposal`) : profil non vérifié, délai expiré, hors profil ou proposition déjà envoyée.\n\n**Réponse** (`data`) : la proposition.\n\n| Bloc | Contenu |\n|---|---|\n| `status`, `display_status` | `proposee` (En attente), `choisie`, `non_retenue`, `retiree` ; affichage : `visite_planifiee` (Acceptée · payée), `report_propose`, `devis_a_rediger`, `devis_envoye`, `devis_recu`. |\n| `money` | `fee_amount` (vos frais), `service_fee_percent` et `service_fee_amount` (frais de service O’CHANTIER, figés à l’envoi), `total_amount` (payé par le promoteur), `net_amount`, `paid`. |\n| `visit_request` | Date, créneau, durée et commentaire proposés. |\n| `tracking` | Étapes `sent`, `decision`, `payment`, `visit`, `quote` : `state` (`done`, `current`, `todo`, `failed`) et `at`. |\n| `mission` | Après la commande : `status` (planifiee, report_propose, realisee), `date`, `slot`, `reschedule` en attente, puis **adresse exacte**, `location`, `access_instructions` et `promoter` (`name`, `phone`). |\n| `versions` | Versions du devis (`number`, `version`, `status` : brouillon, envoye, recu, lignes, totaux HT / TVA / TTC, durée, conditions, validité, `document` PDF). |\n| `actions` | `withdraw`, `mark_visited`, `request_reschedule`, `create_quote`, `edit_draft_id` (brouillon en cours). |\n| `options` | `slots`, `durations`, `units`, `validity_days`. |\n",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fee_amount\": 25000,\n  \"visit_date\": \"2030-01-15\",\n  \"visit_slot\": \"10:00 – 12:00\",\n  \"visit_duration\": \"2 h\",\n  \"comment\": \"Je passerai avec un apprenti.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "1405c472-4239-589b-96bf-ac396adbddb0",
+          "name": "Mes propositions de devis",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/quote-proposals?tab=en_attente",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "quote-proposals"
+              ],
+              "query": [
+                {
+                  "key": "tab",
+                  "value": "en_attente"
+                }
+              ]
+            },
+            "description": "« Mes offres » (propositions de devis), les plus récentes d’abord.\n\n| Paramètre | Description |\n|---|---|\n| `tab` | `en_attente` (par défaut), `acceptees`, `refusees`, `retirees`. |\n| `search` | Titre du chantier. |\n\n`meta.tabs` : `key`, `label`, `count` par onglet."
+          },
+          "response": []
+        },
+        {
+          "id": "34cd4ea3-eb8d-5a17-93e5-6f12d6a67869",
+          "name": "Ma proposition",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 404', () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/quote-proposals/{{quote_proposal_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "quote-proposals",
+                "{{quote_proposal_id}}"
+              ]
+            },
+            "description": "Écran « Proposition » : montants, suivi, mission de visite et devis.\n\n**Réponse** (`data`) : la proposition.\n\n| Bloc | Contenu |\n|---|---|\n| `status`, `display_status` | `proposee` (En attente), `choisie`, `non_retenue`, `retiree` ; affichage : `visite_planifiee` (Acceptée · payée), `report_propose`, `devis_a_rediger`, `devis_envoye`, `devis_recu`. |\n| `money` | `fee_amount` (vos frais), `service_fee_percent` et `service_fee_amount` (frais de service O’CHANTIER, figés à l’envoi), `total_amount` (payé par le promoteur), `net_amount`, `paid`. |\n| `visit_request` | Date, créneau, durée et commentaire proposés. |\n| `tracking` | Étapes `sent`, `decision`, `payment`, `visit`, `quote` : `state` (`done`, `current`, `todo`, `failed`) et `at`. |\n| `mission` | Après la commande : `status` (planifiee, report_propose, realisee), `date`, `slot`, `reschedule` en attente, puis **adresse exacte**, `location`, `access_instructions` et `promoter` (`name`, `phone`). |\n| `versions` | Versions du devis (`number`, `version`, `status` : brouillon, envoye, recu, lignes, totaux HT / TVA / TTC, durée, conditions, validité, `document` PDF). |\n| `actions` | `withdraw`, `mark_visited`, `request_reschedule`, `create_quote`, `edit_draft_id` (brouillon en cours). |\n| `options` | `slots`, `durations`, `units`, `validity_days`. |\n"
+          },
+          "response": []
+        },
+        {
+          "id": "89b97b20-aeb1-5172-b7ab-6249ab51b0ec",
+          "name": "Signaler un empêchement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/quote-proposals/{{quote_proposal_id}}/visit/reschedule",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "quote-proposals",
+                "{{quote_proposal_id}}",
+                "visit",
+                "reschedule"
+              ]
+            },
+            "description": "Mission planifiée : propose une nouvelle date au promoteur, qui l’accepte ou la refuse (notification). En attendant, la visite ne peut pas être marquée réalisée.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | Motif de l’empêchement. |\n| `date` | oui | Nouvelle date, après aujourd’hui. |\n| `slot` | oui | Nouveau créneau. |\n\nHors production : `php artisan ochantier:simulate-quote-promoter <proposition> accepter-report|refuser-report`.\n\n**422** si la mission n’est pas planifiée ou si un report est déjà en attente.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Matériel en panne\",\n  \"date\": \"2030-01-20\",\n  \"slot\": \"14:00 – 16:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "ebf819f5-34f9-52e4-989e-cc1e4088df6d",
+          "name": "Marquer la visite réalisée",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/quote-proposals/{{quote_proposal_id}}/visit/done",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "quote-proposals",
+                "{{quote_proposal_id}}",
+                "visit",
+                "done"
+              ]
+            },
+            "description": "Mission planifiée → **réalisée** : le devis peut être rédigé. **422** si la proposition n’est pas commandée, si un report est en attente ou si la visite est déjà réalisée.\n\nHors production, la commande payée par le promoteur se simule avec `php artisan ochantier:simulate-quote-promoter <proposition> commander`."
+          },
+          "response": []
+        },
+        {
+          "id": "268a8fb1-2525-5281-be75-f2b3c8f0220b",
+          "name": "Créer le devis",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([201, 422]));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set('quote_version_id', pm.response.json().data.version_id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/quote-proposals/{{quote_proposal_id}}/quotes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "quote-proposals",
+                "{{quote_proposal_id}}",
+                "quotes"
+              ]
+            },
+            "description": "Crée le brouillon de devis : v1 vierge, ou version corrigée reprenant la dernière envoyée (la précédente reste visible par le promoteur). Un seul brouillon à la fois.\n\n**Réponse 201** : la proposition et `version_id` (brouillon créé). **422** si la visite n’est pas réalisée ou si un brouillon existe."
+          },
+          "response": []
+        },
+        {
+          "id": "2e69c893-5133-55e6-8e72-7b73859cf84b",
+          "name": "Enregistrer le brouillon du devis",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/quote-proposals/{{quote_proposal_id}}/quotes/{{quote_version_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "quote-proposals",
+                "{{quote_proposal_id}}",
+                "quotes",
+                "{{quote_version_id}}"
+              ]
+            },
+            "description": "Seuls les champs envoyés sont enregistrés ; `items` remplace toutes les lignes. Les totaux sont recalculés (HT, TVA, TTC).\n\n| Champ | Description |\n|---|---|\n| `items[]` | `designation`, `unit` (u, m, m², ml, m³, h, jour, forfait), `quantity`, `unit_price` (FCFA). |\n| `vat_applied` | `true` : TVA 18 % si applicable à votre régime. |\n| `works_duration` | Durée des travaux (ex. « 45 jours »), obligatoire pour l’envoi. |\n| `conditions` | Conditions de paiement et d’exécution. |\n| `validity_days` | 15, 30, 60 ou 90. |\n| `observations` | Facultatif. |\n\n**422** si la version est déjà envoyée.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"designation\": \"Tableau électrique\",\n      \"unit\": \"u\",\n      \"quantity\": 1,\n      \"unit_price\": 350000\n    },\n    {\n      \"designation\": \"Câblage\",\n      \"unit\": \"ml\",\n      \"quantity\": 120,\n      \"unit_price\": 1500\n    }\n  ],\n  \"vat_applied\": true,\n  \"works_duration\": \"10 jours\",\n  \"validity_days\": 30\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "11ceef29-aa1a-59ae-9ddc-5d29929c2665",
+          "name": "Envoyer le devis",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/quote-proposals/{{quote_proposal_id}}/quotes/{{quote_version_id}}/send",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "quote-proposals",
+                "{{quote_proposal_id}}",
+                "quotes",
+                "{{quote_version_id}}",
+                "send"
+              ]
+            },
+            "description": "Signe et envoie la version : le PDF est ajouté aux documents du chantier, le promoteur est notifié et la version ne se modifie plus. Le premier devis de chaque métier fait avancer la demande ; quand tous sont reçus, le promoteur définit son offre financière.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `signed` | oui | `true` : « Je signe ce devis au nom de … ». |\n\n**422** : une erreur par ligne incomplète (`items.0`…), `works_duration` manquante, signature absente ou version déjà envoyée.\n\nHors production, l’accusé de réception du promoteur se simule avec `php artisan ochantier:simulate-quote-promoter <proposition> accuser-reception`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"signed\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "3c79e294-2035-5537-a18e-abb40f5b6230",
+          "name": "Retirer ma proposition",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contractor/quote-proposals/{{quote_proposal_id}}/withdraw",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contractor",
+                "quote-proposals",
+                "{{quote_proposal_id}}",
+                "withdraw"
+              ]
+            },
+            "description": "Retire une proposition en attente : le promoteur ne peut plus la retenir et elle ne peut pas être renvoyée. **422** après la commande."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "auth": {
@@ -1200,6 +1612,18 @@
       "value": "",
       "type": "string",
       "description": "Première offre contractuelle de la liste."
+    },
+    {
+      "key": "quote_proposal_id",
+      "value": "",
+      "type": "string",
+      "description": "Dernière proposition de devis envoyée."
+    },
+    {
+      "key": "quote_version_id",
+      "value": "",
+      "type": "string",
+      "description": "Dernier brouillon de devis créé."
     }
   ]
 }

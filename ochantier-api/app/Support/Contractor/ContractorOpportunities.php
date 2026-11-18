@@ -117,7 +117,7 @@ class ContractorOpportunities
             'site' => $this->siteDetail($site),
             'other_trades' => $request->trades->reject(fn (QuoteRequestTrade $other) => $other->is($line))
                 ->map(fn (QuoteRequestTrade $other) => $other->trade->only(['id', 'code', 'label']))->values()->all(),
-            'response' => $this->response($contractor, $open, $request->response_deadline, $exclusion, 'Proposer ma prestation de devis'),
+            'response' => $this->response($contractor, $open, $request->response_deadline, $exclusion, 'Proposer ma prestation de devis', $line->bids()->where('contractor_id', $contractor->getKey())->exists()),
         ];
     }
 
@@ -257,7 +257,11 @@ class ContractorOpportunities
             'documents_count' => $documents->reject(fn (Document $document) => $document->documentType->code === self::PHOTO_TYPE)->count(),
             'photos_count' => $documents->filter(fn (Document $document) => $document->documentType->code === self::PHOTO_TYPE)->count() + ($site->mainImageMedia ? 1 : 0),
             'status' => $this->status($this->isOpenQuote($line)),
-            'my_response' => null,
+            'my_response' => ($bid = $line->bids()->where('contractor_id', $contractor->getKey())->first()) ? [
+                'id' => $bid->id,
+                'amount' => $bid->amount,
+                'status' => ['value' => $bid->status->value, 'label' => $bid->status->label()],
+            ] : null,
         ];
     }
 
@@ -394,11 +398,12 @@ class ContractorOpportunities
     /**
      * Possibilité de répondre, et motif affiché sous le bouton sinon.
      *
-     * @return array{can_respond: bool, action: string, reason: string|null, eligible: bool}
+     * @return array{can_respond: bool, action: string, reason: string|null, eligible: bool, answered: bool}
      */
-    private function response(Contractor $contractor, bool $open, ?CarbonInterface $deadline, ?string $exclusion, string $action): array
+    private function response(Contractor $contractor, bool $open, ?CarbonInterface $deadline, ?string $exclusion, string $action, bool $answered = false): array
     {
         $reason = match (true) {
+            $answered => 'Vous avez déjà répondu : consultez votre proposition.',
             $exclusion !== null => 'Cette opportunité ne correspond pas à votre profil : '.$exclusion.'.',
             ! $open && $this->deadline($deadline)['expired'] => 'Le délai de réponse est expiré.',
             ! $open => 'Cette opportunité n’attend plus de réponse.',
@@ -406,7 +411,17 @@ class ContractorOpportunities
             default => null,
         };
 
-        return ['can_respond' => $reason === null, 'action' => $exclusion ? 'Non éligible' : $action, 'reason' => $reason, 'eligible' => $exclusion === null];
+        return [
+            'can_respond' => $reason === null,
+            'action' => match (true) {
+                $answered => 'Voir ma proposition',
+                $exclusion !== null => 'Non éligible',
+                default => $action,
+            },
+            'reason' => $reason,
+            'eligible' => $exclusion === null,
+            'answered' => $answered,
+        ];
     }
 
     /**

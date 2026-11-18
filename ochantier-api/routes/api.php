@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\V1\Commercial\WorkerController as CommercialWorkerC
 use App\Http\Controllers\Api\V1\Contractor\OpportunityController as ContractorOpportunityController;
 use App\Http\Controllers\Api\V1\Contractor\ProfileController as ContractorProfileController;
 use App\Http\Controllers\Api\V1\Contractor\ProfileDocumentController as ContractorProfileDocumentController;
+use App\Http\Controllers\Api\V1\Contractor\QuoteProposalController as ContractorQuoteProposalController;
 use App\Http\Controllers\Api\V1\HelpController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
@@ -158,6 +159,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
                     Route::put('sites/{site}/offer', [SiteOfferController::class, 'update'])->name('sites.offer.update');
                     Route::post('sites/{site}/publish', [SiteOfferController::class, 'publish'])->name('sites.publish');
                     Route::delete('sites/{site}/quote-request', [QuoteRequestController::class, 'destroy'])->name('sites.quote-request.destroy');
+                    Route::post('sites/{site}/quote-request/visits/{bid}/reschedule', [QuoteRequestController::class, 'decideReschedule'])->name('sites.quote-request.visits.reschedule');
+                    Route::post('sites/{site}/quote-request/quotes/{version}/acknowledge', [QuoteRequestController::class, 'acknowledge'])->name('sites.quote-request.quotes.acknowledge');
                     Route::post('sites/{site}/contractor-offers/{bid}/choose', [ContractorOfferController::class, 'choose'])->whereUuid('bid')->name('sites.contractor-offers.choose');
                     Route::post('sites/{site}/reservations', [ReservationController::class, 'store'])->name('sites.reservations.store');
                 });
@@ -250,6 +253,18 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::get('opportunities', [ContractorOpportunityController::class, 'index'])->name('opportunities.index');
                 Route::get('opportunities/quotes/{quote}', [ContractorOpportunityController::class, 'showQuote'])->name('opportunities.quotes.show');
                 Route::get('opportunities/offers/{offer}', [ContractorOpportunityController::class, 'showOffer'])->name('opportunities.offers.show');
+                Route::post('opportunities/quotes/{quote}/proposal', [ContractorQuoteProposalController::class, 'store'])->middleware('throttle:20,1')->name('opportunities.quotes.proposal');
+
+                Route::get('quote-proposals', [ContractorQuoteProposalController::class, 'index'])->name('quote-proposals.index');
+                Route::prefix('quote-proposals/{quoteProposal}')->name('quote-proposals.')->group(function () {
+                    Route::get('/', [ContractorQuoteProposalController::class, 'show'])->name('show');
+                    Route::post('withdraw', [ContractorQuoteProposalController::class, 'withdraw'])->name('withdraw');
+                    Route::post('visit/done', [ContractorQuoteProposalController::class, 'visited'])->name('visit.done');
+                    Route::post('visit/reschedule', [ContractorQuoteProposalController::class, 'reschedule'])->name('visit.reschedule');
+                    Route::post('quotes', [ContractorQuoteProposalController::class, 'storeVersion'])->name('quotes.store');
+                    Route::patch('quotes/{version}', [ContractorQuoteProposalController::class, 'updateVersion'])->name('quotes.update');
+                    Route::post('quotes/{version}/send', [ContractorQuoteProposalController::class, 'sendVersion'])->name('quotes.send');
+                });
             });
 
             Route::middleware(['user.type:commercial', 'commercial'])->prefix('commercial')->name('commercial.')->group(function () {

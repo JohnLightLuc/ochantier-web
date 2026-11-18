@@ -82,4 +82,12 @@ class QuoteRequestTrade extends Model
     {
         return $this->belongsTo(Document::class);
     }
+
+    /**
+     * @return HasMany<QuoteVersion, $this>
+     */
+    public function versions(): HasMany
+    {
+        return $this->hasMany(QuoteVersion::class);
+    }
 }
