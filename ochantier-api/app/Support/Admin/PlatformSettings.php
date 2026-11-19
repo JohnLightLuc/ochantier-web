@@ -34,6 +34,9 @@ class PlatformSettings
      */
     public const FIELDS = [
         'payments.dual_validation_threshold' => ['Paiements', 'Seuil de troisième validation d’un remboursement', 'int', 1000, 1000000000, 'FCFA'],
+        'payments.flexible_min_amount' => ['Paiements', 'Montant minimal d’un paiement en plusieurs fois', 'int', 1000, 100000000, 'FCFA'],
+        'subscriptions.grace_days' => ['Abonnements', 'Délai de grâce d’une facture d’abonnement impayée (promoteurs)', 'int', 1, 60, 'jours'],
+        'subscriptions.invoice_lead_days' => ['Abonnements', 'Émission de la facture de renouvellement avant l’échéance, 0 pour l’émettre à l’échéance (promoteurs)', 'int', 0, 15, 'jours'],
         'proposals.validity_hours' => ['Propositions', 'Validité d’une proposition d’équipe', 'int', 1, 720, 'h'],
         'reservations.hold_hours' => ['Propositions', 'Blocage des ouvriers avant le paiement de l’acompte', 'int', 1, 720, 'h'],
         'quotes.response_hours' => ['Propositions', 'Délai de réponse à une demande de devis', 'int', 1, 720, 'h'],
@@ -293,7 +296,9 @@ class PlatformSettings
 
         return [
             'runtime' => [
-                ['label' => 'Passerelle de paiement', 'value' => $production ? 'Aucun prestataire branché : les paiements échouent' : 'Simulée : aucun argent ne circule', 'warning' => true],
+                config('services.payments.driver') === 'jeko'
+                    ? ['label' => 'Passerelle de paiement', 'value' => 'Jèko : encaissements réels des promoteurs ; paiements des entrepreneurs et décaissements non branchés', 'warning' => true]
+                    : ['label' => 'Passerelle de paiement', 'value' => $production ? 'Aucun prestataire branché : les paiements échouent' : 'Simulée : aucun argent ne circule', 'warning' => true],
                 ['label' => 'Envoi de SMS', 'value' => $sms ?: 'Non configuré', 'warning' => in_array($sms, ['', 'log'], true)],
                 ['label' => 'Envoi d’e-mails', 'value' => $mail, 'warning' => in_array($mail, ['log', 'array'], true)],
                 ['label' => 'Notifications push', 'value' => (string) config('services.push.driver') ?: 'Non configuré', 'warning' => in_array((string) config('services.push.driver'), ['', 'log'], true)],
