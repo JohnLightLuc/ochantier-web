@@ -30,7 +30,7 @@ class Offer extends Model
      */
     protected $fillable = [
         'reference', 'site_id', 'offer_type', 'price_origin', 'title', 'description', 'urgency', 'start_date', 'end_date',
-        'contract_total_amount', 'quote_document_id', 'quote_amount', 'deliverables', 'visibility', 'published_at',
+        'contract_total_amount', 'commission_percent', 'quote_document_id', 'quote_amount', 'deliverables', 'visibility', 'published_at',
         'application_deadline', 'applications_open', 'extension_count', 'auto_renew', 'status', 'submitted_at',
         'assigned_admin_id', 'created_by_user_id', 'cancellation_reason', 'client_uuid', 'lock_version', 'payment_mode',
         'contractor_bid_id',
@@ -47,6 +47,7 @@ class Offer extends Model
             'offer_type' => OfferType::class,
             'price_origin' => PriceOrigin::class,
             'urgency' => Priority::class,
+            'commission_percent' => 'float',
             'start_date' => 'date',
             'end_date' => 'date',
             'visibility' => OfferVisibility::class,

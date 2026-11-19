@@ -15,6 +15,7 @@ use App\Support\PhoneNumber;
 use App\Support\Pricing\PricingRules;
 use App\Support\Promoter\ContractorOffers;
 use App\Support\Promoter\OfferDraft;
+use App\Support\Promoter\QuoteRequests;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 
@@ -200,7 +201,7 @@ class ContractorOfferResponses
             ],
             'money' => [
                 'net_amount' => $bid->amount,
-                'commission_percent' => $this->pricing->value(PricingVariable::Y),
+                'commission_percent' => $this->offers->commissionPercent($bid->offer),
                 'commission_amount' => $prices['commission'],
                 'promoter_amount' => $prices['total'],
                 'deposit_percent' => $this->pricing->value(PricingVariable::X),
@@ -210,7 +211,7 @@ class ContractorOfferResponses
             'tracking' => $this->tracking($bid),
             'notice' => match ($bid->status) {
                 ContractorBidStatus::Brouillon => 'Ce brouillon n’a pas été transmis au promoteur.',
-                ContractorBidStatus::Proposee => 'Le promoteur compare au maximum '.ContractorOffers::BEST_BIDS.' offres et en retient une seule.',
+                ContractorBidStatus::Proposee => 'Le promoteur compare au maximum '.QuoteRequests::comparedOffers().' offres et en retient une seule.',
                 ContractorBidStatus::Choisie => 'Votre offre est retenue. L’attribution sera effective après la confirmation de l’acompte du promoteur. Aucune réservation ferme à ce stade.',
                 ContractorBidStatus::NonRetenue => 'Offre non retenue. Elle reste consultable ; la gestion du chantier n’est pas disponible.',
                 ContractorBidStatus::Annulee => 'Cette offre n’est plus active. Elle reste consultable.',
@@ -248,7 +249,7 @@ class ContractorOfferResponses
             'end_date' => $end->toDateString(),
             'duration_days' => (int) $start->diffInDays($end) + 1,
             'schedule' => $this->schedule($offer, $amount, $start, (int) $start->diffInDays($end) + 1),
-            'note' => 'Montant net, hors commission O’CHANTIER '.$this->pricing->value(PricingVariable::Y).' % payée par le promoteur.',
+            'note' => 'Montant net, hors commission O’CHANTIER '.$this->offers->commissionPercent($offer).' % payée par le promoteur.',
         ];
     }
 

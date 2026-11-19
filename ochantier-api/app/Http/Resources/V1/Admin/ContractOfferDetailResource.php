@@ -42,7 +42,7 @@ class ContractOfferDetailResource extends Resource
                 'phone' => $promoterUser ? PhoneNumber::of($promoterUser)?->toArray()['phone'] : null,
                 'email' => $promoterUser?->email,
             ],
-            'rates' => $directory->rates(),
+            'rates' => $directory->rates($this->resource),
             'extension_count' => (int) $this->extension_count,
             'cancellation_reason' => $this->cancellation_reason,
             'milestones_count' => $this->milestones->count(),

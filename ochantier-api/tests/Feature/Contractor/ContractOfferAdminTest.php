@@ -137,6 +137,29 @@ class ContractOfferAdminTest extends ContractorMarketTestCase
         $this->assertSame(1, AuditLog::query()->where('action', 'contract_offer.cancelled')->count());
     }
 
+    public function test_the_commission_rate_is_frozen_on_each_offer(): void
+    {
+        $this->assertSame(8.0, $this->offer->refresh()->commission_percent);
+        $this->asAdmin()->getJson('/api/v1/admin/contract-offers')->assertJsonPath('meta.rates.commission_percent', 8);
+
+        $settings = $this->adminTokenFor(Admin::factory()->role('super_admin')->create());
+        $this->withAccessToken($settings)->postJson('/api/v1/admin/settings/values', ['key' => 'contractor_offers.commission_percent', 'value' => 12, 'reason' => 'Nouvelle grille PRO.'])->assertOk();
+        $this->withAccessToken($settings)->postJson('/api/v1/admin/settings/values', ['key' => 'pro.compared_offers', 'value' => 2, 'reason' => 'Comparaison resserrée.'])->assertOk();
+
+        $bid = $this->respond();
+        $this->asAdmin()->getJson('/api/v1/admin/contract-offers/'.$this->offer->id)
+            ->assertJsonPath('data.rates.commission_percent', 8)
+            ->assertJsonPath('data.responses.0.commission', 240000)
+            ->assertJsonPath('data.responses.0.total', 3240000);
+        $this->asAdmin()->getJson('/api/v1/admin/contract-offers')->assertJsonPath('meta.rates.commission_percent', 12);
+
+        $newer = $this->publishedContract('Villa Les Palmiers', 'Cocody');
+        $this->assertSame(12.0, $newer->commission_percent);
+        $this->asContractor()->getJson("/api/v1/contractor/offer-responses/{$bid}")
+            ->assertJsonPath('data.money.commission_percent', 8)
+            ->assertJsonPath('data.notice', 'Le promoteur compare au maximum 2 offres et en retient une seule.');
+    }
+
     public function test_only_authorised_admins_decide(): void
     {
         $support = $this->adminTokenFor(Admin::factory()->role('support')->create());

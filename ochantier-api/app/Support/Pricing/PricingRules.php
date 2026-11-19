@@ -66,9 +66,9 @@ class PricingRules
      *
      * @return array{workers: int, commission: int, total: int, deposit: int, balance: int}
      */
-    public function breakdown(int $workersAmount): array
+    public function breakdown(int $workersAmount, ?float $commissionPercent = null): array
     {
-        $commission = $this->commission($workersAmount);
+        $commission = $commissionPercent === null ? $this->commission($workersAmount) : (int) round($workersAmount * $commissionPercent / 100);
         $total = $workersAmount + $commission;
         $deposit = $this->deposit($total);
 

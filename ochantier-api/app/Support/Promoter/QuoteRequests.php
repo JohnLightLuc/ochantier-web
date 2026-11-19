@@ -47,9 +47,17 @@ use Illuminate\Validation\ValidationException;
 class QuoteRequests
 {
     /**
-     * Offres affichées par corps de métier.
+     * Offres affichées par corps de métier, par défaut (réglage pro.compared_offers).
      */
     public const BEST_BIDS = 3;
+
+    /**
+     * Offres de professionnels montrées au promoteur, par métier d’une demande de devis ou par offre contractuelle.
+     */
+    public static function comparedOffers(): int
+    {
+        return max(1, (int) (Setting::query()->whereKey('pro.compared_offers')->value('value') ?? self::BEST_BIDS));
+    }
 
     /**
      * Durée de validité d’un devis réalisé par défaut (jours).
@@ -229,7 +237,7 @@ class QuoteRequests
             ->orderByRaw('coalesce(contractors.rating_avg, workers.rating_avg) DESC NULLS LAST')
             ->orderBy('quote_bids.amount')
             ->orderBy('quote_bids.created_at')
-            ->limit(self::BEST_BIDS)
+            ->limit(self::comparedOffers())
             ->get(['quote_bids.*']);
     }
 

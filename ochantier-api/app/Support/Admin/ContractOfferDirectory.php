@@ -195,13 +195,16 @@ class ContractOfferDirectory
     }
 
     /**
-     * Taux de la commission Y et de l’acompte X en vigueur.
+     * Commission des offres contractuelles et acompte X : en vigueur, ou figée sur l’offre donnée.
      *
      * @return array{commission_percent: float, deposit_percent: float}
      */
-    public function rates(): array
+    public function rates(?Offer $offer = null): array
     {
-        return ['commission_percent' => (float) $this->pricing->value(PricingVariable::Y), 'deposit_percent' => (float) $this->pricing->value(PricingVariable::X)];
+        return [
+            'commission_percent' => $offer ? $this->offers->commissionPercent($offer) : $this->offers->currentCommissionPercent(),
+            'deposit_percent' => (float) $this->pricing->value(PricingVariable::X),
+        ];
     }
 
     /**
