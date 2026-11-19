@@ -28,6 +28,7 @@ use App\Models\PaymentTransaction;
 use App\Models\PromoterProfile;
 use App\Models\Proposal;
 use App\Models\Receipt;
+use App\Models\Setting;
 use App\Models\Site;
 use App\Models\User;
 use App\Support\Contractor\ContractorNotifier;
@@ -137,7 +138,7 @@ class PromoterPayments
      * @param  array<string, mixed>  $payable
      * @return array<string, mixed>
      */
-    public function split(array $payable, PromoterProfile $profile, int $count): array
+    public function split(array $payable, PromoterProfile $profile, int $count, bool $requested = false): array
     {
         if ($count <= 1) {
             return $payable;
@@ -151,8 +152,9 @@ class PromoterPayments
             throw ValidationException::withMessages(['installments' => 'Le paiement en plusieurs fois est réservé aux abonnés.']);
         }
 
-        if ($payable['amount'] < self::FLEXIBLE_MIN) {
-            throw ValidationException::withMessages(['installments' => 'Le paiement en plusieurs fois est possible à partir de '.$this->money(self::FLEXIBLE_MIN).'.']);
+        // Le seuil ne vaut qu’à la demande : un paiement déjà demandé n’est pas refusé parce que le réglage a changé.
+        if (! $requested && $payable['amount'] < $this->flexibleMinimum()) {
+            throw ValidationException::withMessages(['installments' => 'Le paiement en plusieurs fois est possible à partir de '.$this->money($this->flexibleMinimum()).'.']);
         }
 
         $total = (int) $payable['amount'];
@@ -181,6 +183,14 @@ class PromoterPayments
             ],
             'done_text' => $payable['done_text'].' Prochain versement le '.$this->date($today->addDays(7)).'.',
         ];
+    }
+
+    /**
+     * Montant à partir duquel un paiement peut être réglé en plusieurs fois (Paramètres).
+     */
+    public function flexibleMinimum(): int
+    {
+        return max(1, (int) (Setting::query()->whereKey('payments.flexible_min_amount')->value('value') ?? self::FLEXIBLE_MIN));
     }
 
     /**
@@ -485,7 +495,7 @@ class PromoterPayments
             throw ValidationException::withMessages(['payment' => 'Ce paiement ne peut pas être appliqué automatiquement.']);
         }
 
-        return $this->split($this->payable($user, $target), $profile, (int) ($transaction->metadata['installments'] ?? 1));
+        return $this->split($this->payable($user, $target), $profile, (int) ($transaction->metadata['installments'] ?? 1), true);
     }
 
     /**

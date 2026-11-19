@@ -11,6 +11,7 @@ use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\OrganizationMember;
 use App\Models\PromoterProfile;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Support\Auth\AuthSessions;
 use App\Support\PhoneNumber;
@@ -110,6 +111,14 @@ class PromoterTeam
         }
 
         return DB::transaction(function () use ($profile, $inviter, $data, $channel, $phone, $email, $existing, $field): OrganizationMember {
+            // L’abonnement est verrouillé le temps de l’invitation : deux invitations simultanées ne dépassent pas
+            // le nombre de places de la formule.
+            Subscription::query()->whereKey($this->subscriptions->current($profile)?->getKey())->lockForUpdate()->first();
+
+            if ($refusal = $this->refusal($profile)) {
+                throw ValidationException::withMessages(['role' => $refusal]);
+            }
+
             $organization = $this->organization($profile);
             $user = $existing ?? User::query()->create([
                 'user_type' => UserType::Promoter,

@@ -9,6 +9,7 @@ use App\Enums\SubscriptionStatus;
 use App\Models\Admin;
 use App\Models\PaymentTransaction;
 use App\Models\PromoterProfile;
+use App\Models\Setting;
 use App\Models\Subscription;
 use App\Models\SubscriptionInvoice;
 use App\Models\SubscriptionPlan;
@@ -262,8 +263,7 @@ class PromoterSubscriptions
 
         $subscription->update(['current_period_start' => $today, 'current_period_end' => $end, 'next_due_date' => $end->addDay()]);
 
-        return $subscription->invoices()->create([
-            'reference' => $this->invoiceReference(),
+        $paid = [
             'plan_id' => $plan->getKey(),
             'label' => 'Abonnement '.$plan->name.' · '.$this->month($today),
             'period_start' => $today,
@@ -272,7 +272,19 @@ class PromoterSubscriptions
             'due_date' => $today,
             'status' => SubscriptionInvoiceStatus::Payee,
             'paid_at' => now(),
-        ]);
+        ];
+
+        // Une facture de renouvellement émise aujourd’hui vient d’être annulée par ce changement de formule : une
+        // seule facture existe par période, c’est elle qui devient la facture réglée.
+        $cancelled = $subscription->invoices()->whereDate('period_start', $today)->where('status', SubscriptionInvoiceStatus::Annulee)->first();
+
+        if ($cancelled) {
+            $cancelled->update($paid);
+
+            return $cancelled;
+        }
+
+        return $subscription->invoices()->create(['reference' => $this->invoiceReference(), ...$paid]);
     }
 
     /**
@@ -314,14 +326,36 @@ class PromoterSubscriptions
     {
         $today ??= CarbonImmutable::today();
         $counts = ['invoiced' => 0, 'late' => 0, 'expired' => 0, 'ended' => 0];
+        $grace = $this->graceDays();
+
+        // Facture émise quelques jours avant l’échéance (réglage) : payée à temps, l’abonnement ne passe pas « en retard ».
+        if (($lead = $this->invoiceLeadDays()) > 0) {
+            Subscription::query()
+                ->whereNotNull('promoter_profile_id')
+                ->whereIn('status', [SubscriptionStatus::Active, SubscriptionStatus::Essai])
+                ->where('auto_renew', true)
+                ->whereDate('current_period_end', '>=', $today)
+                ->whereDate('current_period_end', '<=', $today->addDays($lead))
+                ->pluck('id')
+                ->each(function (string $id) use ($today, &$counts): void {
+                    DB::transaction(function () use ($id, $today, &$counts): void {
+                        $subscription = Subscription::query()->lockForUpdate()->with(['plan', 'pendingPlan'])->findOrFail($id);
+                        $renews = $subscription->auto_renew && in_array($subscription->status, [SubscriptionStatus::Active, SubscriptionStatus::Essai], true);
+
+                        if ($renews && ! $this->openInvoice($subscription)) {
+                            $this->issueRenewal($subscription, $today, $counts);
+                        }
+                    });
+                });
+        }
 
         Subscription::query()
             ->whereNotNull('promoter_profile_id')
             ->whereIn('status', [SubscriptionStatus::Active, SubscriptionStatus::Essai, SubscriptionStatus::EnRetard])
             ->whereDate('current_period_end', '<', $today)
             ->with(['plan', 'pendingPlan'])
-            ->each(function (Subscription $subscription) use ($today, &$counts): void {
-                DB::transaction(function () use ($subscription, $today, &$counts): void {
+            ->each(function (Subscription $subscription) use ($today, $grace, &$counts): void {
+                DB::transaction(function () use ($subscription, $today, $grace, &$counts): void {
                     if (! $subscription->auto_renew) {
                         $subscription->update(['pending_plan_id' => null, 'pending_effective_at' => null]);
                         $this->move($subscription, SubscriptionStatus::Resiliee, 'Fin de la période après résiliation');
@@ -338,10 +372,10 @@ class PromoterSubscriptions
                         $counts['late']++;
                     }
 
-                    if ($invoice->due_date->copy()->addDays(self::GRACE_DAYS)->lessThan($today)) {
+                    if ($invoice->due_date->copy()->max($invoice->period_start)->addDays($grace)->lessThan($today)) {
                         $invoice->update(['status' => SubscriptionInvoiceStatus::Annulee]);
                         $subscription->update(['pending_plan_id' => null, 'pending_effective_at' => null]);
-                        $this->move($subscription, SubscriptionStatus::Expiree, 'Facture impayée après '.self::GRACE_DAYS.' jours');
+                        $this->move($subscription, SubscriptionStatus::Expiree, 'Facture impayée après '.$grace.' jours');
                         $counts['expired']++;
                     }
                 });
@@ -353,6 +387,22 @@ class PromoterSubscriptions
     /**
      * @return array<string, mixed>
      */
+    /**
+     * Jours laissés pour régler une facture de renouvellement avant l’expiration de l’abonnement (Paramètres).
+     */
+    public function graceDays(): int
+    {
+        return max(1, (int) (Setting::query()->whereKey('subscriptions.grace_days')->value('value') ?? self::GRACE_DAYS));
+    }
+
+    /**
+     * Nombre de jours avant l’échéance où la facture de renouvellement est émise ; 0 : à l’échéance (Paramètres).
+     */
+    public function invoiceLeadDays(): int
+    {
+        return max(0, (int) (Setting::query()->whereKey('subscriptions.invoice_lead_days')->value('value') ?? 0));
+    }
+
     public function invoice(SubscriptionInvoice $invoice): array
     {
         $receipt = $invoice->paymentTransactions->where('status', PaymentTransactionStatus::Reussie)->flatMap->receipts->first();
@@ -487,6 +537,22 @@ class PromoterSubscriptions
         $start = CarbonImmutable::parse($subscription->current_period_end)->addDay();
         $plan = $this->renewalPlan($subscription);
         $counts['invoiced']++;
+
+        // Une facture annulée existe déjà pour cette période (résiliation puis reprise) : elle est remise à payer.
+        $cancelled = $subscription->invoices()->whereDate('period_start', $start)->where('status', SubscriptionInvoiceStatus::Annulee)->first();
+
+        if ($cancelled) {
+            $cancelled->update([
+                'plan_id' => $plan->getKey(),
+                'label' => 'Abonnement '.$plan->name.' · '.$this->month($start),
+                'amount' => $plan->price_amount,
+                'due_date' => $start->max($today),
+                'status' => SubscriptionInvoiceStatus::APayer,
+            ]);
+            app(PromoterNotifier::class)->invoiceIssued($cancelled);
+
+            return $cancelled;
+        }
 
         return tap($subscription->invoices()->create([
             'reference' => $this->invoiceReference(),
