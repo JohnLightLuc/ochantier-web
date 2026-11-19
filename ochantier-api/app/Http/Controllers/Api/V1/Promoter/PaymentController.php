@@ -122,7 +122,7 @@ class PaymentController extends Controller
             'default_phone' => PhoneNumber::of($request->user())?->toArray(),
             'flexible' => [
                 'available' => $this->subscriptions->allowsFlexiblePayment($profile),
-                'min_amount' => PromoterPayments::FLEXIBLE_MIN,
+                'min_amount' => $this->payments->flexibleMinimum(),
                 'installments' => [1, 2, 3],
                 'interval_days' => 7,
             ],

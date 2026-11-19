@@ -66,6 +66,12 @@ class ContractorPayments
             return $existing;
         }
 
+        // Ce paiement est appliqué dans la requête : il n’est sûr qu’avec un prestataire qui répond aussitôt. Avec un
+        // prestataire réel (réponse « en attente », webhook), il serait marqué échoué alors que le payeur est débité.
+        if ($this->gateway->name() !== 'simulation') {
+            throw ValidationException::withMessages(['operator_code' => 'Le paiement en ligne n’est pas encore disponible dans cet espace.']);
+        }
+
         $quote = $this->quote($lines, $amount, $operator);
 
         $transaction = PaymentTransaction::query()->create([

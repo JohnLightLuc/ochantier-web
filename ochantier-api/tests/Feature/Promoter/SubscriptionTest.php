@@ -10,6 +10,7 @@ use App\Enums\SubscriptionStatus;
 use App\Models\Organization;
 use App\Models\PaymentTransaction;
 use App\Models\Receipt;
+use App\Models\Setting;
 use App\Models\Subscription;
 use App\Models\SubscriptionInvoice;
 use App\Models\User;
@@ -171,6 +172,59 @@ class SubscriptionTest extends PromoterTestCase
         $this->assertSame(SubscriptionStatus::Expiree, Subscription::query()->sole()->status);
         $this->actingAsPromoter($this->promoter);
         $this->getJson('/api/v1/promoter/subscription')->assertJsonPath('data.active', false);
+    }
+
+    public function test_the_grace_period_is_set_from_the_back_office(): void
+    {
+        Setting::query()->updateOrCreate(['key' => 'subscriptions.grace_days'], ['value' => 2]);
+        $this->subscribe('equipe')->assertCreated();
+        $renewal = CarbonImmutable::today()->addMonthNoOverflow();
+
+        $this->travelTo($renewal->setTime(1, 0));
+        $this->artisan('ochantier:renew-subscriptions')->assertSuccessful();
+        $this->travelTo($renewal->addDays(2)->setTime(1, 0));
+        $this->artisan('ochantier:renew-subscriptions')->assertSuccessful();
+        $this->assertSame(SubscriptionStatus::EnRetard, Subscription::query()->sole()->status);
+
+        $this->travelTo($renewal->addDays(3)->setTime(1, 0));
+        $this->artisan('ochantier:renew-subscriptions')->expectsOutput('0 facture(s) émise(s), 0 abonnement(s) en retard, 1 expiré(s), 0 résilié(s).')->assertSuccessful();
+        $this->assertSame(SubscriptionStatus::Expiree, Subscription::query()->sole()->status);
+    }
+
+    public function test_a_renewal_invoiced_ahead_and_paid_on_time_is_never_late(): void
+    {
+        Setting::query()->updateOrCreate(['key' => 'subscriptions.invoice_lead_days'], ['value' => 3]);
+        $this->subscribe('equipe')->assertCreated();
+        $renewal = CarbonImmutable::today()->addMonthNoOverflow();
+        $nothing = '0 facture(s) émise(s), 0 abonnement(s) en retard, 0 expiré(s), 0 résilié(s).';
+
+        // La période se termine la veille du renouvellement : la facture part 3 jours avant cette fin.
+        $this->travelTo($renewal->subDays(5)->setTime(1, 0));
+        $this->artisan('ochantier:renew-subscriptions')->expectsOutput($nothing)->assertSuccessful();
+        $this->travelTo($renewal->subDays(4)->setTime(1, 0));
+        $this->artisan('ochantier:renew-subscriptions')->expectsOutput('1 facture(s) émise(s), 0 abonnement(s) en retard, 0 expiré(s), 0 résilié(s).')->assertSuccessful();
+        $this->artisan('ochantier:renew-subscriptions')->expectsOutput($nothing)->assertSuccessful();
+
+        $this->actingAsPromoter($this->promoter);
+        $invoice = $this->getJson('/api/v1/promoter/subscription')
+            ->assertJsonPath('data.status.value', 'actif')
+            ->assertJsonPath('data.open_invoice.status.value', 'a_payer')
+            ->assertJsonPath('data.open_invoice.due_date', $renewal->toDateString())
+            ->json('data.open_invoice');
+
+        $this->postJson('/api/v1/promoter/payments', ['subscription_invoice_id' => $invoice['id'], 'operator_code' => 'wave', 'dial_code' => '225', 'phone_number' => '0712345634'])
+            ->assertCreated()
+            ->assertJsonPath('data.status.value', 'reussie');
+        $this->getJson('/api/v1/promoter/subscription')
+            ->assertJsonPath('data.status.value', 'actif')
+            ->assertJsonPath('data.open_invoice', null)
+            ->assertJsonPath('data.period.start', $renewal->toDateString());
+
+        $this->travelTo($renewal->setTime(1, 0));
+        $this->artisan('ochantier:renew-subscriptions')->expectsOutput($nothing)->assertSuccessful();
+
+        $this->assertSame(SubscriptionStatus::Active, Subscription::query()->sole()->status);
+        $this->assertSame(2, SubscriptionInvoice::query()->count());
     }
 
     public function test_cancellation_and_smaller_plans_are_refused_while_collaborators_remain(): void
