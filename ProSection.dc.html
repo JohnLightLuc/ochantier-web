@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<section data-component="ProSection" style="background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--radius-2xl);min-width:0;overflow:hidden">
+  <div style="display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center;padding:var(--space-4) var(--space-5)">
+    <div style="flex:1 1 200px;min-width:0"><h2 style="margin:0;font-size:var(--fs-xl);font-weight:var(--fw-bold);color:var(--c-ink)">{{ x.title }}</h2><sc-if value="{{ x.hasSub }}"><div style="color:var(--c-muted);font-size:var(--fs-sm);margin-top:2px;text-wrap:pretty">{{ x.sub }}</div></sc-if></div>
+    <sc-if value="{{ x.hasBadge }}"><dc-import name="StatusBadge" label="{{ x.badge }}" tone="{{ x.tone }}" hint-size="100px,24px"></dc-import></sc-if>
+    <sc-for list="{{ x.hdActs }}" as="a"><dc-import name="Button" label="{{ a.label }}" icon="{{ a.icon }}" variant="{{ a.variant }}" size="sm" onClick="{{ a.go }}" hint-size="150px,36px"></dc-import></sc-for>
+  </div>
+  <sc-if value="{{ x.hasNote }}"><div style="display:flex;gap:var(--space-2);align-items:flex-start;margin:0 var(--space-5) var(--space-4);padding:var(--space-3) var(--space-4);border-radius:var(--radius-lg);background:{{ x.noteBg }};color:{{ x.noteFg }};font-size:var(--fs-sm)"><span class="material-symbols-rounded" style="font-size:var(--icon-sm)">{{ x.noteIcon }}</span><span style="text-wrap:pretty">{{ x.note }}</span></div></sc-if>
+  <sc-if value="{{ x.isKv }}">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:var(--space-3) var(--space-4);padding:0 var(--space-5) var(--space-5)">
+      <sc-for list="{{ x.kv }}" as="k" hint-placeholder-count="6"><div style="min-width:0;grid-column:{{ k.col }}"><div style="font-size:var(--fs-xs);color:var(--c-muted)">{{ k.l }}</div><div style="font-weight:var(--fw-semibold);color:{{ k.c }};overflow-wrap:anywhere;text-wrap:pretty">{{ k.v }}</div></div></sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{ x.isList }}">
+    <sc-for list="{{ x.items }}" as="it" hint-placeholder-count="3">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-5);border-top:1px solid var(--c-line-soft);background:{{ it.bg }}">
+        <span style="width:36px;height:36px;border-radius:var(--radius-lg);background:{{ it.iBg }};color:{{ it.iFg }};display:grid;place-items:center;flex:none;font-weight:var(--fw-bold);font-size:var(--fs-xs)"><span class="material-symbols-rounded" style="font-size:var(--icon-sm)">{{ it.icon }}</span></span>
+        <div style="flex:1 1 220px;min-width:0"><div style="font-weight:var(--fw-semibold);color:var(--c-ink)">{{ it.t }}</div><div style="color:var(--c-muted);font-size:var(--fs-sm);text-wrap:pretty">{{ it.s }}</div><sc-if value="{{ it.hasS2 }}"><div style="color:{{ it.s2c }};font-size:var(--fs-xs);margin-top:2px;text-wrap:pretty">{{ it.s2 }}</div></sc-if></div>
+        <sc-if value="{{ it.hasRight }}"><div style="text-align:right"><div style="font-weight:var(--fw-bold);color:var(--c-ink)">{{ it.right }}</div><div style="color:var(--c-muted);font-size:var(--fs-xs)">{{ it.rightSub }}</div></div></sc-if>
+        <sc-if value="{{ it.hasBadge }}"><dc-import name="StatusBadge" label="{{ it.badge }}" tone="{{ it.tone }}" hint-size="100px,24px"></dc-import></sc-if>
+        <sc-if value="{{ it.hasActs }}"><div style="display:flex;flex-wrap:wrap;gap:var(--space-2)"><sc-for list="{{ it.acts }}" as="a"><button onClick="{{ a.go }}" title="{{ a.label }}" style="display:flex;align-items:center;gap:var(--space-1);height:34px;padding:0 var(--space-3);border:1px solid {{ a.bd }};border-radius:var(--radius-md);background:{{ a.bg }};color:{{ a.fg }};font:inherit;font-size:var(--fs-sm);font-weight:var(--fw-semibold);cursor:pointer" style-hover="filter:brightness(.96)"><span class="material-symbols-rounded" style="font-size:18px">{{ a.icon }}</span>{{ a.label }}</button></sc-for></div></sc-if>
+      </div>
+    </sc-for>
+  </sc-if>
+  <sc-if value="{{ x.isTable }}">
+    <div style="overflow-x:auto;border-top:1px solid var(--c-line-soft)">
+      <table style="width:100%;min-width:{{ x.minW }};border-collapse:collapse;font-size:var(--fs-sm)">
+        <thead><tr style="background:var(--c-surface-2);color:var(--c-muted);text-align:left"><sc-for list="{{ x.cols }}" as="c"><th style="padding:var(--space-3) var(--space-4);font-weight:var(--fw-semibold);text-align:{{ c.al }};white-space:nowrap">{{ c.l }}</th></sc-for></tr></thead>
+        <tbody>
+          <sc-for list="{{ x.rows }}" as="r" hint-placeholder-count="3">
+            <tr style="border-top:1px solid var(--c-line-soft);background:{{ r.bg }}">
+              <sc-for list="{{ r.cells }}" as="c">
+                <td style="padding:var(--space-3) var(--space-4);vertical-align:top;text-align:{{ c.al }}">
+                  <sc-if value="{{ c.isAv }}"><div style="display:flex;align-items:center;gap:var(--space-2_5)"><span style="width:32px;height:32px;border-radius:var(--radius-round);background:var(--c-primary-100);color:var(--c-primary);font-weight:var(--fw-bold);font-size:var(--fs-xs);display:grid;place-items:center;flex:none">{{ c.init }}</span><div style="min-width:0"><div style="font-weight:var(--fw-semibold);color:var(--c-ink)">{{ c.t }}</div><div style="color:var(--c-muted);font-size:var(--fs-xs)">{{ c.s }}</div></div></div></sc-if>
+                  <sc-if value="{{ c.isTxt }}"><div style="font-weight:{{ c.fw }};color:{{ c.fg }}">{{ c.t }}</div><sc-if value="{{ c.hasS }}"><div style="color:var(--c-muted);font-size:var(--fs-xs)">{{ c.s }}</div></sc-if></sc-if>
+                  <sc-if value="{{ c.isBadge }}"><dc-import name="StatusBadge" label="{{ c.t }}" tone="{{ c.tone }}" hint-size="100px,24px"></dc-import><sc-if value="{{ c.hasS }}"><div style="color:var(--c-muted);font-size:var(--fs-xs);margin-top:2px">{{ c.s }}</div></sc-if></sc-if>
+                  <sc-if value="{{ c.isActs }}"><div style="display:flex;flex-wrap:wrap;gap:var(--space-1_5);justify-content:flex-end"><sc-for list="{{ c.acts }}" as="a"><button onClick="{{ a.go }}" title="{{ a.label }}" style="display:flex;align-items:center;gap:var(--space-1);height:32px;padding:0 var(--space-2_5);border:1px solid {{ a.bd }};border-radius:var(--radius-md);background:{{ a.bg }};color:{{ a.fg }};font:inherit;font-size:var(--fs-xs);font-weight:var(--fw-semibold);cursor:pointer;white-space:nowrap"><span class="material-symbols-rounded" style="font-size:16px">{{ a.icon }}</span>{{ a.label }}</button></sc-for></div></sc-if>
+                </td>
+              </sc-for>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+  </sc-if>
+  <sc-if value="{{ x.isFin }}">
+    <div style="display:flex;flex-direction:column;padding:0 var(--space-5) var(--space-4)">
+      <sc-for list="{{ x.fin }}" as="f" hint-placeholder-count="5">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3);padding:var(--space-2_5) 0;border-top:{{ f.bt }};background:{{ f.bg }}">
+          <div style="min-width:0"><div style="color:{{ f.lc }};font-weight:{{ f.fw }}">{{ f.l }}</div><sc-if value="{{ f.hasS }}"><div style="color:var(--c-muted);font-size:var(--fs-xs)">{{ f.s }}</div></sc-if></div>
+          <div style="font-weight:{{ f.fw }};font-size:{{ f.fs }};color:{{ f.c }};white-space:nowrap">{{ f.v }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{ x.isLog }}">
+    <div style="display:flex;flex-direction:column;gap:var(--space-3);padding:0 var(--space-5) var(--space-5)">
+      <sc-for list="{{ x.log }}" as="l" hint-placeholder-count="3"><div style="display:flex;gap:var(--space-3)"><span style="width:8px;height:8px;margin-top:7px;border-radius:var(--radius-round);background:var(--c-primary-400);flex:none"></span><div style="min-width:0"><div style="color:var(--c-ink-2);text-wrap:pretty">{{ l.txt }}</div><div style="color:var(--c-muted);font-size:var(--fs-xs)">{{ l.d }}</div></div></div></sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{ x.isEmpty }}"><div style="padding:var(--space-6) var(--space-5);border-top:1px solid var(--c-line-soft);color:var(--c-muted);text-align:center">{{ x.empty }}</div></sc-if>
+  <sc-if value="{{ x.hasActs }}"><div style="display:flex;flex-wrap:wrap;gap:var(--space-2_5);padding:var(--space-4) var(--space-5);border-top:1px solid var(--c-line-soft)"><sc-for list="{{ x.acts }}" as="a"><dc-import name="Button" label="{{ a.label }}" icon="{{ a.icon }}" variant="{{ a.variant }}" onClick="{{ a.go }}" hint-size="170px,44px"></dc-import></sc-for></div></sc-if>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:640,&quot;height&quot;:320},&quot;x&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;}}"></script>
+</body>
+</html>
