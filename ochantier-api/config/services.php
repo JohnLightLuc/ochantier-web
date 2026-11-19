@@ -72,6 +72,8 @@ return [
     // Encaissement Mobile Money : « simulation » hors production, en attendant le prestataire retenu.
     'payments' => [
         'driver' => env('PAYMENT_DRIVER', 'simulation'),
+        // Secret de signature des webhooks du prestataire simulé (tests et recette) ; vide : webhooks simulés refusés.
+        'simulation_webhook_secret' => env('PAYMENT_SIMULATION_WEBHOOK_SECRET'),
     ],
 
 ];

@@ -11,6 +11,9 @@ Artisan::command('inspire', function () {
 // Fin de période des abonnements promoteur : renouvellement, retard, expiration, fin après résiliation.
 Schedule::command('ochantier:renew-subscriptions')->dailyAt('01:00');
 
+// Paiements des promoteurs restés sans issue : vérification auprès du prestataire, application ou expiration.
+Schedule::command('ochantier:reconcile-payments')->everyMinute()->withoutOverlapping();
+
 // Rapports programmés : génération, bibliothèque et envoi par e-mail.
 Schedule::command('ochantier:run-report-schedules')->hourly();
 

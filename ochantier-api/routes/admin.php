@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterReviewController;
 use App\Http\Controllers\Api\V1\Admin\Rating\RatingController;
 use App\Http\Controllers\Api\V1\Admin\Report\ReportController;
 use App\Http\Controllers\Api\V1\Admin\Report\ReportLibraryController;
+use App\Http\Controllers\Api\V1\Admin\Settings\PaymentOperatorController;
 use App\Http\Controllers\Api\V1\Admin\Settings\SettingsController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteController;
 use App\Http\Controllers\Api\V1\Admin\Site\SiteDecisionController;
@@ -267,6 +268,8 @@ Route::middleware('auth:admin')->group(function () {
             Route::post('trades', 'storeTrade')->middleware('admin.can:settings.update')->name('trades.store');
             Route::patch('trades/{tradeId}', 'updateTrade')->whereUuid('tradeId')->middleware('admin.can:settings.update')->name('trades.update');
             Route::post('trades/{tradeId}/toggle', 'toggleTrade')->whereUuid('tradeId')->middleware('admin.can:settings.update')->name('trades.toggle');
+            Route::get('payment-operators', [PaymentOperatorController::class, 'index'])->middleware('admin.can:settings.read')->name('payment-operators.index');
+            Route::patch('payment-operators/{operatorId}', [PaymentOperatorController::class, 'update'])->whereUuid('operatorId')->middleware('admin.can:settings.update')->name('payment-operators.update');
         });
 
         // Tableau de bord : chaque bloc dépend aussi du droit de lire son module.

@@ -33,16 +33,21 @@ use App\Models\User;
 use App\Support\Contractor\ContractorNotifier;
 use App\Support\Documents\SimplePdf;
 use App\Support\Media\MediaStore;
+use App\Support\Payments\GatewayResult;
 use App\Support\Payments\PaymentGateway;
+use App\Support\Payments\PaymentHolds;
 use App\Support\PhoneNumber;
 use App\Support\Pricing\PricingRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Paiements du promoteur (« Paiements », « Payer ») : acompte d’une proposition acceptée, échéances des missions,
@@ -74,6 +79,18 @@ class PromoterPayments
      */
     public const FLEXIBLE_MIN = 20000;
 
+    /**
+     * Statuts d’un paiement dont l’issue n’est pas encore connue.
+     *
+     * @var list<PaymentTransactionStatus>
+     */
+    public const OPEN = [PaymentTransactionStatus::Initiee, PaymentTransactionStatus::EnAttente];
+
+    /**
+     * Nombre de vérifications sans issue au-delà duquel un paiement ouvert est signalé.
+     */
+    public const CHECKS_BEFORE_ALERT = 8;
+
     public function __construct(
         private PricingRules $pricing,
         private MissionPlanner $planner,
@@ -81,6 +98,7 @@ class PromoterPayments
         private MediaStore $media,
         private PromoterSubscriptions $subscriptions,
         private PromoterAccess $access,
+        private PaymentHolds $holds,
     ) {}
 
     /**
@@ -90,7 +108,7 @@ class PromoterPayments
      */
     public function operators(): Collection
     {
-        return PaymentOperator::query()->where('is_active', true)->where('supports_collection', true)->orderBy('created_at')->get();
+        return PaymentOperator::query()->where('is_active', true)->where('supports_collection', true)->orderBy('sort_order')->orderBy('created_at')->get();
     }
 
     /**
@@ -173,6 +191,14 @@ class PromoterPayments
      */
     public function quote(array $payable, PaymentOperator $operator): array
     {
+        if ($operator->min_amount !== null && $payable['amount'] < $operator->min_amount) {
+            throw ValidationException::withMessages(['operator_code' => $operator->name.' n’accepte pas de paiement inférieur à '.$this->money($operator->min_amount).'.']);
+        }
+
+        if ($operator->max_amount !== null && $payable['amount'] > $operator->max_amount) {
+            throw ValidationException::withMessages(['operator_code' => $operator->name.' n’accepte pas de paiement supérieur à '.$this->money($operator->max_amount).'. Choisissez un autre moyen de paiement.']);
+        }
+
         $percent = (float) $operator->collection_fee_percent;
         $fees = $this->pricing->operatorFee($payable['amount'], $percent);
 
@@ -186,16 +212,321 @@ class PromoterPayments
     }
 
     /**
-     * Paie par Mobile Money. Une même clé d’idempotence renvoie le paiement déjà demandé.
+     * Paie par Mobile Money. Une même clé d’idempotence renvoie le paiement déjà demandé par ce compte, jamais celui
+     * d’un autre. Les éléments payés sont retenus le temps du paiement : un second paiement du même élément est
+     * refusé tant que le premier n’a pas abouti ou échoué. $target (ce que l’on paie, tel que reçu) fait revérifier
+     * l’élément une fois retenu, pour ne pas encaisser ce qu’un paiement concurrent vient de régler.
      *
      * @param  array<string, mixed>  $payable
+     * @param  array<string, mixed>|null  $target
      */
-    public function pay(User $user, PromoterProfile $profile, array $payable, PaymentOperator $operator, PhoneNumber $phone, string $idempotencyKey, bool $remember = false): PaymentTransaction
+    public function pay(User $user, PromoterProfile $profile, array $payable, PaymentOperator $operator, PhoneNumber $phone, string $idempotencyKey, bool $remember = false, ?array $target = null, int $installments = 1, ?string $requestHash = null): PaymentTransaction
     {
-        if ($existing = PaymentTransaction::query()->where('idempotency_key', $idempotencyKey)->first()) {
+        if ($existing = $this->requested($profile, $idempotencyKey)) {
             return $existing;
         }
 
+        $holder = $this->holds->holder($profile->getMorphClass(), (string) $profile->getKey(), $idempotencyKey);
+        $this->holds->acquire($this->heldTargets($payable, $profile), $holder);
+
+        try {
+            if ($target !== null) {
+                $payable = $this->split($this->payable($user, $target), $profile, $installments);
+            }
+
+            $transaction = DB::transaction(fn (): PaymentTransaction => $this->initiate($user, $profile, $payable, $operator, $phone, $idempotencyKey, $remember, $requestHash, $target));
+        } catch (UniqueConstraintViolationException $exception) {
+            $this->holds->release($holder);
+
+            if (! str_contains($exception->getMessage(), 'payment_transactions_idempotency_key_unique')) {
+                throw $exception;
+            }
+
+            // La même clé vient d’être enregistrée par une requête simultanée de ce compte, ou appartient à un autre.
+            $existing = $this->requested($profile, $idempotencyKey)
+                ?? throw ValidationException::withMessages(['idempotency_key' => 'Cette clé d’idempotence est déjà utilisée.']);
+
+            if ($existing->request_hash !== null && $requestHash !== null && ! hash_equals($existing->request_hash, $requestHash)) {
+                throw ValidationException::withMessages(['idempotency_key' => 'Cette clé d’idempotence a déjà servi à un autre paiement.']);
+            }
+
+            return $existing;
+        } catch (Throwable $exception) {
+            $this->holds->release($holder);
+
+            throw $exception;
+        }
+
+        $this->holds->attach($holder, $transaction);
+        $quote = $this->quote($payable, $operator);
+
+        try {
+            $result = $this->gateway->collect($operator, $phone, $quote['total'], $transaction->reference);
+        } catch (Throwable $exception) {
+            // Issue inconnue, jamais un échec : le paiement reste ouvert, retenu, et sera vérifié auprès du prestataire.
+            report($exception);
+
+            return $transaction->refresh();
+        }
+
+        return $this->resolve($transaction, $result, TransactionStatusSource::Api, $user, $payable);
+    }
+
+    /**
+     * Applique à un paiement l’issue annoncée par le prestataire (réponse à la demande, webhook ou vérification) :
+     * réussi, il est appliqué une seule fois ; en attente, il reste ouvert ; échoué, il est clos. Un paiement déjà
+     * clos ne change plus, sauf un paiement expiré ou échoué que le prestataire confirme avoir encaissé.
+     *
+     * @param  array<string, mixed>|null  $payable  ce qui est payé, s’il vient d’être établi ; sinon il est rétabli
+     */
+    public function resolve(PaymentTransaction $transaction, GatewayResult $result, TransactionStatusSource $source, ?User $actor = null, ?array $payable = null, ?string $webhookEventId = null): PaymentTransaction
+    {
+        return DB::transaction(function () use ($transaction, $result, $source, $actor, $payable, $webhookEventId): PaymentTransaction {
+            $locked = PaymentTransaction::query()->lockForUpdate()->findOrFail($transaction->getKey());
+            $from = $locked->status;
+            $status = PaymentTransactionStatus::from($result->status);
+            $late = in_array($from, [PaymentTransactionStatus::Expiree, PaymentTransactionStatus::Echouee], true) && $status === PaymentTransactionStatus::Reussie;
+
+            if (! in_array($from, self::OPEN, true) && ! $late) {
+                return $locked;
+            }
+
+            return match ($status) {
+                PaymentTransactionStatus::Reussie => $this->confirm($locked, $from, $result, $source, $actor, $payable, $webhookEventId),
+                PaymentTransactionStatus::EnAttente => $this->wait($locked, $from, $result, $source, $webhookEventId),
+                default => $this->close($locked, $from, PaymentTransactionStatus::Echouee, $source, $result, $webhookEventId),
+            };
+        });
+    }
+
+    /**
+     * Vérifie auprès du prestataire les paiements ouverts dont l’heure de vérification est passée, puis expire ceux
+     * qu’il dit toujours en attente après leur date d’expiration. Deux exécutions simultanées ne prennent pas les
+     * mêmes paiements.
+     *
+     * @return array{checked: int, succeeded: int, failed: int, expired: int, pending: int}
+     */
+    public function reconcile(int $limit = 50): array
+    {
+        $ids = DB::transaction(function () use ($limit): array {
+            $due = PaymentTransaction::query()
+                ->where('direction', PaymentTransactionDirection::Encaissement)
+                ->where('payer_type', (new PromoterProfile)->getMorphClass())
+                ->whereIn('status', self::OPEN)
+                ->whereNotNull('next_check_at')
+                ->where('next_check_at', '<=', now())
+                ->orderBy('next_check_at')
+                ->limit($limit)
+                ->lock('for update skip locked')
+                ->get();
+
+            foreach ($due as $transaction) {
+                $transaction->forceFill([
+                    'next_check_at' => now()->addMinutes(min(15, 2 ** min($transaction->check_attempts, 4))),
+                    'check_attempts' => $transaction->check_attempts + 1,
+                ])->save();
+            }
+
+            return $due->modelKeys();
+        });
+
+        $counts = ['checked' => count($ids), 'succeeded' => 0, 'failed' => 0, 'expired' => 0, 'pending' => 0];
+
+        foreach ($ids as $id) {
+            try {
+                $key = match ($this->check(PaymentTransaction::query()->findOrFail($id))->status) {
+                    PaymentTransactionStatus::Reussie => 'succeeded',
+                    PaymentTransactionStatus::Echouee => 'failed',
+                    PaymentTransactionStatus::Expiree => 'expired',
+                    default => 'pending',
+                };
+            } catch (Throwable $exception) {
+                // Un paiement qui ne peut pas être traité ne bloque pas les suivants : il reste ouvert et sera revérifié.
+                report($exception);
+                $key = 'pending';
+            }
+
+            $counts[$key]++;
+        }
+
+        return $counts;
+    }
+
+    /**
+     * Demande au prestataire l’état d’un paiement ouvert. S’il ne répond pas, rien ne change : l’issue reste inconnue.
+     */
+    public function check(PaymentTransaction $transaction): PaymentTransaction
+    {
+        if ($transaction->check_attempts >= self::CHECKS_BEFORE_ALERT) {
+            Log::critical('Paiement toujours sans issue après plusieurs vérifications', ['reference' => $transaction->reference, 'statut' => $transaction->status->value, 'verifications' => $transaction->check_attempts]);
+        }
+
+        try {
+            $result = $this->gateway->status($transaction);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return $transaction;
+        }
+
+        if ($result->status === PaymentTransactionStatus::EnAttente->value && $transaction->expires_at?->isPast()) {
+            return DB::transaction(function () use ($transaction): PaymentTransaction {
+                $locked = PaymentTransaction::query()->lockForUpdate()->findOrFail($transaction->getKey());
+
+                return in_array($locked->status, self::OPEN, true)
+                    ? $this->close($locked, $locked->status, PaymentTransactionStatus::Expiree, TransactionStatusSource::Rapprochement)
+                    : $locked;
+            });
+        }
+
+        return $this->resolve($transaction, $result, TransactionStatusSource::Rapprochement);
+    }
+
+    /**
+     * Paiement encaissé : il est appliqué. S’il ne peut plus l’être (réservation expirée, élément déjà réglé, montant
+     * modifié), l’argent a quand même été reçu : le paiement est « réussi », marqué non appliqué et signalé pour
+     * remboursement.
+     *
+     * @param  array<string, mixed>|null  $payable
+     */
+    private function confirm(PaymentTransaction $transaction, PaymentTransactionStatus $from, GatewayResult $result, TransactionStatusSource $source, ?User $actor, ?array $payable, ?string $webhookEventId): PaymentTransaction
+    {
+        // Le compte payeur est verrouillé : deux encaissements du même compte ne s’appliquent jamais en même temps,
+        // et ce qui est payé est toujours revérifié juste avant d’être appliqué.
+        $profile = PromoterProfile::query()->lockForUpdate()->find($transaction->payer_id);
+        $user = $actor ?? User::query()->find($transaction->initiated_by_id);
+
+        try {
+            if (! $profile || ! $user) {
+                throw ValidationException::withMessages(['payment' => 'Le compte qui a payé est introuvable.']);
+            }
+
+            $payable = isset($transaction->metadata['target']) ? $this->payableOf($transaction, $user, $profile) : ($payable ?? $this->payableOf($transaction, $user, $profile));
+
+            if ((int) $payable['amount'] !== (int) $transaction->amount) {
+                throw ValidationException::withMessages(['payment' => 'Le montant à régler a changé depuis la demande de paiement.']);
+            }
+
+            $settled = $this->settle($transaction, $payable, $user, $profile, $result, $from, $source, $webhookEventId);
+        } catch (ValidationException $exception) {
+            $reason = (string) collect($exception->errors())->flatten()->first();
+            $transaction->forceFill([
+                'status' => PaymentTransactionStatus::Reussie,
+                'provider_reference' => $result->providerReference ?? $transaction->provider_reference,
+                'completed_at' => now(),
+                'next_check_at' => null,
+                'metadata' => [...$transaction->metadata, 'settlement' => ['status' => 'non_applique', 'reason' => $reason]],
+            ])->save();
+            $this->history($transaction, $from, PaymentTransactionStatus::Reussie, null, $source, $webhookEventId);
+            $this->holds->releaseFor($transaction);
+            Log::critical('Paiement encaissé non appliqué : remboursement à traiter', ['reference' => $transaction->reference, 'montant' => $transaction->amount + $transaction->fees_amount, 'raison' => $reason]);
+
+            return $transaction;
+        }
+
+        $settled->forceFill(['next_check_at' => null])->save();
+        $this->holds->releaseFor($settled);
+
+        return $settled;
+    }
+
+    /**
+     * Paiement en attente de validation sur le téléphone : il reste ouvert et retenu jusqu’à son expiration.
+     */
+    private function wait(PaymentTransaction $transaction, PaymentTransactionStatus $from, GatewayResult $result, TransactionStatusSource $source, ?string $webhookEventId): PaymentTransaction
+    {
+        $expiresAt = $result->expiresAt ?? $transaction->expires_at ?? now()->addMinutes(PaymentHolds::HOLD_MINUTES);
+
+        $transaction->forceFill([
+            'status' => PaymentTransactionStatus::EnAttente,
+            'provider_reference' => $result->providerReference ?? $transaction->provider_reference,
+            'expires_at' => $expiresAt,
+            'next_check_at' => $from === PaymentTransactionStatus::EnAttente && $transaction->next_check_at ? $transaction->next_check_at : now()->addMinute(),
+            'metadata' => [...$transaction->metadata, 'next_action' => $result->nextAction ?? ($transaction->metadata['next_action'] ?? null)],
+        ])->save();
+
+        if ($from !== PaymentTransactionStatus::EnAttente) {
+            $this->history($transaction, $from, PaymentTransactionStatus::EnAttente, null, $source, $webhookEventId);
+        }
+
+        $this->holds->extend($transaction, $expiresAt->copy()->addMinutes(5));
+
+        return $transaction;
+    }
+
+    /**
+     * Clôt un paiement ouvert sans encaissement (échoué ou expiré) et libère ce qu’il retenait.
+     */
+    private function close(PaymentTransaction $transaction, PaymentTransactionStatus $from, PaymentTransactionStatus $to, TransactionStatusSource $source, ?GatewayResult $result = null, ?string $webhookEventId = null): PaymentTransaction
+    {
+        $transaction->forceFill([
+            'status' => $to,
+            'provider_reference' => $result?->providerReference ?? $transaction->provider_reference,
+            'failure_code' => $result?->failureCode,
+            'failure_message' => $result?->failureMessage,
+            'next_check_at' => null,
+        ])->save();
+        $this->history($transaction, $from, $to, null, $source, $webhookEventId);
+        $this->holds->releaseFor($transaction);
+
+        return $transaction;
+    }
+
+    /**
+     * Ce que règle un paiement déjà demandé, rétabli à partir de sa demande et revérifié.
+     *
+     * @return array<string, mixed>
+     */
+    private function payableOf(PaymentTransaction $transaction, User $user, PromoterProfile $profile): array
+    {
+        $target = $transaction->metadata['target'] ?? null;
+
+        if (! is_array($target) || $target === []) {
+            throw ValidationException::withMessages(['payment' => 'Ce paiement ne peut pas être appliqué automatiquement.']);
+        }
+
+        return $this->split($this->payable($user, $target), $profile, (int) ($transaction->metadata['installments'] ?? 1));
+    }
+
+    /**
+     * Paiement déjà demandé par ce compte avec cette clé d’idempotence.
+     */
+    public function requested(PromoterProfile $profile, string $idempotencyKey): ?PaymentTransaction
+    {
+        return PaymentTransaction::query()
+            ->where('idempotency_key', $idempotencyKey)
+            ->where('payer_type', $profile->getMorphClass())
+            ->where('payer_id', $profile->getKey())
+            ->first();
+    }
+
+    /**
+     * Éléments retenus le temps du paiement : [type, identifiant].
+     *
+     * @param  array<string, mixed>  $payable
+     * @return list<array{0: string, 1: string}>
+     */
+    private function heldTargets(array $payable, PromoterProfile $profile): array
+    {
+        return match (true) {
+            $payable['kind'] === 'abonnement' => [['promoter_subscription', (string) $profile->getKey()]],
+            $payable['kind'] === 'commande_devis' => [['quote_request', (string) $payable['quote_request']->getKey()]],
+            $payable['kind'] === 'versement' => [['payment_installment', (string) $payable['installment']->getKey()]],
+            isset($payable['contractor_bid']) => [['contractor_bid', (string) $payable['contractor_bid']->getKey()]],
+            $payable['kind'] === 'acompte' => [['proposal', (string) $payable['proposal']->getKey()]],
+            default => collect($this->keys($payable['schedules']))->sort()->map(fn (string $id) => ['payment_schedule', $id])->values()->all(),
+        };
+    }
+
+    /**
+     * Enregistre la demande de paiement, avant tout appel au prestataire. Elle sera vérifiée auprès de lui si son
+     * issue n’est pas connue aussitôt.
+     *
+     * @param  array<string, mixed>  $payable
+     * @param  array<string, mixed>|null  $target
+     */
+    private function initiate(User $user, PromoterProfile $profile, array $payable, PaymentOperator $operator, PhoneNumber $phone, string $idempotencyKey, bool $remember, ?string $requestHash, ?array $target): PaymentTransaction
+    {
         $quote = $this->quote($payable, $operator);
         $method = $remember ? $this->rememberNumber($profile, $user, $operator, $phone) : null;
 
@@ -217,13 +548,17 @@ class PromoterPayments
             'operator_id' => $operator->getKey(),
             'provider' => $operator->provider,
             'idempotency_key' => $idempotencyKey,
+            'request_hash' => $requestHash,
             'amount' => $quote['amount'],
             'fees_amount' => $quote['fees'],
             'status' => PaymentTransactionStatus::Initiee,
+            'expires_at' => now()->addMinutes(PaymentHolds::HOLD_MINUTES),
+            'next_check_at' => now()->addMinutes(2),
             'initiated_by_type' => $user->getMorphClass(),
             'initiated_by_id' => $user->getKey(),
             'metadata' => [
                 'allocations' => [],
+                'target' => $target,
                 'label' => $payable['label'],
                 'site_id' => $payable['site']?->getKey(),
                 'proposal_id' => $payable['proposal']?->getKey(),
@@ -241,20 +576,21 @@ class PromoterPayments
         ]);
         $this->history($transaction, null, PaymentTransactionStatus::Initiee, $user);
 
-        $result = $this->gateway->collect($operator, $phone, $quote['total'], $transaction->reference);
+        return $transaction;
+    }
 
-        if ($result->status !== PaymentTransactionStatus::Reussie->value) {
-            $transaction->forceFill(['status' => PaymentTransactionStatus::Echouee, 'provider_reference' => $result->providerReference, 'failure_code' => $result->failureCode, 'failure_message' => $result->failureMessage])->save();
-            $this->history($transaction, PaymentTransactionStatus::Initiee, PaymentTransactionStatus::Echouee, $user);
-
-            return $transaction;
-        }
-
-        return DB::transaction(function () use ($transaction, $payable, $user, $profile, $result): PaymentTransaction {
+    /**
+     * Applique un paiement encaissé : missions, échéances, versements, abonnement ou commande, puis reçu.
+     *
+     * @param  array<string, mixed>  $payable
+     */
+    private function settle(PaymentTransaction $transaction, array $payable, User $user, PromoterProfile $profile, GatewayResult $result, PaymentTransactionStatus $from, TransactionStatusSource $source, ?string $webhookEventId = null): PaymentTransaction
+    {
+        return DB::transaction(function () use ($transaction, $payable, $user, $profile, $result, $from, $source, $webhookEventId): PaymentTransaction {
             if ($payable['kind'] === 'abonnement') {
                 $invoice = $this->subscriptions->settle($transaction, $profile, $user, $payable);
-                $transaction->forceFill(['status' => PaymentTransactionStatus::Reussie, 'provider_reference' => $result->providerReference, 'completed_at' => now(), 'subscription_invoice_id' => $invoice->getKey()])->save();
-                $this->history($transaction, PaymentTransactionStatus::Initiee, PaymentTransactionStatus::Reussie, $user);
+                $transaction->forceFill(['status' => PaymentTransactionStatus::Reussie, 'provider_reference' => $result->providerReference ?? $transaction->provider_reference, 'completed_at' => now(), 'subscription_invoice_id' => $invoice->getKey()])->save();
+                $this->history($transaction, $from, PaymentTransactionStatus::Reussie, $source === TransactionStatusSource::Api ? $user : null, $source, $webhookEventId);
                 $this->issueReceipt($transaction, $profile, null, $invoice);
                 app(PromoterNotifier::class)->paymentSucceeded($transaction, $profile, null);
 
@@ -263,8 +599,8 @@ class PromoterPayments
 
             if ($payable['kind'] === 'commande_devis') {
                 app(QuoteRequests::class)->order($payable['quote_request'], $payable['bids'], $transaction, $user);
-                $transaction->forceFill(['status' => PaymentTransactionStatus::Reussie, 'provider_reference' => $result->providerReference, 'completed_at' => now()])->save();
-                $this->history($transaction, PaymentTransactionStatus::Initiee, PaymentTransactionStatus::Reussie, $user);
+                $transaction->forceFill(['status' => PaymentTransactionStatus::Reussie, 'provider_reference' => $result->providerReference ?? $transaction->provider_reference, 'completed_at' => now()])->save();
+                $this->history($transaction, $from, PaymentTransactionStatus::Reussie, $source === TransactionStatusSource::Api ? $user : null, $source, $webhookEventId);
                 $this->issueReceipt($transaction, $profile, $payable['site'], $payable['site']);
                 app(PromoterNotifier::class)->paymentSucceeded($transaction, $profile, $payable['site']);
 
@@ -292,12 +628,12 @@ class PromoterPayments
 
             $transaction->forceFill([
                 'status' => PaymentTransactionStatus::Reussie,
-                'provider_reference' => $result->providerReference,
+                'provider_reference' => $result->providerReference ?? $transaction->provider_reference,
                 'completed_at' => now(),
                 'payment_schedule_id' => $schedules->count() === 1 ? $schedules->first()->getKey() : null,
                 'metadata' => [...$transaction->metadata, 'allocations' => $this->keys($schedules)],
             ])->save();
-            $this->history($transaction, PaymentTransactionStatus::Initiee, PaymentTransactionStatus::Reussie, $user);
+            $this->history($transaction, $from, PaymentTransactionStatus::Reussie, $source === TransactionStatusSource::Api ? $user : null, $source, $webhookEventId);
             $this->issueReceipt($transaction, $profile, $payable['site'], $payable['site']);
             app(PromoterNotifier::class)->paymentSucceeded($transaction, $profile, $payable['site']);
 
@@ -842,9 +1178,9 @@ class PromoterPayments
         ];
     }
 
-    private function history(PaymentTransaction $transaction, ?PaymentTransactionStatus $from, PaymentTransactionStatus $to, User $user): void
+    private function history(PaymentTransaction $transaction, ?PaymentTransactionStatus $from, PaymentTransactionStatus $to, ?User $user, TransactionStatusSource $source = TransactionStatusSource::Api, ?string $webhookEventId = null): void
     {
-        $transaction->statusHistories()->create(['from_status' => $from, 'to_status' => $to, 'source' => TransactionStatusSource::Api, 'actor_id' => $user->getKey()]);
+        $transaction->statusHistories()->create(['from_status' => $from, 'to_status' => $to, 'source' => $source, 'webhook_event_id' => $webhookEventId, 'actor_id' => $user?->getKey()]);
     }
 
     /**

@@ -115,6 +115,24 @@ class PaymentRequest extends FormRequest
     }
 
     /**
+     * Empreinte de la demande de paiement : ce qui est payé, l’opérateur, le numéro et le nombre de versements. Une
+     * clé d’idempotence ne vaut que pour une même empreinte.
+     */
+    public function fingerprint(): string
+    {
+        $target = $this->target();
+
+        foreach ($target as $key => $value) {
+            if (is_array($value)) {
+                sort($value);
+                $target[$key] = $value;
+            }
+        }
+
+        return hash('sha256', (string) json_encode([$target, (string) $this->input('operator_code'), $this->phoneNumber()?->e164(), $this->installments()]));
+    }
+
+    /**
      * Nombre de versements demandé (paiement flexible), 1 par défaut.
      */
     public function installments(): int
