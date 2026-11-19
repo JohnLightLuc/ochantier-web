@@ -8620,7 +8620,7 @@
                 "quote-request"
               ]
             },
-            "description": "Carte « Offres de devis » du détail chantier, dans `data` :\n- `reference` (`DV-2026-0001`), `status` (`recherche`, `commande`, `recu`), `notes` ;\n- `trades` : par corps de métier, `offers` = les **3 meilleures** offres (note du technicien décroissante, puis prix croissant ; `is_best` sur la première), chacune avec `technician` (`name`, `photo_url`, `rating`, `experience_years`), `visit_date` (date d’exécution), `distance_km` et `amount` ; `selected` (offre commandée) ; `quote` (devis réalisé : `number`, `issued_on`, `valid_until`, `technician`, `site`, `items` désignation / prix unitaire / quantité / total, `total_amount`, `status` « Effectué », `document` à télécharger) ;\n- `offers_count`, `ready_to_order` (chaque métier a au moins une offre), `total_amount` (commande payée), `quotes_total_amount` (total estimé des devis reçus), `can_cancel`.\n\nLe script enregistre dans `quote_bid_ids` la meilleure offre de chaque métier, pour « Commander les devis ».",
+            "description": "Carte « Offres de devis » du détail chantier, dans `data` :\n- `reference` (`DV-2026-0001`), `status` (`recherche`, `commande`, `recu`), `notes` ;\n- `trades` : par corps de métier, `offers` = les **3 meilleures** offres (note du technicien décroissante, puis prix croissant ; `is_best` sur la première), chacune envoyée par un entrepreneur vérifié du métier et de la ville, avec `technician` (`contractor_id`, `kind` entreprise ou indépendant, `name`, `photo_url` (logo ou photo), `rating`, `experience_years`), `visit_date`, `visit_slot`, `visit_duration`, `comment`, `distance_km` et `amount` (frais de l’entrepreneur plus frais de service O’CHANTIER) ; `selected` (offre commandée) ; `quote` (devis réalisé : `number`, `issued_on`, `valid_until`, `technician`, `site`, `items` désignation / prix unitaire / quantité / total, `total_amount`, `status` « Effectué », `document` à télécharger) ;\n- après la commande, `visit` (mission de visite : `status` planifiee / report_propose / realisee, `date`, `slot`, `reschedule` en attente de votre décision) et `versions` (devis envoyés, avec `status` envoye ou recu et le PDF) ;\n    - `response_deadline` (date limite des propositions), `offers_count`, `ready_to_order` (chaque métier a au moins une offre), `total_amount` (commande payée), `quotes_total_amount` (total estimé des devis reçus), `can_cancel`.\n\nLe script enregistre dans `quote_bid_ids` la meilleure offre de chaque métier, pour « Commander les devis ».",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -8806,6 +8806,101 @@
               "body": "{\n  \"message\": null,\n  \"data\": {\n    \"id\": \"01a1bcfd-5552-7031-84e6-7263d252a192\",\n    \"reference\": \"DV-2026-0002\",\n    \"status\": {\n      \"value\": \"recu\",\n      \"label\": \"Devis reçu\"\n    },\n    \"notes\": \"Villa R+1, accès par la rue pavée. Visite possible le matin.\",\n    \"trades\": [\n      {\n        \"id\": \"01a1bcfd-5553-7317-a103-b5d681a40f63\",\n        \"trade\": {\n          \"id\": \"01a1bcfd-50da-7039-a443-70f4d9213522\",\n          \"code\": \"macon\",\n          \"label\": \"Maçon\"\n        },\n        \"status\": {\n          \"value\": \"realise\",\n          \"label\": \"Effectué\"\n        },\n        \"offers\": [],\n        \"selected\": {\n          \"id\": \"01a1bcfd-558b-71dd-a46d-eb33e5dceaf8\",\n          \"technician\": {\n            \"worker_id\": \"01a1bcfd-5447-7375-a5f4-a3f8cbf0cc55\",\n            \"name\": \"Traoré Ali\",\n            \"photo_url\": null,\n            \"rating\": {\n              \"average\": 4.5,\n              \"count\": 12\n            },\n            \"experience_years\": 5\n          },\n          \"trade\": \"Maçon\",\n          \"visit_date\": \"2026-11-15\",\n          \"distance_km\": null,\n          \"amount\": 29000\n        },\n        \"quote\": {\n          \"number\": \"DE-2026-00001\",\n          \"issued_on\": \"2026-11-08\",\n          \"valid_until\": \"2026-12-08\",\n          \"technician\": {\n            \"worker_id\": \"01a1bcfd-5447-7375-a5f4-a3f8cbf0cc55\",\n            \"name\": \"Traoré Ali\",\n            \"photo_url\": null,\n            \"rating\": {\n              \"average\": 4.5,\n              \"count\": 12\n            },\n            \"experience_years\": 5,\n            \"visited_on\": \"2026-11-15\",\n            \"distance_km\": null\n          },\n          \"site\": {\n            \"label\": \"Villa Riviera\",\n            \"location\": \"Riviera 3, Abidjan\",\n            \"trade\": \"Maçon\"\n          },\n          \"items\": [\n            {\n              \"total\": 871000,\n              \"quantity\": 1,\n              \"unit_price\": 871000,\n              \"designation\": \"Fournitures · maçon\"\n            },\n            {\n              \"total\": 121000,\n              \"quantity\": 5,\n              \"unit_price\": 24200,\n              \"designation\": \"Main-d’œuvre · maçon\"\n            },\n            {\n              \"total\": 29000,\n              \"quantity\": 1,\n              \"unit_price\": 29000,\n              \"designation\": \"Visite et établissement du devis\"\n            }\n          ],\n          \"total_amount\": 1021000,\n          \"status\": {\n            \"value\": \"effectue\",\n            \"label\": \"Effectué\"\n          },\n          \"document\": {\n            \"id\": \"01a1bcfd-5658-73b1-8427-e32dcee067ee\",\n            \"type\": {\n              \"code\": \"site_quote\",\n              \"label\": \"Devis estimatif\"\n            },\n            \"number_last4\": null,\n            \"expires_at\": null,\n            \"version\": 1,\n            \"status\": {\n              \"value\": \"en_attente\",\n              \"label\": \"En attente\"\n            },\n            \"files\": [\n              {\n                \"id\": \"01a1bcfd-5654-7065-8cd8-a2f54130027b\",\n                \"side\": \"page\",\n                \"name\": \"Devis Maçon DE-2026-00001.pdf\",\n                \"mime_type\": \"application/pdf\",\n                \"size_bytes\": 2135,\n                \"url\": \"http://localhost:8000/api/v1/media/01a1bcfd-5654-7065-8cd8-a2f54130027b?expires=1794173881&signature=1d80af8618ca72a2f7613e42a7a0e4c60a554acdbfd8fefa540ce4ee95e36042\"\n              }\n            ],\n            \"created_at\": \"2026-11-08T21:08:01+00:00\"\n          }\n        }\n      },\n      {\n        \"id\": \"01a1bcfd-5554-7107-80b4-1e48ea294f01\",\n        \"trade\": {\n          \"id\": \"01a1bcfd-50f3-7170-81aa-fc830fdeca09\",\n          \"code\": \"plombier\",\n          \"label\": \"Plombier\"\n        },\n        \"status\": {\n          \"value\": \"realise\",\n          \"label\": \"Effectué\"\n        },\n        \"offers\": [],\n        \"selected\": {\n          \"id\": \"01a1bcfd-5593-70e7-98b6-299862415549\",\n          \"technician\": {\n            \"worker_id\": \"01a1bcfd-5457-7216-a34c-e874a9a4ea83\",\n            \"name\": \"Koné Issa\",\n            \"photo_url\": null,\n            \"rating\": {\n              \"average\": 4.6,\n              \"count\": 12\n            },\n            \"experience_years\": 5\n          },\n          \"trade\": \"Plombier\",\n          \"visit_date\": \"2026-11-10\",\n          \"distance_km\": null,\n          \"amount\": 20000\n        },\n        \"quote\": {\n          \"number\": \"DE-2026-00002\",\n          \"issued_on\": \"2026-11-08\",\n          \"valid_until\": \"2026-12-08\",\n          \"technician\": {\n            \"worker_id\": \"01a1bcfd-5457-7216-a34c-e874a9a4ea83\",\n            \"name\": \"Koné Issa\",\n            \"photo_url\": null,\n            \"rating\": {\n              \"average\": 4.6,\n              \"count\": 12\n            },\n            \"experience_years\": 5,\n            \"visited_on\": \"2026-11-10\",\n            \"distance_km\": null\n          },\n          \"site\": {\n            \"label\": \"Villa Riviera\",\n            \"location\": \"Riviera 3, Abidjan\",\n            \"trade\": \"Plombier\"\n          },\n          \"items\": [\n            {\n              \"total\": 980000,\n              \"quantity\": 1,\n              \"unit_price\": 980000,\n              \"designation\": \"Fournitures · plombier\"\n            },\n            {\n              \"total\": 120000,\n              \"quantity\": 6,\n              \"unit_price\": 20000,\n              \"designation\": \"Main-d’œuvre · plombier\"\n            },\n            {\n              \"total\": 20000,\n              \"quantity\": 1,\n              \"unit_price\": 20000,\n              \"designation\": \"Visite et établissement du devis\"\n            }\n          ],\n          \"total_amount\": 1120000,\n          \"status\": {\n            \"value\": \"effectue\",\n            \"label\": \"Effectué\"\n          },\n          \"document\": {\n            \"id\": \"01a1bcfd-5669-7173-bc92-be3ffbd1c635\",\n            \"type\": {\n              \"code\": \"site_quote\",\n              \"label\": \"Devis estimatif\"\n            },\n            \"number_last4\": null,\n            \"expires_at\": null,\n            \"version\": 1,\n            \"status\": {\n              \"value\": \"en_attente\",\n              \"label\": \"En attente\"\n            },\n            \"files\": [\n              {\n                \"id\": \"01a1bcfd-5668-7379-be51-c325dfb110d3\",\n                \"side\": \"page\",\n                \"name\": \"Devis Plombier DE-2026-00002.pdf\",\n                \"mime_type\": \"application/pdf\",\n                \"size_bytes\": 2142,\n                \"url\": \"http://localhost:8000/api/v1/media/01a1bcfd-5668-7379-be51-c325dfb110d3?expires=1794173881&signature=f0f14b0511d96bfb7a20729df444e9d9c86cb99e183471145acf424ee82defcc\"\n              }\n            ],\n            \"created_at\": \"2026-11-08T21:08:01+00:00\"\n          }\n        }\n      }\n    ],\n    \"offers_count\": 0,\n    \"ready_to_order\": false,\n    \"total_amount\": 49000,\n    \"quotes_total_amount\": 2141000,\n    \"can_cancel\": false,\n    \"submitted_at\": \"2026-11-08T21:08:01+00:00\",\n    \"ordered_at\": \"2026-11-08T21:08:01+00:00\",\n    \"received_at\": \"2026-11-08T21:08:01+00:00\"\n  }\n}"
             }
           ]
+        },
+        {
+          "id": "73b30f88-758f-5191-b27f-c41393ad7e00",
+          "name": "Décider d’un report de visite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/promoter/sites/{{site_id}}/quote-request/visits/{{quote_bid_id}}/reschedule",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "promoter",
+                "sites",
+                "{{site_id}}",
+                "quote-request",
+                "visits",
+                "{{quote_bid_id}}",
+                "reschedule"
+              ]
+            },
+            "description": "Report de visite proposé par l’entrepreneur commandé (`trades[].visit.reschedule` de la demande de devis, notification « Report de visite proposé »).\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `decision` | oui | `accepter` (la visite prend la nouvelle date et le nouveau créneau) ou `refuser` (la date convenue est conservée). |\n\nL’entrepreneur est notifié. Réponse : la demande de devis à jour. **422** si aucun report n’est en attente ; **404** si la proposition n’appartient pas au chantier.\n\nDroit : `sites.manage`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"accepter\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "4a30da2f-2969-5a78-88f7-ae4b1cf09ba3",
+          "name": "Accuser réception d’un devis",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/promoter/sites/{{site_id}}/quote-request/quotes/{{quote_version_id}}/acknowledge",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "promoter",
+                "sites",
+                "{{site_id}}",
+                "quote-request",
+                "quotes",
+                "{{quote_version_id}}",
+                "acknowledge"
+              ]
+            },
+            "description": "Confirme la réception d’une version de devis envoyée (`trades[].versions[]`, statut `envoye` → `recu`). L’entrepreneur est notifié. **422** si la version est déjà reçue ou pas encore envoyée.\n\nDroit : `sites.manage`."
+          },
+          "response": []
         },
         {
           "id": "7b4d7f67-17fe-438b-9e93-dd6c9104ee3c",
@@ -9451,7 +9546,7 @@
                 "contractor-offers"
               ]
             },
-            "description": "Carte « Offres d’entrepreneurs », dans `data` :\n- `offers` : les **3 meilleures** offres, classées par `score` (sur 100) : note de l’entrepreneur 40, montant 30, durée 15, distance au chantier 15 (montant, durée et distance comparés aux autres offres ; sans avis ou sans distance, valeur neutre ; à égalité, la moins chère puis la première reçue). `is_best` sur la première ; l’offre choisie reste affichée.\n- chaque offre : `contractor` (`name`, `kind` entreprise ou indépendant, `logo_url`, `rating`, `completed_sites`), `team_size`, `amount` (**prix promoteur**, commission Y comprise), `duration_days`, `distance_km`, `score`, `status`, `is_chosen` ;\n- `chosen_id`, `deposit_percent`, `deposit_amount` (acompte de l’offre choisie), `can_pay`.\n\nLe script enregistre la meilleure offre dans `contractor_bid_id`.",
+            "description": "Carte « Offres d’entrepreneurs », dans `data` :\n- `offers` : les **3 meilleures** offres, classées par `score` (sur 100) : note de l’entrepreneur 40, montant 30, durée 15, distance au chantier 15 (montant, durée et distance comparés aux autres offres ; sans avis ou sans distance, valeur neutre ; à égalité, la moins chère puis la première reçue). `is_best` sur la première ; l’offre choisie reste affichée.\n- chaque offre : `contractor` (`name`, `kind` entreprise ou indépendant, `logo_url`, `rating`, `completed_sites`), `team_size`, `amount` (**prix promoteur**, commission Y comprise), `duration_days`, `distance_km`, `score`, `status`, `is_chosen` ;\n- `chosen_id`, `deposit_percent`, `deposit_amount` (acompte de l’offre choisie), `can_pay`.\n\nLe script enregistre la meilleure offre dans `contractor_bid_id`.\n\nChaque offre précise aussi `response_mode` (`conforme` : conditions reprises ; `contre_proposition`), `start_date` et `end_date` proposées. Les brouillons des entrepreneurs ne sont jamais montrés.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -18618,6 +18713,18 @@
     {
       "key": "other_contractor_bid_id",
       "value": ""
+    },
+    {
+      "key": "quote_bid_id",
+      "value": "",
+      "type": "string",
+      "description": "Proposition de devis commandée (trades[].selected.id)."
+    },
+    {
+      "key": "quote_version_id",
+      "value": "",
+      "type": "string",
+      "description": "Version de devis envoyée (trades[].versions[].id)."
     }
   ]
 }

@@ -10,6 +10,7 @@ enum UserType: string
     case Promoter = 'promoter';
     case Commercial = 'commercial';
     case Worker = 'worker';
+    case Contractor = 'contractor';
 
     public function label(): string
     {
@@ -17,6 +18,7 @@ enum UserType: string
             self::Promoter => 'Promoteur',
             self::Commercial => 'Commercial',
             self::Worker => 'Ouvrier',
+            self::Contractor => 'Entrepreneur ou technicien',
         };
     }
 }

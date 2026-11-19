@@ -25,7 +25,7 @@ class Assignment extends Model
         'mission_id', 'need_id', 'worker_id', 'selection_id', 'team_id', 'role_label', 'is_team_lead', 'commercial_id',
         'planned_start_date', 'planned_end_date', 'actual_start_at', 'actual_end_at', 'promoter_daily_rate',
         'worker_net_daily_rate', 'salary_amount', 'salary_period', 'z_rate', 'status', 'replaces_assignment_id',
-        'end_reason',
+        'end_reason', 'agreement_decided_at',
     ];
 
     /**
@@ -36,6 +36,7 @@ class Assignment extends Model
     protected function casts(): array
     {
         return [
+            'agreement_decided_at' => 'datetime',
             'is_team_lead' => 'boolean',
             'planned_start_date' => 'date',
             'planned_end_date' => 'date',

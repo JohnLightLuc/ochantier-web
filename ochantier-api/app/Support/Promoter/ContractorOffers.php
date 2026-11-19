@@ -3,6 +3,7 @@
 namespace App\Support\Promoter;
 
 use App\Enums\ContractorBidStatus;
+use App\Enums\ContractorResponseMode;
 use App\Enums\ContractorStatus;
 use App\Enums\ContractPaymentMode;
 use App\Enums\MissionStatus;
@@ -28,6 +29,7 @@ use App\Models\Setting;
 use App\Models\Site;
 use App\Models\Trade;
 use App\Models\User;
+use App\Support\Contractor\ContractorNotifier;
 use App\Support\Media\MediaStore;
 use App\Support\Pricing\PricingRules;
 use Carbon\CarbonImmutable;
@@ -92,10 +94,11 @@ class ContractorOffers
     }
 
     /**
-     * Offre d’un entrepreneur (une par entrepreneur et par offre, remplacée s’il répond de nouveau). La distance est
-     * calculée entre l’entrepreneur et le chantier.
+     * Réponse d’un entrepreneur (une par offre) : offre conforme ou contre-proposition, montant net (hors commission),
+     * durée, équipe, dates proposées et précisions. En brouillon, elle reste modifiable et n’est pas montrée au
+     * promoteur ; envoyée, elle ne change plus. La distance est calculée entre l’entrepreneur et le chantier.
      */
-    public function addBid(Offer $offer, Contractor $contractor, int $amount, int $durationDays, int $teamSize, ?string $message = null): ContractorBid
+    public function addBid(Offer $offer, Contractor $contractor, int $amount, int $durationDays, int $teamSize, ?string $message = null, ?ContractorResponseMode $mode = null, ?CarbonImmutable $start = null, ?CarbonImmutable $end = null, bool $draft = false): ContractorBid
     {
         if ($offer->offer_type !== OfferType::Contractuelle || $offer->status !== OfferStatus::Publiee || $offer->contractor_bid_id) {
             throw ValidationException::withMessages(['offer' => 'Cette offre contractuelle ne reçoit plus d’offre.']);
@@ -103,6 +106,12 @@ class ContractorOffers
 
         if ($contractor->status !== ContractorStatus::Actif) {
             throw ValidationException::withMessages(['contractor' => 'Cet entrepreneur ne peut pas répondre aux offres.']);
+        }
+
+        $existing = $offer->contractorBids()->where('contractor_id', $contractor->getKey())->first();
+
+        if ($existing && $existing->status !== ContractorBidStatus::Brouillon) {
+            throw ValidationException::withMessages(['offer' => 'Vous avez déjà répondu à cette offre.']);
         }
 
         $distance = DB::scalar('SELECT ST_Distance(c.location, s.location) / 1000 FROM contractors c, sites s WHERE c.id = ? AND s.id = ?', [$contractor->getKey(), $offer->site_id]);
@@ -113,8 +122,20 @@ class ContractorOffers
             'team_size' => $teamSize,
             'distance_km' => $distance !== null ? round((float) $distance, 1) : null,
             'message' => $message,
-            'status' => ContractorBidStatus::Proposee,
+            'response_mode' => $mode ?? ContractorResponseMode::ContreProposition,
+            'start_date' => $start?->toDateString(),
+            'end_date' => $end?->toDateString(),
+            'status' => $draft ? ContractorBidStatus::Brouillon : ContractorBidStatus::Proposee,
+            'sent_at' => $draft ? null : now(),
         ]);
+    }
+
+    /**
+     * Montant net (hors commission Y) qui correspond au forfait proposé par le promoteur : prix d’une offre conforme.
+     */
+    public function conformingAmount(Offer $offer): int
+    {
+        return (int) round((int) $offer->contract_total_amount / (1 + $this->pricing->value(PricingVariable::Y) / 100));
     }
 
     /**
@@ -212,6 +233,9 @@ class ContractorOffers
             if ($site->status !== SiteStatus::Paiement) {
                 $this->moveSite($site, SiteStatus::Paiement, $author, 'Offre d’entrepreneur choisie');
             }
+
+            DB::afterCommit(fn () => app(ContractorNotifier::class)->notify($bid->contractor, 'offer.chosen', 'Votre offre a été retenue',
+                $site->label.' : l’attribution sera effective après la confirmation de l’acompte du promoteur.', ['type' => 'offer_response', 'id' => $bid->id], $bid));
 
             return $bid->refresh();
         });
@@ -330,7 +354,7 @@ class ContractorOffers
 
         $offer = $bid->offer;
         $site = $offer->site;
-        $start = CarbonImmutable::parse($offer->start_date)->max(CarbonImmutable::today());
+        $start = CarbonImmutable::parse($bid->start_date ?? $offer->start_date)->max(CarbonImmutable::today());
         $end = $start->addDays($bid->duration_days - 1);
         $prices = $this->prices($bid);
 
@@ -371,8 +395,20 @@ class ContractorOffers
         $mission->statusHistories()->create(['from_status' => null, 'to_status' => MissionStatus::Confirmee->value, 'reason' => 'Acompte payé', 'actor_type' => $author->getMorphClass(), 'actor_id' => $author->getKey()]);
         $deposit = $this->schedule($mission, $offer, $snapshot);
 
-        $offer->contractorBids()->whereKeyNot($bid->getKey())->whereIn('status', [ContractorBidStatus::Proposee->value, ContractorBidStatus::Choisie->value])->update(['status' => ContractorBidStatus::NonRetenue->value]);
+        $others = $offer->contractorBids()->with('contractor.user')->whereKeyNot($bid->getKey())->whereIn('status', [ContractorBidStatus::Proposee->value, ContractorBidStatus::Choisie->value])->get();
+        ContractorBid::query()->whereKey($others->modelKeys())->update(['status' => ContractorBidStatus::NonRetenue->value]);
+        $offer->contractorBids()->where('status', ContractorBidStatus::Brouillon->value)->update(['status' => ContractorBidStatus::Annulee->value]);
         $bid->update(['status' => ContractorBidStatus::Retenue]);
+
+        DB::afterCommit(function () use ($bid, $others, $site, $prices): void {
+            $notifier = app(ContractorNotifier::class);
+            $notifier->notify($bid->contractor, 'offer.attributed', 'Chantier attribué',
+                'Acompte de '.number_format($prices['deposit'], 0, ',', "\u{00A0}")."\u{00A0}FCFA confirmé pour « ".$site->label.' ». Préparez votre équipe.', ['type' => 'site', 'id' => $site->id], $bid);
+
+            foreach ($others as $other) {
+                $notifier->notify($other->contractor, 'offer.not_retained', 'Offre non retenue', $site->label.' : le promoteur a choisi une autre offre.', ['type' => 'offer_response', 'id' => $other->id], $other);
+            }
+        });
         $offer->statusHistories()->create(['from_status' => $offer->status->value, 'to_status' => OfferStatus::Pourvue->value, 'reason' => 'Acompte payé', 'actor_type' => $author->getMorphClass(), 'actor_id' => $author->getKey()]);
         $offer->forceFill(['status' => OfferStatus::Pourvue, 'contractor_bid_id' => $bid->getKey()])->save();
         $this->moveSite($site, SiteStatus::Confirme, $author, 'Acompte payé');
@@ -516,6 +552,9 @@ class ContractorOffers
             'distance_km' => $bid->distance_km,
             'score' => $bid->score,
             'message' => $bid->message,
+            'response_mode' => ['value' => $bid->response_mode->value, 'label' => $bid->response_mode->label()],
+            'start_date' => $bid->start_date?->toDateString(),
+            'end_date' => $bid->end_date?->toDateString(),
             'status' => ['value' => $bid->status->value, 'label' => $bid->status->label()],
             'is_chosen' => $bid->status === ContractorBidStatus::Choisie,
         ];

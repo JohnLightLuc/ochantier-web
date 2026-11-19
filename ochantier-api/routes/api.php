@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Auth\CommercialLoginController;
+use App\Http\Controllers\Api\V1\Auth\ContractorLoginController;
+use App\Http\Controllers\Api\V1\Auth\ContractorPasswordController;
+use App\Http\Controllers\Api\V1\Auth\ContractorRegistrationController;
 use App\Http\Controllers\Api\V1\Auth\DeviceController;
 use App\Http\Controllers\Api\V1\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Auth\ProfileController;
@@ -15,6 +18,19 @@ use App\Http\Controllers\Api\V1\Commercial\PerformanceController as CommercialPe
 use App\Http\Controllers\Api\V1\Commercial\ProspectController;
 use App\Http\Controllers\Api\V1\Commercial\ProspectDocumentController;
 use App\Http\Controllers\Api\V1\Commercial\WorkerController as CommercialWorkerController;
+use App\Http\Controllers\Api\V1\Contractor\AssistanceController as ContractorAssistanceController;
+use App\Http\Controllers\Api\V1\Contractor\AttendanceController as ContractorAttendanceController;
+use App\Http\Controllers\Api\V1\Contractor\ClosureController as ContractorClosureController;
+use App\Http\Controllers\Api\V1\Contractor\MemberController as ContractorMemberController;
+use App\Http\Controllers\Api\V1\Contractor\OfferResponseController as ContractorOfferResponseController;
+use App\Http\Controllers\Api\V1\Contractor\OpportunityController as ContractorOpportunityController;
+use App\Http\Controllers\Api\V1\Contractor\ProfileController as ContractorProfileController;
+use App\Http\Controllers\Api\V1\Contractor\ProfileDocumentController as ContractorProfileDocumentController;
+use App\Http\Controllers\Api\V1\Contractor\QuoteProposalController as ContractorQuoteProposalController;
+use App\Http\Controllers\Api\V1\Contractor\SiteController as ContractorSiteController;
+use App\Http\Controllers\Api\V1\Contractor\StaffingController as ContractorStaffingController;
+use App\Http\Controllers\Api\V1\Contractor\SubscriptionController as ContractorSubscriptionController;
+use App\Http\Controllers\Api\V1\Contractor\TeamController as ContractorTeamController;
 use App\Http\Controllers\Api\V1\HelpController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
@@ -50,11 +66,13 @@ use Illuminate\Support\Facades\Route;
 | API des applications mobiles O’CHANTIER — v1
 |--------------------------------------------------------------------------
 |
-| Applications Promoteur et Commercial (Ouvrier en V2). Jetons JWT adossés aux sessions (auth_sessions) :
+| Applications Promoteur, Commercial et Entrepreneurs et Techniciens (Ouvrier en V2). Jetons JWT adossés aux sessions (auth_sessions) :
 | jeton d’accès court envoyé en Bearer, jeton de rafraîchissement à usage unique.
 |
 | Promoteur : inscription et connexion sans mot de passe, par code SMS ou e-mail.
 | Commercial : compte créé par le Back Office, connexion par mot de passe puis code SMS.
+| Entrepreneur ou technicien (contractor) : inscription par téléphone ou e-mail et mot de passe, activée par un code ;
+| connexion par mot de passe ; mot de passe oublié par code SMS ou e-mail.
 | Espace commercial (prefix commercial) : prospects et dossiers ouvriers, ouvriers transmis et corrections, gains,
 | accueil, objectifs et classement, profil et zone, préférences et notifications ; contrat actif exigé.
 | Espace promoteur (prefix promoter) : profil, vérification, préférences, chantiers, réservations, paiements et suivi
@@ -78,6 +96,15 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('login/verify', [CommercialLoginController::class, 'verify'])->middleware('throttle:10,1')->name('login.verify');
         });
 
+        Route::prefix('contractor')->name('contractor.')->group(function () {
+            Route::post('register', [ContractorRegistrationController::class, 'store'])->middleware('throttle:otp')->name('register');
+            Route::post('register/verify', [ContractorRegistrationController::class, 'verify'])->middleware('throttle:10,1')->name('register.verify');
+            Route::post('login', [ContractorLoginController::class, 'store'])->middleware('throttle:login')->name('login');
+            Route::post('password/forgot', [ContractorPasswordController::class, 'forgot'])->middleware('throttle:otp')->name('password.forgot');
+            Route::post('password/verify', [ContractorPasswordController::class, 'verify'])->middleware('throttle:10,1')->name('password.verify');
+            Route::post('password/reset', [ContractorPasswordController::class, 'reset'])->middleware('throttle:10,1')->name('password.reset');
+        });
+
         Route::post('password/forgot', [PasswordController::class, 'forgot'])->middleware('throttle:otp')->name('password.forgot');
         Route::post('password/reset', [PasswordController::class, 'reset'])->middleware('throttle:10,1')->name('password.reset');
         Route::post('refresh', [SessionController::class, 'refresh'])->middleware('throttle:30,1')->name('refresh');
@@ -87,7 +114,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         // Accessibles avant le remplacement du mot de passe provisoire.
         Route::get('me', [ProfileController::class, 'show'])->name('me');
         Route::post('auth/logout', [SessionController::class, 'logout'])->name('auth.logout');
-        Route::put('auth/password', [PasswordController::class, 'update'])->middleware('user.type:commercial')->name('auth.password.update');
+        Route::put('auth/password', [PasswordController::class, 'update'])->middleware('user.type:commercial,contractor')->name('auth.password.update');
 
         Route::middleware('password.changed')->group(function () {
             Route::get('auth/sessions', [SessionController::class, 'index'])->name('auth.sessions.index');
@@ -146,6 +173,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
                     Route::put('sites/{site}/offer', [SiteOfferController::class, 'update'])->name('sites.offer.update');
                     Route::post('sites/{site}/publish', [SiteOfferController::class, 'publish'])->name('sites.publish');
                     Route::delete('sites/{site}/quote-request', [QuoteRequestController::class, 'destroy'])->name('sites.quote-request.destroy');
+                    Route::post('sites/{site}/quote-request/visits/{bid}/reschedule', [QuoteRequestController::class, 'decideReschedule'])->name('sites.quote-request.visits.reschedule');
+                    Route::post('sites/{site}/quote-request/quotes/{version}/acknowledge', [QuoteRequestController::class, 'acknowledge'])->name('sites.quote-request.quotes.acknowledge');
                     Route::post('sites/{site}/contractor-offers/{bid}/choose', [ContractorOfferController::class, 'choose'])->whereUuid('bid')->name('sites.contractor-offers.choose');
                     Route::post('sites/{site}/reservations', [ReservationController::class, 'store'])->name('sites.reservations.store');
                 });
@@ -228,6 +257,97 @@ Route::prefix('v1')->name('v1.')->group(function () {
             });
 
             // Application Commercial : prospects, dossiers ouvriers, gains, activité, profil et notifications.
+            // Application Entrepreneurs et Techniciens : choix du profil, dossier de vérification (KYB ou KYC) et opportunités.
+            Route::middleware(['user.type:contractor', 'contractor.access'])->prefix('contractor')->name('contractor.')->group(function () {
+                Route::get('profile', [ContractorProfileController::class, 'show'])->name('profile.show');
+                Route::post('profile', [ContractorProfileController::class, 'store'])->name('profile.store');
+                Route::patch('profile', [ContractorProfileController::class, 'update'])->name('profile.update');
+                Route::post('profile/submit', [ContractorProfileController::class, 'submit'])->middleware('throttle:10,1')->name('profile.submit');
+                Route::post('profile/photo', [ContractorProfileController::class, 'storePhoto'])->name('profile.photo.store');
+                Route::delete('profile/photo', [ContractorProfileController::class, 'destroyPhoto'])->name('profile.photo.destroy');
+                Route::post('profile/documents', [ContractorProfileDocumentController::class, 'store'])->name('profile.documents.store');
+                Route::delete('profile/documents/{document}', [ContractorProfileDocumentController::class, 'destroy'])->name('profile.documents.destroy');
+
+                Route::get('opportunities', [ContractorOpportunityController::class, 'index'])->name('opportunities.index');
+                Route::get('opportunities/quotes/{quote}', [ContractorOpportunityController::class, 'showQuote'])->name('opportunities.quotes.show');
+                Route::get('opportunities/offers/{offer}', [ContractorOpportunityController::class, 'showOffer'])->name('opportunities.offers.show');
+                Route::post('opportunities/quotes/{quote}/proposal', [ContractorQuoteProposalController::class, 'store'])->middleware('throttle:20,1')->name('opportunities.quotes.proposal');
+                Route::post('opportunities/offers/{offer}/response', [ContractorOfferResponseController::class, 'store'])->middleware('throttle:20,1')->name('opportunities.offers.response');
+
+                Route::get('my-offers', [ContractorOfferResponseController::class, 'index'])->name('my-offers.index');
+                Route::get('offer-responses/{offerResponse}', [ContractorOfferResponseController::class, 'show'])->name('offer-responses.show');
+                Route::delete('offer-responses/{offerResponse}', [ContractorOfferResponseController::class, 'destroy'])->name('offer-responses.destroy');
+
+                Route::get('payments/installments', [ContractorStaffingController::class, 'installments'])->name('payments.installments');
+                Route::post('payments/installments/{installment}/quote', [ContractorStaffingController::class, 'installmentQuote'])->name('payments.installments.quote');
+                Route::post('payments/installments/{installment}/pay', [ContractorStaffingController::class, 'payInstallment'])->middleware('throttle:10,1')->name('payments.installments.pay');
+                Route::put('ratings/{contractorRating}', [ContractorClosureController::class, 'update'])->name('ratings.update');
+                Route::get('notifications', [ContractorAssistanceController::class, 'notifications'])->name('notifications.index');
+                Route::post('notifications/read-all', [ContractorAssistanceController::class, 'readAll'])->name('notifications.read-all');
+                Route::post('notifications/{notification}/read', [ContractorAssistanceController::class, 'read'])->whereUuid('notification')->name('notifications.read');
+                Route::get('notification-preferences', [NotificationPreferenceController::class, 'show'])->name('notification-preferences.show');
+                Route::put('notification-preferences', [NotificationPreferenceController::class, 'update'])->name('notification-preferences.update');
+                Route::get('support/tickets', [ContractorAssistanceController::class, 'tickets'])->name('support.tickets.index');
+                Route::post('support/tickets', [ContractorAssistanceController::class, 'storeTicket'])->middleware('throttle:10,1')->name('support.tickets.store');
+                Route::get('members', [ContractorMemberController::class, 'index'])->name('members.index');
+                Route::post('members', [ContractorMemberController::class, 'store'])->middleware('throttle:20,1')->name('members.store');
+                Route::patch('members/{member}', [ContractorMemberController::class, 'update'])->name('members.update');
+                Route::delete('members/{member}', [ContractorMemberController::class, 'destroy'])->name('members.destroy');
+                Route::get('subscription', [ContractorSubscriptionController::class, 'show'])->name('subscription.show');
+                Route::post('subscription/quote', [ContractorSubscriptionController::class, 'quote'])->name('subscription.quote');
+                Route::post('subscription', [ContractorSubscriptionController::class, 'pay'])->middleware('throttle:10,1')->name('subscription.pay');
+                Route::post('subscription/cancel', [ContractorSubscriptionController::class, 'cancel'])->name('subscription.cancel');
+                Route::post('subscription/reactivate', [ContractorSubscriptionController::class, 'reactivate'])->name('subscription.reactivate');
+                Route::get('subscription/invoices/{invoice}/pdf', [ContractorSubscriptionController::class, 'invoicePdf'])->name('subscription.invoices.pdf');
+                Route::get('workers', [ContractorTeamController::class, 'catalog'])->name('workers.index');
+                Route::get('workers/{catalogWorker}', [ContractorTeamController::class, 'worker'])->name('workers.show');
+                Route::get('sites', [ContractorSiteController::class, 'index'])->name('sites.index');
+                Route::prefix('sites/{contractorSite}')->name('sites.')->group(function () {
+                    Route::get('/', [ContractorSiteController::class, 'show'])->name('show');
+                    Route::get('payments', [ContractorSiteController::class, 'payments'])->name('payments');
+                    Route::get('documents', [ContractorSiteController::class, 'documents'])->name('documents');
+                    Route::get('timeline', [ContractorSiteController::class, 'timeline'])->name('timeline');
+                    Route::post('steps', [ContractorSiteController::class, 'storeStep'])->name('steps.store');
+                    Route::post('steps/{step}/start', [ContractorSiteController::class, 'startStep'])->name('steps.start');
+                    Route::post('steps/{step}/complete', [ContractorSiteController::class, 'completeStep'])->name('steps.complete');
+                    Route::delete('steps/{step}', [ContractorSiteController::class, 'destroyStep'])->name('steps.destroy');
+                    Route::get('team', [ContractorTeamController::class, 'index'])->name('team.index');
+                    Route::post('assignments', [ContractorTeamController::class, 'store'])->name('assignments.store');
+                    Route::get('assignments/{teamAssignment}', [ContractorTeamController::class, 'show'])->name('assignments.show');
+                    Route::post('assignments/{teamAssignment}/replace', [ContractorTeamController::class, 'replace'])->name('assignments.replace');
+                    Route::post('assignments/{teamAssignment}/cancel', [ContractorTeamController::class, 'cancel'])->name('assignments.cancel');
+                    Route::get('attendance', [ContractorAttendanceController::class, 'index'])->name('attendance.index');
+                    Route::get('attendance/history', [ContractorAttendanceController::class, 'history'])->name('attendance.history');
+                    Route::post('attendance/events', [ContractorAttendanceController::class, 'storeEvent'])->name('attendance.events.store');
+                    Route::post('attendance/absences', [ContractorAttendanceController::class, 'storeAbsence'])->name('attendance.absences.store');
+                    Route::post('attendance/{date}/validate', [ContractorAttendanceController::class, 'validateDay'])->where('date', '\d{4}-\d{2}-\d{2}')->name('attendance.validate');
+                    Route::get('attendance/days/{workDay}', [ContractorAttendanceController::class, 'show'])->name('attendance.days.show');
+                    Route::post('attendance/days/{workDay}/correction', [ContractorAttendanceController::class, 'correct'])->name('attendance.days.correct');
+                    Route::get('ratings', [ContractorClosureController::class, 'ratings'])->name('ratings.index');
+                    Route::post('ratings', [ContractorClosureController::class, 'rate'])->name('ratings.store');
+                    Route::get('report', [ContractorClosureController::class, 'report'])->name('report');
+                    Route::get('report/pdf', [ContractorClosureController::class, 'pdf'])->name('report.pdf');
+                    Route::get('staffing-requests', [ContractorStaffingController::class, 'index'])->name('staffing.index');
+                    Route::post('staffing-requests', [ContractorStaffingController::class, 'store'])->name('staffing.store');
+                    Route::get('staffing-requests/{staffingRequest}', [ContractorStaffingController::class, 'show'])->name('staffing.show');
+                    Route::post('staffing-requests/{staffingRequest}/payment-quote', [ContractorStaffingController::class, 'quote'])->name('staffing.quote');
+                    Route::post('staffing-requests/{staffingRequest}/pay', [ContractorStaffingController::class, 'pay'])->middleware('throttle:10,1')->name('staffing.pay');
+                    Route::post('staffing-requests/{staffingRequest}/refuse', [ContractorStaffingController::class, 'refuse'])->name('staffing.refuse');
+                    Route::post('staffing-requests/{staffingRequest}/cancel', [ContractorStaffingController::class, 'cancel'])->name('staffing.cancel');
+                });
+
+                Route::get('quote-proposals', [ContractorQuoteProposalController::class, 'index'])->name('quote-proposals.index');
+                Route::prefix('quote-proposals/{quoteProposal}')->name('quote-proposals.')->group(function () {
+                    Route::get('/', [ContractorQuoteProposalController::class, 'show'])->name('show');
+                    Route::post('withdraw', [ContractorQuoteProposalController::class, 'withdraw'])->name('withdraw');
+                    Route::post('visit/done', [ContractorQuoteProposalController::class, 'visited'])->name('visit.done');
+                    Route::post('visit/reschedule', [ContractorQuoteProposalController::class, 'reschedule'])->name('visit.reschedule');
+                    Route::post('quotes', [ContractorQuoteProposalController::class, 'storeVersion'])->name('quotes.store');
+                    Route::patch('quotes/{version}', [ContractorQuoteProposalController::class, 'updateVersion'])->name('quotes.update');
+                    Route::post('quotes/{version}/send', [ContractorQuoteProposalController::class, 'sendVersion'])->name('quotes.send');
+                });
+            });
+
             Route::middleware(['user.type:commercial', 'commercial'])->prefix('commercial')->name('commercial.')->group(function () {
                 Route::get('prospects/phone-check', [ProspectController::class, 'checkPhone'])->name('prospects.phone-check');
                 Route::apiResource('prospects', ProspectController::class)->except('destroy');

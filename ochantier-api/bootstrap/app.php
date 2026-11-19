@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureActiveCommercial;
 use App\Http\Middleware\EnsureAdminPermission;
+use App\Http\Middleware\EnsureContractorAbility;
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\EnsurePromoterAbility;
 use App\Http\Middleware\EnsureResponseMessage;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'user.type' => EnsureUserType::class,
+            'contractor.access' => EnsureContractorAbility::class,
             'password.changed' => EnsurePasswordChanged::class,
             'commercial' => EnsureActiveCommercial::class,
             'promoter.can' => EnsurePromoterAbility::class,

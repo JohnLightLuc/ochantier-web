@@ -90,13 +90,14 @@ class AuthSessions
     }
 
     /**
-     * Nom de l’application enregistré sur la session (promoteur, commercial, ouvrier).
+     * Nom de l’application enregistré sur la session (promoteur, commercial, entrepreneur, ouvrier).
      */
     public static function appName(User $user): string
     {
         return match ($user->user_type->value) {
             'promoter' => 'promoteur',
             'commercial' => 'commercial',
+            'contractor' => 'entrepreneur',
             default => 'ouvrier',
         };
     }

@@ -26,9 +26,10 @@ class SubscriptionPlans
     /**
      * @return Collection<int, SubscriptionPlan>
      */
-    public function catalogue(): Collection
+    public function catalogue(string $audience = 'promoter'): Collection
     {
         return SubscriptionPlan::query()
+            ->where('audience', $audience)
             ->withCount([
                 'subscriptions as subscribers_count' => fn ($query) => $query->whereIn('status', PromoterSubscriptions::LIVE),
                 'subscriptions as paying_count' => fn ($query) => $query->where('status', SubscriptionStatus::Active)->where('auto_renew', true),
@@ -121,7 +122,7 @@ class SubscriptionPlans
     private function feature(SubscriptionPlan $plan): void
     {
         if ($plan->is_featured) {
-            SubscriptionPlan::query()->whereKeyNot($plan->getKey())->where('is_featured', true)->update(['is_featured' => false]);
+            SubscriptionPlan::query()->where('audience', $plan->audience ?? 'promoter')->whereKeyNot($plan->getKey())->where('is_featured', true)->update(['is_featured' => false]);
         }
     }
 

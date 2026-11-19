@@ -30,6 +30,7 @@ use App\Models\Proposal;
 use App\Models\Receipt;
 use App\Models\Site;
 use App\Models\User;
+use App\Support\Contractor\ContractorNotifier;
 use App\Support\Documents\SimplePdf;
 use App\Support\Media\MediaStore;
 use App\Support\Payments\PaymentGateway;
@@ -302,6 +303,10 @@ class PromoterPayments
 
             if ($payable['kind'] === 'acompte') {
                 app(PromoterNotifier::class)->siteConfirmed($payable['site']->refresh());
+            }
+
+            if (! isset($payable['contractor_bid'])) {
+                DB::afterCommit(fn () => app(ContractorNotifier::class)->paymentReceived($schedules));
             }
 
             return $transaction->refresh();

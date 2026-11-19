@@ -7,6 +7,7 @@ namespace App\Enums;
  */
 enum ContractorBidStatus: string
 {
+    case Brouillon = 'brouillon';
     case Proposee = 'proposee';
     case Choisie = 'choisie';
     case Retenue = 'retenue';
@@ -16,6 +17,7 @@ enum ContractorBidStatus: string
     public function label(): string
     {
         return match ($this) {
+            self::Brouillon => 'Brouillon',
             self::Proposee => 'Proposée',
             self::Choisie => 'Choisie · acompte à payer',
             self::Retenue => 'Retenue',

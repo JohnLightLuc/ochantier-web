@@ -2,9 +2,13 @@
 
 namespace Tests\Feature\Promoter;
 
+use App\Enums\ContractorKind;
+use App\Enums\ContractorStatus;
+use App\Enums\ContractorVerificationStatus;
 use App\Enums\PaymentTransactionPurpose;
 use App\Enums\QuoteBidStatus;
 use App\Enums\SiteStatus;
+use App\Models\Contractor;
 use App\Models\Offer;
 use App\Models\PaymentTransaction;
 use App\Models\QuoteBid;
@@ -17,6 +21,7 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\AdminAccessSeeder;
 use Database\Seeders\CommercialOfferSeeder;
 use Database\Seeders\PlatformRulesSeeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class QuoteRequestTest extends PromoterTestCase
@@ -59,7 +64,9 @@ class QuoteRequestTest extends PromoterTestCase
             ->assertJsonPath('data.trades.0.offers.*.is_best', [true, false, false])
             ->assertJsonPath('data.trades.0.offers.0.technician.name', 'Kouamé Koffi')
             ->assertJsonPath('data.trades.0.offers.0.technician.experience_years', 5)
-            ->assertJsonPath('data.trades.0.offers.0.amount', 25000)
+            ->assertJsonPath('data.trades.0.offers.0.amount', 27500)
+            ->assertJsonPath('data.trades.0.offers.0.visit_slot', '10:00 – 12:00')
+            ->assertJsonPath('data.trades.0.offers.0.technician.kind.value', 'independant')
             ->assertJsonPath('data.offers_count', 4)
             ->assertJsonPath('data.ready_to_order', true);
         $this->getJson('/api/v1/promoter/sites')->assertJsonPath('data.0.quote_request.action', ['value' => 'choisir_devis', 'label' => 'Choisir les offres de devis']);
@@ -72,8 +79,8 @@ class QuoteRequestTest extends PromoterTestCase
         $this->postJson('/api/v1/promoter/payments/quote', ['quote_bid_ids' => [$best->id, $plumber->id], 'operator_code' => 'orange_money'])
             ->assertOk()
             ->assertJsonPath('data.kind', 'commande_devis')
-            ->assertJsonPath('data.amount', 45000)
-            ->assertJsonPath('data.lines.0', ['label' => 'Devis maçon', 'amount' => 25000]);
+            ->assertJsonPath('data.amount', 49500)
+            ->assertJsonPath('data.lines.0', ['label' => 'Devis maçon', 'amount' => 27500]);
         $this->postJson('/api/v1/promoter/payments', $this->payment([$best->id, $plumber->id]), ['Idempotency-Key' => 'devis-1'])
             ->assertCreated()
             ->assertJsonPath('data.status.value', 'reussie');
@@ -83,7 +90,8 @@ class QuoteRequestTest extends PromoterTestCase
         $this->assertSame(QuoteBidStatus::Choisie, $best->refresh()->status);
         $this->getJson("/api/v1/promoter/sites/{$site['id']}")
             ->assertJsonPath('data.display_status', ['value' => 'devis_commande', 'label' => 'Devis commandé'])
-            ->assertJsonPath('data.quote_request.total_amount', 45000)
+            ->assertJsonPath('data.quote_request.total_amount', 49500)
+            ->assertJsonPath('data.quote_request.trades.0.visit.status.value', 'planifiee')
             ->assertJsonPath('data.quote_request.trades.0.selected.technician.name', 'Kouamé Koffi')
             ->assertJsonPath('data.quote_request.trades.0.offers', []);
         $this->deleteJson("/api/v1/promoter/sites/{$site['id']}/quote-request")
@@ -143,15 +151,11 @@ class QuoteRequestTest extends PromoterTestCase
 
     public function test_the_simulator_sends_technician_offers(): void
     {
-        foreach (['Yao Koffi', 'Kouamé Koffi', 'Bamba Seydou', 'Traoré Ali', 'Koné Issa'] as $name) {
-            $this->worker($name, rating: 4.5);
-        }
-
         $site = $this->quoteRequest(['macon']);
 
         $this->artisan('ochantier:simulate-quotes')->assertSuccessful();
 
-        $this->assertSame(4, QuoteBid::query()->count());
+        $this->assertSame(4, QuoteBid::query()->whereNotNull('contractor_id')->count());
         $this->getJson("/api/v1/promoter/sites/{$site['id']}/quote-request")
             ->assertJsonCount(3, 'data.trades.0.offers')
             ->assertJsonPath('data.ready_to_order', true);
@@ -187,9 +191,22 @@ class QuoteRequestTest extends PromoterTestCase
         return QuoteRequestTrade::query()->whereHas('quoteRequest', fn ($query) => $query->where('site_id', $site['id']))->where('trade_id', $this->trade($trade)->id)->sole();
     }
 
-    private function bid(QuoteRequestTrade $line, string $name, int $amount, float $rating): QuoteBid
+    /**
+     * Proposition d’un entrepreneur vérifié du métier : $fee de frais de visite, plus 10 % de frais de service.
+     */
+    private function bid(QuoteRequestTrade $line, string $name, int $fee, float $rating): QuoteBid
     {
-        return app(QuoteRequests::class)->addBid($line, $this->worker($name, $line->trade->code, rating: $rating), $amount, CarbonImmutable::today()->addDays(3));
+        $contractor = Contractor::query()->create([
+            'reference' => sprintf('ENT-%05d', DB::scalar("SELECT nextval('contractor_reference_seq')")),
+            'kind' => ContractorKind::Independant,
+            'name' => $name,
+            'experience_years' => 5,
+            'rating_avg' => $rating,
+            'status' => ContractorStatus::Actif,
+            'verification_status' => ContractorVerificationStatus::Valide,
+        ]);
+
+        return app(QuoteRequests::class)->addBid($line, $contractor, $fee, CarbonImmutable::today()->addDays(3), '10:00 – 12:00', '2 h');
     }
 
     /**

@@ -125,7 +125,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Au-dessus du seuil de verrouillage du compte (config auth.lockout) pour que le verrouillage s’applique d’abord.
         RateLimiter::for('login', fn (Request $request) => [
-            Limit::perMinute(10)->by('login:'.self::requestedPhone($request)),
+            Limit::perMinute(10)->by('login:'.(self::requestedPhone($request) ?? mb_strtolower(trim((string) $request->input('email'))))),
             Limit::perMinute(20)->by('login-ip:'.$request->ip()),
         ]);
     }
@@ -256,13 +256,19 @@ class AppServiceProvider extends ServiceProvider
             'site_member' => Models\SiteMember::class,
             'contractor' => Models\Contractor::class,
             'contractor_bid' => Models\ContractorBid::class,
+            'contractor_member' => Models\ContractorMember::class,
             'quote_bid' => Models\QuoteBid::class,
             'quote_request' => Models\QuoteRequest::class,
             'quote_request_trade' => Models\QuoteRequestTrade::class,
+            'quote_version' => Models\QuoteVersion::class,
             'site_status_history' => Models\SiteStatusHistory::class,
             'site_step' => Models\SiteStep::class,
             'skill' => Models\Skill::class,
             'specialty' => Models\Specialty::class,
+            'staffing_installment' => Models\StaffingInstallment::class,
+            'staffing_request' => Models\StaffingRequest::class,
+            'staffing_request_line' => Models\StaffingRequestLine::class,
+            'staffing_request_worker' => Models\StaffingRequestWorker::class,
             'subscription' => Models\Subscription::class,
             'subscription_invoice' => Models\SubscriptionInvoice::class,
             'subscription_plan' => Models\SubscriptionPlan::class,

@@ -301,7 +301,7 @@ class SubscriptionAdminTest extends PromoterTestCase
             ->assertCreated()
             ->assertJsonPath('data.code', 'chantier')
             ->json('data.id');
-        $this->assertSame(1, SubscriptionPlan::query()->where('is_featured', true)->count());
+        $this->assertSame(1, SubscriptionPlan::query()->where('audience', 'promoter')->where('is_featured', true)->count());
 
         $this->getJson('/api/v1/admin/subscription-plans')->assertOk()->assertJsonCount(5, 'data');
 

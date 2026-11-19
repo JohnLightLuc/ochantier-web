@@ -17,7 +17,7 @@ class ProfileController extends AuthController
 {
     public function show(Request $request): UserResource
     {
-        return UserResource::make($request->user()->load(['promoterProfile', 'commercialProfile', 'ownedOrganizations']));
+        return UserResource::make($request->user()->load(['promoterProfile', 'commercialProfile', 'contractor', 'ownedOrganizations']));
     }
 
     /**

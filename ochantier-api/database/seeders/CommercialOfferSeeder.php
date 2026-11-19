@@ -37,6 +37,18 @@ class CommercialOfferSeeder extends Seeder
         'entreprise' => ['Entreprise', 'Jusqu’à 50 utilisateurs', 'Grands comptes · multi-agences', 75000, 50, ['Jusqu’à 50 utilisateurs', 'Paiement flexible, rapports et multi-agences', 'Support prioritaire dédié'], false],
     ];
 
+    /**
+     * Formules des entrepreneurs (application Entrepreneurs et Techniciens) : code => [nom, sous-titre, prix
+     * mensuel (XOF), places (utilisateurs du compte et ouvriers actifs par chantier), fonctionnalités, mise en avant].
+     *
+     * @var array<string, array{0: string, 1: string, 2: int, 3: int, 4: list<string>, 5: bool}>
+     */
+    private const CONTRACTOR_PLANS = [
+        'entrepreneur_solo' => ['Solo', '1 utilisateur — vous uniquement', 0, 1, ['Suivi des chantiers attribués', 'Réponse aux demandes de devis et offres', 'Sans équipe, pointage ni rapport de fin de chantier'], false],
+        'entrepreneur_essentiel' => ['Essentiel', 'Jusqu’à 5 membres d’équipe', 15000, 5, ['Pointage journalier avec photo et signature', 'Recherche et affectation d’ouvriers', 'Rapport de fin de chantier PDF'], false],
+        'entrepreneur_pro' => ['Pro', 'Jusqu’à 20 membres d’équipe', 35000, 20, ['Tout Essentiel, plusieurs chantiers en parallèle', 'Évaluation des équipes et historique', 'Rapports de fin de chantier'], true],
+    ];
+
     public function run(): void
     {
         $country = Country::query()->where('iso_code', 'CI')->firstOrFail();
@@ -54,6 +66,23 @@ class CommercialOfferSeeder extends Seeder
         }
 
         $order = 0;
+
+        $rank = 100;
+
+        foreach (self::CONTRACTOR_PLANS as $code => [$name, $subtitle, $price, $seats, $features, $featured]) {
+            SubscriptionPlan::query()->firstOrCreate(['code' => $code], [
+                'audience' => 'contractor',
+                'name' => $name,
+                'subtitle' => $subtitle,
+                'price_amount' => $price,
+                'billing_period' => BillingPeriod::Mois,
+                'max_users' => $seats,
+                'features' => $features,
+                'is_featured' => $featured,
+                'sort_order' => $rank += 10,
+                'is_active' => true,
+            ]);
+        }
 
         foreach (self::PLANS as $code => [$name, $subtitle, $description, $price, $seats, $features, $featured]) {
             SubscriptionPlan::query()->firstOrCreate(['code' => $code], [

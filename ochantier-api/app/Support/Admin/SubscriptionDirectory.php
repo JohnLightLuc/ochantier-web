@@ -66,7 +66,7 @@ class SubscriptionDirectory
      */
     public function planOptions(): array
     {
-        return SubscriptionPlan::query()->where('code', '!=', PromoterSubscriptions::FREE_PLAN)->orderBy('sort_order')->get(['code', 'name'])
+        return SubscriptionPlan::query()->where('audience', 'promoter')->where('code', '!=', PromoterSubscriptions::FREE_PLAN)->orderBy('sort_order')->get(['code', 'name'])
             ->map(fn (SubscriptionPlan $plan) => ['code' => $plan->code, 'name' => $plan->name])->all();
     }
 

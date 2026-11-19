@@ -3,11 +3,14 @@
 namespace App\Support\Promoter;
 
 use App\Enums\AssignmentStatus;
+use App\Enums\ContractorBidStatus;
 use App\Enums\MissionStatus;
 use App\Enums\RatingScope;
 use App\Enums\RatingStatus;
 use App\Enums\SiteStatus;
 use App\Models\Assignment;
+use App\Models\Contractor;
+use App\Models\ContractorBid;
 use App\Models\Rating;
 use App\Models\Site;
 use App\Models\Team;
@@ -143,6 +146,10 @@ class SiteRatings
                 $this->adjustWorkerAverage($rating->worker_id, $rating->overall_score);
             }
 
+            if ($contractor = $this->ratedContractor($rating, $author)) {
+                $this->adjustContractorAverage($contractor, null, $rating->overall_score);
+            }
+
             return $rating;
         });
     }
@@ -178,6 +185,10 @@ class SiteRatings
 
             if ($rating->worker_id && $previous !== $rating->overall_score) {
                 $this->adjustWorkerAverage($rating->worker_id, $rating->overall_score, $previous);
+            }
+
+            if ($previous !== $rating->overall_score && ($contractor = $this->ratedContractor($rating, $rating->authorUser))) {
+                $this->adjustContractorAverage($contractor, $previous, $rating->overall_score);
             }
 
             return $rating;
@@ -301,7 +312,7 @@ class SiteRatings
 
         return Assignment::query()
             ->whereHas('mission', fn ($query) => $query->where('site_id', $site->getKey())->whereIn('status', self::RATED_MISSIONS))
-            ->whereNot('status', AssignmentStatus::Annulee)
+            ->whereNotIn('status', [AssignmentStatus::Annulee, AssignmentStatus::EnAttente, AssignmentStatus::Refusee])
             ->with([...SiteAttendance::ASSIGNMENT_WITH, 'mission'])
             ->get()
             ->filter(fn (Assignment $assignment) => match (true) {
@@ -508,5 +519,38 @@ class SiteRatings
     private function date(CarbonInterface $date): string
     {
         return $date->locale('fr')->translatedFormat('j M Y');
+    }
+
+    /**
+     * Entrepreneur noté à travers l’« Équipe globale » d’un chantier qui lui était confié, par le promoteur.
+     */
+    private function ratedContractor(Rating $rating, User $author): ?Contractor
+    {
+        if ($rating->rating_scope !== RatingScope::Equipe || $author->user_type?->value !== 'promoter') {
+            return null;
+        }
+
+        return ContractorBid::query()->with('contractor')
+            ->where('status', ContractorBidStatus::Retenue->value)
+            ->whereHas('offer', fn ($query) => $query->where('site_id', $rating->site_id))
+            ->first()?->contractor;
+    }
+
+    /**
+     * Moyenne de l’entrepreneur : ajoute une note, ou remplace l’ancienne ($previous) par la nouvelle.
+     */
+    private function adjustContractorAverage(Contractor $contractor, ?int $previous, int $score): void
+    {
+        $count = (int) $contractor->rating_count;
+        $sum = (float) $contractor->rating_avg * $count;
+
+        if ($previous !== null) {
+            $sum = $sum - $previous + $score;
+        } else {
+            $sum += $score;
+            $count++;
+        }
+
+        $contractor->forceFill(['rating_avg' => $count > 0 ? round($sum / $count, 2) : null, 'rating_count' => $count])->save();
     }
 }

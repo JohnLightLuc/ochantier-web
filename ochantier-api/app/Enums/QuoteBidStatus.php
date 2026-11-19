@@ -3,13 +3,14 @@
 namespace App\Enums;
 
 /**
- * Valeurs de `status` pour l’offre d’un technicien.
+ * Valeurs de `status` pour la proposition de devis d’un entrepreneur.
  */
 enum QuoteBidStatus: string
 {
     case Proposee = 'proposee';
     case Choisie = 'choisie';
     case NonRetenue = 'non_retenue';
+    case Retiree = 'retiree';
 
     public function label(): string
     {
@@ -17,6 +18,7 @@ enum QuoteBidStatus: string
             self::Proposee => 'Proposée',
             self::Choisie => 'Choisie',
             self::NonRetenue => 'Non retenue',
+            self::Retiree => 'Retirée',
         };
     }
 }

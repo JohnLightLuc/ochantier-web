@@ -17,6 +17,9 @@ use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialPortfolioController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialRankingController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialTerritoryController;
+use App\Http\Controllers\Api\V1\Admin\Contractor\ContractorController;
+use App\Http\Controllers\Api\V1\Admin\Contractor\ContractorReviewController;
+use App\Http\Controllers\Api\V1\Admin\Contractor\StaffingRequestController;
 use App\Http\Controllers\Api\V1\Admin\Dashboard\DashboardController;
 use App\Http\Controllers\Api\V1\Admin\Dispute\DisputeController;
 use App\Http\Controllers\Api\V1\Admin\Finance\ClosingController;
@@ -118,6 +121,20 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('suspension', [PromoterReviewController::class, 'suspend'])->middleware('admin.can:promoters.update')->name('suspend');
                 Route::delete('suspension', [PromoterReviewController::class, 'reactivate'])->middleware('admin.can:promoters.update')->name('reactivate');
                 Route::post('messages', [PromoterReviewController::class, 'message'])->middleware('admin.can:promoters.update')->name('messages');
+            });
+        });
+
+        // Entrepreneurs et techniciens : liste, fiche, décision sur le dossier KYB/KYC, suspension et réactivation.
+        Route::prefix('contractors')->name('contractors.')->group(function () {
+            Route::get('/', [ContractorController::class, 'index'])->middleware('admin.can:contractors.read')->name('index');
+
+            Route::prefix('{contractor}')->whereUuid('contractor')->group(function () {
+                Route::get('/', [ContractorController::class, 'show'])->middleware('admin.can:contractors.read')->name('show');
+                Route::post('approve', [ContractorReviewController::class, 'approve'])->middleware('admin.can:contractors.validate')->name('approve');
+                Route::post('corrections', [ContractorReviewController::class, 'requestCorrections'])->middleware('admin.can:contractors.validate')->name('corrections');
+                Route::post('reject', [ContractorReviewController::class, 'reject'])->middleware('admin.can:contractors.validate')->name('reject');
+                Route::post('suspension', [ContractorReviewController::class, 'suspend'])->middleware('admin.can:contractors.update')->name('suspend');
+                Route::delete('suspension', [ContractorReviewController::class, 'reactivate'])->middleware('admin.can:contractors.update')->name('reactivate');
             });
         });
 
@@ -430,12 +447,18 @@ Route::middleware('auth:admin')->group(function () {
             Route::post('{workDayId}/remind', 'remind')->whereUuid('workDayId')->middleware('admin.can:attendance.update')->name('remind');
         });
 
-        // Affectations : liste, export, fiche, indisponibilité et recherche de remplaçants.
+        // Recherches d’effectifs des entrepreneurs : file et constitution de l’offre d’ouvriers.
+        Route::get('staffing-requests', [StaffingRequestController::class, 'index'])->middleware('admin.can:missions.read')->name('staffing-requests.index');
+        Route::post('staffing-requests/{staffingRequest}/offer', [StaffingRequestController::class, 'offer'])->whereUuid('staffingRequest')->middleware('admin.can:missions.update')->name('staffing-requests.offer');
+
+        // Affectations : liste, export, fiche, accord de l’ouvrier (équipes d’entrepreneurs), indisponibilité et recherche de remplaçants.
         Route::prefix('assignments')->name('assignments.')->controller(AssignmentController::class)->group(function () {
             Route::get('/', 'index')->middleware('admin.can:missions.read')->name('index');
             Route::get('export', 'export')->middleware('admin.can:missions.export')->name('export');
+            Route::get('pending-agreements', 'pendingAgreements')->middleware('admin.can:missions.read')->name('pending-agreements');
             Route::get('{assignmentId}', 'show')->whereUuid('assignmentId')->middleware('admin.can:missions.read')->name('show');
             Route::post('{assignmentId}/unavailability', 'declareUnavailability')->whereUuid('assignmentId')->middleware('admin.can:missions.update')->name('unavailability');
+            Route::post('{assignmentId}/agreement', 'agreement')->whereUuid('assignmentId')->middleware('admin.can:missions.update')->name('agreement');
             Route::post('replacements/{replacementId}/search', 'searchReplacement')->whereUuid('replacementId')->middleware('admin.can:missions.update')->name('replacements.search');
             Route::post('replacements/{replacementId}/send', 'sendReplacement')->whereUuid('replacementId')->middleware('admin.can:missions.update')->name('replacements.send');
         });

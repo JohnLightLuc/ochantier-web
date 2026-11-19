@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Admin\Assignment;
 
+use App\Enums\AssignmentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Admin\Assignment\AssignmentIndexRequest;
 use App\Http\Resources\V1\Admin\AssignmentDetailResource;
@@ -12,7 +13,9 @@ use App\Models\Replacement;
 use App\Support\Admin\AdminAudit;
 use App\Support\Admin\AssignmentDirectory;
 use App\Support\ApiResponse;
+use App\Support\Contractor\ContractorTeam;
 use App\Support\Matching\ReplacementSearch;
+use App\Support\PhoneNumber;
 use App\Support\Promoter\SiteReplacements;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -113,5 +116,44 @@ class AssignmentController extends Controller
         abort_unless(str($id)->isUuid(), 404);
 
         return app(AssignmentDirectory::class)->query([])->where('assignments.id', $id)->firstOrFail();
+    }
+
+    /**
+     * Affectations directes des entrepreneurs en attente de l’accord de l’ouvrier, les plus anciennes d’abord.
+     */
+    public function pendingAgreements(): JsonResponse
+    {
+        $assignments = Assignment::query()
+            ->with(['worker', 'mission.site', 'mission.contractor'])
+            ->where('status', AssignmentStatus::EnAttente->value)
+            ->orderBy('created_at')
+            ->limit(200)
+            ->get();
+
+        return ApiResponse::success($assignments->map(fn (Assignment $assignment) => [
+            'id' => $assignment->id,
+            'worker' => ['id' => $assignment->worker_id, 'name' => trim($assignment->worker->first_name.' '.$assignment->worker->last_name), 'phone' => PhoneNumber::of($assignment->worker)?->formatted()],
+            'contractor' => $assignment->mission->contractor?->only(['id', 'reference', 'name']),
+            'site' => ['id' => $assignment->mission->site_id, 'reference' => $assignment->mission->site->reference, 'title' => $assignment->mission->site->label],
+            'role' => $assignment->role_label,
+            'start_date' => $assignment->planned_start_date->toDateString(),
+            'end_date' => $assignment->planned_end_date->toDateString(),
+            'daily_rate' => (int) $assignment->salary_amount,
+            'replaces_assignment_id' => $assignment->replaces_assignment_id,
+            'requested_at' => $assignment->created_at?->toIso8601String(),
+        ])->all(), meta: ['count' => $assignments->count()]);
+    }
+
+    /**
+     * Accord (accepter) ou refus (refuser) de l’ouvrier, recueilli par le Back Office, sur une affectation directe.
+     */
+    public function agreement(Request $request, string $assignmentId): JsonResponse
+    {
+        $data = $request->validate(['decision' => ['required', Rule::in(['accepter', 'refuser'])]], ['decision.required' => 'Indiquez la réponse de l’ouvrier.', 'decision.in' => 'Indiquez la réponse de l’ouvrier.']);
+        $assignment = Assignment::query()->findOrFail($assignmentId);
+        app(ContractorTeam::class)->decideAgreement($assignment, $data['decision'] === 'accepter', $request->user());
+        AdminAudit::record($request->user(), 'missions', 'assignment.agreement_'.($data['decision'] === 'accepter' ? 'accepted' : 'refused'), $request, $assignment, ['status' => 'en_attente'], ['status' => $assignment->status->value]);
+
+        return $this->fiche($request, $assignmentId, $data['decision'] === 'accepter' ? 'Accord de l’ouvrier enregistré.' : 'Refus de l’ouvrier enregistré.');
     }
 }

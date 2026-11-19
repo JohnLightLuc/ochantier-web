@@ -191,7 +191,7 @@ class PromoterSubscriptions
             return $this->payableRow($invoice->plan, $invoice->label, $invoice->amount, ['subscription_invoice_id' => $invoice->getKey()], $invoice);
         }
 
-        $plan = SubscriptionPlan::query()->where('code', $target['plan_code'] ?? '')->where('is_active', true)->first()
+        $plan = SubscriptionPlan::query()->where('audience', 'promoter')->where('code', $target['plan_code'] ?? '')->where('is_active', true)->first()
             ?? throw ValidationException::withMessages(['plan_code' => 'Formule inconnue.']);
 
         if ($plan->code === self::FREE_PLAN) {
@@ -316,6 +316,7 @@ class PromoterSubscriptions
         $counts = ['invoiced' => 0, 'late' => 0, 'expired' => 0, 'ended' => 0];
 
         Subscription::query()
+            ->whereNotNull('promoter_profile_id')
             ->whereIn('status', [SubscriptionStatus::Active, SubscriptionStatus::Essai, SubscriptionStatus::EnRetard])
             ->whereDate('current_period_end', '<', $today)
             ->with(['plan', 'pendingPlan'])
@@ -375,7 +376,7 @@ class PromoterSubscriptions
      */
     private function plans(): Collection
     {
-        return SubscriptionPlan::query()->where('is_active', true)->orderBy('sort_order')->get();
+        return SubscriptionPlan::query()->where('audience', 'promoter')->where('is_active', true)->orderBy('sort_order')->get();
     }
 
     /**

@@ -5,20 +5,25 @@ namespace App\Support\Promoter;
 use App\Enums\QuoteBidStatus;
 use App\Enums\QuoteRequestStatus;
 use App\Enums\QuoteRequestTradeStatus;
+use App\Enums\QuoteVersionStatus;
+use App\Enums\QuoteVisitStatus;
 use App\Enums\SiteStatus;
 use App\Http\Resources\V1\DocumentResource;
+use App\Models\Contractor;
 use App\Models\DocumentType;
 use App\Models\PaymentTransaction;
 use App\Models\QuoteBid;
 use App\Models\QuoteRequest;
 use App\Models\QuoteRequestTrade;
+use App\Models\QuoteVersion;
+use App\Models\Setting;
 use App\Models\Site;
 use App\Models\User;
-use App\Models\Worker;
-use App\Models\WorkerTrade;
+use App\Support\Contractor\ContractorNotifier;
 use App\Support\Documents\DocumentStore;
 use App\Support\Documents\SimplePdf;
 use App\Support\Media\MediaStore;
+use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -28,12 +33,16 @@ use Illuminate\Validation\ValidationException;
 /**
  * Demande de devis d’une offre contractuelle (« Avez-vous un devis ? » → Non).
  *
- * « Rechercher un technicien » crée la demande (un corps de métier par ligne) et passe le chantier au statut
- * « devis ». Les techniciens, ouvriers validés du métier, répondent par une offre (prix, date d’exécution) : le
- * promoteur voit les BEST_BIDS meilleures par métier (note décroissante, puis prix croissant), en choisit une par
- * métier et paie la « Commande des devis » en une fois. Chaque devis réalisé est ajouté aux documents du chantier ;
- * quand tous le sont, le chantier revient au brouillon avec « Oui » répondu à « Avez-vous un devis ? » : il reste à
- * définir l’offre financière et à publier.
+ * « Rechercher un technicien » crée la demande (un corps de métier par ligne), passe le chantier au statut « devis »
+ * et prévient les entrepreneurs du métier et de la ville. Chacun peut envoyer une proposition (frais de visite ou
+ * d’étude, plus les frais de service O’CHANTIER, date et créneau de visite) jusqu’à la date limite : le promoteur
+ * voit les BEST_BIDS meilleures par métier (note décroissante, puis prix croissant), en choisit une par métier et
+ * paie la « Commande des devis » en une fois.
+ *
+ * Chaque proposition commandée devient une mission de visite ; l’entrepreneur peut proposer un report, que le
+ * promoteur accepte ou refuse. Après la visite, il rédige le devis : chaque version envoyée est ajoutée aux
+ * documents du chantier (PDF) et le promoteur en accuse réception. Quand chaque métier a reçu son devis, le chantier
+ * revient au brouillon avec « Oui » répondu à « Avez-vous un devis ? » : il reste à définir l’offre financière.
  */
 class QuoteRequests
 {
@@ -43,14 +52,30 @@ class QuoteRequests
     public const BEST_BIDS = 3;
 
     /**
-     * Durée de validité d’un devis réalisé (jours).
+     * Durée de validité d’un devis réalisé par défaut (jours).
      */
     public const VALIDITY_DAYS = 30;
+
+    /**
+     * Créneaux de visite proposés.
+     */
+    public const SLOTS = ['08:00 – 10:00', '10:00 – 12:00', '12:00 – 14:00', '14:00 – 16:00', '16:00 – 18:00'];
+
+    /**
+     * Durées de visite proposées.
+     */
+    public const DURATIONS = ['1 h', '2 h', '3 h', 'Demi-journée', 'Journée'];
+
+    /**
+     * Frais de service O’CHANTIER par défaut (%), si le paramètre quotes.service_fee_percent manque.
+     */
+    public const DEFAULT_SERVICE_FEE = 10;
 
     public function __construct(private OfferDraft $drafts, private DocumentStore $documents, private MediaStore $media) {}
 
     /**
-     * « Rechercher un technicien » : crée la demande à partir du brouillon et lance la recherche.
+     * « Rechercher un technicien » : crée la demande à partir du brouillon, lance la recherche et prévient les
+     * entrepreneurs concernés.
      */
     public function submit(Site $site, User $author): QuoteRequest
     {
@@ -62,13 +87,14 @@ class QuoteRequests
             throw ValidationException::withMessages(['publication' => array_column($errors, 'label')]);
         }
 
-        return DB::transaction(function () use ($site, $author): QuoteRequest {
+        $request = DB::transaction(function () use ($site, $author): QuoteRequest {
             $request = $site->quoteRequests()->create([
                 'reference' => sprintf('DV-%s-%04d', now()->format('Y'), DB::scalar("SELECT nextval('quote_request_reference_seq')")),
                 'status' => QuoteRequestStatus::Recherche,
                 'notes' => $site->offer_draft['contract']['quote_request']['notes'] ?? null,
                 'requested_by_user_id' => $author->getKey(),
                 'submitted_at' => now(),
+                'response_deadline' => now()->addHours((int) (Setting::query()->whereKey('quotes.response_hours')->value('value') ?? 72)),
             ]);
 
             foreach ($this->drafts->quoteTrades($site) as $trade) {
@@ -79,10 +105,15 @@ class QuoteRequests
 
             return $request;
         });
+
+        app(ContractorNotifier::class)->newQuoteRequest($request);
+
+        return $request;
     }
 
     /**
-     * Annule une demande encore en recherche (aucun paiement) : le chantier revient au brouillon.
+     * Annule une demande encore en recherche (aucun paiement) : le chantier revient au brouillon et les
+     * propositions ne sont pas retenues.
      */
     public function cancel(Site $site, User $author): void
     {
@@ -92,10 +123,18 @@ class QuoteRequests
             throw ValidationException::withMessages(['quote_request' => 'Seule une demande de devis en recherche peut être annulée.']);
         }
 
-        DB::transaction(function () use ($site, $request, $author): void {
+        $bids = QuoteBid::query()->with('contractor.user')->whereHas('quoteRequestTrade', fn ($query) => $query->where('quote_request_id', $request->getKey()))
+            ->where('status', QuoteBidStatus::Proposee->value)->get();
+
+        DB::transaction(function () use ($site, $request, $author, $bids): void {
             $request->update(['status' => QuoteRequestStatus::Annule, 'cancelled_at' => now()]);
+            QuoteBid::query()->whereKey($bids->modelKeys())->update(['status' => QuoteBidStatus::NonRetenue->value]);
             $this->moveSite($site, SiteStatus::Brouillon, $author);
         });
+
+        foreach ($bids as $bid) {
+            app(ContractorNotifier::class)->proposalEvent($bid, 'proposal.not_retained', 'Demande de devis annulée', $site->label.' : le promoteur a annulé sa demande de devis.');
+        }
     }
 
     /**
@@ -115,36 +154,79 @@ class QuoteRequests
     }
 
     /**
-     * Offre d’un technicien pour un corps de métier encore en recherche (une par technicien). La distance est
-     * calculée entre son domicile et le chantier.
+     * Frais de service O’CHANTIER appliqués aux nouvelles propositions (%).
      */
-    public function addBid(QuoteRequestTrade $line, Worker $worker, int $amount, CarbonImmutable $visitDate): QuoteBid
+    public function serviceFeePercent(): float
     {
-        if ($line->status !== QuoteRequestTradeStatus::Recherche) {
-            throw ValidationException::withMessages(['quote_request' => 'Ce corps de métier n’attend plus d’offre.']);
+        return (float) (Setting::query()->whereKey('quotes.service_fee_percent')->value('value') ?? self::DEFAULT_SERVICE_FEE);
+    }
+
+    /**
+     * Prix d’une proposition : frais de l’entrepreneur, frais de service et total payé par le promoteur.
+     *
+     * @return array{fee: int, service_fee_percent: float, service_fee: int, total: int}
+     */
+    public function prices(int $fee, ?float $percent = null): array
+    {
+        $percent ??= $this->serviceFeePercent();
+        $service = (int) round($fee * $percent / 100);
+
+        return ['fee' => $fee, 'service_fee_percent' => $percent, 'service_fee' => $service, 'total' => $fee + $service];
+    }
+
+    /**
+     * Proposition d’un entrepreneur pour un corps de métier encore en recherche (une par entrepreneur). La distance
+     * est calculée entre l’entrepreneur et le chantier ; les frais de service sont figés à l’envoi.
+     */
+    public function addBid(QuoteRequestTrade $line, Contractor $contractor, int $fee, CarbonImmutable $visitDate, string $slot, ?string $duration = null, ?string $comment = null): QuoteBid
+    {
+        if ($line->status !== QuoteRequestTradeStatus::Recherche || $line->quoteRequest->status !== QuoteRequestStatus::Recherche) {
+            throw ValidationException::withMessages(['quote_request' => 'Ce corps de métier n’attend plus de proposition.']);
         }
 
-        $distance = DB::scalar('SELECT ST_Distance(w.residence_location, s.location) / 1000 FROM workers w, sites s WHERE w.id = ? AND s.id = ?', [$worker->getKey(), $line->quoteRequest->site_id]);
+        if ($line->quoteRequest->response_deadline?->isPast()) {
+            throw ValidationException::withMessages(['quote_request' => 'Le délai de réponse est expiré.']);
+        }
 
-        return $line->bids()->updateOrCreate(['worker_id' => $worker->getKey()], [
-            'amount' => $amount,
+        $existing = $line->bids()->where('contractor_id', $contractor->getKey())->first();
+
+        if ($existing) {
+            throw ValidationException::withMessages(['quote_request' => $existing->status === QuoteBidStatus::Retiree
+                ? 'Vous avez retiré votre proposition pour cette demande.'
+                : 'Vous avez déjà envoyé une proposition pour cette demande.']);
+        }
+
+        $distance = DB::scalar('SELECT ST_Distance(c.location, s.location) / 1000 FROM contractors c, sites s WHERE c.id = ? AND s.id = ?', [$contractor->getKey(), $line->quoteRequest->site_id]);
+        $prices = $this->prices($fee);
+
+        return $line->bids()->create([
+            'contractor_id' => $contractor->getKey(),
+            'amount' => $prices['total'],
+            'fee_amount' => $prices['fee'],
+            'service_fee_percent' => $prices['service_fee_percent'],
+            'service_fee_amount' => $prices['service_fee'],
             'visit_date' => $visitDate->toDateString(),
+            'visit_slot' => $slot,
+            'visit_duration' => $duration,
+            'comment' => $comment,
             'distance_km' => $distance !== null ? round((float) $distance, 1) : null,
             'status' => QuoteBidStatus::Proposee,
         ]);
     }
 
     /**
-     * Meilleures offres d’un corps de métier : note du technicien décroissante, puis prix croissant.
+     * Meilleures propositions d’un corps de métier : note de l’entrepreneur décroissante, puis prix croissant.
      *
      * @return Collection<int, QuoteBid>
      */
     public function bestBids(QuoteRequestTrade $line): Collection
     {
         return $line->bids()
-            ->with(['worker.photoMedia', 'worker.workerTrades'])
-            ->join('workers', 'workers.id', '=', 'quote_bids.worker_id')
-            ->orderByRaw('workers.rating_avg DESC NULLS LAST')
+            ->with(['contractor.logoMedia', 'worker.photoMedia', 'worker.workerTrades'])
+            ->where('quote_bids.status', QuoteBidStatus::Proposee->value)
+            ->leftJoin('contractors', 'contractors.id', '=', 'quote_bids.contractor_id')
+            ->leftJoin('workers', 'workers.id', '=', 'quote_bids.worker_id')
+            ->orderByRaw('coalesce(contractors.rating_avg, workers.rating_avg) DESC NULLS LAST')
             ->orderBy('quote_bids.amount')
             ->orderBy('quote_bids.created_at')
             ->limit(self::BEST_BIDS)
@@ -206,7 +288,8 @@ class QuoteRequests
     }
 
     /**
-     * Paiement réussi : les offres choisies sont commandées, les autres ne sont pas retenues.
+     * Paiement réussi : les offres choisies sont commandées (mission de visite planifiée), les autres ne sont pas
+     * retenues. Les entrepreneurs en sont prévenus.
      *
      * @param  Collection<int, QuoteBid>  $bids
      */
@@ -218,10 +301,14 @@ class QuoteRequests
             throw ValidationException::withMessages(['quote_bid_ids' => 'Ces devis sont déjà commandés.']);
         }
 
+        $notRetained = collect();
+
         foreach ($request->trades as $line) {
             $chosen = $bids->firstWhere('quote_request_trade_id', $line->getKey());
-            $line->bids()->whereKeyNot($chosen->getKey())->update(['status' => QuoteBidStatus::NonRetenue->value]);
-            $chosen->update(['status' => QuoteBidStatus::Choisie]);
+            $others = $line->bids()->whereKeyNot($chosen->getKey())->where('status', QuoteBidStatus::Proposee->value);
+            $notRetained = $notRetained->concat($others->get());
+            $others->update(['status' => QuoteBidStatus::NonRetenue->value]);
+            $chosen->update(['status' => QuoteBidStatus::Choisie, 'visit_status' => $chosen->contractor_id ? QuoteVisitStatus::Planifiee : null]);
             $line->update(['status' => QuoteRequestTradeStatus::Commande, 'selected_bid_id' => $chosen->getKey()]);
         }
 
@@ -231,13 +318,258 @@ class QuoteRequests
             'payment_transaction_id' => $transaction->getKey(),
             'ordered_at' => now(),
         ]);
+
+        DB::afterCommit(function () use ($bids, $notRetained, $request): void {
+            $notifier = app(ContractorNotifier::class);
+            $title = $request->site->label;
+
+            foreach ($bids as $bid) {
+                $notifier->proposalEvent($bid, 'proposal.ordered', 'Proposition acceptée · mission confirmée', $title.' : visite le '.$bid->visit_date->format('d/m/Y').($bid->visit_slot ? ', créneau '.$bid->visit_slot : '').'.');
+            }
+
+            foreach ($notRetained as $bid) {
+                $notifier->proposalEvent($bid, 'proposal.not_retained', 'Proposition non retenue', $title.' : le promoteur a retenu une autre proposition.');
+            }
+        });
     }
 
     /**
-     * Devis réalisé par le technicien commandé : il est ajouté aux documents du chantier (PDF). Le dernier devis
-     * reçu ramène le chantier au brouillon, « Avez-vous un devis ? » répondu par Oui.
+     * Retrait d’une proposition encore en attente de la décision du promoteur.
+     */
+    public function withdraw(QuoteBid $bid): QuoteBid
+    {
+        if ($bid->status !== QuoteBidStatus::Proposee || $bid->quoteRequestTrade->quoteRequest->status !== QuoteRequestStatus::Recherche) {
+            throw ValidationException::withMessages(['proposal' => 'Seule une proposition en attente peut être retirée.']);
+        }
+
+        $bid->update(['status' => QuoteBidStatus::Retiree, 'withdrawn_at' => now()]);
+
+        return $bid;
+    }
+
+    /**
+     * « Marquer la visite réalisée » : le devis peut ensuite être rédigé.
+     */
+    public function markVisited(QuoteBid $bid): QuoteBid
+    {
+        $this->ensureMission($bid);
+
+        if ($bid->visit_status !== QuoteVisitStatus::Planifiee) {
+            throw ValidationException::withMessages(['visit' => $bid->visit_status === QuoteVisitStatus::Realisee ? 'La visite est déjà réalisée.' : 'Un report est en attente de la décision du promoteur.']);
+        }
+
+        $bid->update(['visit_status' => QuoteVisitStatus::Realisee, 'visited_at' => now()]);
+
+        return $bid;
+    }
+
+    /**
+     * « Signaler un empêchement » : nouvelle date et créneau proposés au promoteur, avec le motif.
+     */
+    public function requestReschedule(QuoteBid $bid, CarbonImmutable $date, string $slot, string $reason): QuoteBid
+    {
+        $this->ensureMission($bid);
+
+        if ($bid->visit_status !== QuoteVisitStatus::Planifiee) {
+            throw ValidationException::withMessages(['visit' => $bid->visit_status === QuoteVisitStatus::Realisee ? 'La visite est déjà réalisée.' : 'Un report est déjà en attente de la décision du promoteur.']);
+        }
+
+        $bid->update([
+            'visit_status' => QuoteVisitStatus::ReportPropose,
+            'reschedule_date' => $date->toDateString(),
+            'reschedule_slot' => $slot,
+            'reschedule_reason' => $reason,
+            'reschedule_requested_at' => now(),
+        ]);
+
+        $site = $bid->quoteRequestTrade->quoteRequest->site;
+        app(PromoterNotifier::class)->notify($site->promoterProfile, 'quote.reschedule_requested', 'Report de visite proposé',
+            $bid->quoteRequestTrade->trade->label.' : '.$reason.' Nouvelle date proposée : '.$date->format('d/m/Y').', '.$slot.'.',
+            $site, ['type' => 'quote_request', 'id' => $site->id], $bid);
+
+        return $bid;
+    }
+
+    /**
+     * Décision du promoteur sur le report proposé : accepté, la visite prend la nouvelle date ; refusé, elle garde la
+     * date convenue.
+     */
+    public function decideReschedule(QuoteBid $bid, bool $accepted): QuoteBid
+    {
+        if ($bid->visit_status !== QuoteVisitStatus::ReportPropose) {
+            throw ValidationException::withMessages(['visit' => 'Aucun report de visite n’est en attente.']);
+        }
+
+        $date = $bid->reschedule_date;
+        $bid->update([
+            ...($accepted ? ['visit_date' => $bid->reschedule_date, 'visit_slot' => $bid->reschedule_slot] : []),
+            'visit_status' => QuoteVisitStatus::Planifiee,
+            'reschedule_date' => null,
+            'reschedule_slot' => null,
+            'reschedule_reason' => null,
+            'reschedule_requested_at' => null,
+        ]);
+
+        app(ContractorNotifier::class)->proposalEvent($bid, $accepted ? 'visit.reschedule_accepted' : 'visit.reschedule_refused',
+            $accepted ? 'Report validé' : 'Report refusé',
+            $accepted ? 'Nouvelle date de visite : '.$date->format('d/m/Y').', '.$bid->visit_slot.'.' : 'La visite reste prévue le '.$bid->visit_date->format('d/m/Y').', '.$bid->visit_slot.'.');
+
+        return $bid->refresh();
+    }
+
+    /**
+     * Brouillon de devis : première version, ou version corrigée reprenant la dernière envoyée.
+     */
+    public function draftVersion(QuoteBid $bid): QuoteVersion
+    {
+        $this->ensureMission($bid);
+
+        if ($bid->visit_status !== QuoteVisitStatus::Realisee) {
+            throw ValidationException::withMessages(['quote' => 'Marquez d’abord la visite réalisée.']);
+        }
+
+        $line = $bid->quoteRequestTrade;
+        $last = $line->versions()->orderByDesc('version')->first();
+
+        if ($last?->status === QuoteVersionStatus::Brouillon) {
+            throw ValidationException::withMessages(['quote' => 'Un brouillon de devis est déjà en cours (v'.$last->version.').']);
+        }
+
+        return $line->versions()->create([
+            'quote_bid_id' => $bid->getKey(),
+            'number' => $last?->number ?? sprintf('DE-%s-%05d', now()->format('Y'), DB::scalar("SELECT nextval('site_quote_number_seq')")),
+            'version' => ($last?->version ?? 0) + 1,
+            'status' => QuoteVersionStatus::Brouillon,
+            'items' => $last?->items ?? [],
+            'vat_applied' => $last?->vat_applied ?? false,
+            'vat_rate' => $last?->vat_rate ?? 18,
+            'total_ht' => $last?->total_ht ?? 0,
+            'vat_amount' => $last?->vat_amount ?? 0,
+            'total_ttc' => $last?->total_ttc ?? 0,
+            'works_duration' => $last?->works_duration,
+            'conditions' => $last?->conditions ?? 'Acompte à la commande, solde à la réception des travaux.',
+            'validity_days' => $last?->validity_days ?? self::VALIDITY_DAYS,
+            'observations' => $last?->observations,
+        ]);
+    }
+
+    /**
+     * Enregistre les champs envoyés du brouillon et recalcule les totaux.
      *
-     * @param  list<array{designation: string, unit_price: int, quantity: float|int}>  $items
+     * @param  array<string, mixed>  $data
+     */
+    public function updateVersion(QuoteVersion $version, array $data): QuoteVersion
+    {
+        if ($version->status !== QuoteVersionStatus::Brouillon) {
+            throw ValidationException::withMessages(['quote' => 'Cette version est envoyée : créez une version corrigée.']);
+        }
+
+        if (array_key_exists('items', $data)) {
+            $data['items'] = array_map(fn (array $item) => [
+                'designation' => trim((string) $item['designation']),
+                'unit' => $item['unit'] ?? 'u',
+                'quantity' => (float) $item['quantity'],
+                'unit_price' => (int) $item['unit_price'],
+                'total' => (int) round((float) $item['quantity'] * (int) $item['unit_price']),
+            ], array_values($data['items']));
+        }
+
+        $version->fill($data);
+        $version->fill($this->totals($version->items ?? [], (bool) $version->vat_applied, (float) $version->vat_rate));
+        $version->save();
+
+        return $version;
+    }
+
+    /**
+     * Envoie la version signée : PDF ajouté aux documents du chantier, devis du corps de métier mis à jour, promoteur
+     * prévenu. Le premier devis de chaque métier fait avancer la demande.
+     */
+    public function sendVersion(QuoteVersion $version, Model $author): QuoteVersion
+    {
+        if ($version->status !== QuoteVersionStatus::Brouillon) {
+            throw ValidationException::withMessages(['quote' => 'Cette version est déjà envoyée.']);
+        }
+
+        $errors = [];
+
+        if (($version->items ?? []) === []) {
+            $errors['items'] = 'Ajoutez au moins une ligne de travaux.';
+        }
+
+        foreach ($version->items ?? [] as $index => $item) {
+            if (blank($item['designation']) || $item['quantity'] <= 0 || $item['unit_price'] <= 0) {
+                $errors['items.'.$index] = 'Ligne '.($index + 1).' : désignation, quantité et prix unitaire obligatoires.';
+            }
+        }
+
+        if (blank($version->works_duration)) {
+            $errors['works_duration'] = 'Indiquez la durée des travaux.';
+        }
+
+        if ($errors) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return DB::transaction(function () use ($version, $author): QuoteVersion {
+            $line = $version->quoteRequestTrade;
+            $bid = $version->quoteBid;
+            $request = $line->quoteRequest;
+            $site = $request->site;
+
+            $version->forceFill(['status' => QuoteVersionStatus::Envoye, 'signed_at' => now(), 'sent_at' => now()])->save();
+            $document = $this->attachPdf($site, $bid, $line, $version, $author);
+            $version->forceFill(['document_id' => $document->getKey()])->save();
+
+            $first = $line->status !== QuoteRequestTradeStatus::Realise;
+            $line->forceFill([
+                'quote_number' => $version->number,
+                'quote_items' => $version->items,
+                'quote_total_amount' => $version->total_ttc,
+                'visited_on' => ($bid->visited_at ?? $bid->visit_date)->toDateString(),
+                'issued_on' => today()->toDateString(),
+                'valid_until' => today()->addDays($version->validity_days)->toDateString(),
+                'quote_document_id' => $document->getKey(),
+                'status' => QuoteRequestTradeStatus::Realise,
+                'completed_at' => $line->completed_at ?? now(),
+            ])->save();
+
+            if ($first && ! $request->trades()->where('status', '!=', QuoteRequestTradeStatus::Realise->value)->exists()) {
+                $request->update(['status' => QuoteRequestStatus::Recu, 'received_at' => now()]);
+                $draft = $site->offer_draft ?? [];
+                $draft['type'] = OfferDraft::CONTRACT;
+                $draft['contract'] = [...($draft['contract'] ?? []), 'has_quote' => true];
+                $site->forceFill(['offer_draft' => $draft]);
+                $this->moveSite($site, SiteStatus::Brouillon, $author);
+            }
+
+            DB::afterCommit(fn () => app(PromoterNotifier::class)->notify($site->promoterProfile, 'quote.sent', 'Devis reçu',
+                'Devis '.$version->number.' v'.$version->version.' ('.mb_strtolower($line->trade->label).') : '.$this->money($version->total_ttc).'. Il est disponible dans les documents du chantier.',
+                $site, ['type' => 'quote_request', 'id' => $site->id], $version));
+
+            return $version->refresh();
+        });
+    }
+
+    /**
+     * Accusé de réception du promoteur sur une version envoyée.
+     */
+    public function acknowledge(QuoteVersion $version): QuoteVersion
+    {
+        if ($version->status !== QuoteVersionStatus::Envoye) {
+            throw ValidationException::withMessages(['quote' => $version->status === QuoteVersionStatus::Recu ? 'La réception de ce devis est déjà confirmée.' : 'Ce devis n’est pas encore envoyé.']);
+        }
+
+        $version->update(['status' => QuoteVersionStatus::Recu, 'received_at' => now()]);
+        app(ContractorNotifier::class)->proposalEvent($version->quoteBid, 'quote.received', 'Accusé de réception', 'Le promoteur a reçu le devis '.$version->number.' v'.$version->version.'.');
+
+        return $version;
+    }
+
+    /**
+     * Devis réalisé d’un coup (simulation) : visite marquée réalisée, première version rédigée et envoyée.
+     *
+     * @param  list<array{designation: string, unit_price: int, quantity: float|int, unit?: string}>  $items
      */
     public function complete(QuoteRequestTrade $line, array $items, CarbonImmutable $visitedOn): QuoteRequestTrade
     {
@@ -249,38 +581,12 @@ class QuoteRequests
             throw ValidationException::withMessages(['items' => 'Le devis doit comporter au moins une ligne.']);
         }
 
-        return DB::transaction(function () use ($line, $items, $visitedOn): QuoteRequestTrade {
-            $items = array_map(fn (array $item) => [
-                'designation' => $item['designation'],
-                'unit_price' => (int) $item['unit_price'],
-                'quantity' => $item['quantity'],
-                'total' => (int) round($item['unit_price'] * $item['quantity']),
-            ], $items);
-            $line->forceFill([
-                'quote_number' => sprintf('DE-%s-%05d', now()->format('Y'), DB::scalar("SELECT nextval('site_quote_number_seq')")),
-                'quote_items' => $items,
-                'quote_total_amount' => array_sum(array_column($items, 'total')),
-                'visited_on' => $visitedOn->toDateString(),
-                'issued_on' => today()->toDateString(),
-                'valid_until' => today()->addDays(self::VALIDITY_DAYS)->toDateString(),
-            ]);
-            $request = $line->quoteRequest;
-            $site = $request->site;
-            $worker = $line->selectedBid->worker;
-            $document = $this->attachPdf($site, $worker, $line);
-            $line->forceFill(['quote_document_id' => $document->getKey(), 'status' => QuoteRequestTradeStatus::Realise, 'completed_at' => now()])->save();
+        $bid = $line->selectedBid;
+        $bid->update(['visit_status' => QuoteVisitStatus::Realisee, 'visited_at' => $visitedOn]);
+        $version = $this->updateVersion($this->draftVersion($bid), ['items' => $items, 'works_duration' => '15 jours']);
+        $this->sendVersion($version, $bid->contractor ?? $bid->worker);
 
-            if (! $request->trades()->where('status', '!=', QuoteRequestTradeStatus::Realise->value)->exists()) {
-                $request->update(['status' => QuoteRequestStatus::Recu, 'received_at' => now()]);
-                $draft = $site->offer_draft ?? [];
-                $draft['type'] = OfferDraft::CONTRACT;
-                $draft['contract'] = [...($draft['contract'] ?? []), 'has_quote' => true];
-                $site->forceFill(['offer_draft' => $draft]);
-                $this->moveSite($site, SiteStatus::Brouillon, $worker);
-            }
-
-            return $line->refresh();
-        });
+        return $line->refresh();
     }
 
     /**
@@ -292,7 +598,7 @@ class QuoteRequests
     public function action(QuoteRequest $request): ?array
     {
         return match (true) {
-            $request->status === QuoteRequestStatus::Recherche && $request->trades()->whereDoesntHave('bids')->doesntExist() => ['value' => 'choisir_devis', 'label' => 'Choisir les offres de devis'],
+            $request->status === QuoteRequestStatus::Recherche && $request->trades()->whereDoesntHave('bids', fn ($query) => $query->where('status', QuoteBidStatus::Proposee->value))->doesntExist() => ['value' => 'choisir_devis', 'label' => 'Choisir les offres de devis'],
             $request->status === QuoteRequestStatus::Recu && $request->site->status === SiteStatus::Brouillon => ['value' => 'definir_offre', 'label' => 'Définir l’offre financière'],
             default => null,
         };
@@ -305,7 +611,7 @@ class QuoteRequests
      */
     public function summary(QuoteRequest $request): array
     {
-        $lines = $request->trades()->with(['trade', 'selectedBid.worker.photoMedia', 'selectedBid.worker.workerTrades', 'quoteDocument.documentType', 'quoteDocument.files'])->get()
+        $lines = $request->trades()->with(['trade', 'selectedBid.contractor.logoMedia', 'selectedBid.worker.photoMedia', 'selectedBid.worker.workerTrades', 'quoteDocument.documentType', 'quoteDocument.files', 'versions.document.documentType', 'versions.document.files'])->get()
             ->sortBy(fn (QuoteRequestTrade $line) => $line->trade->sort_order)->values();
         $searching = $request->status === QuoteRequestStatus::Recherche;
 
@@ -318,6 +624,8 @@ class QuoteRequests
                 'status' => ['value' => $line->status->value, 'label' => $line->status->label()],
                 'offers' => $bids->values()->map(fn (QuoteBid $bid, int $rank) => [...$this->bid($bid, $line), 'is_best' => $rank === 0])->all(),
                 'selected' => $line->selectedBid ? $this->bid($line->selectedBid, $line) : null,
+                'visit' => $line->selectedBid ? $this->visit($line->selectedBid) : null,
+                'versions' => $line->versions->where('status', '!=', QuoteVersionStatus::Brouillon)->sortBy('version')->map(fn (QuoteVersion $version) => $this->version($version))->values()->all(),
                 'quote' => $line->status === QuoteRequestTradeStatus::Realise ? $this->sheet($line) : null,
             ];
         });
@@ -333,6 +641,7 @@ class QuoteRequests
             'total_amount' => $request->total_amount,
             'quotes_total_amount' => $request->status === QuoteRequestStatus::Recu ? (int) $lines->sum('quote_total_amount') : null,
             'can_cancel' => $searching,
+            'response_deadline' => $request->response_deadline?->toIso8601String(),
             'submitted_at' => $request->submitted_at?->toIso8601String(),
             'ordered_at' => $request->ordered_at?->toIso8601String(),
             'received_at' => $request->received_at?->toIso8601String(),
@@ -340,24 +649,86 @@ class QuoteRequests
     }
 
     /**
-     * Volet « Devis » : devis réalisé par un technicien O’CHANTIER, présenté comme une page PDF.
+     * Volet « Devis » : dernière version du devis réalisé par l’entrepreneur, présentée comme une page PDF.
      *
      * @return array<string, mixed>
      */
     public function sheet(QuoteRequestTrade $line): array
     {
         $site = $line->quoteRequest->site;
+        $version = $line->versions->where('status', '!=', QuoteVersionStatus::Brouillon)->sortByDesc('version')->first();
 
         return [
             'number' => $line->quote_number,
+            'version' => $version?->version,
             'issued_on' => $line->issued_on?->toDateString(),
             'valid_until' => $line->valid_until?->toDateString(),
-            'technician' => [...$this->technician($line->selectedBid->worker, $line), 'visited_on' => $line->visited_on?->toDateString(), 'distance_km' => $line->selectedBid->distance_km],
+            'technician' => [...$this->technician($line->selectedBid, $line), 'visited_on' => $line->visited_on?->toDateString(), 'distance_km' => $line->selectedBid->distance_km],
             'site' => ['label' => $site->label, 'location' => $site->address, 'trade' => $line->trade->label],
             'items' => $line->quote_items,
+            'total_ht' => $version?->total_ht,
+            'vat_amount' => $version?->vat_amount,
             'total_amount' => $line->quote_total_amount,
+            'works_duration' => $version?->works_duration,
+            'conditions' => $version?->conditions,
             'status' => ['value' => 'effectue', 'label' => 'Effectué'],
             'document' => $line->quoteDocument ? DocumentResource::make($line->quoteDocument->loadMissing(['documentType', 'files']))->resolve() : null,
+        ];
+    }
+
+    /**
+     * Version de devis, telle que la voient l’entrepreneur et le promoteur.
+     *
+     * @return array<string, mixed>
+     */
+    public function version(QuoteVersion $version): array
+    {
+        return [
+            'id' => $version->id,
+            'number' => $version->number,
+            'version' => $version->version,
+            'status' => ['value' => $version->status->value, 'label' => $version->status->label()],
+            'items' => $version->items,
+            'vat_applied' => $version->vat_applied,
+            'vat_rate' => $version->vat_rate,
+            'total_ht' => $version->total_ht,
+            'vat_amount' => $version->vat_amount,
+            'total_ttc' => $version->total_ttc,
+            'works_duration' => $version->works_duration,
+            'conditions' => $version->conditions,
+            'validity_days' => $version->validity_days,
+            'observations' => $version->observations,
+            'signed_at' => $version->signed_at?->toIso8601String(),
+            'sent_at' => $version->sent_at?->toIso8601String(),
+            'received_at' => $version->received_at?->toIso8601String(),
+            'document' => $version->document ? DocumentResource::make($version->document->loadMissing(['documentType', 'files']))->resolve() : null,
+            'created_at' => $version->created_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Mission de visite d’une proposition commandée, et report en attente.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function visit(QuoteBid $bid): ?array
+    {
+        if (! $bid->visit_status) {
+            return null;
+        }
+
+        return [
+            'status' => ['value' => $bid->visit_status->value, 'label' => $bid->visit_status->label()],
+            'date' => $bid->visit_date->toDateString(),
+            'slot' => $bid->visit_slot,
+            'duration' => $bid->visit_duration,
+            'visited_at' => $bid->visited_at?->toIso8601String(),
+            'reschedule' => $bid->visit_status === QuoteVisitStatus::ReportPropose ? [
+                'date' => $bid->reschedule_date?->toDateString(),
+                'slot' => $bid->reschedule_slot,
+                'reason' => $bid->reschedule_reason,
+                'requested_at' => $bid->reschedule_requested_at?->toIso8601String(),
+            ] : null,
         ];
     }
 
@@ -368,58 +739,117 @@ class QuoteRequests
     {
         return [
             'id' => $bid->id,
-            'technician' => $this->technician($bid->worker, $line),
+            'technician' => $this->technician($bid, $line),
             'trade' => $line->trade->label,
             'visit_date' => $bid->visit_date->toDateString(),
+            'visit_slot' => $bid->visit_slot,
+            'visit_duration' => $bid->visit_duration,
+            'comment' => $bid->comment,
             'distance_km' => $bid->distance_km,
             'amount' => $bid->amount,
         ];
     }
 
     /**
+     * Auteur de l’offre : entrepreneur (ou ancien ouvrier simulé).
+     *
      * @return array<string, mixed>
      */
-    private function technician(Worker $worker, QuoteRequestTrade $line): array
+    private function technician(QuoteBid $bid, QuoteRequestTrade $line): array
     {
-        /** @var WorkerTrade|null $trade */
-        $trade = $worker->workerTrades->firstWhere('trade_id', $line->trade_id);
+        if ($contractor = $bid->contractor) {
+            return [
+                'contractor_id' => $contractor->id,
+                'kind' => ['value' => $contractor->kind->value, 'label' => $contractor->kind->label()],
+                'name' => $contractor->name,
+                'photo_url' => $contractor->logoMedia ? $this->media->temporaryUrl($contractor->logoMedia) : null,
+                'rating' => ['average' => $contractor->rating_avg !== null ? (float) $contractor->rating_avg : null, 'count' => (int) $contractor->rating_count],
+                'experience_years' => $contractor->experience_years,
+            ];
+        }
+
+        $worker = $bid->worker;
 
         return [
-            'worker_id' => $worker->id,
+            'contractor_id' => null,
+            'kind' => null,
             'name' => trim($worker->first_name.' '.$worker->last_name),
             'photo_url' => $worker->photoMedia ? $this->media->temporaryUrl($worker->photoMedia) : null,
             'rating' => ['average' => $worker->rating_avg !== null ? (float) $worker->rating_avg : null, 'count' => (int) $worker->rating_count],
-            'experience_years' => $trade?->years_experience,
+            'experience_years' => $worker->workerTrades->firstWhere('trade_id', $line->trade_id)?->years_experience,
         ];
     }
 
-    /**
-     * PDF du devis réalisé, enregistré comme « Devis estimatif » du chantier.
-     */
-    private function attachPdf(Site $site, Worker $worker, QuoteRequestTrade $line): Model
+    private function ensureMission(QuoteBid $bid): void
     {
-        $name = trim($worker->first_name.' '.$worker->last_name);
+        if ($bid->status !== QuoteBidStatus::Choisie || $bid->quoteRequestTrade->selected_bid_id !== $bid->getKey()) {
+            throw ValidationException::withMessages(['proposal' => 'Cette proposition n’est pas commandée.']);
+        }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $items
+     * @return array{total_ht: int, vat_amount: int, total_ttc: int}
+     */
+    private function totals(array $items, bool $vat, float $rate): array
+    {
+        $ht = (int) array_sum(array_column($items, 'total'));
+        $tax = $vat ? (int) round($ht * $rate / 100) : 0;
+
+        return ['total_ht' => $ht, 'vat_amount' => $tax, 'total_ttc' => $ht + $tax];
+    }
+
+    /**
+     * PDF de la version du devis, enregistré comme « Devis estimatif » du chantier.
+     */
+    private function attachPdf(Site $site, QuoteBid $bid, QuoteRequestTrade $line, QuoteVersion $version, Model $author): Model
+    {
+        $contractor = $bid->contractor;
+        $name = $contractor?->name ?? trim($bid->worker->first_name.' '.$bid->worker->last_name);
+        $issued = $version->sent_at ?? now();
         $pdf = (new SimplePdf)
-            ->title('Devis n° '.$line->quote_number)
-            ->text('O’CHANTIER · établi le '.$line->issued_on->format('d/m/Y').' · valable jusqu’au '.$line->valid_until->format('d/m/Y'), 10)
-            ->heading('Technicien')
-            ->row('Nom', $name)
-            ->row('Métier', $line->trade->label)
-            ->row('Date de visite', $line->visited_on->format('d/m/Y'))
+            ->title('Devis n° '.$version->number.' · version '.$version->version)
+            ->text('O’CHANTIER · établi le '.$issued->format('d/m/Y').' · valable '.$version->validity_days.' jours', 10)
+            ->heading('Professionnel')
+            ->row('Nom', $name);
+
+        if ($contractor) {
+            $pdf->row('Type', $contractor->kind->label().($contractor->rccm ? ' · RCCM '.$contractor->rccm : ''));
+
+            if ($phone = PhoneNumber::of($contractor)) {
+                $pdf->row('Téléphone', $phone->formatted());
+            }
+        }
+
+        $pdf->row('Métier', $line->trade->label)
+            ->row('Date de visite', ($bid->visited_at ?? $bid->visit_date)->format('d/m/Y'))
             ->heading('Chantier')
             ->row('Nom', $site->label.' ('.$site->reference.')')
             ->row('Localisation', (string) $site->address)
             ->heading('Détail du devis');
 
-        foreach ($line->quote_items as $item) {
-            $pdf->row($item['designation'].' · '.$item['quantity'].' × '.$this->money($item['unit_price']), $this->money($item['total']));
+        foreach ($version->items as $item) {
+            $pdf->row($item['designation'].' · '.$item['quantity'].' '.($item['unit'] ?? 'u').' × '.$this->money($item['unit_price']), $this->money($item['total']));
         }
 
-        $pdf->space(4)->row('Montant total', $this->money($line->quote_total_amount), true)->space()->text('Signé par '.$name.', technicien O’CHANTIER.');
+        $pdf->space(4)->row('Total HT', $this->money($version->total_ht));
 
-        $media = $this->media->storeContent($pdf->render(), 'Devis '.$line->trade->label.' '.$line->quote_number.'.pdf', 'application/pdf', 'document', $worker);
+        if ($version->vat_applied) {
+            $pdf->row('TVA '.rtrim(rtrim(number_format($version->vat_rate, 2, ',', ''), '0'), ',').' %', $this->money($version->vat_amount));
+        }
 
-        return $this->documents->attachGenerated($site, $worker, DocumentType::query()->where('code', OfferDraft::QUOTE_DOCUMENT)->firstOrFail(), $media, 'Devis '.mb_strtolower($line->trade->label));
+        $pdf->row($version->vat_applied ? 'Total TTC' : 'Montant total', $this->money($version->total_ttc), true)
+            ->space()
+            ->text('Durée des travaux : '.$version->works_duration)
+            ->text((string) $version->conditions)
+            ->text($version->observations ? 'Observations : '.$version->observations : '')
+            ->space()
+            ->text('Signé électroniquement par '.$name.' le '.$issued->format('d/m/Y à H:i').'.');
+
+        $media = $this->media->storeContent($pdf->render(), 'Devis '.$line->trade->label.' '.$version->number.' v'.$version->version.'.pdf', 'application/pdf', 'document', $author);
+
+        return $this->documents->attachGenerated($site, $author, DocumentType::query()->where('code', OfferDraft::QUOTE_DOCUMENT)->firstOrFail(), $media,
+            'Devis '.mb_strtolower($line->trade->label).($version->version > 1 ? ' (v'.$version->version.')' : ''));
     }
 
     private function moveSite(Site $site, SiteStatus $to, Model $actor): void

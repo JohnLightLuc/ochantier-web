@@ -68,6 +68,10 @@ class SiteReplacements
      */
     public function request(Assignment $assignment, User|Admin $author, ReasonCode $reason, ?string $comment): Replacement
     {
+        if ($assignment->mission->contractor_id && $author instanceof User) {
+            throw ValidationException::withMessages(['assignment' => 'L’équipe de ce chantier est gérée par l’entrepreneur : il lui revient de remplacer l’ouvrier.']);
+        }
+
         if (! in_array($assignment->status, [AssignmentStatus::Confirmee, AssignmentStatus::Active], true) || ! in_array($assignment->mission->status, SiteAttendance::OPEN_MISSIONS, true)) {
             throw ValidationException::withMessages(['assignment' => $this->attendance->name($assignment).' ne fait plus partie de l’équipe de ce chantier.']);
         }

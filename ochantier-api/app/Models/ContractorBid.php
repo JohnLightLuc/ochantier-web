@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ContractorBidStatus;
+use App\Enums\ContractorResponseMode;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,7 +22,7 @@ class ContractorBid extends Model
      */
     protected $fillable = [
         'offer_id', 'contractor_id', 'amount', 'duration_days', 'team_size', 'distance_km', 'message', 'status',
-        'chosen_at', 'chosen_by_user_id',
+        'chosen_at', 'chosen_by_user_id', 'response_mode', 'start_date', 'end_date', 'sent_at',
     ];
 
     /**
@@ -38,6 +39,10 @@ class ContractorBid extends Model
             'team_size' => 'integer',
             'distance_km' => 'float',
             'chosen_at' => 'datetime',
+            'response_mode' => ContractorResponseMode::class,
+            'start_date' => 'date',
+            'end_date' => 'date',
+            'sent_at' => 'datetime',
         ];
     }
 

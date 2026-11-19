@@ -43,8 +43,10 @@ abstract class AuthController extends Controller
 
     /**
      * Réponse après l’envoi (ou la non-divulgation de l’envoi) d’un code, au numéro ou à l’e-mail saisi.
+     *
+     * @param  array<string, mixed>  $extra  données ajoutées à la réponse
      */
-    protected function codeSent(PhoneNumber|string $recipient, string $message): JsonResponse
+    protected function codeSent(PhoneNumber|string $recipient, string $message, array $extra = []): JsonResponse
     {
         $bySms = $recipient instanceof PhoneNumber;
 
@@ -54,6 +56,7 @@ abstract class AuthController extends Controller
             'expires_in' => $this->otp->lifetime() * 60,
             'resend_in' => $this->otp->resendAfter(),
             'code_length' => OneTimePassword::length(),
+            ...$extra,
         ], $message, 202);
     }
 
@@ -62,9 +65,20 @@ abstract class AuthController extends Controller
      */
     protected function signedIn(IssuedTokens $tokens, User $user, int $status = 200): JsonResponse
     {
-        $user->load(['promoterProfile', 'commercialProfile', 'ownedOrganizations']);
+        $user->load(['promoterProfile', 'commercialProfile', 'contractor', 'ownedOrganizations']);
 
         return ApiResponse::success([...$tokens->toArray(), 'user' => UserResource::make($user)], status: $status);
+    }
+
+    /**
+     * Compte verrouillé après trop de mots de passe erronés.
+     */
+    protected function locked(User $user): JsonResponse
+    {
+        return response()->json([
+            'message' => 'Trop de tentatives. Réessayez à '.$user->locked_until->timezone('Africa/Abidjan')->format('H:i').'.',
+            'locked_until' => $user->locked_until->toIso8601String(),
+        ], 423);
     }
 
     protected function invalidCode(): ValidationException

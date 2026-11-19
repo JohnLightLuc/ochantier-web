@@ -9,11 +9,14 @@ use App\Enums\OfferType;
 use App\Enums\OfferVisibility;
 use App\Enums\PaymentFrequency;
 use App\Enums\PriceOrigin;
+use App\Enums\QuoteRequestStatus;
 use App\Enums\SiteStatus;
 use App\Models\Offer;
+use App\Models\Setting;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\Worker;
+use App\Support\Contractor\ContractorNotifier;
 use App\Support\Pricing\PricingRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -45,7 +48,7 @@ class SitePublisher
             throw ValidationException::withMessages(['publication' => ['Sans devis, lancez la demande de devis (« Rechercher un technicien »).']]);
         }
 
-        return DB::transaction(function () use ($site, $author): Offer {
+        $offer = DB::transaction(function () use ($site, $author): Offer {
             $contract = $this->drafts->type($site) === OfferDraft::CONTRACT;
             $type = match (true) {
                 $contract => OfferType::Contractuelle,
@@ -70,6 +73,7 @@ class SitePublisher
                 'status' => $contract ? OfferStatus::Publiee : OfferStatus::Soumise,
                 'submitted_at' => now(),
                 'published_at' => $contract ? now() : null,
+                'application_deadline' => $contract ? now()->addHours((int) (Setting::query()->whereKey('contractor_offers.response_hours')->value('value') ?? 72)) : null,
                 'created_by_user_id' => $author->getKey(),
             ]);
             $this->history($offer, null, $offer->status->value, $author);
@@ -88,6 +92,13 @@ class SitePublisher
 
             return $offer;
         });
+
+        if ($offer->offer_type === OfferType::Contractuelle) {
+            $quote = $site->quoteRequests()->where('status', '!=', QuoteRequestStatus::Annule->value)->latest('submitted_at')->first();
+            app(ContractorNotifier::class)->newContractOffer($offer, $quote ? $quote->trades()->pluck('trade_id')->all() : []);
+        }
+
+        return $offer;
     }
 
     /**

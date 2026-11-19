@@ -56,7 +56,7 @@ class SiteAttendance
     {
         return Assignment::query()
             ->whereHas('mission', fn ($query) => $query->where('site_id', $site->getKey())->whereNotIn('status', [MissionStatus::EnAttenteAcompte, MissionStatus::Annulee]))
-            ->where('status', '!=', AssignmentStatus::Annulee)
+            ->whereNotIn('status', [AssignmentStatus::Annulee, AssignmentStatus::EnAttente, AssignmentStatus::Refusee])
             ->where('planned_start_date', '<=', $date->toDateString())
             ->where('planned_end_date', '>=', $date->toDateString())
             ->where(fn ($query) => $query->whereNull('actual_end_at')->orWhere('actual_end_at', '>=', $date->copy()->startOfDay()))
@@ -154,7 +154,7 @@ class SiteAttendance
 
         $history = $days->groupBy(fn (WorkDay $day) => $day->work_date->toDateString())->map(function (Collection $items, string $date): array {
             $present = $items->where('status', '!=', WorkDayStatus::Absent)->count();
-            $amount = (int) $items->filter(fn (WorkDay $day) => $day->departure_event_id !== null)->sum(fn (WorkDay $day) => (int) $day->assignment->promoter_daily_rate);
+            $amount = (int) $items->filter(fn (WorkDay $day) => $day->departure_event_id !== null)->sum(fn (WorkDay $day) => (int) $this->dailyRate($day->assignment));
 
             return [
                 'date' => $date,
@@ -321,7 +321,7 @@ class SiteAttendance
                 'status' => WorkDayStatus::Absent,
             ]);
 
-            $this->anomaly($assignment, $day, AttendanceAnomalyType::Absence, AnomalyDetector::Promoteur, $date, 'Absence déclarée par le promoteur', author: $author);
+            $this->anomaly($assignment, $day, AttendanceAnomalyType::Absence, AnomalyDetector::Promoteur, $date, $author->user_type?->value === 'contractor' ? 'Absence déclarée par l’entrepreneur' : 'Absence déclarée par le promoteur', author: $author);
 
             return $day;
         });
@@ -390,6 +390,14 @@ class SiteAttendance
     }
 
     /**
+     * Tarif journalier de l’ouvrier : prix promoteur, ou tarif convenu par l’entrepreneur pour son équipe.
+     */
+    public function dailyRate(Assignment $assignment): ?int
+    {
+        return $assignment->promoter_daily_rate ?? ($assignment->salary_period?->value === 'jour' ? (int) $assignment->salary_amount : null);
+    }
+
+    /**
      * Ouvrier d’une affectation : identité publique (sans téléphone), métier, tarif et remplacement éventuel.
      *
      * @return array<string, mixed>
@@ -410,7 +418,7 @@ class SiteAttendance
             'role' => $assignment->role_label ?? $assignment->need->trade->label,
             'experience_years' => $trade?->years_experience,
             'rating' => ['average' => $worker->rating_avg !== null ? (float) $worker->rating_avg : null, 'count' => (int) $worker->rating_count],
-            'daily_rate' => $assignment->promoter_daily_rate,
+            'daily_rate' => $this->dailyRate($assignment),
             'since' => ($assignment->actual_start_at ?? $assignment->planned_start_date)->toDateString(),
             'replaces' => $assignment->replacesAssignment ? $this->name($assignment->replacesAssignment) : null,
         ];
@@ -514,7 +522,7 @@ class SiteAttendance
     /**
      * @return array<string, mixed>|null
      */
-    private function event(?AttendanceEvent $event): ?array
+    public function event(?AttendanceEvent $event): ?array
     {
         return $event ? [
             'id' => $event->id,
@@ -531,12 +539,12 @@ class SiteAttendance
     /**
      * Heure du pointage sur le terminal (envoi hors connexion), sinon heure de réception.
      */
-    private function moment(AttendanceEvent $event): CarbonImmutable
+    public function moment(AttendanceEvent $event): CarbonImmutable
     {
         return CarbonImmutable::parse($event->device_recorded_at ?? $event->recorded_at)->setTimezone(config('app.timezone'));
     }
 
-    private function time(?AttendanceEvent $event): ?string
+    public function time(?AttendanceEvent $event): ?string
     {
         return $event ? $this->moment($event)->format('H:i') : null;
     }
@@ -544,7 +552,7 @@ class SiteAttendance
     /**
      * Temps travaillé : la pause est déduite au-delà de la durée minimale d’une journée, puis arrondi.
      */
-    private function workedMinutes(CarbonImmutable $arrival, CarbonImmutable $departure): int
+    public function workedMinutes(CarbonImmutable $arrival, CarbonImmutable $departure): int
     {
         $gross = (int) $arrival->diffInMinutes($departure);
         $break = (int) $this->setting('attendance.break_minutes', 60);

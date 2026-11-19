@@ -8,10 +8,12 @@ use App\Http\Requests\V1\Promoter\AttendanceAbsenceRequest;
 use App\Http\Requests\V1\Promoter\AttendanceEventRequest;
 use App\Models\Site;
 use App\Support\ApiResponse;
+use App\Support\Contractor\ContractorTeam;
 use App\Support\Promoter\SiteAttendance;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 /**
  * « Pointage des ouvriers » du détail chantier : feuille du jour, arrivées et départs, absences, validation de la
@@ -41,6 +43,8 @@ class AttendanceController extends Controller
      */
     public function storeEvent(AttendanceEventRequest $request, Site $site): JsonResponse
     {
+        $this->ensurePromoterTeam($site);
+
         [$event, $created] = $this->attendance->record($site, $request->user(), $request->validated(), $request->file('photo'), $request->file('signature'));
         $time = CarbonImmutable::parse($event->device_recorded_at ?? $event->recorded_at)->setTimezone(config('app.timezone'))->format('H:i');
 
@@ -54,6 +58,8 @@ class AttendanceController extends Controller
 
     public function storeAbsence(AttendanceAbsenceRequest $request, Site $site): JsonResponse
     {
+        $this->ensurePromoterTeam($site);
+
         $date = $this->date($request->input('date'));
         $day = $this->attendance->markAbsent($site, $request->user(), $request->input('assignment_id'), $date);
 
@@ -68,12 +74,24 @@ class AttendanceController extends Controller
      */
     public function validateDay(Request $request, Site $site, string $date): JsonResponse
     {
+        $this->ensurePromoterTeam($site);
+
         $day = $this->date($date);
 
         return response()->json([
             'data' => $this->attendance->validateDay($site, $request->user(), $day),
             'message' => 'Journée du '.$day->locale('fr')->translatedFormat('j M').' validée',
         ]);
+    }
+
+    /**
+     * Sur un chantier confié à un entrepreneur, c’est lui qui pointe son équipe : le promoteur consulte.
+     */
+    private function ensurePromoterTeam(Site $site): void
+    {
+        if (ContractorTeam::isContractorSite($site)) {
+            throw ValidationException::withMessages(['site' => 'Le pointage de ce chantier est tenu par l’entrepreneur : vous pouvez le consulter.']);
+        }
     }
 
     private function date(?string $date): CarbonImmutable

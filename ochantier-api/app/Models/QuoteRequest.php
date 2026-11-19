@@ -23,7 +23,7 @@ class QuoteRequest extends Model
      */
     protected $fillable = [
         'reference', 'site_id', 'status', 'notes', 'total_amount', 'payment_transaction_id', 'requested_by_user_id',
-        'submitted_at', 'ordered_at', 'received_at', 'cancelled_at',
+        'submitted_at', 'ordered_at', 'received_at', 'cancelled_at', 'response_deadline',
     ];
 
     /**
@@ -40,6 +40,7 @@ class QuoteRequest extends Model
             'ordered_at' => 'datetime',
             'received_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'response_deadline' => 'datetime',
         ];
     }
 

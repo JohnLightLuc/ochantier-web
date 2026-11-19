@@ -26,7 +26,7 @@ class Mission extends Model
         'reference', 'need_id', 'site_id', 'pricing_snapshot_id', 'status', 'planned_start_date', 'planned_end_date',
         'planned_days', 'actual_start_date', 'actual_end_date', 'terms_consent_id', 'deposit_paid_at', 'confirmed_at',
         'activated_by_admin_id', 'validated_days', 'calendar_progress', 'business_progress', 'closed_at',
-        'closed_by_admin_id', 'cancellation_reason',
+        'closed_by_admin_id', 'cancellation_reason', 'contractor_id',
     ];
 
     /**
@@ -237,5 +237,15 @@ class Mission extends Model
     public function documents(): MorphMany
     {
         return $this->morphMany(Document::class, 'owner');
+    }
+
+    /**
+     * Entrepreneur dont c’est l’équipe (affectation directe, payée hors plateforme).
+     *
+     * @return BelongsTo<Contractor, $this>
+     */
+    public function contractor(): BelongsTo
+    {
+        return $this->belongsTo(Contractor::class);
     }
 }

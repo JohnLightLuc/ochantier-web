@@ -10,6 +10,7 @@ enum Audience: string
     case Promoter = 'promoter';
     case Commercial = 'commercial';
     case Worker = 'worker';
+    case Contractor = 'contractor';
     case All = 'all';
 
     public function label(): string
@@ -18,6 +19,7 @@ enum Audience: string
             self::Promoter => 'Promoteur',
             self::Commercial => 'Commercial',
             self::Worker => 'Ouvrier',
+            self::Contractor => 'Entrepreneur',
             self::All => 'Tous',
         };
     }

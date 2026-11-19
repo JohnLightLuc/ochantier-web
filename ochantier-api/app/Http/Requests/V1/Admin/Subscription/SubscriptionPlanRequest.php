@@ -17,7 +17,7 @@ class SubscriptionPlanRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:60', Rule::unique(SubscriptionPlan::class, 'name')->ignore($this->route('planId'))],
+            'name' => ['required', 'string', 'max:60', Rule::unique(SubscriptionPlan::class, 'name')->where('audience', $this->route('planId') ? (SubscriptionPlan::query()->whereKey($this->route('planId'))->value('audience') ?? 'promoter') : 'promoter')->ignore($this->route('planId'))],
             'price_amount' => ['required', 'integer', 'min:1000'],
             'max_users' => ['required', 'integer', 'min:2'],
             'features' => ['required', 'array', 'min:1'],

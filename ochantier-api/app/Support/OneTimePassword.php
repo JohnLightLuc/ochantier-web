@@ -86,6 +86,27 @@ class OneTimePassword
      */
     public function verify(OtpPurpose $purpose, string $destination, string $code, string $ownerType = 'user'): bool
     {
+        $otp = $this->matching($purpose, $destination, $code, $ownerType);
+
+        $otp?->update(['consumed_at' => now()]);
+
+        return $otp !== null;
+    }
+
+    /**
+     * Vérifie le code sans le consommer, pour un écran de code suivi d’un autre écran (« Nouveau mot de passe ») :
+     * l’action finale le vérifie et le consomme. Les essais incorrects sont comptés comme pour verify().
+     */
+    public function check(OtpPurpose $purpose, string $destination, string $code, string $ownerType = 'user'): bool
+    {
+        return $this->matching($purpose, $destination, $code, $ownerType) !== null;
+    }
+
+    /**
+     * Code en cours correspondant à la saisie ; un essai incorrect est compté.
+     */
+    private function matching(OtpPurpose $purpose, string $destination, string $code, string $ownerType): ?OtpCode
+    {
         $otp = OtpCode::query()
             ->where('authenticatable_type', $ownerType)
             ->where('purpose', $purpose)
@@ -97,18 +118,16 @@ class OneTimePassword
             ->first();
 
         if (! $otp) {
-            return false;
+            return null;
         }
 
         if (! Hash::check($code, $otp->code_hash)) {
             $otp->increment('attempts');
 
-            return false;
+            return null;
         }
 
-        $otp->update(['consumed_at' => now()]);
-
-        return true;
+        return $otp;
     }
 
     /**

@@ -32,6 +32,7 @@ class AdminAccessSeeder extends Seeder
         'commercials' => ['commerciaux', ['read', 'create', 'update', 'validate', 'export', 'delete']],
         'prospects' => ['prospects', ['read', 'update', 'export']],
         'workers' => ['ouvriers', ['read', 'create', 'update', 'validate', 'export', 'delete']],
+        'contractors' => ['entrepreneurs et techniciens', ['read', 'update', 'validate']],
         'documents' => ['documents', ['read', 'validate']],
         'sites' => ['chantiers', ['read', 'update', 'validate', 'export']],
         'offers' => ['offres et besoins', ['read', 'update', 'validate', 'export']],
@@ -67,7 +68,7 @@ class AdminAccessSeeder extends Seeder
         ]],
         'operations' => ['Opérations', 'Contrôle des profils, chantiers, matching, affectations et pointages.', [
             'dashboard' => ['*'], 'promoters' => ['read', 'create', 'update', 'validate', 'export'], 'organizations' => ['read', 'update', 'validate'], 'commercials' => ['*'], 'prospects' => ['*'],
-            'workers' => ['read', 'create', 'update', 'validate', 'export'], 'documents' => ['*'], 'sites' => ['*'], 'offers' => ['*'], 'matching' => ['read', 'create', 'update'],
+            'workers' => ['read', 'create', 'update', 'validate', 'export'], 'contractors' => ['*'], 'documents' => ['*'], 'sites' => ['*'], 'offers' => ['*'], 'matching' => ['read', 'create', 'update'],
             'missions' => ['*'], 'attendance' => ['*'], 'ratings' => ['*'], 'disputes' => ['read', 'update'], 'tickets' => ['read'], 'reports' => ['read', 'export'],
         ]],
         'finance' => ['Finance', 'Paiements, reversements, abonnements, gains des commerciaux et rapprochements.', [
@@ -76,7 +77,7 @@ class AdminAccessSeeder extends Seeder
             'disputes' => ['read'], 'reports' => ['*'], 'settings' => ['read'],
         ]],
         'support' => ['Support', 'Assistance aux utilisateurs, avis, litiges et contenus d’aide.', [
-            'dashboard' => ['*'], 'promoters' => ['read'], 'organizations' => ['read'], 'subscriptions' => ['read'], 'commercials' => ['read'], 'workers' => ['read'],
+            'dashboard' => ['*'], 'promoters' => ['read'], 'organizations' => ['read'], 'subscriptions' => ['read'], 'commercials' => ['read'], 'workers' => ['read'], 'contractors' => ['read'],
             'sites' => ['read'], 'missions' => ['read'], 'ratings' => ['*'], 'disputes' => ['read', 'update'], 'tickets' => ['*'], 'notifications' => ['read', 'create', 'update'], 'content' => ['*'],
         ]],
         'lecture_seule' => ['Lecture seule', 'Consultation des modules métier, sans modification.', [
