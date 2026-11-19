@@ -34,6 +34,7 @@ use App\Http\Controllers\Api\V1\Contractor\TeamController as ContractorTeamContr
 use App\Http\Controllers\Api\V1\HelpController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
+use App\Http\Controllers\Api\V1\PaymentWebhookController;
 use App\Http\Controllers\Api\V1\Promoter\AttendanceController;
 use App\Http\Controllers\Api\V1\Promoter\ClaimController;
 use App\Http\Controllers\Api\V1\Promoter\ContractorOfferController;
@@ -83,6 +84,9 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('v1')->name('v1.')->group(function () {
+    // Notifications du prestataire de paiement : authentifiées par leur signature, pas par un jeton.
+    Route::post('webhooks/payments/{provider}', PaymentWebhookController::class)->middleware('throttle:120,1')->name('webhooks.payments');
+
     Route::prefix('auth')->name('auth.')->group(function () {
         Route::prefix('promoter')->name('promoter.')->group(function () {
             Route::post('register', [PromoterRegistrationController::class, 'store'])->middleware('throttle:otp')->name('register');

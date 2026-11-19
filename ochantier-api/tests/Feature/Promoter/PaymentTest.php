@@ -15,6 +15,7 @@ use App\Models\Mission;
 use App\Models\Offer;
 use App\Models\PaymentSchedule;
 use App\Models\PaymentTransaction;
+use App\Models\PaymentWebhookEvent;
 use App\Models\Proposal;
 use App\Models\Selection;
 use App\Models\Site;
@@ -25,6 +26,7 @@ use Database\Seeders\CommercialOfferSeeder;
 use Database\Seeders\PlatformRulesSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 
 class PaymentTest extends PromoterTestCase
 {
@@ -215,6 +217,139 @@ class PaymentTest extends PromoterTestCase
         $this->assertSame(1, PaymentTransaction::query()->count());
     }
 
+    public function test_a_payment_awaiting_validation_is_applied_once_the_provider_confirms_it(): void
+    {
+        $payment = $this->postJson('/api/v1/promoter/payments', $this->deposit(['phone_number' => '0712341111']), ['Idempotency-Key' => 'en-attente'])
+            ->assertCreated()
+            ->assertJsonPath('data.status.value', 'en_attente')
+            ->assertJsonPath('data.next_action.type', 'wait_push')
+            ->assertJsonPath('data.message', 'Validez le paiement sur votre téléphone.')
+            ->assertJsonPath('data.receipt', null)
+            ->json('data');
+
+        $this->assertNotNull($payment['expires_at']);
+        $this->assertSame(0, Mission::query()->count());
+        $this->assertSame(1, DB::table('payment_holds')->count());
+
+        // Rejouer la même demande renvoie le paiement en attente ; un autre paiement du même acompte est refusé.
+        $this->postJson('/api/v1/promoter/payments', $this->deposit(['phone_number' => '0712341111']), ['Idempotency-Key' => 'en-attente'])
+            ->assertOk()
+            ->assertJsonPath('data.id', $payment['id'])
+            ->assertJsonPath('data.status.value', 'en_attente');
+        $this->postJson('/api/v1/promoter/payments', $this->deposit(), ['Idempotency-Key' => 'autre-cle'])->assertJsonValidationErrors(['payment']);
+
+        $this->travel(2)->minutes();
+        $this->artisan('ochantier:reconcile-payments')->assertSuccessful();
+        $this->artisan('ochantier:reconcile-payments')->assertSuccessful();
+
+        $this->actingAsPromoter($this->promoter);
+        $this->getJson("/api/v1/promoter/payments/transactions/{$payment['id']}")
+            ->assertOk()
+            ->assertJsonPath('data.status.value', 'reussie')
+            ->assertJsonPath('data.settlement', 'applique')
+            ->assertJsonPath('data.next_action', null)
+            ->assertJsonPath('data.expires_at', null);
+
+        $this->assertSame(2, Mission::query()->count());
+        $this->assertSame(1, PaymentTransaction::query()->count());
+        $this->assertSame(0, DB::table('payment_holds')->count());
+        $this->assertSame(['initiee', 'en_attente', 'reussie'], PaymentTransaction::query()->sole()->statusHistories()->orderBy('created_at')->orderBy('id')->pluck('to_status')->map(fn ($status) => $status->value ?? $status)->all());
+    }
+
+    public function test_an_unanswered_payment_is_not_a_failure_until_the_provider_says_so(): void
+    {
+        $payment = $this->postJson('/api/v1/promoter/payments', $this->deposit(['phone_number' => '0712343333']))
+            ->assertCreated()
+            ->assertJsonPath('data.status.value', 'initiee')
+            ->assertJsonPath('data.failure', null)
+            ->json('data');
+
+        $this->assertSame(0, Mission::query()->count());
+        $this->assertSame(1, DB::table('payment_holds')->count());
+
+        $this->travel(3)->minutes();
+        $this->artisan('ochantier:reconcile-payments')->assertSuccessful();
+
+        $this->assertSame('echouee', PaymentTransaction::query()->findOrFail($payment['id'])->status->value);
+        $this->assertSame(0, DB::table('payment_holds')->count());
+
+        $this->actingAsPromoter($this->promoter);
+        $this->postJson('/api/v1/promoter/payments', $this->deposit())->assertCreated()->assertJsonPath('data.status.value', 'reussie');
+    }
+
+    public function test_a_payment_never_validated_expires_and_frees_what_it_was_paying(): void
+    {
+        $payment = $this->postJson('/api/v1/promoter/payments', $this->deposit(['phone_number' => '0712342222']))->assertCreated()->assertJsonPath('data.status.value', 'en_attente')->json('data');
+
+        $this->travel(5)->minutes();
+        $this->artisan('ochantier:reconcile-payments')->assertSuccessful();
+        $this->assertSame('en_attente', PaymentTransaction::query()->findOrFail($payment['id'])->status->value);
+
+        $this->travel(10)->minutes();
+        $this->artisan('ochantier:reconcile-payments')->assertSuccessful();
+
+        $transaction = PaymentTransaction::query()->findOrFail($payment['id']);
+        $this->assertSame('expiree', $transaction->status->value);
+        $this->assertNull($transaction->next_check_at);
+        $this->assertSame(0, Mission::query()->count());
+        $this->assertSame(0, DB::table('payment_holds')->count());
+    }
+
+    public function test_a_signed_webhook_applies_the_payment_exactly_once(): void
+    {
+        config(['services.payments.simulation_webhook_secret' => 'secret-de-test']);
+        $this->postJson('/api/v1/promoter/payments', $this->deposit(['phone_number' => '0712342222']))->assertCreated()->assertJsonPath('data.status.value', 'en_attente');
+        $transaction = PaymentTransaction::query()->sole();
+        $notice = ['event_id' => 'evt-1', 'reference' => $transaction->reference, 'status' => 'reussie', 'amount' => $transaction->amount + $transaction->fees_amount, 'currency' => 'XOF', 'provider_reference' => $transaction->provider_reference];
+
+        $this->webhook($notice, 'signature-fausse')->assertStatus(400);
+        $this->assertSame(0, PaymentWebhookEvent::query()->count());
+        $this->assertSame('en_attente', $transaction->refresh()->status->value);
+
+        $this->webhook($notice)->assertOk();
+        $this->webhook($notice)->assertOk();
+        $this->webhook([...$notice, 'event_id' => 'evt-2'])->assertOk();
+
+        $this->assertSame('reussie', $transaction->refresh()->status->value);
+        $this->assertSame(2, Mission::query()->count());
+        $this->assertSame(1, $transaction->receipts()->count());
+        $this->assertSame(2, PaymentWebhookEvent::query()->count());
+        $this->assertSame(0, DB::table('payment_holds')->count());
+    }
+
+    public function test_a_webhook_with_another_amount_never_confirms_the_payment(): void
+    {
+        config(['services.payments.simulation_webhook_secret' => 'secret-de-test']);
+        $this->postJson('/api/v1/promoter/payments', $this->deposit(['phone_number' => '0712342222']))->assertCreated();
+        $transaction = PaymentTransaction::query()->sole();
+
+        $this->webhook(['event_id' => 'evt-1', 'reference' => $transaction->reference, 'status' => 'reussie', 'amount' => 100, 'currency' => 'XOF'])->assertOk();
+
+        $this->assertSame('en_attente', $transaction->refresh()->status->value);
+        $this->assertSame('ignore', PaymentWebhookEvent::query()->sole()->processing_status->value);
+        $this->assertSame(0, Mission::query()->count());
+    }
+
+    public function test_a_payment_confirmed_too_late_is_received_but_not_applied(): void
+    {
+        config(['services.payments.simulation_webhook_secret' => 'secret-de-test']);
+        $payment = $this->postJson('/api/v1/promoter/payments', $this->deposit(['phone_number' => '0712342222']))->assertCreated()->json('data');
+        $transaction = PaymentTransaction::query()->sole();
+
+        // Les ouvriers ne sont plus réservés quand le prestataire confirme enfin l’encaissement.
+        WorkerReservation::query()->update(['expires_at' => now()->subMinute()]);
+        $this->webhook(['event_id' => 'evt-1', 'reference' => $transaction->reference, 'status' => 'reussie', 'amount' => $transaction->amount + $transaction->fees_amount, 'currency' => 'XOF'])->assertOk();
+
+        $this->assertSame(0, Mission::query()->count());
+        $this->assertSame(0, DB::table('payment_holds')->count());
+        $this->getJson("/api/v1/promoter/payments/transactions/{$payment['id']}")
+            ->assertOk()
+            ->assertJsonPath('data.status.value', 'reussie')
+            ->assertJsonPath('data.settlement', 'non_applique')
+            ->assertJsonPath('data.receipt', null)
+            ->assertJsonPath('data.message', 'Paiement reçu, mais il n’a pas pu être appliqué. Notre équipe vous contacte pour le remboursement.');
+    }
+
     public function test_a_failed_payment_can_be_retried(): void
     {
         $this->postJson('/api/v1/promoter/payments', $this->deposit(['phone_number' => '0712340000']))
@@ -337,6 +472,22 @@ class PaymentTest extends PromoterTestCase
         $this->postJson('/api/v1/promoter/payments/quote', ['schedule_ids' => [$schedule->id], 'operator_code' => 'wave'])
             ->assertJsonValidationErrors(['schedule_ids' => 'Échéance introuvable.']);
         $this->getJson('/api/v1/promoter/payments')->assertJsonCount(0, 'data');
+    }
+
+    /**
+     * Notification du prestataire simulé, signée comme il la signe (ou avec la signature donnée).
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function webhook(array $payload, ?string $signature = null): TestResponse
+    {
+        $body = (string) json_encode($payload);
+
+        return $this->call('POST', '/api/v1/webhooks/payments/simulation', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json',
+            'HTTP_X_SIMULATION_SIGNATURE' => $signature ?? hash_hmac('sha256', $body, 'secret-de-test'),
+        ], $body);
     }
 
     /**

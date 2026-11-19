@@ -38,7 +38,9 @@ class PaymentTransactionResource extends Resource
             'provider_reference' => $this->provider_reference,
             'failure' => $this->failure_code ? ['code' => $this->failure_code, 'message' => $this->failure_message] : null,
             'message' => match (true) {
+                $succeeded && isset($this->metadata['settlement']) => 'Paiement reçu, mais il n’a pas pu être appliqué. Notre équipe vous contacte pour le remboursement.',
                 $succeeded => $this->metadata['done_text'] ?? 'Paiement réussi.',
+                $this->status === PaymentTransactionStatus::Expiree => 'La demande de paiement a expiré. Vous n’avez pas été débité.',
                 $this->status === PaymentTransactionStatus::Echouee => $this->failure_message ?? 'Le paiement a échoué.',
                 default => 'Validez le paiement sur votre téléphone.',
             },
@@ -48,6 +50,9 @@ class PaymentTransactionResource extends Resource
                 'number' => $receipt->number,
                 'url' => $receipt->mediaFile ? app(MediaStore::class)->temporaryUrl($receipt->mediaFile) : null,
             ] : null,
+            'next_action' => $this->status === PaymentTransactionStatus::EnAttente ? ($this->metadata['next_action'] ?? null) : null,
+            'settlement' => $this->metadata['settlement']['status'] ?? ($succeeded ? 'applique' : null),
+            'expires_at' => in_array($this->status, [PaymentTransactionStatus::Initiee, PaymentTransactionStatus::EnAttente], true) ? $this->expires_at?->toIso8601String() : null,
             'initiated_at' => $this->initiated_at?->toIso8601String(),
             'completed_at' => $this->completed_at?->toIso8601String(),
         ];

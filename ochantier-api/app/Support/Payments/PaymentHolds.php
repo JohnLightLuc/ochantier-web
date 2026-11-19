@@ -3,6 +3,7 @@
 namespace App\Support\Payments;
 
 use App\Models\PaymentTransaction;
+use DateTimeInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -10,8 +11,8 @@ use Illuminate\Validation\ValidationException;
  * Éléments en cours de paiement. Tant qu’une demande de paiement est en cours sur un élément (acompte, échéance,
  * versement, abonnement, commande de devis), aucune autre ne peut démarrer dessus : la clé primaire de
  * payment_holds l’interdit, même entre deux requêtes simultanées. Une retenue est libérée dès que le paiement
- * aboutit ou échoue ; si son issue reste inconnue (prestataire injoignable, arrêt du serveur), elle tombe d’elle-même
- * après HOLD_MINUTES.
+ * aboutit, échoue ou expire ; tant que son issue reste inconnue, elle tient. Seule une retenue sans paiement
+ * enregistré (arrêt du serveur avant l’enregistrement) tombe d’elle-même après HOLD_MINUTES.
  */
 class PaymentHolds
 {
@@ -37,7 +38,13 @@ class PaymentHolds
     {
         DB::transaction(function () use ($targets, $holder): void {
             foreach ($targets as [$type, $id]) {
-                DB::table('payment_holds')->where('target_type', $type)->where('target_id', $id)->where('expires_at', '<', now())->delete();
+                // Une retenue expirée ne tombe que si son paiement n’est plus ouvert (ou n’a jamais été enregistré).
+                DB::table('payment_holds')
+                    ->where('target_type', $type)
+                    ->where('target_id', $id)
+                    ->where('expires_at', '<', now())
+                    ->whereNotExists(fn ($query) => $query->from('payment_transactions')->whereColumn('payment_transactions.id', 'payment_holds.transaction_id')->whereIn('payment_transactions.status', ['initiee', 'en_attente']))
+                    ->delete();
 
                 $held = DB::table('payment_holds')->insertOrIgnore([
                     'target_type' => $type,
@@ -62,10 +69,26 @@ class PaymentHolds
     }
 
     /**
-     * Libère les retenues de la demande : le paiement a abouti, a échoué ou n’a pas pu démarrer.
+     * Prolonge les retenues d’un paiement en attente jusqu’à son expiration, marge comprise.
+     */
+    public function extend(PaymentTransaction $transaction, DateTimeInterface $until): void
+    {
+        DB::table('payment_holds')->where('transaction_id', $transaction->getKey())->update(['expires_at' => $until]);
+    }
+
+    /**
+     * Libère les retenues d’un paiement dont l’issue est connue.
+     */
+    public function releaseFor(PaymentTransaction $transaction): void
+    {
+        DB::table('payment_holds')->where('transaction_id', $transaction->getKey())->delete();
+    }
+
+    /**
+     * Libère les retenues d’une demande qui n’a pas pu être enregistrée.
      */
     public function release(string $holder): void
     {
-        DB::table('payment_holds')->where('holder_key', $holder)->delete();
+        DB::table('payment_holds')->where('holder_key', $holder)->whereNull('transaction_id')->delete();
     }
 }

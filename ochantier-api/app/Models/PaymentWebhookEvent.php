@@ -22,7 +22,7 @@ class PaymentWebhookEvent extends Model
      */
     protected $fillable = [
         'provider', 'provider_event_id', 'event_type', 'signature_valid', 'payload', 'received_at', 'processing_status',
-        'processed_at', 'attempts', 'error', 'transaction_id',
+        'processed_at', 'attempts', 'error', 'transaction_id', 'payload_hash',
     ];
 
     public $timestamps = false;

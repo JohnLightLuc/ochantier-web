@@ -109,6 +109,9 @@ class PaymentController extends Controller
                 'name' => $operator->name,
                 'fee_percent' => (float) $operator->collection_fee_percent,
                 'number_pattern' => $operator->number_pattern,
+                'min_amount' => $operator->min_amount,
+                'max_amount' => $operator->max_amount,
+                'notice' => $operator->notice,
             ])->values(),
             'saved_numbers' => $profile->paymentMethods()->where('status', 'actif')->whereRaw('created_by_type is distinct from ?', [(new Admin)->getMorphClass()])->with('operator')->orderByDesc('is_default')->get()->map(fn (PaymentMethod $method) => [
                 'id' => $method->id,
