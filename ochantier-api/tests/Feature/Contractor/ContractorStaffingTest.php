@@ -107,6 +107,11 @@ class ContractorStaffingTest extends ContractorMarketTestCase
         $this->assertSame('recherche', $continuation['status']['value']);
 
         $due = $this->getJson('/api/v1/contractor/payments/installments')->assertOk()->assertJsonPath('meta.count', 2)->json('data');
+        $installmentQuote = $this->postJson("/api/v1/contractor/payments/installments/{$due[0]['id']}/quote", ['operator_code' => 'orange_money', 'dial_code' => '225', 'phone_number' => '0712345678'])
+            ->assertOk()
+            ->assertJsonPath('data.amount', $due[0]['amount'])
+            ->json('data');
+        $this->assertSame($installmentQuote['amount'] + $installmentQuote['fees'], $installmentQuote['total']);
         $this->postJson("/api/v1/contractor/payments/installments/{$due[0]['id']}/pay", ['operator_code' => 'orange_money', 'dial_code' => '225', 'phone_number' => '0712345678'], ['Idempotency-Key' => 'semaine-1'])
             ->assertCreated()
             ->assertJsonPath('message', 'Échéance payée.');
