@@ -206,6 +206,11 @@ class ContractorReviewTest extends ContractorTestCase
 
         $this->artisan('ochantier:simulate-contractor-review', ['contractor' => 'ENT-00000', 'decision' => 'valider'])->assertFailed();
 
+        Contractor::query()->sole()->forceFill(['phone_number' => '0713323566'])->save();
+        $this->artisan('ochantier:simulate-contractor-review', ['contractor' => '+225 07 13 32 35 66', 'decision' => 'suspendre'])
+            ->expectsOutputToContain('Yao Serge Koffi')
+            ->assertSuccessful();
+
         $this->app->detectEnvironment(fn () => 'production');
         $this->artisan('ochantier:simulate-contractor-review', ['contractor' => '0712345678', 'decision' => 'suspendre'])
             ->expectsOutputToContain('Simulation interdite en production')

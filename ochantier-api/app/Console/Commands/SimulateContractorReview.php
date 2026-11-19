@@ -15,7 +15,7 @@ use RuntimeException;
 class SimulateContractorReview extends Command
 {
     protected $signature = 'ochantier:simulate-contractor-review
-        {contractor : Référence (ENT-00001), identifiant, téléphone ou e-mail du compte}
+        {contractor : Référence (ENT-00001), identifiant, téléphone ou e-mail du compte, ou téléphone du dossier}
         {decision : valider, corriger, refuser, suspendre ou reactiver}
         {--motif= : Motif des corrections, du refus ou de la suspension}';
 
@@ -34,6 +34,7 @@ class SimulateContractorReview extends Command
         $contractor = Contractor::query()
             ->where('reference', $search)
             ->when(str($search)->isUuid(), fn ($query) => $query->orWhere('id', $search))
+            ->when(strlen($digits) >= 8, fn ($query) => $query->orWhere('phone_number', 'like', '%'.substr($digits, -10)))
             ->orWhereHas('user', fn ($query) => $query->where('email', $search)->when(strlen($digits) >= 8, fn ($query) => $query->orWhere('phone', 'like', '%'.$digits)))
             ->first();
 
