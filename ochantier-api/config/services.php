@@ -69,11 +69,22 @@ return [
         ],
     ],
 
-    // Encaissement Mobile Money : « simulation » hors production, en attendant le prestataire retenu.
+    // Encaissement Mobile Money : « simulation » hors production, « jeko » pour encaisser réellement par Jèko.
     'payments' => [
         'driver' => env('PAYMENT_DRIVER', 'simulation'),
         // Secret de signature des webhooks du prestataire simulé (tests et recette) ; vide : webhooks simulés refusés.
         'simulation_webhook_secret' => env('PAYMENT_SIMULATION_WEBHOOK_SECRET'),
+        // Jèko (API partenaire). Pas de bac à sable : en recette, utiliser un magasin de test et de petits montants.
+        // Le webhook à déclarer chez Jèko est POST {APP_URL}/api/v1/webhooks/payments/jeko.
+        'jeko' => [
+            'api_key' => env('JEKO_API_KEY'),
+            'api_key_id' => env('JEKO_API_KEY_ID'),
+            'store_id' => env('JEKO_STORE_ID'),
+            'webhook_secret' => env('JEKO_WEBHOOK_SECRET'),
+            'base_url' => env('JEKO_BASE_URL', 'https://api.jeko.africa'),
+            // Page où l’opérateur ramène le payeur (Orange, Wave) ; ce retour n’est jamais une preuve de paiement.
+            'return_url' => env('JEKO_RETURN_URL'),
+        ],
     ],
 
 ];

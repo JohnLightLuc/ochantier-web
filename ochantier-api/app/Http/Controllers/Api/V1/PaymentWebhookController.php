@@ -59,7 +59,9 @@ class PaymentWebhookController extends Controller
 
         $expected = $transaction->amount + $transaction->fees_amount;
 
-        if (($notice->amount !== null && $notice->amount !== $expected) || ($notice->currency !== null && strtoupper($notice->currency) !== $transaction->currency)) {
+        $unexpected = $notice->amount !== null && ($notice->amount < $expected || $notice->amount > (int) floor($expected * (1 + $notice->amountTolerance)));
+
+        if ($unexpected || ($notice->currency !== null && strtoupper($notice->currency) !== $transaction->currency)) {
             Log::critical('Webhook de paiement ignoré : montant ou devise différents de la demande', ['reference' => $transaction->reference, 'attendu' => $expected, 'recu' => $notice->amount, 'devise' => $notice->currency]);
 
             return $this->ignore($event, 'Montant ou devise différents de la demande.', $transaction);
