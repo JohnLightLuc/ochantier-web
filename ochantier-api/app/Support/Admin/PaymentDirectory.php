@@ -23,7 +23,12 @@ class PaymentDirectory
 {
     public const TRANSACTION_STATUSES = ['initiee', 'en_attente', 'reussie', 'echouee', 'expiree', 'annulee'];
 
-    public const PURPOSES = ['acompte', 'echeance', 'abonnement', 'commande_devis'];
+    public const PURPOSES = ['acompte', 'echeance', 'abonnement', 'commande_devis', 'effectifs'];
+
+    /**
+     * Payeurs filtrables : promoteur ou professionnel O’CHANTIER PRO.
+     */
+    public const PAYERS = ['promoter' => 'promoter_profile', 'contractor' => 'contractor'];
 
     public const TRANSACTION_SORTS = ['date' => 'payment_transactions.initiated_at', 'amount' => 'payment_transactions.amount', 'status' => 'payment_transactions.status'];
 
@@ -46,6 +51,7 @@ class PaymentDirectory
             ->select('payment_transactions.*')
             ->selectRaw('sites.id as site_key, sites.reference as site_reference, sites.label as site_label')
             ->selectRaw($this->promoterName().' as promoter_name')
+            ->selectRaw('contractors.id as contractor_key, contractors.name as contractor_name')
             ->with('operator')
             ->orderByRaw(self::TRANSACTION_SORTS[$sort].' '.$direction.' nulls last')
             ->orderBy('payment_transactions.id');
@@ -128,6 +134,8 @@ class PaymentDirectory
             ->leftJoin('promoter_profiles', fn ($join) => $join->on('promoter_profiles.id', '=', 'payment_transactions.payer_id')->where('payment_transactions.payer_type', 'promoter_profile'))
             ->leftJoin('users', 'users.id', '=', 'promoter_profiles.user_id')
             ->leftJoin('organizations', 'organizations.id', '=', 'sites.organization_id')
+            ->leftJoin('contractors', fn ($join) => $join->on('contractors.id', '=', 'payment_transactions.payer_id')->where('payment_transactions.payer_type', 'contractor'))
+            ->when($filters['payer'] ?? null, fn (Builder $query, string $payer) => $query->where('payment_transactions.payer_type', self::PAYERS[$payer]))
             ->when($filters['status'] ?? null, fn (Builder $query, string $status) => $query->where('payment_transactions.status', $status))
             ->when($filters['purpose'] ?? null, fn (Builder $query, string $purpose) => $query->where('payment_transactions.purpose', $purpose))
             ->when($filters['operator_id'] ?? null, fn (Builder $query, string $operator) => $query->where('payment_transactions.operator_id', $operator))
@@ -139,7 +147,8 @@ class PaymentDirectory
                 ->orWhere('payment_transactions.provider_reference', 'ilike', $search)
                 ->orWhere('sites.label', 'ilike', $search)
                 ->orWhere('sites.reference', 'ilike', $search)
-                ->orWhereRaw($this->promoterName().' ilike ?', [$search])));
+                ->orWhereRaw($this->promoterName().' ilike ?', [$search])
+                ->orWhere('contractors.name', 'ilike', $search)));
     }
 
     /**

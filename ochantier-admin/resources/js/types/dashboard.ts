@@ -106,6 +106,11 @@ export type DashboardProps = {
     siteDistribution: SiteDistribution | null;
     matching: Matching | null;
     finance: Finance | null;
+    /** Bloc O’CHANTIER PRO (vide sans droit sur les modules PRO). */
+    pro: ProTile[];
     feed: FeedEntry[];
     updatedAt: string;
 };
+
+/** Tuile du bloc O’CHANTIER PRO de la vue d’ensemble. */
+export type ProTile = { label: string; value: string; hint: string | null; icon: string; tone: AnyTone; href: string; highlight: boolean };

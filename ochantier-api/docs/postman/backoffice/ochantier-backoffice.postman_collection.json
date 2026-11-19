@@ -4227,7 +4227,7 @@
                 }
               ]
             },
-            "description": "Entrepreneurs et techniciens, dossiers à vérifier en premier. Enregistre le premier (`admin_contractor_id`).\n\n| Paramètre | Description |\n|---|---|\n| `search` | Nom, référence, e-mail ou téléphone. |\n| `verification_status` | brouillon, soumis, en_controle, a_corriger, valide, refuse. |\n| `kind` | entreprise ou independant. |\n| `status` | actif, suspendu, exclu. |\n| `per_page` | 1 à 100 (20 par défaut). |\n\n`meta` : pagination et `counts` (nombre de dossiers par statut de vérification).\n\nPermission : `contractors.read`."
+            "description": "Entrepreneurs et techniciens, dossiers à vérifier en premier. Enregistre le premier (`admin_contractor_id`).\n\n| Paramètre | Description |\n|---|---|\n| `search` | Nom, référence, e-mail ou téléphone. |\n| `verification_status` | brouillon, soumis, en_controle, a_corriger, valide, refuse. |\n| `kind` | entreprise ou independant. |\n| `status` | actif, suspendu, exclu. |\n| `state` | État affiché (onglets du Back Office) : verifie, en_verification, a_corriger, rejete, brouillon, suspendu ; plusieurs séparés par des virgules (`rejete,suspendu`). |\n| `trade` | Code du métier (ex. `electricien`). |\n| `zone_city_id` | Ville de la zone d’intervention. |\n| `per_page` | 1 à 100 (20 par défaut). |\n\nChaque ligne : `zones`, `plan` (abonnement en cours, sinon Solo), `activity` (`open` réponses en cours, `total` hors brouillons) et `rating` (`average`, `count`).\n\n`meta` : pagination, `counts` (nombre de dossiers par statut de vérification) et `states` (nombre par état affiché), `trades` et `zones` (options des filtres).\n\nPermission : `contractors.read`."
           },
           "response": []
         },
@@ -4240,7 +4240,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const docs = pm.response.json().data.documents || [];",
+                  "if (docs.length) { pm.collectionVariables.set('admin_contractor_document_id', docs[0].id); }"
                 ]
               }
             }
@@ -4264,7 +4266,176 @@
                 "{{admin_contractor_id}}"
               ]
             },
-            "description": "Réponse : la fiche, avec le dossier complet (comme dans l’application), `status` du compte (actif, suspendu, exclu), `account`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `suspend`, `reactivate`).\n\nPermission : `contractors.read`."
+            "description": "Enregistre la première pièce (`admin_contractor_document_id`).\n\nRéponse : la fiche, avec le dossier complet (comme dans l’application, pièces avec leur `status` et leur `rejection_reason`), `status` du compte (actif, suspendu, exclu), `account`, `plan` (abonnement en cours, sinon Solo), `rating`, `completed_sites_count`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `review_documents`, `suspend`, `reactivate`).\n\nPermission : `contractors.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "10017930-f009-5c6f-a0ce-ead98f6a5fa0",
+          "name": "Réponses aux opportunités",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/responses",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "responses"
+              ]
+            },
+            "description": "Onglet de la fiche, en lecture seule : propositions de visite (demandes de devis) et réponses aux offres contractuelles, les 100 plus récentes. Les brouillons de réponse ne sont pas montrés.\n\nChaque ligne : `kind` (demande_devis, offre_contractuelle), `opportunity` (`id`, `reference`), `title`, `promoter`, `amount` et `amount_label` (frais de visite ou prix proposé), `status`, `at`.\n\nPermission : `contractors.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "a98ca0f1-3ead-5a31-8e36-86b5d18db10c",
+          "name": "Historique du dossier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/history",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "history"
+              ]
+            },
+            "description": "Onglet de la fiche, en lecture seule : soumissions du dossier par l’entrepreneur et décisions du Back Office sur le dossier et ses pièces, des plus récentes aux plus anciennes (100 au plus).\n\nChaque ligne : `kind` (admin, contractor), `author`, `what`, `detail` (pièce, motif), `at`.\n\nPermission : `contractors.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "b665a768-845f-5a25-ab04-4d02ccfceecd",
+          "name": "Confirmer une pièce",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/documents/{{admin_contractor_document_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "documents",
+                "{{admin_contractor_document_id}}",
+                "approve"
+              ]
+            },
+            "description": "Confirme une pièce du dossier transmis. La première décision sur une pièce fait passer le dossier **en contrôle**, pris en charge par l’administrateur. Journal d’audit : `document.approved`.\n\n**422** si le dossier n’est pas en attente de vérification ou si la pièce n’appartient pas au dossier.\n\nRéponse : la fiche, avec le dossier complet (comme dans l’application, pièces avec leur `status` et leur `rejection_reason`), `status` du compte (actif, suspendu, exclu), `account`, `plan` (abonnement en cours, sinon Solo), `rating`, `completed_sites_count`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `review_documents`, `suspend`, `reactivate`).\n\nPermission : `documents.validate`."
+          },
+          "response": []
+        },
+        {
+          "id": "59d93725-2b50-58d4-b7cd-51dc129696c5",
+          "name": "Rejeter une pièce",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/documents/{{admin_contractor_document_id}}/reject",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "documents",
+                "{{admin_contractor_document_id}}",
+                "reject"
+              ]
+            },
+            "description": "Rejette une pièce (boutons « Rejeter » et « Demander un complément »). L’entrepreneur n’est pas prévenu tout de suite : il l’est avec la demande de corrections sur le dossier, qui reprend cette pièce et son motif. Journal d’audit : `document.rejected`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | Motif (5 à 1000 caractères). |\n\n**422** si le dossier n’est pas en attente de vérification ou si la pièce n’appartient pas au dossier.\n\nRéponse : la fiche, avec le dossier complet (comme dans l’application, pièces avec leur `status` et leur `rejection_reason`), `status` du compte (actif, suspendu, exclu), `account`, `plan` (abonnement en cours, sinon Solo), `rating`, `completed_sites_count`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `review_documents`, `suspend`, `reactivate`).\n\nPermission : `documents.validate`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Verso illisible : reprenez la photo en pleine lumière.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": []
         },
@@ -4306,7 +4477,7 @@
                 "corrections"
               ]
             },
-            "description": "Dossier soumis → **à corriger**. Le motif est affiché à l’entrepreneur ; les pièces de `document_ids` sont rejetées avec ce motif. Notification et SMS « Des corrections sont demandées ». Journal d’audit : `contractor.corrections_requested`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | Motif (5 à 1000 caractères). |\n| `document_ids` | non | Pièces du dossier à remplacer. |\n\n**422** si le dossier n’est pas en attente de vérification.\n\nRéponse : la fiche, avec le dossier complet (comme dans l’application), `status` du compte (actif, suspendu, exclu), `account`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `suspend`, `reactivate`).\n\nPermission : `contractors.validate`.",
+            "description": "Dossier soumis → **à corriger**. Le motif est affiché à l’entrepreneur ; les pièces de `document_ids` sont rejetées avec ce motif, et les pièces déjà rejetées une à une sont reprises avec leur propre motif. Notification et SMS « Des corrections sont demandées ». Journal d’audit : `contractor.corrections_requested`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | Motif (5 à 1000 caractères). |\n| `document_ids` | non | Pièces du dossier à remplacer. |\n\n**422** si le dossier n’est pas en attente de vérification.\n\nRéponse : la fiche, avec le dossier complet (comme dans l’application, pièces avec leur `status` et leur `rejection_reason`), `status` du compte (actif, suspendu, exclu), `account`, `plan` (abonnement en cours, sinon Solo), `rating`, `completed_sites_count`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `review_documents`, `suspend`, `reactivate`).\n\nPermission : `contractors.validate`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"reason\": \"Pièce d’identité illisible : envoyez une photo nette.\",\n  \"document_ids\": []\n}",
@@ -4353,7 +4524,7 @@
                 "approve"
               ]
             },
-            "description": "Dossier soumis et complet → **vérifié** : les pièces en attente sont validées et l’entrepreneur peut répondre aux opportunités. Notification et SMS « Votre profil est vérifié ». Journal d’audit : `contractor.approved`.\n\n**422** si le dossier n’est pas en attente de vérification ou est incomplet.\n\nRéponse : la fiche, avec le dossier complet (comme dans l’application), `status` du compte (actif, suspendu, exclu), `account`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `suspend`, `reactivate`).\n\nPermission : `contractors.validate`."
+            "description": "Dossier soumis et complet → **vérifié** : les pièces en attente sont validées et l’entrepreneur peut répondre aux opportunités. Notification et SMS « Votre profil est vérifié ». Journal d’audit : `contractor.approved`.\n\n**422** si le dossier n’est pas en attente de vérification ou est incomplet.\n\nRéponse : la fiche, avec le dossier complet (comme dans l’application, pièces avec leur `status` et leur `rejection_reason`), `status` du compte (actif, suspendu, exclu), `account`, `plan` (abonnement en cours, sinon Solo), `rating`, `completed_sites_count`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `review_documents`, `suspend`, `reactivate`).\n\nPermission : `contractors.validate`.\n\n**422** « Confirmez d’abord la pièce d’identité. » tant que la pièce d’identité n’est pas confirmée, ou si une pièce reste rejetée (demandez plutôt un complément). Les autres pièces en attente sont validées avec le dossier."
           },
           "response": []
         },
@@ -4498,6 +4669,928 @@
           "response": []
         }
       ]
+    },
+    {
+      "id": "25babe8e-d450-55fb-bc9f-8bf75ecf9b86",
+      "name": "Demandes de devis",
+      "item": [
+        {
+          "id": "409fb1f0-53f1-5863-8e5d-c4a4da1a85d7",
+          "name": "Liste des demandes de devis",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.data.length) { pm.collectionVariables.set('admin_quote_line_id', body.data[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/quote-requests?status=ouverte,visite_programmee",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "quote-requests"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "ouverte,visite_programmee"
+                }
+              ]
+            },
+            "description": "Une ligne par corps de métier d’une demande (un professionnel choisi, une visite, un devis). Enregistre la première (`admin_quote_line_id`).\n\n| Paramètre | Description |\n|---|---|\n| `search` | Référence (DV-…), chantier ou promoteur. |\n| `trade` | Code du métier. |\n| `city_id` | Ville du chantier. |\n| `status` | Statuts affichés, séparés par des virgules : ouverte, visite_programmee, report_propose, devis_en_preparation, devis_envoye, devis_recu, expiree, annulee. |\n| `per_page` | 1 à 100 (20 par défaut). |\n\n`meta` : pagination, `counts` (lignes par statut affiché), `trades` et `cities` (options des filtres).\n\nPermission : `offers.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "23b25549-6168-56c4-be53-7bf27bffaaa4",
+          "name": "Fiche d’une demande de devis",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/quote-requests/{{admin_quote_line_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "quote-requests",
+                "{{admin_quote_line_id}}"
+              ]
+            },
+            "description": "Réponse : la fiche de la ligne (corps de métier) : `reference`, `trade`, `site`, `promoter` (nom, téléphone, e-mail), `status` affiché, `request` (statut de la demande, notes, nombre de métiers, `other_lines`), `bids` (propositions de visite : professionnel, frais de visite, frais de service, total, créneau, `is_selected`, `is_shown`), `visit` (mission de visite et report éventuel), `payment` (commande des devis, partagée par tous les métiers), `versions` (devis envoyés, avec leur PDF), `timeline` et `actions` (`extend`, `cancel`, `remind_promoter`, `remind_contractor`).\n\nPermission : `offers.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "d1636c6b-cd3e-5768-ab30-a3c6fbf1f663",
+          "name": "Prolonger la date limite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/quote-requests/{{admin_quote_line_id}}/extension",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "quote-requests",
+                "{{admin_quote_line_id}}",
+                "extension"
+              ]
+            },
+            "description": "Repousse la date limite de réponse d’une demande encore en recherche, même expirée (toute la demande, tous ses métiers). Journal d’audit : `quote_request.extended`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `deadline` | oui | Nouvelle date limite (AAAA-MM-JJ, future ; fin de journée). |\n\n**422** si la demande est déjà commandée ou annulée.\n\nRéponse : la fiche de la ligne (corps de métier) : `reference`, `trade`, `site`, `promoter` (nom, téléphone, e-mail), `status` affiché, `request` (statut de la demande, notes, nombre de métiers, `other_lines`), `bids` (propositions de visite : professionnel, frais de visite, frais de service, total, créneau, `is_selected`, `is_shown`), `visit` (mission de visite et report éventuel), `payment` (commande des devis, partagée par tous les métiers), `versions` (devis envoyés, avec leur PDF), `timeline` et `actions` (`extend`, `cancel`, `remind_promoter`, `remind_contractor`).\n\nPermission : `offers.update`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deadline\": \"2026-12-15\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "bff2b1cf-f0df-5990-b3d3-2f1764ce316b",
+          "name": "Relancer le promoteur ou le professionnel",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/quote-requests/{{admin_quote_line_id}}/reminders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "quote-requests",
+                "{{admin_quote_line_id}}",
+                "reminders"
+              ]
+            },
+            "description": "Notification de rappel (centre de notifications et push). Promoteur : choisir une proposition, répondre au report, accuser réception du devis. Professionnel choisi : visite à faire, devis à envoyer. Une relance par destinataire et par jour. Journal d’audit : `quote_request.reminded`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `target` | oui | `promoter` ou `contractor`. |\n| `message` | non | Texte du rappel (5 à 500 caractères) ; sinon un texte selon l’étape. |\n\n**422** si aucune action n’est attendue du destinataire, ou relance déjà envoyée aujourd’hui.\n\nRéponse : la fiche de la ligne (corps de métier) : `reference`, `trade`, `site`, `promoter` (nom, téléphone, e-mail), `status` affiché, `request` (statut de la demande, notes, nombre de métiers, `other_lines`), `bids` (propositions de visite : professionnel, frais de visite, frais de service, total, créneau, `is_selected`, `is_shown`), `visit` (mission de visite et report éventuel), `payment` (commande des devis, partagée par tous les métiers), `versions` (devis envoyés, avec leur PDF), `timeline` et `actions` (`extend`, `cancel`, `remind_promoter`, `remind_contractor`).\n\nPermission : `offers.update`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target\": \"promoter\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "c397327c-1751-527d-91bf-0bac70297e23",
+          "name": "Annuler la demande de devis",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/quote-requests/{{admin_quote_line_id}}/cancellation",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "quote-requests",
+                "{{admin_quote_line_id}}",
+                "cancellation"
+              ]
+            },
+            "description": "Annule toute la demande (tous ses métiers) avant la commande (aucun paiement) : le chantier revient au brouillon, les propositions ne sont pas retenues. Le promoteur (`quote.cancelled`) et les professionnels (`proposal.not_retained`, avec le motif) sont prévenus. Journal d’audit : `quote_request.cancelled`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | Motif (5 à 1000 caractères). |\n\n**422** si la demande est déjà commandée, ou si le promoteur est en train de la payer.\n\nRéponse : la fiche de la ligne (corps de métier) : `reference`, `trade`, `site`, `promoter` (nom, téléphone, e-mail), `status` affiché, `request` (statut de la demande, notes, nombre de métiers, `other_lines`), `bids` (propositions de visite : professionnel, frais de visite, frais de service, total, créneau, `is_selected`, `is_shown`), `visit` (mission de visite et report éventuel), `payment` (commande des devis, partagée par tous les métiers), `versions` (devis envoyés, avec leur PDF), `timeline` et `actions` (`extend`, `cancel`, `remind_promoter`, `remind_contractor`).\n\nPermission : `offers.validate`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Demande en double : le promoteur a publié une autre demande.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Demandes de devis O’CHANTIER PRO, une ligne par corps de métier."
+    },
+    {
+      "id": "e434a6a4-8a86-5991-a016-7b107e595aaf",
+      "name": "Offres contractuelles",
+      "item": [
+        {
+          "id": "4ee42b4a-03c3-5ee4-952c-6d894a2875b8",
+          "name": "Liste des offres contractuelles",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.data.length) { pm.collectionVariables.set('admin_contract_offer_id', body.data[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contract-offers?status=ouverte,en_comparaison,acompte_attendu",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contract-offers"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "ouverte,en_comparaison,acompte_attendu"
+                }
+              ]
+            },
+            "description": "Offres contractuelles publiées (elles ne figurent plus dans Besoins). Enregistre la première (`admin_contract_offer_id`).\n\n| Paramètre | Description |\n|---|---|\n| `search` | Référence (OF-…), chantier ou promoteur. |\n| `trade` | Code d’un métier de la demande de devis liée. |\n| `city_id` | Ville du chantier. |\n| `status` | Statuts affichés, séparés par des virgules : ouverte, en_comparaison, acompte_attendu, attribuee, expiree, suspendue, cloturee, annulee. |\n| `per_page` | 1 à 100 (20 par défaut). |\n\nChaque ligne : `price`, `responses_count`, `counter_proposals_count`, `retained` (professionnel et total promoteur), `quote_request` (« issue de DV-… »).\n\n`meta` : pagination, `counts` (offres par statut affiché), `rates` (commission en vigueur pour les nouvelles offres, réglage `contractor_offers.commission_percent`, et acompte X), `trades` et `cities`.\n\nPermission : `offers.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "8db3b81e-872d-5ea7-b220-a603c83d5e3a",
+          "name": "Fiche d’une offre contractuelle",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contract-offers/{{admin_contract_offer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contract-offers",
+                "{{admin_contract_offer_id}}"
+              ]
+            },
+            "description": "Réponse : la fiche : `reference`, `site`, `promoter` (nom, téléphone, e-mail), `price` (prix fixé par le promoteur), `payment_mode`, dates, `status` affiché, `rates` (commission de l’offre, figée à sa publication, et acompte X en %), `quote_request` (demande de devis d’origine), `responses` (professionnel, `mode` conforme ou contre-proposition, montant net, `commission`, `total` promoteur, `deposit`, durée, équipe, dates, `is_shown`, `is_quote_author`), `retained` et `attribution` (mission et acompte), `timeline` et `actions` (`extend`, `cancel`, `remind_promoter`, `remind_contractors`).\n\nPermission : `offers.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "285b5035-25c9-58ec-aafd-8453067d71f9",
+          "name": "Prolonger la date limite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contract-offers/{{admin_contract_offer_id}}/extension",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contract-offers",
+                "{{admin_contract_offer_id}}",
+                "extension"
+              ]
+            },
+            "description": "Repousse la date limite de réponse tant qu’aucun acompte n’est payé, même si l’offre a expiré. Journal d’audit : `contract_offer.extended`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `deadline` | oui | Nouvelle date limite (AAAA-MM-JJ, future ; fin de journée). |\n\n**422** si le chantier est déjà attribué ou l’offre annulée.\n\nRéponse : la fiche : `reference`, `site`, `promoter` (nom, téléphone, e-mail), `price` (prix fixé par le promoteur), `payment_mode`, dates, `status` affiché, `rates` (commission de l’offre, figée à sa publication, et acompte X en %), `quote_request` (demande de devis d’origine), `responses` (professionnel, `mode` conforme ou contre-proposition, montant net, `commission`, `total` promoteur, `deposit`, durée, équipe, dates, `is_shown`, `is_quote_author`), `retained` et `attribution` (mission et acompte), `timeline` et `actions` (`extend`, `cancel`, `remind_promoter`, `remind_contractors`).\n\nPermission : `offers.update`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deadline\": \"2026-12-15\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "4cdf56fe-243a-5bd9-ada0-e21acddf1f2c",
+          "name": "Relancer le promoteur ou les professionnels",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contract-offers/{{admin_contract_offer_id}}/reminders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contract-offers",
+                "{{admin_contract_offer_id}}",
+                "reminders"
+              ]
+            },
+            "description": "Promoteur (`promoter`) : comparer et choisir une offre, ou payer l’acompte (une fois par jour). Professionnels (`contractors`) : ceux du métier et de la zone qui n’ont pas encore répondu sont prévenus de nouveau (une fois par jour chacun). Journal d’audit : `contract_offer.reminded`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `target` | oui | `promoter` ou `contractors`. |\n| `message` | non | Texte du rappel au promoteur (5 à 500 caractères). |\n\n**422** si aucune action n’est attendue, ou relance déjà envoyée aujourd’hui.\n\nRéponse : la fiche : `reference`, `site`, `promoter` (nom, téléphone, e-mail), `price` (prix fixé par le promoteur), `payment_mode`, dates, `status` affiché, `rates` (commission de l’offre, figée à sa publication, et acompte X en %), `quote_request` (demande de devis d’origine), `responses` (professionnel, `mode` conforme ou contre-proposition, montant net, `commission`, `total` promoteur, `deposit`, durée, équipe, dates, `is_shown`, `is_quote_author`), `retained` et `attribution` (mission et acompte), `timeline` et `actions` (`extend`, `cancel`, `remind_promoter`, `remind_contractors`).\n\nPermission : `offers.update`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target\": \"promoter\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "ef26a5a7-e515-54a6-a7db-ac85a9885fa0",
+          "name": "Annuler l’offre contractuelle",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contract-offers/{{admin_contract_offer_id}}/cancellation",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contract-offers",
+                "{{admin_contract_offer_id}}",
+                "cancellation"
+              ]
+            },
+            "description": "Avant l’acompte : les réponses sont annulées, le chantier revient au brouillon (le promoteur peut republier), le promoteur (`offer.cancelled`) et les professionnels qui ont répondu (`offer.not_retained`, avec le motif) sont prévenus. Journal d’audit : `contract_offer.cancelled`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | Motif (5 à 1000 caractères). |\n\n**422** si l’acompte est payé, ou en cours de paiement.\n\nRéponse : la fiche : `reference`, `site`, `promoter` (nom, téléphone, e-mail), `price` (prix fixé par le promoteur), `payment_mode`, dates, `status` affiché, `rates` (commission de l’offre, figée à sa publication, et acompte X en %), `quote_request` (demande de devis d’origine), `responses` (professionnel, `mode` conforme ou contre-proposition, montant net, `commission`, `total` promoteur, `deposit`, durée, équipe, dates, `is_shown`, `is_quote_author`), `retained` et `attribution` (mission et acompte), `timeline` et `actions` (`extend`, `cancel`, `remind_promoter`, `remind_contractors`).\n\nPermission : `offers.validate`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Chantier reporté par le promoteur.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Offres contractuelles O’CHANTIER PRO : réponses des professionnels, choix du promoteur, acompte X et attribution."
+    },
+    {
+      "id": "2f96b89d-9b4b-5278-b8cc-5dfae4705fa0",
+      "name": "Commissions PRO",
+      "item": [
+        {
+          "id": "9c546a8e-03d0-582c-a87e-24e6cd51b3e2",
+          "name": "Registre des commissions PRO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/pro-commissions?status=collectee",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "pro-commissions"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "collectee"
+                }
+              ]
+            },
+            "description": "Une ligne par encaissement O’CHANTIER PRO portant une commission : frais de service d’une proposition de devis commandée (`demande_devis`), part de commission de l’acompte et de chaque échéance d’un forfait (`offre_contractuelle`, au taux figé de la mission ; la dernière échéance reçoit l’arrondi), frais de service d’une recherche d’effectifs (`recherche_effectifs`, payés par le professionnel).\n\n| Paramètre | Description |\n|---|---|\n| `source` | demande_devis, offre_contractuelle, recherche_effectifs. |\n| `status` | a_collecter, collectee, remboursee. |\n| `contractor_id` | Professionnel. |\n| `search` | Référence, chantier, professionnel ou payeur. |\n| `from`, `to` | Période (date de paiement, ou d’échéance pour ce qui reste à collecter). |\n| `per_page`, `page` | Pagination (20 par défaut). |\n\nChaque ligne : `source`, `reference`, `label`, `opportunity` (type et id pour ouvrir la fiche), `site`, `contractor`, `payer`, `base` (montant encaissé), `rate`, `commission`, `professional_net` (part à reverser au professionnel, sans objet pour une recherche d’effectifs), `status`, `date`, `payment_reference`, `service_done` (visite faite ou échéance payée), `payout` (versement au professionnel, s’il est préparé).\n\n`meta.totals` : commission par statut, collectée et à collecter par source, montant encaissé et part nette des professionnels (lignes collectées).\n\nPermission : `finance.read`."
+          },
+          "response": []
+        }
+      ],
+      "description": "Registre des commissions et frais de service O’CHANTIER PRO."
+    },
+    {
+      "id": "374c6307-0f5c-5267-9a4f-68a0aeabcb58",
+      "name": "Reversements aux professionnels",
+      "item": [
+        {
+          "id": "847a55c0-5038-5258-a6b6-752081b96f0e",
+          "name": "Numéro de versement d’un professionnel",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/payment-method",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "payment-method"
+              ]
+            },
+            "description": "Numéro Mobile Money confirmé (`current`), numéro en attente (`pending`, avec `can_decide`), opérateurs de versement et numéro de contact par défaut.\n\nPermission : `payouts.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "194eba77-5587-5021-a1da-a1a8bbfec6d9",
+          "name": "Saisir le numéro de versement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));",
+                  "const id = pm.response.json().data?.pending?.id;",
+                  "if (id) { pm.collectionVariables.set('admin_contractor_method_id', id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/payment-method",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "payment-method"
+              ]
+            },
+            "description": "Enregistre un numéro en attente : une autre personne doit le confirmer avant tout versement. Journal d’audit : `payouts.method_proposed`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `operator_id` | oui | Opérateur qui accepte les versements. |\n| `dial_code`, `phone_number` | oui | Numéro Mobile Money. |\n\nPermission : `payouts.create`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operator_id\": \"{{admin_operator_id}}\",\n  \"dial_code\": \"225\",\n  \"phone_number\": \"0712345678\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "982dc236-a846-5287-ba01-ea560dd3a990",
+          "name": "Confirmer le numéro de versement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/payment-method/{{admin_contractor_method_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "payment-method",
+                "{{admin_contractor_method_id}}",
+                "approve"
+              ]
+            },
+            "description": "Par une autre personne que celle qui l’a saisi. Journal d’audit : `payouts.method_approved`.\n\nPermission : `payouts.approve`."
+          },
+          "response": []
+        },
+        {
+          "id": "91063118-48f7-5066-8ded-71852df56f6e",
+          "name": "Professionnels à payer et versements",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const p = pm.response.json().data.payouts;",
+                  "if (p.length) { pm.collectionVariables.set('admin_contractor_payout_id', p[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractor-payouts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractor-payouts"
+              ]
+            },
+            "description": "`data.payable` : professionnels à qui une part nette est due (frais de visite après la visite faite, part nette de l’acompte et des échéances d’un forfait payées), avec `total`, `items`, numéro et `blockers` (versement déjà en cours, aucun numéro confirmé). `data.payouts` : versements, des plus récents aux plus anciens (filtre `status`). Enregistre le premier versement (`admin_contractor_payout_id`).\n\nPermission : `payouts.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "35a61500-e211-510a-9823-46feb558f0c8",
+          "name": "Préparer le versement d’un professionnel",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));",
+                  "const id = pm.response.json().data?.id;",
+                  "if (id) { pm.collectionVariables.set('admin_contractor_payout_id', id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractor-payouts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractor-payouts"
+              ]
+            },
+            "description": "Réunit toutes les parts dues au professionnel dans un versement « à valider ». Chaque part n’est reversée qu’une fois. Journal d’audit : `contractor.payout_prepared`.\n\n**422** si rien n’est dû, si un versement est déjà en cours ou si aucun numéro n’est confirmé.\n\nRéponse : le versement (`reference`, `contractor`, `total_amount`, `status` : a_payer, en_traitement, paye, rejete, annule ; `prepared_by`, `approved_by`, `method`, `items` (parts nettes réunies), `transactions`, `actions` : `approve`, `retry`, `cancel`).\n\nPermission : `payouts.create`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contractor_id\": \"{{admin_contractor_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "b90a1683-5e00-53e7-b560-9f0647d939ae",
+          "name": "Fiche d’un versement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractor-payouts/{{admin_contractor_payout_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractor-payouts",
+                "{{admin_contractor_payout_id}}"
+              ]
+            },
+            "description": "Réponse : le versement (`reference`, `contractor`, `total_amount`, `status` : a_payer, en_traitement, paye, rejete, annule ; `prepared_by`, `approved_by`, `method`, `items` (parts nettes réunies), `transactions`, `actions` : `approve`, `retry`, `cancel`).\n\nPermission : `payouts.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "b9caf7e9-b6ba-59a6-bb60-ea6d2eac1d15",
+          "name": "Valider et envoyer le versement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractor-payouts/{{admin_contractor_payout_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractor-payouts",
+                "{{admin_contractor_payout_id}}",
+                "approve"
+              ]
+            },
+            "description": "Par une autre personne que celle qui l’a préparé : envoi par Mobile Money sur le numéro confirmé. Payé : le professionnel est prévenu (`payout.paid`) ; refusé par l’opérateur : statut rejete, à relancer. Journal d’audit : `contractor.payout_approved`.\n\nRéponse : le versement (`reference`, `contractor`, `total_amount`, `status` : a_payer, en_traitement, paye, rejete, annule ; `prepared_by`, `approved_by`, `method`, `items` (parts nettes réunies), `transactions`, `actions` : `approve`, `retry`, `cancel`).\n\nPermission : `payouts.approve`."
+          },
+          "response": []
+        },
+        {
+          "id": "c82be5ff-ca5d-5f1b-b0a8-78cf673ee15a",
+          "name": "Relancer un versement rejeté",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractor-payouts/{{admin_contractor_payout_id}}/retry",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractor-payouts",
+                "{{admin_contractor_payout_id}}",
+                "retry"
+              ]
+            },
+            "description": "Renvoie un versement rejeté sur le numéro confirmé actuel. Journal d’audit : `contractor.payout_retried`.\n\nRéponse : le versement (`reference`, `contractor`, `total_amount`, `status` : a_payer, en_traitement, paye, rejete, annule ; `prepared_by`, `approved_by`, `method`, `items` (parts nettes réunies), `transactions`, `actions` : `approve`, `retry`, `cancel`).\n\nPermission : `payouts.approve`."
+          },
+          "response": []
+        },
+        {
+          "id": "c6727b1e-fe51-552d-9a8e-001e6dbe23af",
+          "name": "Annuler un versement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractor-payouts/{{admin_contractor_payout_id}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractor-payouts",
+                "{{admin_contractor_payout_id}}",
+                "cancel"
+              ]
+            },
+            "description": "Versement à valider ou rejeté : annulé, ses parts redeviennent dues. Journal d’audit : `contractor.payout_cancelled`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | Motif (5 à 1000 caractères). |\n\nRéponse : le versement (`reference`, `contractor`, `total_amount`, `status` : a_payer, en_traitement, paye, rejete, annule ; `prepared_by`, `approved_by`, `method`, `items` (parts nettes réunies), `transactions`, `actions` : `approve`, `retry`, `cancel`).\n\nPermission : `payouts.create`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Numéro erroné, à corriger avant le versement.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Part nette des professionnels O’CHANTIER PRO : numéro confirmé par une autre personne, versement préparé par l’un et validé (envoyé) par l’autre."
     },
     {
       "id": "ae835b7e-91b3-5d50-a43d-6b2be4d6ba7d",
@@ -5813,6 +6906,31 @@
       "value": "",
       "type": "string",
       "description": "Première recherche d’effectifs en attente."
+    },
+    {
+      "key": "admin_contractor_document_id",
+      "value": ""
+    },
+    {
+      "key": "admin_quote_line_id",
+      "value": ""
+    },
+    {
+      "key": "admin_contract_offer_id",
+      "value": ""
+    },
+    {
+      "key": "admin_contractor_payout_id",
+      "value": ""
+    },
+    {
+      "key": "admin_contractor_method_id",
+      "value": ""
+    },
+    {
+      "key": "admin_operator_id",
+      "value": "",
+      "description": "Opérateur de versement (identifiant, voir « Numéro de versement d’un professionnel » → operators)."
     }
   ]
 }

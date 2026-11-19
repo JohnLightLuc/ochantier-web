@@ -50,7 +50,7 @@ class NeedController extends Controller
                 'statut' => array_map($option, array_keys(OfferPresenter::STATUS_LABELS), OfferPresenter::STATUS_LABELS),
                 'metier' => array_map(fn (array $t): array => $option($t['id'], $t['label']), $meta['trades']),
                 'localisation' => array_map(fn (array $c): array => $option($c['id'], $c['name']), $meta['communes']),
-                'type' => [$option('ponctuelle', 'Ponctuelle'), $option('temporaire', 'Temporaire'), $option('contractuelle', 'Contractuelle')],
+                'type' => [$option('ponctuelle', 'Ponctuelle'), $option('temporaire', 'Temporaire')],
                 'urgence' => [$option('basse', 'Basse'), $option('normale', 'Normale'), $option('haute', 'Haute'), $option('critique', 'Critique')],
             ],
             'kpis' => ['total' => $meta['counts']['total'], 'open' => $meta['counts']['statuses']['soumise'] + $meta['counts']['statuses']['en_controle'] + $meta['counts']['statuses']['publiee'], 'filled' => $meta['counts']['statuses']['pourvue'], 'suspended' => $meta['counts']['statuses']['suspendue']],

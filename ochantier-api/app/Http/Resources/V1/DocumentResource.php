@@ -28,6 +28,7 @@ class DocumentResource extends Resource
             'expires_at' => $this->date($this->expires_at),
             'version' => $this->version,
             'status' => $this->status($this->verification_status),
+            'rejection_reason' => $this->rejection_reason,
             'files' => $this->files->sortBy(fn (MediaFile $file) => array_search($file->pivot->side, ['recto', 'verso', 'page'], true))->map(fn (MediaFile $file) => [
                 'id' => $file->id,
                 'side' => $file->pivot->side,

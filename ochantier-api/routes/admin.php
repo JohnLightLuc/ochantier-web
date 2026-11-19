@@ -17,13 +17,16 @@ use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialPortfolioController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialRankingController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialTerritoryController;
+use App\Http\Controllers\Api\V1\Admin\ContractOffer\ContractOfferController;
 use App\Http\Controllers\Api\V1\Admin\Contractor\ContractorController;
+use App\Http\Controllers\Api\V1\Admin\Contractor\ContractorRelationController;
 use App\Http\Controllers\Api\V1\Admin\Contractor\ContractorReviewController;
 use App\Http\Controllers\Api\V1\Admin\Contractor\StaffingRequestController;
 use App\Http\Controllers\Api\V1\Admin\Dashboard\DashboardController;
 use App\Http\Controllers\Api\V1\Admin\Dispute\DisputeController;
 use App\Http\Controllers\Api\V1\Admin\Finance\ClosingController;
 use App\Http\Controllers\Api\V1\Admin\Finance\FinanceController;
+use App\Http\Controllers\Api\V1\Admin\Finance\ProCommissionController;
 use App\Http\Controllers\Api\V1\Admin\Finance\ReconciliationController;
 use App\Http\Controllers\Api\V1\Admin\Matching\MatchingController;
 use App\Http\Controllers\Api\V1\Admin\Notification\NotificationController as AdminNotificationController;
@@ -32,6 +35,7 @@ use App\Http\Controllers\Api\V1\Admin\Payment\PaymentController as AdminPaymentC
 use App\Http\Controllers\Api\V1\Admin\Payment\RefundController;
 use App\Http\Controllers\Api\V1\Admin\Payment\RegularisationController;
 use App\Http\Controllers\Api\V1\Admin\Payout\CommercialPayoutController;
+use App\Http\Controllers\Api\V1\Admin\Payout\ContractorPayoutController;
 use App\Http\Controllers\Api\V1\Admin\Payout\PayoutBatchController;
 use App\Http\Controllers\Api\V1\Admin\Payout\PayoutController;
 use App\Http\Controllers\Api\V1\Admin\Payout\PayoutMethodController;
@@ -39,6 +43,7 @@ use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterAccountController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterRelationController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterReviewController;
+use App\Http\Controllers\Api\V1\Admin\Quote\QuoteRequestController;
 use App\Http\Controllers\Api\V1\Admin\Rating\RatingController;
 use App\Http\Controllers\Api\V1\Admin\Report\ReportController;
 use App\Http\Controllers\Api\V1\Admin\Report\ReportLibraryController;
@@ -125,17 +130,51 @@ Route::middleware('auth:admin')->group(function () {
             });
         });
 
-        // Entrepreneurs et techniciens : liste, fiche, décision sur le dossier KYB/KYC, suspension et réactivation.
+        // Entrepreneurs et techniciens : liste, fiche et ses onglets, décision sur le dossier KYB/KYC et sur chaque pièce, suspension et réactivation.
         Route::prefix('contractors')->name('contractors.')->group(function () {
             Route::get('/', [ContractorController::class, 'index'])->middleware('admin.can:contractors.read')->name('index');
 
             Route::prefix('{contractor}')->whereUuid('contractor')->group(function () {
                 Route::get('/', [ContractorController::class, 'show'])->middleware('admin.can:contractors.read')->name('show');
+                Route::get('responses', [ContractorRelationController::class, 'responses'])->middleware('admin.can:contractors.read')->name('responses');
+                Route::get('history', [ContractorRelationController::class, 'history'])->middleware('admin.can:contractors.read')->name('history');
                 Route::post('approve', [ContractorReviewController::class, 'approve'])->middleware('admin.can:contractors.validate')->name('approve');
                 Route::post('corrections', [ContractorReviewController::class, 'requestCorrections'])->middleware('admin.can:contractors.validate')->name('corrections');
                 Route::post('reject', [ContractorReviewController::class, 'reject'])->middleware('admin.can:contractors.validate')->name('reject');
+                Route::post('documents/{document}/approve', [ContractorReviewController::class, 'approveDocument'])->whereUuid('document')->middleware('admin.can:documents.validate')->name('documents.approve');
+                Route::post('documents/{document}/reject', [ContractorReviewController::class, 'rejectDocument'])->whereUuid('document')->middleware('admin.can:documents.validate')->name('documents.reject');
                 Route::post('suspension', [ContractorReviewController::class, 'suspend'])->middleware('admin.can:contractors.update')->name('suspend');
                 Route::delete('suspension', [ContractorReviewController::class, 'reactivate'])->middleware('admin.can:contractors.update')->name('reactivate');
+                Route::controller(PayoutMethodController::class)->group(function () {
+                    Route::get('payment-method', 'showContractor')->middleware('admin.can:payouts.read')->name('payment-method.show');
+                    Route::post('payment-method', 'storeContractor')->middleware('admin.can:payouts.create')->name('payment-method.store');
+                    Route::post('payment-method/{method}/approve', 'approveContractor')->whereUuid('method')->middleware('admin.can:payouts.approve')->name('payment-method.approve');
+                    Route::post('payment-method/{method}/reject', 'rejectContractor')->whereUuid('method')->middleware('admin.can:payouts.approve')->name('payment-method.reject');
+                });
+            });
+        });
+
+        // Offres contractuelles (O’CHANTIER PRO) : liste, fiche, prolongation, annulation avant l’acompte et relances.
+        Route::prefix('contract-offers')->name('contract-offers.')->controller(ContractOfferController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:offers.read')->name('index');
+
+            Route::prefix('{offer}')->whereUuid('offer')->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:offers.read')->name('show');
+                Route::post('extension', 'extend')->middleware('admin.can:offers.update')->name('extend');
+                Route::post('cancellation', 'cancel')->middleware('admin.can:offers.validate')->name('cancel');
+                Route::post('reminders', 'remind')->middleware('admin.can:offers.update')->name('remind');
+            });
+        });
+
+        // Demandes de devis (O’CHANTIER PRO) : une ligne par corps de métier, fiche, prolongation, annulation et relances.
+        Route::prefix('quote-requests')->name('quote-requests.')->controller(QuoteRequestController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:offers.read')->name('index');
+
+            Route::prefix('{line}')->whereUuid('line')->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:offers.read')->name('show');
+                Route::post('extension', 'extend')->middleware('admin.can:offers.update')->name('extend');
+                Route::post('cancellation', 'cancel')->middleware('admin.can:offers.validate')->name('cancel');
+                Route::post('reminders', 'remind')->middleware('admin.can:offers.update')->name('remind');
             });
         });
 
@@ -301,6 +340,22 @@ Route::middleware('auth:admin')->group(function () {
             Route::get('commissions', 'commissions')->middleware('admin.can:finance.read')->name('commissions');
             Route::get('commissions/export', 'export')->middleware('admin.can:finance.export')->name('commissions.export');
         });
+
+        // Reversements aux professionnels O’CHANTIER PRO : une personne prépare, une autre valide (envoi).
+        Route::prefix('contractor-payouts')->name('contractor-payouts.')->controller(ContractorPayoutController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:payouts.read')->name('index');
+            Route::post('/', 'store')->middleware('admin.can:payouts.create')->name('store');
+
+            Route::prefix('{payout}')->whereUuid('payout')->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:payouts.read')->name('show');
+                Route::post('approve', 'approve')->middleware('admin.can:payouts.approve')->name('approve');
+                Route::post('retry', 'retry')->middleware('admin.can:payouts.approve')->name('retry');
+                Route::post('cancel', 'cancel')->middleware('admin.can:payouts.create')->name('cancel');
+            });
+        });
+
+        // Registre des commissions O’CHANTIER PRO (devis, offres contractuelles, recherches d’effectifs).
+        Route::get('pro-commissions', [ProCommissionController::class, 'index'])->middleware('admin.can:finance.read')->name('pro-commissions.index');
 
         // Clôtures mensuelles : une personne prépare, une autre clôture ; rouvrir (finance.validate) revient à la Direction.
         Route::prefix('finance/closings')->name('finance.closings.')->controller(ClosingController::class)->group(function () {

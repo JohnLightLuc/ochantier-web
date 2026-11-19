@@ -26,7 +26,9 @@ class PaymentController extends Controller
 
     private const STATUS_LABELS = ['initiee' => 'Initiée', 'en_attente' => 'En attente', 'reussie' => 'Réussie', 'echouee' => 'Échouée', 'expiree' => 'Expirée', 'annulee' => 'Annulée'];
 
-    private const PURPOSE_LABELS = ['acompte' => 'Acompte', 'echeance' => 'Échéance', 'abonnement' => 'Abonnement', 'commande_devis' => 'Commande des devis'];
+    private const PURPOSE_LABELS = ['acompte' => 'Acompte', 'echeance' => 'Échéance', 'abonnement' => 'Abonnement', 'commande_devis' => 'Commande des devis', 'effectifs' => 'Recherche d’effectifs'];
+
+    private const PAYER_LABELS = ['promoter' => 'Promoteurs', 'contractor' => 'Professionnels'];
 
     private const STATE_TONES = ['prevue' => 'n', 'exigible' => 'a', 'partiellement_payee' => 'o', 'en_retard' => 'r', 'payee' => 'g', 'contestee' => 'r', 'annulee' => 'n', 'remboursee' => 'p'];
 
@@ -36,11 +38,11 @@ class PaymentController extends Controller
 
     private const PERIODS = ['aujourdhui' => 'Aujourd’hui', '7j' => '7 derniers jours', '30j' => '30 derniers jours'];
 
-    private const TRANSACTION_QUERY = ['q' => 'search', 'statut' => 'status', 'nature' => 'purpose', 'operateur' => 'operator_id', 'chantier' => 'site_id', 'page' => 'page'];
+    private const TRANSACTION_QUERY = ['q' => 'search', 'statut' => 'status', 'nature' => 'purpose', 'payeur' => 'payer', 'operateur' => 'operator_id', 'chantier' => 'site_id', 'page' => 'page'];
 
     private const TRANSACTION_SORTS = ['date' => 'date', 'montant' => 'amount', 'statut' => 'status'];
 
-    private const TRANSACTION_FILTERS = ['q', 'statut', 'nature', 'operateur', 'chantier', 'periode', 'tri', 'sens', 'page'];
+    private const TRANSACTION_FILTERS = ['q', 'statut', 'nature', 'payeur', 'operateur', 'chantier', 'periode', 'tri', 'sens', 'page'];
 
     private const SCHEDULE_QUERY = ['q' => 'search', 'etat' => 'state', 'type' => 'type', 'chantier' => 'site_id', 'page' => 'page'];
 
@@ -64,6 +66,7 @@ class PaymentController extends Controller
                 'periode' => array_map($option, array_keys(self::PERIODS), self::PERIODS),
                 'statut' => array_map($option, array_keys(self::STATUS_LABELS), self::STATUS_LABELS),
                 'nature' => array_map($option, array_keys(self::PURPOSE_LABELS), self::PURPOSE_LABELS),
+                'payeur' => array_map($option, array_keys(self::PAYER_LABELS), self::PAYER_LABELS),
                 'operateur' => array_map(fn (array $o): array => $option($o['id'], $o['name']), $meta['operators']),
             ],
             'kpis' => ['collected' => $meta['counts']['collected'], 'month' => $meta['counts']['month'], 'fees' => $meta['counts']['fees'], 'failed' => $meta['counts']['failed']],
@@ -189,6 +192,7 @@ class PaymentController extends Controller
             'label' => $t['label'],
             'site' => $t['site'],
             'promoter' => $t['promoter'],
+            'payer' => $t['payer'] ?? ['type' => 'promoter', 'id' => null, 'name' => $t['promoter']['name'] ?? null, 'label' => 'Promoteur'],
             'operator' => $t['operator'],
             'amount' => $t['amount'],
             'fees' => $t['fees_amount'],

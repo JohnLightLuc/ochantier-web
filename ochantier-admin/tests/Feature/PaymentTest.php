@@ -64,6 +64,18 @@ class PaymentTest extends TestCase
         Http::assertSent(fn (ClientRequest $request) => str_contains($request->url(), 'search=PAY') && str_contains($request->url(), 'status=reussie') && str_contains($request->url(), 'purpose=acompte') && str_contains($request->url(), 'operator_id=o1') && str_contains($request->url(), 'sort=amount') && str_contains($request->url(), 'direction=desc') && str_contains($request->url(), 'date_from=') && str_contains($request->url(), 'per_page=20'));
     }
 
+    public function test_contractor_payments_show_their_payer_and_can_be_filtered(): void
+    {
+        $row = [...$this->transaction(), 'purpose' => ['value' => 'effectifs', 'label' => 'Recherche d’effectifs (entrepreneur)'], 'promoter' => ['name' => ''], 'payer' => ['type' => 'contractor', 'id' => 'c1', 'name' => 'BATI-CI Construction', 'label' => 'Professionnel']];
+        Http::fake([self::API.'/payments*' => Http::response(['data' => [$row], 'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 20, 'total' => 1, 'counts' => ['collected' => 0, 'month' => 0, 'fees' => 0, 'failed' => 0], 'operators' => []]])]);
+
+        $this->get('/paiements?payeur=contractor&nature=effectifs')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('transactions.data.0.payer.name', 'BATI-CI Construction')
+            ->where('filterOptions.payeur', [['value' => 'promoter', 'label' => 'Promoteurs'], ['value' => 'contractor', 'label' => 'Professionnels']]));
+
+        Http::assertSent(fn (ClientRequest $request) => str_contains($request->url(), 'payer=contractor') && str_contains($request->url(), 'purpose=effectifs'));
+    }
+
     public function test_the_collection_page_is_built_from_the_api(): void
     {
         Http::fake([self::API.'/payments/'.self::ID => Http::response(['data' => [...$this->transaction(), 'provider_reference' => 'SIM-1', 'phone' => '07 •• •• 34', 'lines' => [['label' => 'Acompte', 'amount' => 100000]], 'failure' => null, 'invoice' => null, 'allocations' => [['amount' => 100000, 'schedule' => ['id' => self::SCHEDULE, 'reference' => 'ECH-1', 'type' => ['value' => 'acompte', 'label' => 'Acompte']]]], 'receipts' => [['number' => 'REC-1', 'issued_at' => '2026-11-04T09:01:00+00:00', 'url' => null]], 'history' => [['from' => null, 'to' => ['value' => 'initiee', 'label' => 'Initiée'], 'at' => '2026-11-04T09:00:00+00:00']]]])]);

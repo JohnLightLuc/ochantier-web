@@ -38,6 +38,7 @@ Les fichiers sont des **références de design créées en HTML** (« Design Com
 | Avis & Litiges | `#/avis-litiges/…` | Liste d’origine fonctionnelle (avis, signalements, litiges), sous-pages : avis, modération, réclamations, litiges, médiation, audit |
 | Rapports | `#/rapports/…` | Vue d’ensemble dynamique (graphiques avec infobulles), sous-pages : financier, missions, chantiers (+ détail), ouvriers, rapports générés/programmés |
 | Abonnements | `#/abonnements` et `#/abonnements/:id` | Formules Solo, Équipe et Pro ; abonnés promoteurs, utilisateurs, factures et statuts (simulation) |
+| Landing Page | `#/landing-page/…` | Contenu du site, brouillons et publications, candidatures et messages (simulation) |
 | Paramètres | `#/parametres/<catégorie>` | Commissions & frais (X, Y, Z, R et seuils de paiement successifs), Général, Métiers (ajout, suppression, activation), Paiements, Matching & affectations, Utilisateurs & rôles, Notifications, Sécurité, Intégrations, Journal d’audit |
 
 La mise en page commune (AdminLayout) comprend une Sidebar repliable, une Topbar, un en-tête de page avec fil d’Ariane, des onglets, des cartes KPI, des filtres, des tableaux paginés (8 lignes par page), des panneaux latéraux et des modales.
@@ -75,3 +76,6 @@ Icônes : Material Symbols Rounded (Google Fonts). Aucune image propriétaire.
 
 ## Version consolidée — 1er octobre 2026
 Cette archive réunit les évolutions Matching, Avis & Litiges et Rapports de la version précédente avec le module Abonnements. Les interactions restent des simulations fondées sur des données de démonstration.
+
+## Version consolidée — 8 octobre 2026
+Ajout du module Landing Page à la version GitHub du 1er octobre, en conservant Matching, Avis & Litiges, Rapports et Abonnements. Les publications, candidatures et messages de ce module restent simulés dans la maquette ; aucune connexion automatique au dépôt de la landing page ni à un serveur de production.

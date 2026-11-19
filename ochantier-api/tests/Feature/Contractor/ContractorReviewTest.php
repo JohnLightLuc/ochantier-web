@@ -56,6 +56,8 @@ class ContractorReviewTest extends ContractorTestCase
             ->assertJsonPath('data.account.phone', '+225 07 12 34 56 78')
             ->assertJsonPath('data.reviews.0.submission_number', 1)
             ->assertJsonPath('data.actions.approve', true)
+            ->assertJsonPath('data.plan.name', 'Solo')
+            ->assertJsonPath('data.rating', ['average' => null, 'count' => 0])
             ->assertJsonCount(1, 'data.documents');
     }
 
@@ -63,6 +65,16 @@ class ContractorReviewTest extends ContractorTestCase
     {
         $this->submitIndependent();
         $contractor = Contractor::query()->sole();
+
+        $this->asAdmin()->postJson('/api/v1/admin/contractors/'.$contractor->id.'/approve')
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.contractor.0', 'Confirmez d’abord la pièce d’identité.');
+
+        $this->asAdmin()->postJson('/api/v1/admin/contractors/'.$contractor->id.'/documents/'.Document::query()->value('id').'/approve')
+            ->assertOk()
+            ->assertJsonPath('message', 'Pièce confirmée.')
+            ->assertJsonPath('data.verification.status.value', 'en_controle')
+            ->assertJsonPath('data.documents.0.status.value', 'valide');
 
         $this->asAdmin()->postJson('/api/v1/admin/contractors/'.$contractor->id.'/approve')
             ->assertOk()
@@ -182,6 +194,100 @@ class ContractorReviewTest extends ContractorTestCase
             ->assertJsonPath('errors.contractor.0', 'Ce compte n’est pas suspendu.');
 
         $this->assertSame(ContractorStatus::Actif, $contractor->fresh()->status);
+    }
+
+    public function test_documents_are_reviewed_one_by_one_before_the_decision(): void
+    {
+        $this->submitIndependent();
+        $contractor = Contractor::query()->sole();
+        $document = Document::query()->sole();
+        $url = '/api/v1/admin/contractors/'.$contractor->id.'/documents/'.$document->id;
+
+        $this->asAdmin()->postJson($url.'/reject', ['reason' => 'abc'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.reason.0', 'Le motif est trop court.');
+
+        $this->asAdmin()->postJson($url.'/reject', ['reason' => 'Verso illisible, merci de reprendre la photo.'])
+            ->assertOk()
+            ->assertJsonPath('message', 'Pièce rejetée.')
+            ->assertJsonPath('data.verification.state.value', 'en_verification')
+            ->assertJsonPath('data.documents.0.status.value', 'rejete')
+            ->assertJsonPath('data.documents.0.rejection_reason', 'Verso illisible, merci de reprendre la photo.')
+            ->assertJsonPath('data.reviews.0.status.value', 'en_controle');
+
+        $this->assertSame(1, AuditLog::query()->where('action', 'document.rejected')->count());
+        $this->assertSame(0, Notification::query()->where('title', 'Des corrections sont demandées')->count());
+
+        $this->asAdmin()->postJson('/api/v1/admin/contractors/'.$contractor->id.'/approve')
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.contractor.0', 'Confirmez d’abord la pièce d’identité.');
+
+        $this->asAdmin()->postJson('/api/v1/admin/contractors/'.$contractor->id.'/corrections', ['reason' => 'Merci de compléter votre dossier.'])
+            ->assertOk()
+            ->assertJsonPath('data.verification.state.value', 'a_corriger');
+
+        $this->assertSame(['Verso illisible, merci de reprendre la photo.'], $contractor->verificationReviews()->sole()->verificationCorrections()->pluck('reason')->all());
+
+        $this->asAdmin()->postJson($url.'/approve')
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.contractor.0', 'Le dossier n’est pas en attente de vérification (statut : À corriger).');
+
+        $other = Contractor::query()->create(['reference' => 'ENT-99999', 'kind' => 'entreprise', 'name' => 'Autre', 'verification_status' => 'soumis']);
+        $this->asAdmin()->postJson('/api/v1/admin/contractors/'.$other->id.'/documents/'.$document->id.'/approve')
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.document_id.0', 'Cette pièce n’appartient pas au dossier de l’entrepreneur.');
+    }
+
+    public function test_the_list_filters_by_displayed_state_and_shows_plan_and_activity(): void
+    {
+        $this->submitIndependent();
+        Contractor::query()->create(['reference' => 'ENT-99998', 'kind' => 'entreprise', 'name' => 'Bâti Suspendu', 'verification_status' => 'valide', 'status' => 'suspendu']);
+        Contractor::query()->create(['reference' => 'ENT-99999', 'kind' => 'entreprise', 'name' => 'Ancienne entreprise', 'verification_status' => 'valide', 'rating_avg' => 4.5, 'rating_count' => 12]);
+
+        $this->asAdmin()->getJson('/api/v1/admin/contractors')
+            ->assertOk()
+            ->assertJsonPath('meta.states.verifie', 1)
+            ->assertJsonPath('meta.states.suspendu', 1)
+            ->assertJsonPath('meta.states.en_verification', 1)
+            ->assertJsonPath('meta.states.brouillon', 0)
+            ->assertJsonPath('meta.trades.0.code', 'electricien')
+            ->assertJsonPath('data.0.plan.name', 'Solo')
+            ->assertJsonPath('data.0.activity', ['open' => 0, 'total' => 0]);
+
+        $this->asAdmin()->getJson('/api/v1/admin/contractors?state=verifie')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.name', 'Ancienne entreprise')
+            ->assertJsonPath('data.0.rating', ['average' => 4.5, 'count' => 12]);
+
+        $this->asAdmin()->getJson('/api/v1/admin/contractors?state=suspendu')->assertJsonPath('meta.total', 1);
+        $this->asAdmin()->getJson('/api/v1/admin/contractors?state=suspendu,en_verification')->assertJsonPath('meta.total', 2);
+        $this->asAdmin()->getJson('/api/v1/admin/contractors?trade=electricien')->assertJsonPath('meta.total', 1);
+        $this->asAdmin()->getJson('/api/v1/admin/contractors?state=inconnu')->assertUnprocessable();
+    }
+
+    public function test_the_fiche_tabs_show_responses_and_history(): void
+    {
+        $this->submitIndependent();
+        $contractor = Contractor::query()->sole();
+        $document = Document::query()->sole();
+
+        $this->travel(1)->minutes();
+        $this->asAdmin()->postJson('/api/v1/admin/contractors/'.$contractor->id.'/documents/'.$document->id.'/approve')->assertOk();
+        $this->travel(1)->minutes();
+        $this->asAdmin()->postJson('/api/v1/admin/contractors/'.$contractor->id.'/approve')->assertOk();
+
+        $this->asAdmin()->getJson('/api/v1/admin/contractors/'.$contractor->id.'/history')
+            ->assertOk()
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('data.0.what', 'a vérifié le profil')
+            ->assertJsonPath('data.1.what', 'a confirmé une pièce')
+            ->assertJsonPath('data.2.what', 'a soumis son dossier')
+            ->assertJsonPath('data.2.kind.value', 'contractor');
+
+        $this->asAdmin()->getJson('/api/v1/admin/contractors/'.$contractor->id.'/responses')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
     }
 
     public function test_only_authorised_admins_decide(): void

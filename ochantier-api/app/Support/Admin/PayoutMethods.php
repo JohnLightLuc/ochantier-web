@@ -6,6 +6,7 @@ use App\Enums\PaymentMethodStatus;
 use App\Enums\PaymentMethodType;
 use App\Models\Admin;
 use App\Models\CommercialProfile;
+use App\Models\Contractor;
 use App\Models\PaymentMethod;
 use App\Models\PaymentOperator;
 use App\Models\Worker;
@@ -17,18 +18,19 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Numéro Mobile Money qui reçoit les reversements d’un ouvrier ou d’un commercial. Saisi au Back Office, il n’est
- * utilisable qu’une fois confirmé par une autre personne : c’est le point sensible d’un détournement de reversement.
+ * Numéro Mobile Money qui reçoit les reversements d’un ouvrier, d’un commercial ou d’un professionnel O’CHANTIER
+ * PRO. Saisi au Back Office, il n’est utilisable qu’une fois confirmé par une autre personne : c’est le point sensible
+ * d’un détournement de reversement.
  */
 class PayoutMethods
 {
     /**
      * @return array<string, mixed>
      */
-    public function overview(Worker|CommercialProfile $owner, Admin $admin): array
+    public function overview(Worker|CommercialProfile|Contractor $owner, Admin $admin): array
     {
         $methods = $this->methods($owner)->with('operator')->get();
-        $contact = $owner instanceof Worker ? $owner : $owner->user;
+        $contact = $owner instanceof CommercialProfile ? $owner->user : $owner;
 
         return [
             'current' => ($current = $methods->first(fn (PaymentMethod $method) => $method->is_default)) ? $this->row($current, $admin) : null,
@@ -44,7 +46,7 @@ class PayoutMethods
     public function pending(int $perPage): LengthAwarePaginator
     {
         return PaymentMethod::query()
-            ->whereIn('owner_type', [(new Worker)->getMorphClass(), (new CommercialProfile)->getMorphClass()])
+            ->whereIn('owner_type', [(new Worker)->getMorphClass(), (new CommercialProfile)->getMorphClass(), (new Contractor)->getMorphClass()])
             ->where('status', PaymentMethodStatus::Actif)
             ->whereNull('verified_at')
             ->with(['operator', 'owner'])
@@ -56,7 +58,7 @@ class PayoutMethods
     /**
      * Moyen confirmé qui reçoit les reversements, ou null.
      */
-    public function current(Worker|CommercialProfile $owner): ?PaymentMethod
+    public function current(Worker|CommercialProfile|Contractor $owner): ?PaymentMethod
     {
         return $this->methods($owner)->where('is_default', true)->whereNotNull('verified_at')->with('operator')->first();
     }
@@ -80,7 +82,7 @@ class PayoutMethods
         ];
     }
 
-    public function propose(Worker|CommercialProfile $owner, PaymentOperator $operator, PhoneNumber $phone, Admin $admin, Request $request): PaymentMethod
+    public function propose(Worker|CommercialProfile|Contractor $owner, PaymentOperator $operator, PhoneNumber $phone, Admin $admin, Request $request): PaymentMethod
     {
         return DB::transaction(function () use ($owner, $operator, $phone, $admin, $request): PaymentMethod {
             $owner::query()->whereKey($owner->getKey())->lockForUpdate()->first();
@@ -112,7 +114,7 @@ class PayoutMethods
         });
     }
 
-    public function approve(Worker|CommercialProfile $owner, PaymentMethod $method, Admin $admin, Request $request): void
+    public function approve(Worker|CommercialProfile|Contractor $owner, PaymentMethod $method, Admin $admin, Request $request): void
     {
         DB::transaction(function () use ($owner, $method, $admin, $request): void {
             $method = $this->pendingMethod($owner, $method, $admin);
@@ -124,7 +126,7 @@ class PayoutMethods
         });
     }
 
-    public function reject(Worker|CommercialProfile $owner, PaymentMethod $method, string $reason, Admin $admin, Request $request): void
+    public function reject(Worker|CommercialProfile|Contractor $owner, PaymentMethod $method, string $reason, Admin $admin, Request $request): void
     {
         DB::transaction(function () use ($owner, $method, $reason, $admin, $request): void {
             $method = $this->pendingMethod($owner, $method, $admin);
@@ -139,7 +141,7 @@ class PayoutMethods
     /**
      * @return Builder<PaymentMethod>
      */
-    private function methods(Worker|CommercialProfile $owner): Builder
+    private function methods(Worker|CommercialProfile|Contractor $owner): Builder
     {
         return PaymentMethod::query()
             ->where('owner_type', $owner->getMorphClass())
@@ -147,8 +149,12 @@ class PayoutMethods
             ->where('status', PaymentMethodStatus::Actif);
     }
 
-    private function holder(Worker|CommercialProfile $owner): string
+    private function holder(Worker|CommercialProfile|Contractor $owner): string
     {
+        if ($owner instanceof Contractor) {
+            return (string) ($owner->name ?: $owner->contact_name);
+        }
+
         $person = $owner instanceof Worker ? $owner : $owner->user;
 
         return trim($person->first_name.' '.$person->last_name);
@@ -157,7 +163,7 @@ class PayoutMethods
     /**
      * Seule une autre personne que l’auteur décide d’un numéro en attente.
      */
-    private function pendingMethod(Worker|CommercialProfile $owner, PaymentMethod $method, Admin $admin): PaymentMethod
+    private function pendingMethod(Worker|CommercialProfile|Contractor $owner, PaymentMethod $method, Admin $admin): PaymentMethod
     {
         $locked = $this->methods($owner)->whereKey($method->getKey())->whereNull('verified_at')->lockForUpdate()->first();
 

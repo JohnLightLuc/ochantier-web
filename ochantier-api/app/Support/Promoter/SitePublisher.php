@@ -67,6 +67,7 @@ class SitePublisher
                 'start_date' => $site->planned_start_date,
                 'end_date' => $site->planned_end_date,
                 'contract_total_amount' => $amount,
+                'commission_percent' => $contract ? app(ContractorOffers::class)->currentCommissionPercent() : null,
                 'quote_document_id' => $contract ? $this->drafts->quotes($site)->first()?->getKey() : null,
                 'payment_mode' => $mode,
                 'visibility' => OfferVisibility::Ciblee,

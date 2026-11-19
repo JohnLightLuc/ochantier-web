@@ -26,6 +26,9 @@ class TransactionListResource extends Resource
             'label' => $this->metadata['label'] ?? null,
             'site' => $this->site_key ? ['id' => $this->site_key, 'reference' => $this->site_reference, 'label' => $this->site_label] : null,
             'promoter' => ['name' => trim((string) $this->promoter_name)],
+            'payer' => $this->contractor_key
+                ? ['type' => 'contractor', 'id' => $this->contractor_key, 'name' => $this->contractor_name, 'label' => 'Professionnel']
+                : ['type' => 'promoter', 'id' => $this->payer_id, 'name' => trim((string) $this->promoter_name) ?: null, 'label' => 'Promoteur'],
             'operator' => $this->operator?->name,
             'amount' => $this->amount,
             'fees_amount' => $this->fees_amount,

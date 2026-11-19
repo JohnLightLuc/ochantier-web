@@ -61,6 +61,19 @@ class PaymentHolds
     }
 
     /**
+     * Un paiement est en cours sur l’élément : retenue encore valable, ou dont le paiement reste ouvert.
+     */
+    public function isHeld(string $type, string $id): bool
+    {
+        return DB::table('payment_holds')
+            ->where('target_type', $type)
+            ->where('target_id', $id)
+            ->where(fn ($query) => $query->where('expires_at', '>=', now())
+                ->orWhereExists(fn ($query) => $query->from('payment_transactions')->whereColumn('payment_transactions.id', 'payment_holds.transaction_id')->whereIn('payment_transactions.status', ['initiee', 'en_attente'])))
+            ->exists();
+    }
+
+    /**
      * Rattache les retenues de la demande à sa transaction, une fois celle-ci créée.
      */
     public function attach(string $holder, PaymentTransaction $transaction): void

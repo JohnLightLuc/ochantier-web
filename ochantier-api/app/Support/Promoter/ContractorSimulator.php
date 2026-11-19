@@ -7,7 +7,6 @@ use App\Enums\ContractorStatus;
 use App\Enums\ContractorVerificationStatus;
 use App\Enums\OfferStatus;
 use App\Enums\OfferType;
-use App\Enums\PricingVariable;
 use App\Models\Contractor;
 use App\Models\Offer;
 use App\Support\Pricing\PricingRules;
@@ -60,7 +59,7 @@ class ContractorSimulator
     public function bid(Offer $offer): int
     {
         $site = $offer->site;
-        $base = (int) round(($offer->contract_total_amount ?? 1000000) / (1 + $this->pricing->value(PricingVariable::Y) / 100));
+        $base = (int) round(($offer->contract_total_amount ?? 1000000) / (1 + app(ContractorOffers::class)->commissionPercent($offer) / 100));
         $days = max(1, (int) $site->planned_duration_days);
 
         $contractors = $this->contractors();

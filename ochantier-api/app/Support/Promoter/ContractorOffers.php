@@ -135,7 +135,24 @@ class ContractorOffers
      */
     public function conformingAmount(Offer $offer): int
     {
-        return (int) round((int) $offer->contract_total_amount / (1 + $this->pricing->value(PricingVariable::Y) / 100));
+        return (int) round((int) $offer->contract_total_amount / (1 + $this->commissionPercent($offer) / 100));
+    }
+
+    /**
+     * Commission O’CHANTIER de l’offre (%), figée à sa publication ; à défaut, le taux en vigueur.
+     */
+    public function commissionPercent(Offer $offer): float
+    {
+        return $offer->commission_percent ?? $this->currentCommissionPercent();
+    }
+
+    /**
+     * Commission en vigueur pour les nouvelles offres contractuelles (réglage contractor_offers.commission_percent,
+     * sinon Y).
+     */
+    public function currentCommissionPercent(): float
+    {
+        return (float) (Setting::query()->whereKey('contractor_offers.commission_percent')->value('value') ?? $this->pricing->value(PricingVariable::Y));
     }
 
     /**
@@ -147,10 +164,11 @@ class ContractorOffers
     public function bestBids(Offer $offer): Collection
     {
         $bids = $this->scored($offer);
-        $best = $bids->take(self::BEST_BIDS);
+        $shown = QuoteRequests::comparedOffers();
+        $best = $bids->take($shown);
         $chosen = $bids->firstWhere('status', ContractorBidStatus::Choisie);
 
-        return $chosen && ! $best->contains('id', $chosen->id) ? $best->take(self::BEST_BIDS - 1)->push($chosen) : $best;
+        return $chosen && ! $best->contains('id', $chosen->id) ? $best->take($shown - 1)->push($chosen) : $best;
     }
 
     /**
@@ -248,7 +266,7 @@ class ContractorOffers
      */
     public function prices(ContractorBid $bid): array
     {
-        return $this->pricing->breakdown($bid->amount);
+        return $this->pricing->breakdown($bid->amount, $this->commissionPercent($bid->offer));
     }
 
     /**
@@ -330,7 +348,7 @@ class ContractorOffers
             'schedules' => collect(),
             'lines' => [
                 ['label' => 'Offre de '.$bid->contractor->name.' ('.$bid->duration_days.' jours)', 'amount' => $prices['workers']],
-                ['label' => 'Commission O’CHANTIER '.$this->percent($this->pricing->value(PricingVariable::Y)), 'amount' => $prices['commission']],
+                ['label' => 'Commission O’CHANTIER '.$this->percent($this->commissionPercent($bid->offer)), 'amount' => $prices['commission']],
                 ['label' => 'Total du forfait', 'amount' => $prices['total']],
                 ['label' => 'Acompte '.$x, 'amount' => $prices['deposit']],
             ],
@@ -503,7 +521,7 @@ class ContractorOffers
             'offer_type' => OfferType::Contractuelle,
             'price_origin' => $bid->offer->price_origin,
             'x_rate' => $this->pricing->value(PricingVariable::X),
-            'y_rate' => $this->pricing->value(PricingVariable::Y),
+            'y_rate' => $this->commissionPercent($bid->offer),
             'z_rate' => 0,
             'r_rate' => $this->pricing->value(PricingVariable::R),
             'parameter_ids' => PricingParameter::query()->whereIn('code', ['X', 'Y', 'R'])->where('status', 'actif')->where('effective_from', '<=', now())->pluck('id')->all(),

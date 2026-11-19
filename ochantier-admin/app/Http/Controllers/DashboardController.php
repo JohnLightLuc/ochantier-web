@@ -36,6 +36,7 @@ class DashboardController extends Controller
             'siteDistribution' => $d['site_distribution'] ? $this->presenter->distribution($d['site_distribution']) : null,
             'matching' => $d['matching'] ? $this->presenter->matching($d['matching']) : null,
             'finance' => $d['finance'] ? $this->presenter->finance($d['finance']) : null,
+            'pro' => isset($d['pro']) ? $this->presenter->pro($d['pro']) : [],
             'feed' => array_map($this->presenter->feedEntry(...), $d['feed']),
             'updatedAt' => now()->format('H:i'),
         ]);

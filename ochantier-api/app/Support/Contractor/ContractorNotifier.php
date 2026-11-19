@@ -44,6 +44,7 @@ class ContractorNotifier
         'visit.reschedule_accepted' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Voir la mission'],
         'visit.reschedule_refused' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Voir la mission'],
         'quote.received' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir le devis'],
+        'quote.reminder' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir la mission'],
         'offer.chosen' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Voir mon offre'],
         'offer.attributed' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Ouvrir le chantier'],
         'offer.not_retained' => ['tab' => 'offres', 'alert' => null, 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir mon offre'],
@@ -58,6 +59,7 @@ class ContractorNotifier
         'subscription.expired' => ['tab' => 'compte', 'alert' => 'abonnement', 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Renouveler'],
         'team.joined' => ['tab' => 'compte', 'alert' => null, 'priority' => Priority::Basse, 'sms' => false, 'cta' => 'Voir mon équipe'],
         'payment.received' => ['tab' => 'paiements', 'alert' => 'paiements', 'priority' => Priority::Normale, 'sms' => true, 'cta' => 'Voir les paiements'],
+        'payout.paid' => ['tab' => 'paiements', 'alert' => 'paiements', 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Voir les paiements'],
     ];
 
     /**
@@ -92,6 +94,7 @@ class ContractorNotifier
         'proposal.not_retained' => 'offres_refusees',
         'offer.not_retained' => 'offres_refusees',
         'payment.received' => 'paiements',
+        'payout.paid' => 'paiements',
         'staffing.paid' => 'paiements',
         'visit.reschedule_accepted' => 'rendez_vous',
         'visit.reschedule_refused' => 'rendez_vous',
@@ -102,6 +105,7 @@ class ContractorNotifier
         'attendance.pending' => 'chantiers',
         'site.ended' => 'chantiers',
         'quote.received' => 'documents',
+        'quote.reminder' => 'rendez_vous',
         'profile.submitted' => 'documents',
         'account.approved' => 'documents',
         'account.corrections' => 'documents',
@@ -243,6 +247,35 @@ class ContractorNotifier
                 $site->label.' ('.$this->place($site).') : '.number_format((int) $offer->contract_total_amount, 0, ',', "\u{00A0}")."\u{00A0}FCFA. Répondez avant le ".$offer->application_deadline?->format('d/m/Y à H:i').'.',
                 ['type' => 'offer_opportunity', 'id' => $offer->id], $offer, 'opportunity.offer:'.$offer->id);
         }
+    }
+
+    /**
+     * Relance du Back Office sur une offre contractuelle : les professionnels concernés qui n’ont pas encore répondu
+     * sont prévenus de nouveau, une fois par jour. Renvoie le nombre de professionnels relancés.
+     *
+     * @param  list<string>  $tradeIds
+     */
+    public function remindContractOffer(Offer $offer, array $tradeIds = []): int
+    {
+        $offer->loadMissing('site.commune');
+        $site = $offer->site;
+        $responded = $offer->contractorBids()->where('status', '!=', 'brouillon')->pluck('contractor_id')->all();
+        $count = 0;
+
+        foreach ($this->candidates($site, $tradeIds)->reject(fn (Contractor $contractor) => in_array($contractor->getKey(), $responded, true)) as $contractor) {
+            $dedup = 'opportunity.offer.reminder:'.$offer->id.':'.now()->toDateString();
+
+            if (Notification::query()->where('dedup_key', $dedup.':'.$contractor->user_id)->exists()) {
+                continue;
+            }
+
+            $this->notify($contractor, 'opportunity.offer', 'Rappel · offre contractuelle',
+                $site->label.' ('.$this->place($site).') attend encore des réponses : '.number_format((int) $offer->contract_total_amount, 0, ',', "\u{00A0}")."\u{00A0}FCFA. Répondez avant le ".$offer->application_deadline?->format('d/m/Y à H:i').'.',
+                ['type' => 'offer_opportunity', 'id' => $offer->id], $offer, $dedup);
+            $count++;
+        }
+
+        return $count;
     }
 
     /**

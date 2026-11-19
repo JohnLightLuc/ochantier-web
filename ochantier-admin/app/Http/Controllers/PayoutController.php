@@ -33,6 +33,8 @@ class PayoutController extends Controller
 
     private const ADJUSTMENT_TONES = ['proposee' => 'a', 'approuvee' => 'g', 'refusee' => 'r', 'annulee' => 'n'];
 
+    private const CONTRACTOR_TONES = ['a_payer' => 'a', 'en_traitement' => 'b', 'paye' => 'g', 'rejete' => 'r', 'annule' => 'n'];
+
     private const TRANSACTION_TONES = ['initiee' => 'b', 'en_attente' => 'a', 'reussie' => 'g', 'echouee' => 'r', 'expiree' => 'n', 'annulee' => 'n'];
 
     private const COMMERCIAL_TONES = ['a_payer' => 'a', 'en_traitement' => 'b', 'paye' => 'g', 'rejete' => 'r', 'annule' => 'n'];
@@ -310,6 +312,97 @@ class PayoutController extends Controller
     public function cancelCommercial(Request $request, string $payout): RedirectResponse
     {
         return $this->act("commercial-payouts/{$payout}/cancel", ['reason' => $request->input('reason')]);
+    }
+
+    /**
+     * Professionnels O’CHANTIER PRO à payer (parts nettes dues après le service) et leurs versements.
+     */
+    public function contractorPayouts(Request $request): Response
+    {
+        $response = $this->api->get('contractor-payouts', array_filter(['status' => $request->query('statut'), 'page' => $request->query('page'), 'per_page' => self::PER_PAGE]));
+        $data = $response->json('data');
+        $meta = $response->json('meta');
+        $payable = $data['payable'];
+
+        return Inertia::render('Payments/ContractorPayouts', [
+            'payable' => $payable,
+            'payouts' => [
+                'data' => array_map(fn (array $p): array => $this->contractorRow($p), $data['payouts']),
+                'currentPage' => $meta['current_page'],
+                'lastPage' => $meta['last_page'],
+                'total' => $meta['total'],
+            ],
+            'filters' => array_filter(['statut' => $request->query('statut')]),
+            'kpis' => [
+                'ready' => array_sum(array_map(fn (array $r): int => $r['blockers'] === [] ? $r['total'] : 0, $payable)),
+                'blocked' => array_sum(array_map(fn (array $r): int => $r['blockers'] !== [] ? $r['total'] : 0, $payable)),
+                'contractors' => count($payable),
+            ],
+            'can' => $this->can($request),
+            'header' => $this->header('Professionnels à payer', 'Part nette des professionnels O’CHANTIER PRO : frais de visite après la visite, forfait au fil des échéances payées.', [['Paiements', '/paiements'], ['Professionnels à payer']]),
+        ]);
+    }
+
+    public function prepareContractor(Request $request): RedirectResponse
+    {
+        $response = $this->attempt(fn (): ApiResponse => $this->api->post('contractor-payouts', $request->only(['contractor_id'])));
+
+        return $response ? redirect("/paiements/professionnels/versements/{$response->json('data.id')}") : back();
+    }
+
+    public function contractorPayout(Request $request, string $payout): Response
+    {
+        $p = $this->api->get("contractor-payouts/{$payout}")->json('data');
+
+        return Inertia::render('Payments/ContractorPayout', [
+            'payout' => [
+                ...$this->contractorRow($p),
+                'method' => $p['method'],
+                'items' => $p['items'],
+                'transactions' => array_map(fn (array $t): array => [...$t, 'status' => $this->toned($t['status'], self::TRANSACTION_TONES), 'date' => $this->moment($t['completed_at'])], $p['transactions']),
+            ],
+            'can' => $this->can($request),
+            'header' => $this->header('Fiche du versement', '', [['Paiements', '/paiements'], ['Professionnels à payer', '/paiements/professionnels'], [$p['reference']]]),
+        ]);
+    }
+
+    public function approveContractor(string $payout): RedirectResponse
+    {
+        return $this->act("contractor-payouts/{$payout}/approve");
+    }
+
+    public function retryContractor(string $payout): RedirectResponse
+    {
+        return $this->act("contractor-payouts/{$payout}/retry");
+    }
+
+    public function cancelContractor(Request $request, string $payout): RedirectResponse
+    {
+        return $this->act("contractor-payouts/{$payout}/cancel", ['reason' => $request->input('reason')]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $p
+     * @return array<string, mixed>
+     */
+    private function contractorRow(array $p): array
+    {
+        return [
+            'id' => $p['id'],
+            'reference' => $p['reference'],
+            'contractor' => $p['contractor'],
+            'amount' => $p['total_amount'],
+            'itemsCount' => $p['items_count'],
+            'status' => $this->toned($p['status'], self::CONTRACTOR_TONES),
+            'preparedBy' => $p['prepared_by'],
+            'approvedBy' => $p['approved_by'],
+            'createdAt' => $this->moment($p['created_at']),
+            'paidAt' => $this->moment($p['paid_at']),
+            'cancellationReason' => $p['cancellation_reason'],
+            'canApprove' => $p['actions']['approve'],
+            'canRetry' => $p['actions']['retry'],
+            'canCancel' => $p['actions']['cancel'],
+        ];
     }
 
     /**

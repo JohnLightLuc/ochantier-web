@@ -43,6 +43,8 @@ class PlatformSettings
         'contractor_offers.response_hours' => ['Propositions', 'Délai de réponse à une offre contractuelle', 'int', 1, 720, 'h'],
         'staffing.service_fee_percent' => ['Propositions', 'Frais de service des recherches d’effectifs (entrepreneurs)', 'int', 0, 50, '%'],
         'quotes.service_fee_percent' => ['Propositions', 'Frais de service sur les propositions de devis', 'int', 0, 50, '%'],
+        'contractor_offers.commission_percent' => ['Propositions', 'Commission O’CHANTIER sur les offres contractuelles (figée à la publication)', 'int', 0, 50, '%'],
+        'pro.compared_offers' => ['Propositions', 'Offres de professionnels montrées au promoteur', 'int', 1, 10, 'offres'],
         'matching.profiles_shown' => ['Matching', 'Profils proposés par besoin', 'int', 1, 50, 'profils'],
         'matching.obsolete_after_days' => ['Matching', 'Ancienneté d’un résultat avant recalcul', 'int', 1, 60, 'jours'],
         'attendance.late_tolerance_minutes' => ['Pointage', 'Tolérance de retard', 'int', 0, 240, 'min'],

@@ -77,6 +77,34 @@ class DashboardTest extends TestCase
                 ->where('notifications.0.href', '/avis-litiges/litiges'));
     }
 
+    public function test_the_pro_block_and_queues_are_shown_and_unknown_queues_ignored(): void
+    {
+        $this->signIn();
+        Http::fake([
+            self::API.'/dashboard?*' => Http::response(['data' => [...$this->dashboard(),
+                'priorities' => [['key' => 'contractors', 'count' => 2, 'priority' => 'Élevé'], ['key' => 'cle_future', 'count' => 9, 'priority' => 'Urgent']],
+                'pro' => [
+                    'contractors' => ['verified' => 12, 'to_review' => 2],
+                    'contract_offers' => ['open' => 3, 'comparing' => 2, 'deposit' => 1, 'attributed' => 4],
+                    'payouts' => ['contractors' => 1, 'amount' => 25000],
+                ],
+            ]]),
+            self::API.'/dashboard/badges' => Http::response(['data' => ['badges' => ['entrepreneurs' => 2, 'offres-contractuelles' => 1], 'priorities' => [['key' => 'contract_deposits', 'count' => 1, 'priority' => 'Élevé'], ['key' => 'cle_future', 'count' => 9, 'priority' => 'Urgent']]]]),
+        ]);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('priorities.totalAll', 2)
+                ->where('priorities.items.0.href', '/entrepreneurs?onglet=a-verifier')
+                ->has('pro', 3)
+                ->where('pro.0', ['label' => 'Professionnels vérifiés', 'value' => '12', 'hint' => '2 dossier(s) à vérifier', 'icon' => 'handyman', 'tone' => 'g', 'href' => '/entrepreneurs?onglet=a-verifier', 'highlight' => true])
+                ->where('pro.1.href', '/offres-contractuelles?onglet=acompte')
+                ->where('pro.2.value', '25 000 FCFA')
+                ->where('navigation', fn ($navigation) => collect($navigation)->firstWhere('key', 'entrepreneurs')['badge'] === 2)
+                ->where('notifications', fn ($notifications) => count($notifications) === 1 && $notifications[0]['href'] === '/offres-contractuelles?onglet=acompte'));
+    }
+
     public function test_ranges_are_passed_and_unknown_ones_fall_back(): void
     {
         $this->signIn();

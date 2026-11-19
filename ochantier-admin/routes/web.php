@@ -11,6 +11,10 @@ use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\ClaimController;
 use App\Http\Controllers\ClosingController;
+use App\Http\Controllers\ContractOfferController;
+use App\Http\Controllers\ContractOfferDecisionController;
+use App\Http\Controllers\ContractorController;
+use App\Http\Controllers\ContractorReviewController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisputeController;
 use App\Http\Controllers\FinanceController;
@@ -22,6 +26,9 @@ use App\Http\Controllers\PayoutController;
 use App\Http\Controllers\PromoterController;
 use App\Http\Controllers\PromoterFormController;
 use App\Http\Controllers\PromoterReviewController;
+use App\Http\Controllers\ProRulesController;
+use App\Http\Controllers\QuoteRequestController;
+use App\Http\Controllers\QuoteRequestDecisionController;
 use App\Http\Controllers\RatingController;
 use App\Http\Controllers\ReconciliationController;
 use App\Http\Controllers\RefundController;
@@ -190,6 +197,50 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::get('/{site}/{rest?}', [SiteController::class, 'legacy'])->where('rest', '.*')->name('legacy');
     });
 
+    // Entrepreneurs / Techniciens (O’CHANTIER PRO) : données de l’API (api/v1/admin/contractors). Liste, fiche,
+    // contrôle du dossier KYB/KYC et de chaque pièce, suspension.
+    Route::prefix('entrepreneurs')->name('contractors.')->group(function () {
+        Route::get('/', [ContractorController::class, 'index'])->name('index');
+        Route::post('/regles', [ProRulesController::class, 'update'])->name('rules');
+
+        Route::prefix('{contractor}')->whereUuid('contractor')->group(function () {
+            Route::post('/validation', [ContractorReviewController::class, 'approve'])->name('validate');
+            Route::post('/complement', [ContractorReviewController::class, 'requestCorrections'])->name('corrections');
+            Route::post('/rejet', [ContractorReviewController::class, 'reject'])->name('reject');
+            Route::post('/suspension', [ContractorReviewController::class, 'suspend'])->name('suspend');
+            Route::delete('/suspension', [ContractorReviewController::class, 'reactivate'])->name('reactivate');
+            Route::post('/pieces/{document}/confirmation', [ContractorReviewController::class, 'approveDocument'])->whereUuid('document')->name('documents.approve');
+            Route::post('/pieces/{document}/rejet', [ContractorReviewController::class, 'rejectDocument'])->whereUuid('document')->name('documents.reject');
+            Route::get('/{tab?}', [ContractorController::class, 'show'])->where('tab', 'pieces|reponses|versements|historique')->name('show');
+        });
+    });
+
+    // Demandes de devis (O’CHANTIER PRO) : données de l’API (api/v1/admin/quote-requests). Une ligne par métier,
+    // fiche, prolongation, annulation et relances.
+    Route::prefix('demandes-devis')->name('quotes.')->group(function () {
+        Route::get('/', [QuoteRequestController::class, 'index'])->name('index');
+
+        Route::prefix('{quote}')->whereUuid('quote')->group(function () {
+            Route::get('/', [QuoteRequestController::class, 'show'])->name('show');
+            Route::post('/prolongation', [QuoteRequestDecisionController::class, 'extend'])->name('extend');
+            Route::post('/annulation', [QuoteRequestDecisionController::class, 'cancel'])->name('cancel');
+            Route::post('/relance', [QuoteRequestDecisionController::class, 'remind'])->name('remind');
+        });
+    });
+
+    // Offres contractuelles (O’CHANTIER PRO) : données de l’API (api/v1/admin/contract-offers). Liste, fiche,
+    // prolongation, relances et annulation avant l’acompte.
+    Route::prefix('offres-contractuelles')->name('contract-offers.')->group(function () {
+        Route::get('/', [ContractOfferController::class, 'index'])->name('index');
+
+        Route::prefix('{offer}')->whereUuid('offer')->group(function () {
+            Route::get('/', [ContractOfferController::class, 'show'])->name('show');
+            Route::post('/prolongation', [ContractOfferDecisionController::class, 'extend'])->name('extend');
+            Route::post('/annulation', [ContractOfferDecisionController::class, 'cancel'])->name('cancel');
+            Route::post('/relance', [ContractOfferDecisionController::class, 'remind'])->name('remind');
+        });
+    });
+
     // Besoins : données de l’API (api/v1/admin/offers). Liste, fiche, onglets et décisions.
     Route::prefix('besoins')->name('needs.')->group(function () {
         Route::get('/', [NeedController::class, 'index'])->name('index');
@@ -279,7 +330,14 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::post('/commerciaux/versements/{payout}/renvoi', 'retryCommercial')->whereUuid('payout')->name('commercials.retry');
         Route::post('/commerciaux/versements/{payout}/annulation', 'cancelCommercial')->whereUuid('payout')->name('commercials.cancel');
 
-        foreach (['ouvriers' => 'workers', 'commerciaux' => 'commercials'] as $segment => $owner) {
+        Route::get('/professionnels', 'contractorPayouts')->name('contractors.index');
+        Route::post('/professionnels/versements', 'prepareContractor')->name('contractors.prepare');
+        Route::get('/professionnels/versements/{payout}', 'contractorPayout')->whereUuid('payout')->name('contractors.show');
+        Route::post('/professionnels/versements/{payout}/validation', 'approveContractor')->whereUuid('payout')->name('contractors.approve');
+        Route::post('/professionnels/versements/{payout}/renvoi', 'retryContractor')->whereUuid('payout')->name('contractors.retry');
+        Route::post('/professionnels/versements/{payout}/annulation', 'cancelContractor')->whereUuid('payout')->name('contractors.cancel');
+
+        foreach (['ouvriers' => 'workers', 'commerciaux' => 'commercials', 'professionnels' => 'contractors'] as $segment => $owner) {
             Route::post("/{$segment}/{id}/numero", 'storeMethod')->whereUuid('id')->defaults('owner', $owner)->name("methods.{$owner}.store");
             Route::post("/{$segment}/{id}/numero/{method}/confirmation", 'approveMethod')->whereUuid(['id', 'method'])->defaults('owner', $owner)->name("methods.{$owner}.approve");
             Route::post("/{$segment}/{id}/numero/{method}/refus", 'rejectMethod')->whereUuid(['id', 'method'])->defaults('owner', $owner)->name("methods.{$owner}.reject");

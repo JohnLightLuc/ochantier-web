@@ -13,10 +13,11 @@ const LINKS: [string, string, string, Right][] = [
     ['/paiements/lots', 'Lots', 'inventory_2', 'payouts'],
     ['/paiements/commerciaux', 'Commerciaux à payer', 'badge', 'commercials'],
     ['/paiements/commerciaux/versements', 'Versements aux commerciaux', 'receipt_long', 'commercials'],
+    ['/paiements/professionnels', 'Professionnels à payer', 'handyman', 'payouts'],
     ['/paiements/numeros', 'Numéros à confirmer', 'phone_iphone', 'payouts'],
 ];
 
-/** Accès aux écrans du module Paiements ; reversements et commerciaux demandent chacun leur droit. */
+/** Accès aux écrans du module Paiements ; reversements (ouvriers et professionnels) et commerciaux demandent chacun leur droit. */
 export default function PaymentNav({ current, can }: { current: string; can: { payouts: boolean; commercials: boolean } }) {
     return (
         <>
