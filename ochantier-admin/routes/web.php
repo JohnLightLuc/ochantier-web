@@ -24,6 +24,8 @@ use App\Http\Controllers\PayoutController;
 use App\Http\Controllers\PromoterController;
 use App\Http\Controllers\PromoterFormController;
 use App\Http\Controllers\PromoterReviewController;
+use App\Http\Controllers\QuoteRequestController;
+use App\Http\Controllers\QuoteRequestDecisionController;
 use App\Http\Controllers\RatingController;
 use App\Http\Controllers\ReconciliationController;
 use App\Http\Controllers\RefundController;
@@ -206,6 +208,19 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::post('/pieces/{document}/confirmation', [ContractorReviewController::class, 'approveDocument'])->whereUuid('document')->name('documents.approve');
             Route::post('/pieces/{document}/rejet', [ContractorReviewController::class, 'rejectDocument'])->whereUuid('document')->name('documents.reject');
             Route::get('/{tab?}', [ContractorController::class, 'show'])->where('tab', 'pieces|reponses|historique')->name('show');
+        });
+    });
+
+    // Demandes de devis (O’CHANTIER PRO) : données de l’API (api/v1/admin/quote-requests). Une ligne par métier,
+    // fiche, prolongation, annulation et relances.
+    Route::prefix('demandes-devis')->name('quotes.')->group(function () {
+        Route::get('/', [QuoteRequestController::class, 'index'])->name('index');
+
+        Route::prefix('{quote}')->whereUuid('quote')->group(function () {
+            Route::get('/', [QuoteRequestController::class, 'show'])->name('show');
+            Route::post('/prolongation', [QuoteRequestDecisionController::class, 'extend'])->name('extend');
+            Route::post('/annulation', [QuoteRequestDecisionController::class, 'cancel'])->name('cancel');
+            Route::post('/relance', [QuoteRequestDecisionController::class, 'remind'])->name('remind');
         });
     });
 
