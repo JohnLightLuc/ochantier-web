@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models;
 use App\Support\Auth\AdminAuthenticator;
 use App\Support\Auth\JwtAuthenticator;
+use App\Support\Payments\JekoPaymentGateway;
 use App\Support\Payments\PaymentGateway;
 use App\Support\Payments\SimulatedPaymentGateway;
 use App\Support\PhoneNumber;
@@ -46,6 +47,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->app->bind(PaymentGateway::class, fn () => match (true) {
+            config('services.payments.driver') === 'jeko' => JekoPaymentGateway::fromConfig(),
             $this->app->isProduction() => throw new RuntimeException('Aucun prestataire de paiement configuré pour la production (PAYMENT_DRIVER).'),
             default => new SimulatedPaymentGateway,
         });
