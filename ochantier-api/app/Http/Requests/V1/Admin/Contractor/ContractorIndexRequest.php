@@ -16,6 +16,16 @@ use Illuminate\Validation\Rule;
 class ContractorIndexRequest extends FormRequest
 {
     /**
+     * Plusieurs états séparés par des virgules (« rejete,suspendu ») pour un onglet qui en regroupe plusieurs.
+     */
+    protected function prepareForValidation(): void
+    {
+        if (is_string($this->input('state'))) {
+            $this->merge(['state' => array_values(array_filter(explode(',', $this->input('state'))))]);
+        }
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function rules(): array
@@ -25,7 +35,8 @@ class ContractorIndexRequest extends FormRequest
             'verification_status' => ['nullable', Rule::enum(ContractorVerificationStatus::class)],
             'kind' => ['nullable', Rule::enum(ContractorKind::class)],
             'status' => ['nullable', Rule::enum(ContractorStatus::class)],
-            'state' => ['nullable', Rule::in(ContractorController::STATES)],
+            'state' => ['nullable', 'array'],
+            'state.*' => [Rule::in(ContractorController::STATES)],
             'trade' => ['nullable', 'string', 'max:50'],
             'zone_city_id' => ['nullable', 'uuid'],
             'per_page' => ['nullable', 'integer', 'between:1,100'],

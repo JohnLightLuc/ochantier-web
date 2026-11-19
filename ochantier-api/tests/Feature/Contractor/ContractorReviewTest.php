@@ -56,6 +56,8 @@ class ContractorReviewTest extends ContractorTestCase
             ->assertJsonPath('data.account.phone', '+225 07 12 34 56 78')
             ->assertJsonPath('data.reviews.0.submission_number', 1)
             ->assertJsonPath('data.actions.approve', true)
+            ->assertJsonPath('data.plan.name', 'Solo')
+            ->assertJsonPath('data.rating', ['average' => null, 'count' => 0])
             ->assertJsonCount(1, 'data.documents');
     }
 
@@ -248,6 +250,7 @@ class ContractorReviewTest extends ContractorTestCase
             ->assertJsonPath('meta.states.suspendu', 1)
             ->assertJsonPath('meta.states.en_verification', 1)
             ->assertJsonPath('meta.states.brouillon', 0)
+            ->assertJsonPath('meta.trades.0.code', 'electricien')
             ->assertJsonPath('data.0.plan.name', 'Solo')
             ->assertJsonPath('data.0.activity', ['open' => 0, 'total' => 0]);
 
@@ -258,6 +261,7 @@ class ContractorReviewTest extends ContractorTestCase
             ->assertJsonPath('data.0.rating', ['average' => 4.5, 'count' => 12]);
 
         $this->asAdmin()->getJson('/api/v1/admin/contractors?state=suspendu')->assertJsonPath('meta.total', 1);
+        $this->asAdmin()->getJson('/api/v1/admin/contractors?state=suspendu,en_verification')->assertJsonPath('meta.total', 2);
         $this->asAdmin()->getJson('/api/v1/admin/contractors?trade=electricien')->assertJsonPath('meta.total', 1);
         $this->asAdmin()->getJson('/api/v1/admin/contractors?state=inconnu')->assertUnprocessable();
     }

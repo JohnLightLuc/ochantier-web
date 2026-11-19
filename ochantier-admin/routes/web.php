@@ -11,6 +11,8 @@ use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\ClaimController;
 use App\Http\Controllers\ClosingController;
+use App\Http\Controllers\ContractorController;
+use App\Http\Controllers\ContractorReviewController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisputeController;
 use App\Http\Controllers\FinanceController;
@@ -188,6 +190,23 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         });
 
         Route::get('/{site}/{rest?}', [SiteController::class, 'legacy'])->where('rest', '.*')->name('legacy');
+    });
+
+    // Entrepreneurs / Techniciens (O’CHANTIER PRO) : données de l’API (api/v1/admin/contractors). Liste, fiche,
+    // contrôle du dossier KYB/KYC et de chaque pièce, suspension.
+    Route::prefix('entrepreneurs')->name('contractors.')->group(function () {
+        Route::get('/', [ContractorController::class, 'index'])->name('index');
+
+        Route::prefix('{contractor}')->whereUuid('contractor')->group(function () {
+            Route::post('/validation', [ContractorReviewController::class, 'approve'])->name('validate');
+            Route::post('/complement', [ContractorReviewController::class, 'requestCorrections'])->name('corrections');
+            Route::post('/rejet', [ContractorReviewController::class, 'reject'])->name('reject');
+            Route::post('/suspension', [ContractorReviewController::class, 'suspend'])->name('suspend');
+            Route::delete('/suspension', [ContractorReviewController::class, 'reactivate'])->name('reactivate');
+            Route::post('/pieces/{document}/confirmation', [ContractorReviewController::class, 'approveDocument'])->whereUuid('document')->name('documents.approve');
+            Route::post('/pieces/{document}/rejet', [ContractorReviewController::class, 'rejectDocument'])->whereUuid('document')->name('documents.reject');
+            Route::get('/{tab?}', [ContractorController::class, 'show'])->where('tab', 'pieces|reponses|historique')->name('show');
+        });
     });
 
     // Besoins : données de l’API (api/v1/admin/offers). Liste, fiche, onglets et décisions.

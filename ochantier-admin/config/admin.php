@@ -18,6 +18,7 @@ return [
         ['key' => 'ouvriers', 'label' => 'Ouvriers', 'icon' => 'group', 'path' => '/ouvriers', 'title' => 'Ouvriers', 'subtitle' => 'Gérez les profils, les vérifications et les disponibilités'],
         ['key' => 'commerciaux', 'label' => 'Commerciaux', 'icon' => 'trending_up', 'path' => '/commerciaux', 'title' => 'Commerciaux', 'subtitle' => 'Suivez les commerciaux terrain et leurs recrutements'],
         ['key' => 'chantiers', 'label' => 'Chantiers', 'icon' => 'construction', 'path' => '/chantiers', 'title' => 'Chantiers', 'subtitle' => 'Suivez l’avancement et les effectifs des chantiers'],
+        ['key' => 'entrepreneurs', 'label' => 'Entrepreneurs / Techniciens', 'icon' => 'handyman', 'path' => '/entrepreneurs', 'title' => 'Entrepreneurs / Techniciens', 'subtitle' => 'Vérifiez les dossiers KYB/KYC et suivez l’activité des professionnels O’CHANTIER PRO'],
         ['key' => 'besoins', 'label' => 'Besoins', 'icon' => 'assignment', 'path' => '/besoins', 'title' => 'Besoins & offres', 'subtitle' => 'Pilotez les besoins en main-d’œuvre et les offres publiées'],
         ['key' => 'matching', 'label' => 'Matching', 'icon' => 'join_inner', 'path' => '/matching', 'title' => 'Matching intelligent', 'subtitle' => 'Identifiez les ouvriers les plus adaptés à chaque besoin'],
         ['key' => 'affectations', 'label' => 'Affectations & Offres', 'icon' => 'event_available', 'path' => '/affectations', 'title' => 'Affectations & offres', 'subtitle' => 'Validez les affectations et suivez les remplacements'],

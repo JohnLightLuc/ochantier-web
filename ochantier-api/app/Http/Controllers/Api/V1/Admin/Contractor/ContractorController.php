@@ -7,13 +7,16 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Admin\Contractor\ContractorIndexRequest;
 use App\Http\Resources\V1\Admin\ContractorDetailResource;
 use App\Http\Resources\V1\Admin\ContractorListResource;
+use App\Models\City;
 use App\Models\Contractor;
+use App\Models\Trade;
 use App\Support\ApiResponse;
 use App\Support\Contractor\ContractorAccount;
 use App\Support\Contractor\ContractorSubscriptions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Entrepreneurs et techniciens du Back Office : liste filtrée (dossiers à vérifier en premier) et fiche.
@@ -35,7 +38,8 @@ class ContractorController extends Controller
     public function __construct(private ContractorSubscriptions $subscriptions) {}
 
     /**
-     * Liste paginée. meta : pagination et nombre de dossiers par statut de vérification.
+     * Liste paginée. meta : pagination, nombre de dossiers par statut de vérification et par état affiché, métiers et
+     * zones proposés dans les filtres.
      */
     public function index(ContractorIndexRequest $request): JsonResponse
     {
@@ -58,7 +62,7 @@ class ContractorController extends Controller
             ->when($filters['verification_status'] ?? null, fn ($query, string $status) => $query->where('verification_status', $status))
             ->when($filters['kind'] ?? null, fn ($query, string $kind) => $query->where('kind', $kind))
             ->when($filters['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
-            ->when($filters['state'] ?? null, fn ($query, string $state) => $query->whereRaw(self::STATE_SQL.' = ?', [$state]))
+            ->when($filters['state'] ?? [], fn ($query, array $states) => $query->whereRaw(self::STATE_SQL.' IN ('.implode(',', array_fill(0, count($states), '?')).')', $states))
             ->when($filters['trade'] ?? null, fn ($query, string $trade) => $query->whereHas('trades', fn (Builder $query) => $query->where('code', $trade)))
             ->when($filters['zone_city_id'] ?? null, fn ($query, string $city) => $query->whereHas('zones', fn (Builder $query) => $query->whereKey($city)))
             ->orderByRaw("CASE WHEN verification_status IN ('soumis','en_controle') THEN 0 ELSE 1 END")
@@ -80,6 +84,8 @@ class ContractorController extends Controller
             'total' => $contractors->total(),
             'counts' => collect(ContractorVerificationStatus::cases())->mapWithKeys(fn (ContractorVerificationStatus $status) => [$status->value => (int) ($counts[$status->value] ?? 0)]),
             'states' => collect(self::STATES)->mapWithKeys(fn (string $state) => [$state => (int) ($states[$state] ?? 0)]),
+            'trades' => Trade::query()->where('is_active', true)->whereIn('id', DB::table('contractor_trades')->select('trade_id'))->orderBy('sort_order')->orderBy('label')->get(['code', 'label']),
+            'zones' => City::query()->whereIn('id', DB::table('contractor_zones')->select('city_id'))->orderBy('name')->get(['id', 'name']),
         ]);
     }
 

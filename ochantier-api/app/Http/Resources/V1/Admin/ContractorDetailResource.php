@@ -5,12 +5,13 @@ namespace App\Http\Resources\V1\Admin;
 use App\Http\Resources\V1\Contractor\ContractorProfileResource;
 use App\Models\Contractor;
 use App\Models\VerificationReview;
+use App\Support\Contractor\ContractorSubscriptions;
 use App\Support\PhoneNumber;
 use Illuminate\Http\Request;
 
 /**
- * Fiche d’un entrepreneur dans le Back Office : dossier complet (comme dans l’application), compte, historique des
- * demandes de vérification et décisions possibles.
+ * Fiche d’un entrepreneur dans le Back Office : dossier complet (comme dans l’application), compte, formule et
+ * réputation, historique des demandes de vérification et décisions possibles.
  *
  * @mixin Contractor
  */
@@ -36,6 +37,15 @@ class ContractorDetailResource extends ContractorProfileResource
                 'last_login_at' => $user->last_login_at?->toIso8601String(),
                 'created_at' => $user->created_at?->toIso8601String(),
             ] : null,
+            'plan' => ($subscription = app(ContractorSubscriptions::class)->current($this->resource)) ? [
+                'code' => $subscription->plan->code,
+                'name' => $subscription->plan->name,
+                'max_users' => $subscription->plan->max_users,
+                'status' => $this->status($subscription->status),
+                'current_period_end' => $this->date($subscription->current_period_end),
+            ] : ['code' => ContractorSubscriptions::FREE_PLAN, 'name' => 'Solo', 'max_users' => 1, 'status' => null, 'current_period_end' => null],
+            'rating' => ['average' => $this->rating_avg !== null ? (float) $this->rating_avg : null, 'count' => $this->rating_count],
+            'completed_sites_count' => (int) $this->completed_sites_count,
             'reviews' => $this->verificationReviews->sortByDesc('submission_number')->map(fn (VerificationReview $review) => [
                 'id' => $review->id,
                 'submission_number' => $review->submission_number,
