@@ -5153,6 +5153,55 @@
       "description": "Offres contractuelles O’CHANTIER PRO : réponses des professionnels, choix du promoteur, acompte X et attribution."
     },
     {
+      "id": "2f96b89d-9b4b-5278-b8cc-5dfae4705fa0",
+      "name": "Commissions PRO",
+      "item": [
+        {
+          "id": "9c546a8e-03d0-582c-a87e-24e6cd51b3e2",
+          "name": "Registre des commissions PRO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/pro-commissions?status=collectee",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "pro-commissions"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "collectee"
+                }
+              ]
+            },
+            "description": "Une ligne par encaissement O’CHANTIER PRO portant une commission : frais de service d’une proposition de devis commandée (`demande_devis`), part de commission de l’acompte et de chaque échéance d’un forfait (`offre_contractuelle`, au taux figé de la mission ; la dernière échéance reçoit l’arrondi), frais de service d’une recherche d’effectifs (`recherche_effectifs`, payés par le professionnel).\n\n| Paramètre | Description |\n|---|---|\n| `source` | demande_devis, offre_contractuelle, recherche_effectifs. |\n| `status` | a_collecter, collectee, remboursee. |\n| `contractor_id` | Professionnel. |\n| `search` | Référence, chantier, professionnel ou payeur. |\n| `from`, `to` | Période (date de paiement, ou d’échéance pour ce qui reste à collecter). |\n| `per_page`, `page` | Pagination (20 par défaut). |\n\nChaque ligne : `source`, `reference`, `label`, `opportunity` (type et id pour ouvrir la fiche), `site`, `contractor`, `payer`, `base` (montant encaissé), `rate`, `commission`, `professional_net` (part à reverser au professionnel, sans objet pour une recherche d’effectifs), `status`, `date`, `payment_reference`.\n\n`meta.totals` : commission par statut, collectée et à collecter par source, montant encaissé et part nette des professionnels (lignes collectées).\n\nPermission : `finance.read`."
+          },
+          "response": []
+        }
+      ],
+      "description": "Registre des commissions et frais de service O’CHANTIER PRO."
+    },
+    {
       "id": "ae835b7e-91b3-5d50-a43d-6b2be4d6ba7d",
       "name": "Accords des ouvriers",
       "description": "Équipes des entrepreneurs : affectations directes en attente de la réponse de l’ouvrier.",

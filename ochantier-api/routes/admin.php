@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\Admin\Dashboard\DashboardController;
 use App\Http\Controllers\Api\V1\Admin\Dispute\DisputeController;
 use App\Http\Controllers\Api\V1\Admin\Finance\ClosingController;
 use App\Http\Controllers\Api\V1\Admin\Finance\FinanceController;
+use App\Http\Controllers\Api\V1\Admin\Finance\ProCommissionController;
 use App\Http\Controllers\Api\V1\Admin\Finance\ReconciliationController;
 use App\Http\Controllers\Api\V1\Admin\Matching\MatchingController;
 use App\Http\Controllers\Api\V1\Admin\Notification\NotificationController as AdminNotificationController;
@@ -332,6 +333,9 @@ Route::middleware('auth:admin')->group(function () {
             Route::get('commissions', 'commissions')->middleware('admin.can:finance.read')->name('commissions');
             Route::get('commissions/export', 'export')->middleware('admin.can:finance.export')->name('commissions.export');
         });
+
+        // Registre des commissions O’CHANTIER PRO (devis, offres contractuelles, recherches d’effectifs).
+        Route::get('pro-commissions', [ProCommissionController::class, 'index'])->middleware('admin.can:finance.read')->name('pro-commissions.index');
 
         // Clôtures mensuelles : une personne prépare, une autre clôture ; rouvrir (finance.validate) revient à la Direction.
         Route::prefix('finance/closings')->name('finance.closings.')->controller(ClosingController::class)->group(function () {
