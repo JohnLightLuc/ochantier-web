@@ -7,6 +7,7 @@ use App\Models\Admin;
 use App\Models\Notification;
 use App\Models\QuoteRequestTrade;
 use App\Support\Contractor\ContractorNotifier;
+use App\Support\Payments\PaymentHolds;
 use App\Support\Promoter\PromoterNotifier;
 use App\Support\Promoter\QuoteRequests;
 use Carbon\CarbonInterface;
@@ -28,7 +29,7 @@ class QuoteRequestOperations
         'contractor' => ['visite_programmee', 'devis_en_preparation'],
     ];
 
-    public function __construct(private QuoteRequestDirectory $directory, private QuoteRequests $quotes, private PromoterNotifier $promoters, private ContractorNotifier $contractors) {}
+    public function __construct(private QuoteRequestDirectory $directory, private QuoteRequests $quotes, private PromoterNotifier $promoters, private ContractorNotifier $contractors, private PaymentHolds $holds) {}
 
     /**
      * Repousse la date limite de réponse d’une demande encore en recherche, même si elle a expiré : les
@@ -58,6 +59,10 @@ class QuoteRequestOperations
 
         if ($quoteRequest->status !== QuoteRequestStatus::Recherche) {
             throw ValidationException::withMessages(['quote_request' => 'Une demande déjà commandée (visite payée) ne peut plus être annulée.']);
+        }
+
+        if ($this->holds->isHeld('quote_request', $quoteRequest->getKey())) {
+            throw ValidationException::withMessages(['quote_request' => 'Le promoteur est en train de payer la commande : réessayez dans quelques minutes.']);
         }
 
         $site = $quoteRequest->site;

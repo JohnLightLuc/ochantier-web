@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialPortfolioController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialRankingController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialTerritoryController;
+use App\Http\Controllers\Api\V1\Admin\ContractOffer\ContractOfferController;
 use App\Http\Controllers\Api\V1\Admin\Contractor\ContractorController;
 use App\Http\Controllers\Api\V1\Admin\Contractor\ContractorRelationController;
 use App\Http\Controllers\Api\V1\Admin\Contractor\ContractorReviewController;
@@ -142,6 +143,18 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('documents/{document}/reject', [ContractorReviewController::class, 'rejectDocument'])->whereUuid('document')->middleware('admin.can:documents.validate')->name('documents.reject');
                 Route::post('suspension', [ContractorReviewController::class, 'suspend'])->middleware('admin.can:contractors.update')->name('suspend');
                 Route::delete('suspension', [ContractorReviewController::class, 'reactivate'])->middleware('admin.can:contractors.update')->name('reactivate');
+            });
+        });
+
+        // Offres contractuelles (O’CHANTIER PRO) : liste, fiche, prolongation, annulation avant l’acompte et relances.
+        Route::prefix('contract-offers')->name('contract-offers.')->controller(ContractOfferController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:offers.read')->name('index');
+
+            Route::prefix('{offer}')->whereUuid('offer')->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:offers.read')->name('show');
+                Route::post('extension', 'extend')->middleware('admin.can:offers.update')->name('extend');
+                Route::post('cancellation', 'cancel')->middleware('admin.can:offers.validate')->name('cancel');
+                Route::post('reminders', 'remind')->middleware('admin.can:offers.update')->name('remind');
             });
         });
 

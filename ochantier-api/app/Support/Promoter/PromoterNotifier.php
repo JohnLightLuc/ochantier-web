@@ -73,6 +73,7 @@ class PromoterNotifier
         'offer.suspended' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'sites.view', 'priority' => Priority::Haute, 'sms' => false],
         'offer.resumed' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'sites.view', 'priority' => Priority::Normale, 'sms' => false],
         'offer.cancelled' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'sites.view', 'priority' => Priority::Haute, 'sms' => false],
+        'offer.reminder' => ['tab' => 'offres', 'alert' => 'offres', 'ability' => 'proposals.decide', 'priority' => Priority::Normale, 'sms' => false],
         'site.incident' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'sites.view', 'priority' => Priority::Haute, 'sms' => false],
         'site.incident_resolved' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'sites.view', 'priority' => Priority::Normale, 'sms' => false],
         'report.available' => ['tab' => 'chantiers', 'alert' => null, 'ability' => 'reports.view', 'priority' => Priority::Normale, 'sms' => false],

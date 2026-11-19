@@ -24,7 +24,7 @@ class OfferIndexRequest extends FormRequest
             'trade_id' => ['nullable', 'uuid'],
             'commune_id' => ['nullable', 'uuid'],
             'site_id' => ['nullable', 'uuid'],
-            'offer_type' => ['nullable', Rule::enum(OfferType::class)],
+            'offer_type' => ['nullable', Rule::enum(OfferType::class)->except([OfferType::Contractuelle])],
             'urgency' => ['nullable', Rule::enum(Priority::class)],
             'todo' => ['nullable', Rule::in(array_keys(OfferDirectory::TODO))],
             'sort' => ['nullable', Rule::in(array_keys(OfferDirectory::SORTS))],

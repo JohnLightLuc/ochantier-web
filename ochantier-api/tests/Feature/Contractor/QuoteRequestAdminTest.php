@@ -10,6 +10,7 @@ use App\Models\Notification;
 use App\Models\QuoteRequest;
 use App\Support\Auth\AdminSessions;
 use App\Support\Auth\DeviceContext;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 
 /**
@@ -89,6 +90,12 @@ class QuoteRequestAdminTest extends ContractorMarketTestCase
             ->assertJsonPath('message', 'Date limite prolongée.')
             ->assertJsonPath('data.status.value', 'ouverte')
             ->assertJsonPath('data.timeline.0.what', 'a prolongé la date limite');
+
+        DB::table('payment_holds')->insert(['target_type' => 'quote_request', 'target_id' => QuoteRequest::query()->value('id'), 'holder_key' => 'test', 'expires_at' => now()->addMinutes(10)]);
+        $this->asAdmin()->postJson('/api/v1/admin/quote-requests/'.$line->id.'/cancellation', ['reason' => 'Doublon de la demande DV-2026-0002.'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.quote_request.0', 'Le promoteur est en train de payer la commande : réessayez dans quelques minutes.');
+        DB::table('payment_holds')->delete();
 
         $this->asAdmin()->postJson('/api/v1/admin/quote-requests/'.$line->id.'/cancellation', ['reason' => 'Doublon de la demande DV-2026-0002.'])
             ->assertOk()

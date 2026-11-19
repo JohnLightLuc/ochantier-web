@@ -4,6 +4,7 @@ namespace App\Support\Admin;
 
 use App\Enums\AssignmentStatus;
 use App\Enums\OfferStatus;
+use App\Enums\OfferType;
 use App\Enums\ProposalStatus;
 use App\Models\Commune;
 use App\Models\Offer;
@@ -55,7 +56,7 @@ class OfferDirectory
      */
     public function counts(): array
     {
-        $statuses = Offer::query()->toBase()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $statuses = Offer::query()->where('offer_type', '!=', OfferType::Contractuelle->value)->toBase()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
 
         return [
             'total' => (int) $statuses->sum(),
@@ -71,7 +72,7 @@ class OfferDirectory
     {
         return [
             'trades' => Trade::query()->whereIn('id', DB::table('needs')->whereNull('deleted_at')->select('trade_id'))->orderBy('label')->get(['id', 'label'])->map(fn (Trade $trade) => ['id' => $trade->id, 'label' => $trade->label])->all(),
-            'communes' => Commune::query()->whereIn('id', DB::table('offers')->join('sites', 'sites.id', '=', 'offers.site_id')->whereNotNull('sites.commune_id')->select('sites.commune_id'))->orderBy('name')->get(['id', 'name'])->map(fn (Commune $commune) => ['id' => $commune->id, 'name' => $commune->name])->all(),
+            'communes' => Commune::query()->whereIn('id', DB::table('offers')->where('offers.offer_type', '!=', OfferType::Contractuelle->value)->join('sites', 'sites.id', '=', 'offers.site_id')->whereNotNull('sites.commune_id')->select('sites.commune_id'))->orderBy('name')->get(['id', 'name'])->map(fn (Commune $commune) => ['id' => $commune->id, 'name' => $commune->name])->all(),
         ];
     }
 
@@ -134,6 +135,7 @@ class OfferDirectory
         return Offer::query()
             ->leftJoinSub($lines, 'lines', 'lines.offer_id', '=', 'offers.id')
             ->leftJoinSub($staff, 'staff', 'staff.offer_id', '=', 'offers.id')
-            ->leftJoinSub($proposals, 'proposals_state', 'proposals_state.offer_id', '=', 'offers.id');
+            ->leftJoinSub($proposals, 'proposals_state', 'proposals_state.offer_id', '=', 'offers.id')
+            ->where('offers.offer_type', '!=', OfferType::Contractuelle->value);
     }
 }
