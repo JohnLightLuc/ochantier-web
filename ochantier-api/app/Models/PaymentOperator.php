@@ -21,6 +21,7 @@ class PaymentOperator extends Model
      */
     protected $fillable = [
         'code', 'name', 'country_id', 'provider', 'number_pattern', 'supports_collection', 'supports_payout', 'is_active', 'collection_fee_percent',
+        'min_amount', 'max_amount', 'sort_order', 'notice',
     ];
 
     /**
@@ -35,6 +36,9 @@ class PaymentOperator extends Model
             'supports_payout' => 'boolean',
             'is_active' => 'boolean',
             'collection_fee_percent' => 'decimal:2',
+            'min_amount' => 'integer',
+            'max_amount' => 'integer',
+            'sort_order' => 'integer',
         ];
     }
 
