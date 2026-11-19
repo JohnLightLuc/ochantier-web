@@ -1,6 +1,6 @@
 import ContractorHeader from '@/components/contractors/ContractorHeader';
 import DocumentViewer from '@/components/contractors/DocumentViewer';
-import { DocumentsTab, HistoryTab, OverviewTab, ResponsesTab } from '@/components/contractors/tabs';
+import { DocumentsTab, HistoryTab, OverviewTab, PayoutsTab, ResponsesTab } from '@/components/contractors/tabs';
 import { useContractorActions } from '@/components/contractors/useContractorActions';
 import StatCard from '@/components/ui/StatCard';
 import type { ContractorDocument, ContractorShowProps, ContractorTab } from '@/types/contractors';
@@ -11,6 +11,7 @@ const TABS: [ContractorTab, string][] = [
     ['', 'Vue d’ensemble'],
     ['pieces', 'Pièces justificatives'],
     ['reponses', 'Réponses aux opportunités'],
+    ['versements', 'Commission & versements'],
     ['historique', 'Historique'],
 ];
 
@@ -65,6 +66,7 @@ export default function ContractorShow(props: ContractorShowProps) {
                     {tab === '' && <OverviewTab {...tabProps} />}
                     {tab === 'pieces' && <DocumentsTab {...tabProps} />}
                     {tab === 'reponses' && <ResponsesTab {...tabProps} />}
+                    {tab === 'versements' && <PayoutsTab {...tabProps} />}
                     {tab === 'historique' && <HistoryTab {...tabProps} />}
                 </section>
             </div>

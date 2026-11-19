@@ -26,6 +26,7 @@ use App\Http\Controllers\PayoutController;
 use App\Http\Controllers\PromoterController;
 use App\Http\Controllers\PromoterFormController;
 use App\Http\Controllers\PromoterReviewController;
+use App\Http\Controllers\ProRulesController;
 use App\Http\Controllers\QuoteRequestController;
 use App\Http\Controllers\QuoteRequestDecisionController;
 use App\Http\Controllers\RatingController;
@@ -200,6 +201,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
     // contrôle du dossier KYB/KYC et de chaque pièce, suspension.
     Route::prefix('entrepreneurs')->name('contractors.')->group(function () {
         Route::get('/', [ContractorController::class, 'index'])->name('index');
+        Route::post('/regles', [ProRulesController::class, 'update'])->name('rules');
 
         Route::prefix('{contractor}')->whereUuid('contractor')->group(function () {
             Route::post('/validation', [ContractorReviewController::class, 'approve'])->name('validate');
@@ -209,7 +211,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::delete('/suspension', [ContractorReviewController::class, 'reactivate'])->name('reactivate');
             Route::post('/pieces/{document}/confirmation', [ContractorReviewController::class, 'approveDocument'])->whereUuid('document')->name('documents.approve');
             Route::post('/pieces/{document}/rejet', [ContractorReviewController::class, 'rejectDocument'])->whereUuid('document')->name('documents.reject');
-            Route::get('/{tab?}', [ContractorController::class, 'show'])->where('tab', 'pieces|reponses|historique')->name('show');
+            Route::get('/{tab?}', [ContractorController::class, 'show'])->where('tab', 'pieces|reponses|versements|historique')->name('show');
         });
     });
 
@@ -328,7 +330,14 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::post('/commerciaux/versements/{payout}/renvoi', 'retryCommercial')->whereUuid('payout')->name('commercials.retry');
         Route::post('/commerciaux/versements/{payout}/annulation', 'cancelCommercial')->whereUuid('payout')->name('commercials.cancel');
 
-        foreach (['ouvriers' => 'workers', 'commerciaux' => 'commercials'] as $segment => $owner) {
+        Route::get('/professionnels', 'contractorPayouts')->name('contractors.index');
+        Route::post('/professionnels/versements', 'prepareContractor')->name('contractors.prepare');
+        Route::get('/professionnels/versements/{payout}', 'contractorPayout')->whereUuid('payout')->name('contractors.show');
+        Route::post('/professionnels/versements/{payout}/validation', 'approveContractor')->whereUuid('payout')->name('contractors.approve');
+        Route::post('/professionnels/versements/{payout}/renvoi', 'retryContractor')->whereUuid('payout')->name('contractors.retry');
+        Route::post('/professionnels/versements/{payout}/annulation', 'cancelContractor')->whereUuid('payout')->name('contractors.cancel');
+
+        foreach (['ouvriers' => 'workers', 'commerciaux' => 'commercials', 'professionnels' => 'contractors'] as $segment => $owner) {
             Route::post("/{$segment}/{id}/numero", 'storeMethod')->whereUuid('id')->defaults('owner', $owner)->name("methods.{$owner}.store");
             Route::post("/{$segment}/{id}/numero/{method}/confirmation", 'approveMethod')->whereUuid(['id', 'method'])->defaults('owner', $owner)->name("methods.{$owner}.approve");
             Route::post("/{$segment}/{id}/numero/{method}/refus", 'rejectMethod')->whereUuid(['id', 'method'])->defaults('owner', $owner)->name("methods.{$owner}.reject");

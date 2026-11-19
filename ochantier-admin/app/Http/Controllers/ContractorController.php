@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Support\Api\AdminApi;
 use App\Support\Api\AdminUser;
 use App\Support\ContractorPresenter;
+use App\Support\ProCommissionPresenter;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,7 +23,12 @@ class ContractorController extends Controller
     /**
      * Onglets de la fiche (clé d’URL => libellé).
      */
-    public const TABS = ['' => 'Vue d’ensemble', 'pieces' => 'Pièces justificatives', 'reponses' => 'Réponses aux opportunités', 'historique' => 'Historique'];
+    public const TABS = ['' => 'Vue d’ensemble', 'pieces' => 'Pièces justificatives', 'reponses' => 'Réponses aux opportunités', 'versements' => 'Commission & versements', 'historique' => 'Historique'];
+
+    /**
+     * Réglages « Règles & commissions » d’O’CHANTIER PRO (clés de l’API, dans l’ordre de la fenêtre).
+     */
+    public const RULES = ['quotes.service_fee_percent', 'contractor_offers.commission_percent', 'pro.compared_offers', 'quotes.response_hours', 'contractor_offers.response_hours'];
 
     /**
      * Onglets de la liste (clé d’URL => états de l’API regroupés).
@@ -88,8 +94,28 @@ class ContractorController extends Controller
                 'toReview' => $states['en_verification'] ?? 0,
                 'corrections' => $states['a_corriger'] ?? 0,
             ],
-            'can' => ['validate' => $this->allowed($request, 'contractors.validate'), 'update' => $this->allowed($request, 'contractors.update')],
+            'can' => ['validate' => $this->allowed($request, 'contractors.validate'), 'update' => $this->allowed($request, 'contractors.update'), 'rules' => $this->allowed($request, 'settings.update')],
+            'rules' => Inertia::optional(fn () => $this->rules()),
         ]);
+    }
+
+    /**
+     * Réglages O’CHANTIER PRO lus dans les paramètres de la plateforme.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function rules(): array
+    {
+        $fields = collect($this->api->get('settings')->json('data.groups'))->flatMap(fn (array $group) => $group['fields'])->keyBy('key');
+
+        return array_values(array_filter(array_map(fn (string $key) => isset($fields[$key]) ? [
+            'key' => $key,
+            'label' => $fields[$key]['label'],
+            'unit' => $fields[$key]['unit'],
+            'min' => $fields[$key]['min'],
+            'max' => $fields[$key]['max'],
+            'value' => $fields[$key]['value'],
+        ] : null, self::RULES)));
     }
 
     /**
@@ -114,7 +140,12 @@ class ContractorController extends Controller
             'alerts' => ContractorPresenter::alerts($view, $documents, $base),
             'responses' => $tab === 'reponses' ? array_map(ContractorPresenter::response(...), $this->api->get("contractors/{$contractor}/responses")->json('data')) : null,
             'history' => $tab === 'historique' ? array_map(ContractorPresenter::event(...), $this->api->get("contractors/{$contractor}/history")->json('data')) : null,
-            'can' => ['validate' => $this->allowed($request, 'contractors.validate'), 'update' => $this->allowed($request, 'contractors.update'), 'documents' => $this->allowed($request, 'documents.validate')],
+            'ledger' => $tab === 'versements' && $this->allowed($request, 'finance.read') ? ProCommissionPresenter::ledger($this->api->get('pro-commissions', ['contractor_id' => $contractor, 'per_page' => 100])->json()) : null,
+            'payoutMethod' => $tab === 'versements' && $this->allowed($request, 'payouts.read') ? [
+                ...$this->api->get("contractors/{$contractor}/payment-method")->json('data'),
+                'can' => ['create' => $this->allowed($request, 'payouts.create'), 'approve' => $this->allowed($request, 'payouts.approve')],
+            ] : null,
+            'can' => ['validate' => $this->allowed($request, 'contractors.validate'), 'update' => $this->allowed($request, 'contractors.update'), 'documents' => $this->allowed($request, 'documents.validate'), 'finance' => $this->allowed($request, 'finance.read'), 'payouts' => $this->allowed($request, 'payouts.read')],
             'header' => $this->header('Fiche du professionnel', '', [['Entrepreneurs / Techniciens', '/entrepreneurs'], [$view['name'], $tab ? $base : null], ...($tab ? [[self::TABS[$tab]]] : [])]),
         ]);
     }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Support\Api\AdminApi;
 use App\Support\Api\AdminUser;
 use App\Support\ContractOfferPresenter;
+use App\Support\ProCommissionPresenter;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -52,6 +53,8 @@ class ContractOfferController extends Controller
             $query[self::QUERY[$key]] = $value;
         }
 
+        $onLedger = ($filters['onglet'] ?? '') === 'commissions' && $this->allowed($request, 'finance.read');
+        $ledger = $onLedger ? ProCommissionPresenter::ledger($this->api->get('pro-commissions', array_filter(['source' => 'offre_contractuelle', 'search' => $filters['q'] ?? null, 'page' => $filters['page'] ?? null, 'per_page' => self::PER_PAGE]))->json()) : null;
         $statuses = isset($filters['statut']) ? [$filters['statut']] : (self::TABS[$filters['onglet'] ?? ''][2] ?? []);
 
         if ($statuses !== []) {
@@ -84,7 +87,9 @@ class ContractOfferController extends Controller
             'tabs' => [
                 ['key' => '', 'label' => 'Toutes', 'icon' => 'handshake', 'count' => array_sum($counts)],
                 ...array_map(fn (string $key, array $tab): array => ['key' => $key, 'label' => $tab[0], 'icon' => $tab[1], 'count' => $sum($tab[2])], array_keys(self::TABS), self::TABS),
+                ...($this->allowed($request, 'finance.read') ? [['key' => 'commissions', 'label' => 'Commissions', 'icon' => 'percent', 'count' => $ledger['total'] ?? null]] : []),
             ],
+            'ledger' => $ledger,
             'kpis' => [
                 'open' => $sum(['ouverte', 'en_comparaison']),
                 'comparing' => $counts['en_comparaison'] ?? 0,

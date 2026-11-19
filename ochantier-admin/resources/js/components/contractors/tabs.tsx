@@ -4,6 +4,9 @@ import { HistoryList } from '@/components/workers/tabs';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { fcfa, formatDate, formatRating } from '@/lib/format';
 import type { ContractorDocument, ContractorShowProps } from '@/types/contractors';
+import CommissionLedger from '@/components/commissions/CommissionLedger';
+import PayoutMethod from '@/components/payments/PayoutMethod';
+import Button from '@/components/ui/Button';
 import { router } from '@inertiajs/react';
 import type { ContractorActions } from './useContractorActions';
 
@@ -157,6 +160,30 @@ export function ResponsesTab({ responses }: ContractorTabProps) {
                 actions: [],
             }))}
         />
+    );
+}
+
+/** Commission & versements : registre du professionnel, numéro Mobile Money de versement, lien vers ses versements. */
+export function PayoutsTab({ contractor: c, ledger, payoutMethod, can }: ContractorTabProps) {
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            {payoutMethod ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,420px),1fr))', gap: 'var(--space-4)' }}>
+                    <PayoutMethod base={`/paiements/professionnels/${c.id}/numero`} method={payoutMethod} empty="Aucun numéro confirmé : rien ne peut lui être versé." />
+                    <Block icon="receipt_long" title="Versements">
+                        <span style={{ fontSize: 'var(--fs-md)', color: 'var(--c-muted)' }}>
+                            La part nette du professionnel lui est versée après le service : frais de visite une fois la visite faite, forfait au fil des échéances payées par le promoteur.
+                        </span>
+                        <div style={{ marginTop: 'var(--space-3)' }}>
+                            <Button label="Professionnels à payer" icon="savings" variant="secondary" onClick={() => router.visit('/paiements/professionnels')} />
+                        </div>
+                    </Block>
+                </div>
+            ) : (
+                !can.payouts && <span style={{ fontSize: 'var(--fs-md)', color: 'var(--c-muted)' }}>Le numéro de versement est visible avec le droit de consulter les reversements.</span>
+            )}
+            {ledger ? <CommissionLedger ledger={ledger} hideContractor title="Commissions et parts nettes" /> : !can.finance && <span style={{ fontSize: 'var(--fs-md)', color: 'var(--c-muted)' }}>Le registre des commissions est visible avec le droit de consulter la finance.</span>}
+        </div>
     );
 }
 

@@ -1,4 +1,6 @@
+import ProRulesDialog from '@/components/contractors/ProRulesDialog';
 import { useContractorActions } from '@/components/contractors/useContractorActions';
+import Button from '@/components/ui/Button';
 import { FilterSelect, SearchInput } from '@/components/list/ListToolbar';
 import Pagination from '@/components/list/Pagination';
 import { PersonCell, RatingCell, RowActions, TableFrame, TextCell, tdStyle, thStyle } from '@/components/list/Table';
@@ -21,8 +23,10 @@ const FILTERS: [keyof ContractorIndexProps['filterOptions'], string][] = [
 ];
 
 /** Liste des entrepreneurs et techniciens (O’CHANTIER PRO) : KPI, onglets par état du dossier, recherche, filtres, pagination. */
-export default function ContractorsIndex({ contractors, filters, filterOptions, tabs, kpis, can }: ContractorIndexProps) {
+export default function ContractorsIndex({ contractors, filters, filterOptions, tabs, kpis, can, rules }: ContractorIndexProps) {
     const actions = useContractorActions();
+    const [rulesOpen, setRulesOpen] = useState(false);
+    const openRules = () => router.reload({ only: ['rules'], onSuccess: () => setRulesOpen(true) });
     const [menuFor, setMenuFor] = useState<string | null>(null);
     const rows = contractors.data;
     const current = filters.onglet ?? '';
@@ -44,6 +48,12 @@ export default function ContractorsIndex({ contractors, filters, filterOptions, 
     return (
         <>
             <Head title="Entrepreneurs / Techniciens" />
+
+            {can.rules && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -6 }}>
+                    <Button label="Règles & commissions" icon="tune" variant="primary" onClick={openRules} />
+                </div>
+            )}
 
             <div data-component="StatGrid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 'var(--space-4)' }}>
                 <StatCard label="Professionnels vérifiés" value={String(kpis.verified)} unit={`sur ${kpis.total}`} icon="verified" tone="g" />
@@ -152,6 +162,7 @@ export default function ContractorsIndex({ contractors, filters, filterOptions, 
             </section>
 
             {actions.dialog}
+            {rulesOpen && rules && <ProRulesDialog rules={rules} onClose={() => setRulesOpen(false)} />}
         </>
     );
 }

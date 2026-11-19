@@ -135,7 +135,7 @@ class ContractorsTest extends TestCase
                 ->where('tabs.4.count', 2)
                 ->where('kpis', ['verified' => 4, 'total' => 9, 'toReview' => 1, 'corrections' => 1])
                 ->where('filterOptions.metier', [['value' => 'macon', 'label' => 'Maçon']])
-                ->where('can', ['validate' => true, 'update' => true]));
+                ->where('can', ['validate' => true, 'update' => true, 'rules' => false]));
 
         Http::assertSent(function (ClientRequest $request) {
             parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
@@ -229,7 +229,7 @@ class ContractorsTest extends TestCase
             self::API.'/contractors*' => Http::response($this->listResponse([$this->row()])),
         ]);
 
-        $this->get('/entrepreneurs')->assertInertia(fn (Assert $page) => $page->where('can', ['validate' => false, 'update' => false]));
-        $this->get('/entrepreneurs/'.self::ID)->assertInertia(fn (Assert $page) => $page->where('can', ['validate' => false, 'update' => false, 'documents' => false]));
+        $this->get('/entrepreneurs')->assertInertia(fn (Assert $page) => $page->where('can', ['validate' => false, 'update' => false, 'rules' => false]));
+        $this->get('/entrepreneurs/'.self::ID)->assertInertia(fn (Assert $page) => $page->where('can', ['validate' => false, 'update' => false, 'documents' => false, 'finance' => false, 'payouts' => false]));
     }
 }

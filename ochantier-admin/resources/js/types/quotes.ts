@@ -1,3 +1,4 @@
+import type { CommissionLedgerData } from '@/types/commissions';
 import type { Option } from '@/components/ui/Field';
 import type { Badge } from '@/types';
 import type { ValueBadge, WorkerActivity } from '@/types/workers';
@@ -26,7 +27,9 @@ export type QuoteIndexProps = {
     quotes: { data: QuoteRow[]; currentPage: number; lastPage: number; total: number; from: number; to: number };
     filters: QuoteFilters;
     filterOptions: Record<'metier' | 'ville' | 'statut', Option[]>;
-    tabs: { key: string; label: string; icon: string; count: number }[];
+    tabs: { key: string; label: string; icon: string; count: number | null }[];
+    /** Registre des commissions (onglet « Commissions », droit finance.read). */
+    ledger: CommissionLedgerData | null;
     kpis: { open: number; inProgress: number; toNudge: number; received: number };
 };
 

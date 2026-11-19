@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Support\Api\AdminApi;
 use App\Support\Api\AdminUser;
+use App\Support\ProCommissionPresenter;
 use App\Support\QuotePresenter;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -54,6 +55,8 @@ class QuoteRequestController extends Controller
             $query[self::QUERY[$key]] = $value;
         }
 
+        $onLedger = ($filters['onglet'] ?? '') === 'commissions' && $this->allowed($request, 'finance.read');
+        $ledger = $onLedger ? ProCommissionPresenter::ledger($this->api->get('pro-commissions', array_filter(['source' => 'demande_devis', 'search' => $filters['q'] ?? null, 'page' => $filters['page'] ?? null, 'per_page' => self::PER_PAGE]))->json()) : null;
         $statuses = isset($filters['statut']) ? [$filters['statut']] : (self::TABS[$filters['onglet'] ?? ''][2] ?? []);
 
         if ($statuses !== []) {
@@ -86,7 +89,9 @@ class QuoteRequestController extends Controller
             'tabs' => [
                 ['key' => '', 'label' => 'Toutes', 'icon' => 'request_quote', 'count' => array_sum($counts)],
                 ...array_map(fn (string $key, array $tab): array => ['key' => $key, 'label' => $tab[0], 'icon' => $tab[1], 'count' => $sum($tab[2])], array_keys(self::TABS), self::TABS),
+                ...($this->allowed($request, 'finance.read') ? [['key' => 'commissions', 'label' => 'Commissions', 'icon' => 'percent', 'count' => $ledger['total'] ?? null]] : []),
             ],
+            'ledger' => $ledger,
             'kpis' => [
                 'open' => $counts['ouverte'] ?? 0,
                 'inProgress' => $sum(self::TABS['en-cours'][2]),

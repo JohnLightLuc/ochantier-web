@@ -1,4 +1,6 @@
 import type { Option } from '@/components/ui/Field';
+import type { CommissionLedgerData } from '@/types/commissions';
+import type { PayoutMethodData } from '@/types/payouts';
 import type { Badge } from '@/types';
 import type { ValueBadge, WorkerActivity, WorkerAlert, WorkerKpi } from '@/types/workers';
 
@@ -32,7 +34,9 @@ export type ContractorIndexProps = {
     filterOptions: Record<'type' | 'metier' | 'zone', Option[]>;
     tabs: ContractorListTab[];
     kpis: { verified: number; total: number; toReview: number; corrections: number };
-    can: { validate: boolean; update: boolean };
+    can: { validate: boolean; update: boolean; rules: boolean };
+    /** Chargé à l’ouverture de « Règles & commissions ». */
+    rules?: ProRule[];
 };
 
 export type ContractorReview = { number: number; status: Badge; submittedAt: string | null; decidedAt: string | null; decidedBy: string | null; reason: string | null };
@@ -96,7 +100,7 @@ export type ContractorResponse = {
     at: string | null;
 };
 
-export type ContractorTab = '' | 'pieces' | 'reponses' | 'historique';
+export type ContractorTab = '' | 'pieces' | 'reponses' | 'versements' | 'historique';
 
 export type ContractorShowProps = {
     contractor: Contractor;
@@ -107,5 +111,11 @@ export type ContractorShowProps = {
     alerts: WorkerAlert[];
     responses: ContractorResponse[] | null;
     history: WorkerActivity[] | null;
-    can: { validate: boolean; update: boolean; documents: boolean };
+    /** Onglet « Commission & versements » : registre du professionnel (finance.read) et numéro de versement (payouts.read). */
+    ledger: CommissionLedgerData | null;
+    payoutMethod: PayoutMethodData | null;
+    can: { validate: boolean; update: boolean; documents: boolean; finance: boolean; payouts: boolean };
 };
+
+/** Réglage de « Règles & commissions ». */
+export type ProRule = { key: string; label: string; unit: string | null; min: number | null; max: number | null; value: number | null };
