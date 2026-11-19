@@ -11,6 +11,8 @@ use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\ClaimController;
 use App\Http\Controllers\ClosingController;
+use App\Http\Controllers\ContractOfferController;
+use App\Http\Controllers\ContractOfferDecisionController;
 use App\Http\Controllers\ContractorController;
 use App\Http\Controllers\ContractorReviewController;
 use App\Http\Controllers\DashboardController;
@@ -221,6 +223,19 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::post('/prolongation', [QuoteRequestDecisionController::class, 'extend'])->name('extend');
             Route::post('/annulation', [QuoteRequestDecisionController::class, 'cancel'])->name('cancel');
             Route::post('/relance', [QuoteRequestDecisionController::class, 'remind'])->name('remind');
+        });
+    });
+
+    // Offres contractuelles (O’CHANTIER PRO) : données de l’API (api/v1/admin/contract-offers). Liste, fiche,
+    // prolongation, relances et annulation avant l’acompte.
+    Route::prefix('offres-contractuelles')->name('contract-offers.')->group(function () {
+        Route::get('/', [ContractOfferController::class, 'index'])->name('index');
+
+        Route::prefix('{offer}')->whereUuid('offer')->group(function () {
+            Route::get('/', [ContractOfferController::class, 'show'])->name('show');
+            Route::post('/prolongation', [ContractOfferDecisionController::class, 'extend'])->name('extend');
+            Route::post('/annulation', [ContractOfferDecisionController::class, 'cancel'])->name('cancel');
+            Route::post('/relance', [ContractOfferDecisionController::class, 'remind'])->name('remind');
         });
     });
 
