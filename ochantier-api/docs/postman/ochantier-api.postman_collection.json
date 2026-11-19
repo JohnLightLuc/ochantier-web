@@ -1091,6 +1091,89 @@
       "description": "Listes des formulaires (communes, métiers, pièces, motifs)."
     },
     {
+      "id": "e4e8b2e6-d012-4dad-ba4b-3016217100c4",
+      "name": "Support",
+      "item": [
+        {
+          "id": "d5fe8bc5-5ab7-4c71-aa60-c8346f8bad6a",
+          "name": "Coordonnées du support",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const support = pm.response.json().data;",
+                  "pm.test('Coordonnées du support', () => pm.expect(support).to.have.all.keys('opening_days', 'working_hours', 'phone', 'whatsapp', 'email'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/support",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "support"
+              ]
+            },
+            "description": "Coordonnées du support, **sans connexion** : à afficher dès les écrans de connexion et d’inscription. Limité à 30 appels par minute. À mettre en cache (`Cache-Control: public, max-age=3600`).\n\n**Réponse** (`data`), chaque champ est un texte ou `null` s’il n’est pas renseigné :\n- `opening_days` : jours d’ouverture (ex. « Du lundi au samedi ») ;\n- `working_hours` : heures de travail (ex. « De 8 h à 18 h ») ;\n- `phone` : numéro de téléphone ;\n- `whatsapp` : numéro WhatsApp ;\n- `email` : adresse e-mail.\n\nLes valeurs se règlent dans le Back Office (Paramètres › Support). Le « Centre d’aide » (`GET /help`, connecté) garde son propre bloc `support`."
+          },
+          "response": [
+            {
+              "id": "2ea0c542-b484-4c21-88f8-2a56541a4a7f",
+              "name": "200 · Coordonnées du support",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/support",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "support"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Cache-Control",
+                  "value": "max-age=3600, public"
+                }
+              ],
+              "body": "{\n  \"message\": null,\n  \"data\": {\n    \"opening_days\": \"Du lundi au samedi\",\n    \"working_hours\": \"De 8 h à 18 h\",\n    \"phone\": \"+225 27 22 00 00 00\",\n    \"whatsapp\": \"+225 07 00 00 00 00\",\n    \"email\": \"support@ochantier.ci\"\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "afc1ecb8-a25d-5aad-9035-9e3cb10357ae",
       "name": "Compte",
       "item": [
@@ -3252,7 +3335,7 @@
                     "help"
                   ]
                 },
-                "description": "« Centre d’aide », dans `data` : questions fréquentes de l’application (`faq` : `section`, `question`, `answer`) et contacts du support (`support` : `phone`, `whatsapp`, `email`, `hours`).\n\nCommun aux applications Promoteur et Commercial (chacune reçoit ses questions ; voir « Commercial › Profil et préférences › Centre d’aide »). À mettre en cache (`Cache-Control: private, max-age=3600`).",
+                "description": "« Centre d’aide », dans `data` : questions fréquentes de l’application (`faq` : `section`, `question`, `answer`) et contacts du support (`support` : `phone`, `whatsapp`, `email`, `hours`).\n\nCommun aux applications Promoteur et Commercial (chacune reçoit ses questions ; voir « Commercial › Profil et préférences › Centre d’aide »). À mettre en cache (`Cache-Control: private, max-age=3600`).\n\nCoordonnées seules, sans connexion : « Support › Coordonnées du support » (`GET /support`).",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -11326,7 +11409,7 @@
                     "invoices"
                   ]
                 },
-                "description": "Blocs « Coût du chantier » et « Factures » du détail chantier. `cost` : main-d’œuvre journalière des ouvriers en place, forfaits contractuels et coût prévisionnel des réservations confirmées. `invoices` : reçus de chaque paiement réussi du chantier (numéro, objet, moyen, montant frais inclus, lien PDF signé `url`), avec le total réglé.\n\nRéservé aux rôles qui voient les finances.",
+                "description": "Blocs « Coût du chantier » et « Factures » du détail chantier. `cost` : main-d’œuvre journalière des ouvriers en place, forfaits contractuels et coût prévisionnel des réservations confirmées. `invoices` : reçus de chaque paiement réussi du chantier (numéro, objet, moyen, montant frais inclus, lien PDF signé `url`), avec le total réglé.\n\nRéservé aux rôles qui voient les finances (`finance.view` : propriétaire, administrateur, comptable, observateur) ; **403** pour le chef de chantier et le technicien.",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -11422,7 +11505,7 @@
                     "report"
                   ]
                 },
-                "description": "Rapport de fin de chantier, **disponible à la fin du chantier pour les comptes abonnés**. Toujours **200** : `available`, `ended`, `subscribed` et `lock_message` disent s’il est verrouillé et pourquoi (« À la fin du chantier · réservé aux comptes abonnés. », « Disponible au téléchargement à la fin du chantier. », « Réservé aux comptes abonnés… »).\n\nDisponible, il contient les indicateurs (durée, présence, étapes), 1 · la description, 2 · le technicien assigné, 3 · l’historique des pointages par ouvrier, 4 · la chronologie, 5 · le bilan financier (`finances.lines`, `total_disbursed`) et 6 · l’évaluation de l’équipe.",
+                "description": "Rapport de fin de chantier, **disponible à la fin du chantier pour les comptes abonnés**. Toujours **200** : `available`, `ended`, `subscribed` et `lock_message` disent s’il est verrouillé et pourquoi (« À la fin du chantier · réservé aux comptes abonnés. », « Disponible au téléchargement à la fin du chantier. », « Réservé aux comptes abonnés… »).\n\nDisponible, il contient les indicateurs (durée, présence, étapes), 1 · la description, 2 · le technicien assigné, 3 · l’historique des pointages par ouvrier, 4 · la chronologie, 5 · le bilan financier (`finances.lines`, `total_disbursed`) et 6 · l’évaluation de l’équipe.\n\nOuvert à tous les rôles (`reports.view`). Le bilan financier n’est montré qu’aux rôles qui voient les finances (`finance.view` : propriétaire, administrateur, comptable, observateur) : pour le chef de chantier et le technicien, `finances` vaut `null` et le PDF passe directement à « 5 · Évaluation de l’équipe ».",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -13445,7 +13528,7 @@
                       "value": "8"
                     }
                   ],
-                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"token_type\": \"Bearer\",\n    \"access_token\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjgwMDAiLCJzdWIiOiIwMWExNzRkYy0wNTZiLTcyM2QtYmU4NS0zNWJkMDY1MWM3YjUiLCJzaWQiOiIwMWExNzRkYy0wOTViLTcwOTgtOTMzNS1jNTkwZGM2MDNkY2UiLCJqdGkiOiIxOTVjYWVhYS00NTIyLTQ2NjEtYTdiZi1iNDRiY2Y2NjJmMTUiLCJ0eXAiOiJ1c2VyIiwiYXBwIjoicHJvbW90ZXVyIiwiaWF0IjoxNzkyOTYxOTM5LCJuYmYiOjE3OTI5NjE5MzksImV4cCI6MTc5Mjk2MjgzOX0.iXHUGi-LvffHWxgH6xST8f4c4o5r1Wm9eviNEfM8du8\",\n    \"expires_in\": 900,\n    \"refresh_token\": \"irDL3MhQAwJzAqyUeWJQ1bSgw2rDlhk0cTzBYRBvoQddb5FBhU93M816Yq4VKB6r\",\n    \"refresh_expires_at\": \"2026-11-24T20:58:59+00:00\",\n    \"session_id\": \"01a174dc-095b-7098-9335-c590dc603dce\",\n    \"user\": {\n      \"id\": \"01a174dc-056b-723d-be85-35bd0651c7b5\",\n      \"type\": {\n        \"value\": \"promoter\",\n        \"label\": \"Promoteur\"\n      },\n      \"status\": {\n        \"value\": \"actif\",\n        \"label\": \"Actif\"\n      },\n      \"first_name\": \"Awa\",\n      \"last_name\": \"Traoré\",\n      \"dial_code\": \"225\",\n      \"phone_number\": \"0756304653\",\n      \"phone\": \"+225 07 56 30 46 53\",\n      \"phone_verified\": false,\n      \"email\": null,\n      \"email_verified\": false,\n      \"locale\": \"fr\",\n      \"must_change_password\": false,\n      \"last_login_at\": \"2026-10-25T20:58:59+00:00\",\n      \"promoter\": null,\n      \"promoter_account\": {\n        \"profile_id\": \"01a174db-ee40-7236-b0c2-f740e39bb091\",\n        \"owner\": {\n          \"id\": \"01a174db-ee34-73be-9983-2d564997cad3\",\n          \"name\": \"Nathanaël Yao\"\n        },\n        \"company\": \"Immobilière Lagune\",\n        \"role\": {\n          \"value\": \"responsable_chantier\",\n          \"label\": \"Technicien\"\n        },\n        \"is_owner\": false,\n        \"only_own_sites\": true,\n        \"permissions\": [\n          \"sites.view\",\n          \"attendance.manage\",\n          \"steps.manage\"\n        ]\n      },\n      \"commercial\": null\n    }\n  }\n}"
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"token_type\": \"Bearer\",\n    \"access_token\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjgwMDAiLCJzdWIiOiIwMWExNzRkYy0wNTZiLTcyM2QtYmU4NS0zNWJkMDY1MWM3YjUiLCJzaWQiOiIwMWExNzRkYy0wOTViLTcwOTgtOTMzNS1jNTkwZGM2MDNkY2UiLCJqdGkiOiIxOTVjYWVhYS00NTIyLTQ2NjEtYTdiZi1iNDRiY2Y2NjJmMTUiLCJ0eXAiOiJ1c2VyIiwiYXBwIjoicHJvbW90ZXVyIiwiaWF0IjoxNzkyOTYxOTM5LCJuYmYiOjE3OTI5NjE5MzksImV4cCI6MTc5Mjk2MjgzOX0.iXHUGi-LvffHWxgH6xST8f4c4o5r1Wm9eviNEfM8du8\",\n    \"expires_in\": 900,\n    \"refresh_token\": \"irDL3MhQAwJzAqyUeWJQ1bSgw2rDlhk0cTzBYRBvoQddb5FBhU93M816Yq4VKB6r\",\n    \"refresh_expires_at\": \"2026-11-24T20:58:59+00:00\",\n    \"session_id\": \"01a174dc-095b-7098-9335-c590dc603dce\",\n    \"user\": {\n      \"id\": \"01a174dc-056b-723d-be85-35bd0651c7b5\",\n      \"type\": {\n        \"value\": \"promoter\",\n        \"label\": \"Promoteur\"\n      },\n      \"status\": {\n        \"value\": \"actif\",\n        \"label\": \"Actif\"\n      },\n      \"first_name\": \"Awa\",\n      \"last_name\": \"Traoré\",\n      \"dial_code\": \"225\",\n      \"phone_number\": \"0756304653\",\n      \"phone\": \"+225 07 56 30 46 53\",\n      \"phone_verified\": false,\n      \"email\": null,\n      \"email_verified\": false,\n      \"locale\": \"fr\",\n      \"must_change_password\": false,\n      \"last_login_at\": \"2026-10-25T20:58:59+00:00\",\n      \"promoter\": null,\n      \"promoter_account\": {\n        \"profile_id\": \"01a174db-ee40-7236-b0c2-f740e39bb091\",\n        \"owner\": {\n          \"id\": \"01a174db-ee34-73be-9983-2d564997cad3\",\n          \"name\": \"Nathanaël Yao\"\n        },\n        \"company\": \"Immobilière Lagune\",\n        \"role\": {\n          \"value\": \"responsable_chantier\",\n          \"label\": \"Technicien\"\n        },\n        \"is_owner\": false,\n        \"only_own_sites\": true,\n        \"permissions\": [\n          \"sites.view\",\n          \"sites.manage\",\n          \"proposals.decide\",\n          \"attendance.manage\",\n          \"steps.manage\",\n          \"replacements.manage\",\n          \"ratings.manage\",\n          \"reports.view\"\n        ]\n      },\n      \"commercial\": null\n    }\n  }\n}"
                 }
               ]
             },
@@ -13900,7 +13983,7 @@
               ]
             }
           ],
-          "description": "« Utilisateurs et rôles » et « Activité des utilisateurs » (propriétaire et administrateurs). Un abonné invite ses collaborateurs par SMS ou e-mail dans la limite des places de sa formule ; l’invité rejoint le compte à sa première connexion avec ce numéro ou cet e-mail (invitation valable 7 jours).\n\nChaque rôle a ses droits sur les routes de l’espace promoteur (**403** « Votre rôle ne permet pas cette action. » sinon) ; `promoter_account` (dans `/me` et la réponse de connexion) donne le compte, le rôle et la liste des droits :\n\n| Rôle | Droits |\n|---|---|\n| Propriétaire | Tout |\n| Administrateur | Tout sauf l’abonnement et le profil du compte |\n| Chef de chantier | Chantiers, réservations, suivi, remplacements, avis, factures et rapport |\n| Technicien | Ses chantiers seulement : consultation, pointage, chronologie |\n| Comptable | Paiements, factures et rapport ; consultation du reste |\n| Observateur | Consultation, factures et rapport |\n\nUn collaborateur retiré reçoit **403** « Votre accès à ce compte a été retiré. Contactez son propriétaire. »."
+          "description": "« Utilisateurs et rôles » et « Activité des utilisateurs » (propriétaire et administrateurs). Un abonné invite ses collaborateurs par SMS ou e-mail dans la limite des places de sa formule ; l’invité rejoint le compte à sa première connexion avec ce numéro ou cet e-mail (invitation valable 7 jours).\n\nChaque rôle a ses droits sur les routes de l’espace promoteur (**403** « Votre rôle ne permet pas cette action. » sinon) ; `promoter_account` (dans `/me` et la réponse de connexion) donne le compte, le rôle et la liste des droits :\n\n| Rôle | Droits |\n|---|---|\n| Propriétaire | Tout |\n| Administrateur | Tout sauf l’abonnement et le profil du compte |\n| Chef de chantier | Chantiers (création, modification, suppression), besoins et réservations, propositions d’équipe, remplacements, avis, pointage, étapes et rapport (sans le bilan financier) |\n| Technicien | Ses chantiers seulement : les mêmes droits que le chef de chantier, sauf créer ou supprimer un chantier et changer son responsable |\n| Comptable | Tout ce qui touche aux finances : paiements (acomptes, échéances, factures), factures du chantier, réclamations et litiges, rapport complet ; consultation du reste |\n| Observateur | Consultation, paiements, factures et rapport complet |\n\nCodes des droits (`promoter_account.permissions`) : `sites.view`, `sites.create` (créer ou supprimer un chantier), `sites.manage` (modifier le chantier, besoins, réservations), `proposals.decide`, `attendance.manage`, `steps.manage`, `replacements.manage`, `ratings.manage`, `reports.view`, `payments.manage`, `finance.view` (paiements, factures, bilan financier du rapport), `claims.manage`, `team.manage`, `activity.view`, `account.manage`. Le bouton « Créer un chantier » dépend de `sites.create`.\n\nUn collaborateur retiré reçoit **403** « Votre accès à ce compte a été retiré. Contactez son propriétaire. »."
         },
         {
           "id": "51044e1f-c823-5bc0-99ba-921d12fca3ed",
@@ -14032,7 +14115,7 @@
                     "notifications"
                   ]
                 },
-                "description": "Centre « Notifications » de l’utilisateur connecté : groupes `AUJOURD’HUI`, `CETTE SEMAINE`, `PLUS ANCIENNES`. Chaque notification : titre, texte, `time` (« À l’instant », « Il y a 5 min »…), `unread`, chantier, écran à ouvrir (`target`), `tag` (« Acompte réglé », « Action requise ») et `actions` (`voir_offre`, `payer_acompte`).\n\nFiltre `filter` : `all`, `unread`, `offres`, `paiements`, `chantiers`. `meta` : nombre de non lues, `summary` et non lues par onglet.",
+                "description": "Centre « Notifications » de l’utilisateur connecté : groupes `AUJOURD’HUI`, `CETTE SEMAINE`, `PLUS ANCIENNES`. Chaque notification : titre, texte, `time` (« À l’instant », « Il y a 5 min »…), `unread`, chantier, écran à ouvrir (`target`), `tag` (« Acompte réglé », « Action requise ») et `actions` (`voir_offre`, `payer_acompte`).\n\nFiltre `filter` : `all`, `unread`, `offres`, `paiements`, `chantiers`. `meta` : nombre de non lues, `summary` et non lues par onglet. `meta.unread` et `meta.unread_count` portent sur tout l’historique (la liste affiche les 100 plus récentes) ; pour le seul badge, préférer « Nombre de non lues ».",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -14088,7 +14171,7 @@
                       "value": "75"
                     }
                   ],
-                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a174dc-0f7b-720e-bdf2-a96283627f2f\",\n          \"event\": \"report.available\",\n          \"tab\": \"chantiers\",\n          \"title\": \"Rapport de fin de chantier disponible\",\n          \"body\": \"Le bilan complet de Résidence Les Palmiers est prêt à télécharger.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:59:01+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"type\": \"report\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-0f6d-7020-a422-1584cea8239e\",\n          \"event\": \"site.ended\",\n          \"tab\": \"chantiers\",\n          \"title\": \"Chantier terminé · Résidence Les Palmiers\",\n          \"body\": \"Notez votre équipe et chaque ouvrier.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:59:01+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"type\": \"site\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-093a-7119-88b6-0e946a5c7f0c\",\n          \"event\": \"team.joined\",\n          \"tab\": \"chantiers\",\n          \"title\": \"Awa Traoré a rejoint votre équipe\",\n          \"body\": \"Rôle : Technicien.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:59+00:00\",\n          \"unread\": true,\n          \"site\": null,\n          \"target\": {\n            \"id\": \"01a174dc-0579-70fb-b2d8-861cb42f8472\",\n            \"type\": \"team\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-032f-70e5-9ccf-e6e45f823a85\",\n          \"event\": \"payment.succeeded\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement confirmé · 75 516 FCFA\",\n          \"body\": \"Versement 2/3 réglé.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:58+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174dc-0305-708c-8874-980a916f8a1c\",\n            \"type\": \"transaction\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-0129-7355-ac01-75c2beb19d76\",\n          \"event\": \"site.confirmed\",\n          \"tab\": \"chantiers\",\n          \"title\": \"Équipe confirmée · Résidence Les Palmiers\",\n          \"body\": \"Acompte réglé : l’équipe est réservée pour votre chantier.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:57+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"type\": \"site\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-011f-7101-bf2e-04efd5871f62\",\n          \"event\": \"payment.succeeded\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement confirmé · 75 415 FCFA\",\n          \"body\": \"Équipe confirmée. Démarrage prévu le 30 oct. 2026. Prochain versement le 1 nov. 2026.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:57+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174dc-00b2-716c-9efd-bd263b11c3ca\",\n            \"type\": \"transaction\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174db-fd76-71bb-b7f5-cfbe92b74eaf\",\n          \"event\": \"payment.succeeded\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement confirmé · 15 225 FCFA\",\n          \"body\": \"Votre formule Équipe est active. Invitez jusqu’à 4 collaborateurs.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:56+00:00\",\n          \"unread\": true,\n          \"site\": null,\n          \"target\": {\n            \"id\": \"01a174db-fd45-732c-a2f4-61057953abed\",\n            \"type\": \"transaction\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174db-f864-7072-98a7-82d5916cfa82\",\n          \"event\": \"proposal.received\",\n          \"tab\": \"offres\",\n          \"title\": \"Ouvriers trouvés · Résidence Les Palmiers\",\n          \"body\": \"3 ouvriers proposés. Acompte à régler : 223 000 FCFA.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:55+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f5c7-72b3-8bd5-c126da9e0a48\",\n            \"type\": \"reservation\",\n            \"proposal_id\": \"01a174db-f840-71cd-b4ee-f3f0e8811417\"\n          },\n          \"tag\": {\n            \"label\": \"Acompte réglé\",\n            \"tone\": \"positive\"\n          },\n          \"actions\": []\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 8,\n    \"summary\": \"8 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"all\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"unread\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"offres\",\n        \"label\": \"Offres\",\n        \"unread\": 1\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"chantiers\",\n        \"label\": \"Chantiers\",\n        \"unread\": 4\n      }\n    ]\n  }\n}"
+                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a174dc-0f7b-720e-bdf2-a96283627f2f\",\n          \"event\": \"report.available\",\n          \"tab\": \"chantiers\",\n          \"title\": \"Rapport de fin de chantier disponible\",\n          \"body\": \"Le bilan complet de Résidence Les Palmiers est prêt à télécharger.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:59:01+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"type\": \"report\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-0f6d-7020-a422-1584cea8239e\",\n          \"event\": \"site.ended\",\n          \"tab\": \"chantiers\",\n          \"title\": \"Chantier terminé · Résidence Les Palmiers\",\n          \"body\": \"Notez votre équipe et chaque ouvrier.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:59:01+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"type\": \"site\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-093a-7119-88b6-0e946a5c7f0c\",\n          \"event\": \"team.joined\",\n          \"tab\": \"chantiers\",\n          \"title\": \"Awa Traoré a rejoint votre équipe\",\n          \"body\": \"Rôle : Technicien.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:59+00:00\",\n          \"unread\": true,\n          \"site\": null,\n          \"target\": {\n            \"id\": \"01a174dc-0579-70fb-b2d8-861cb42f8472\",\n            \"type\": \"team\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-032f-70e5-9ccf-e6e45f823a85\",\n          \"event\": \"payment.succeeded\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement confirmé · 75 516 FCFA\",\n          \"body\": \"Versement 2/3 réglé.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:58+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174dc-0305-708c-8874-980a916f8a1c\",\n            \"type\": \"transaction\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-0129-7355-ac01-75c2beb19d76\",\n          \"event\": \"site.confirmed\",\n          \"tab\": \"chantiers\",\n          \"title\": \"Équipe confirmée · Résidence Les Palmiers\",\n          \"body\": \"Acompte réglé : l’équipe est réservée pour votre chantier.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:57+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"type\": \"site\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174dc-011f-7101-bf2e-04efd5871f62\",\n          \"event\": \"payment.succeeded\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement confirmé · 75 415 FCFA\",\n          \"body\": \"Équipe confirmée. Démarrage prévu le 30 oct. 2026. Prochain versement le 1 nov. 2026.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:57+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174dc-00b2-716c-9efd-bd263b11c3ca\",\n            \"type\": \"transaction\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174db-fd76-71bb-b7f5-cfbe92b74eaf\",\n          \"event\": \"payment.succeeded\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement confirmé · 15 225 FCFA\",\n          \"body\": \"Votre formule Équipe est active. Invitez jusqu’à 4 collaborateurs.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:56+00:00\",\n          \"unread\": true,\n          \"site\": null,\n          \"target\": {\n            \"id\": \"01a174db-fd45-732c-a2f4-61057953abed\",\n            \"type\": \"transaction\"\n          },\n          \"tag\": null,\n          \"actions\": []\n        },\n        {\n          \"id\": \"01a174db-f864-7072-98a7-82d5916cfa82\",\n          \"event\": \"proposal.received\",\n          \"tab\": \"offres\",\n          \"title\": \"Ouvriers trouvés · Résidence Les Palmiers\",\n          \"body\": \"3 ouvriers proposés. Acompte à régler : 223 000 FCFA.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:55+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f5c7-72b3-8bd5-c126da9e0a48\",\n            \"type\": \"reservation\",\n            \"proposal_id\": \"01a174db-f840-71cd-b4ee-f3f0e8811417\"\n          },\n          \"tag\": {\n            \"label\": \"Acompte réglé\",\n            \"tone\": \"positive\"\n          },\n          \"actions\": []\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 8,\n    \"unread_count\": 8,\n    \"summary\": \"8 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"all\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"unread\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"offres\",\n        \"label\": \"Offres\",\n        \"unread\": 1\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"chantiers\",\n        \"label\": \"Chantiers\",\n        \"unread\": 4\n      }\n    ]\n  }\n}"
                 },
                 {
                   "id": "8d56d790-7afd-576f-8410-ebcf47de219e",
@@ -14139,7 +14222,133 @@
                       "value": "74"
                     }
                   ],
-                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a174db-f864-7072-98a7-82d5916cfa82\",\n          \"event\": \"proposal.received\",\n          \"tab\": \"offres\",\n          \"title\": \"Ouvriers trouvés · Résidence Les Palmiers\",\n          \"body\": \"3 ouvriers proposés. Acompte à régler : 223 000 FCFA.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:55+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f5c7-72b3-8bd5-c126da9e0a48\",\n            \"type\": \"reservation\",\n            \"proposal_id\": \"01a174db-f840-71cd-b4ee-f3f0e8811417\"\n          },\n          \"tag\": {\n            \"label\": \"Acompte réglé\",\n            \"tone\": \"positive\"\n          },\n          \"actions\": []\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 8,\n    \"summary\": \"8 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"all\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"unread\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"offres\",\n        \"label\": \"Offres\",\n        \"unread\": 1\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"chantiers\",\n        \"label\": \"Chantiers\",\n        \"unread\": 4\n      }\n    ]\n  }\n}"
+                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a174db-f864-7072-98a7-82d5916cfa82\",\n          \"event\": \"proposal.received\",\n          \"tab\": \"offres\",\n          \"title\": \"Ouvriers trouvés · Résidence Les Palmiers\",\n          \"body\": \"3 ouvriers proposés. Acompte à régler : 223 000 FCFA.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-25T20:58:55+00:00\",\n          \"unread\": true,\n          \"site\": {\n            \"id\": \"01a174db-f294-72b2-afc6-f02118343b4d\",\n            \"title\": \"Résidence Les Palmiers\"\n          },\n          \"target\": {\n            \"id\": \"01a174db-f5c7-72b3-8bd5-c126da9e0a48\",\n            \"type\": \"reservation\",\n            \"proposal_id\": \"01a174db-f840-71cd-b4ee-f3f0e8811417\"\n          },\n          \"tag\": {\n            \"label\": \"Acompte réglé\",\n            \"tone\": \"positive\"\n          },\n          \"actions\": []\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 8,\n    \"unread_count\": 8,\n    \"summary\": \"8 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"all\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"unread\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"offres\",\n        \"label\": \"Offres\",\n        \"unread\": 1\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"chantiers\",\n        \"label\": \"Chantiers\",\n        \"unread\": 4\n      }\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "42859d3a-0d96-523c-ba4a-40ba83dd5244",
+              "name": "Nombre de non lues",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Compteur entier', () => pm.expect(pm.response.json().data.unread_count).to.be.a('number').and.to.be.at.least(0));",
+                      "pm.test('Jamais en cache', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/promoter/notifications/unread-count",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "promoter",
+                    "notifications",
+                    "unread-count"
+                  ]
+                },
+                "description": "Badge de la cloche : nombre de notifications **non lues** de l’utilisateur connecté, sur tout l’historique, sans télécharger la liste. Sans paramètre.\n\n**Réponse 200** : `data.unread_count` (entier ≥ 0, `0` sans notification), en-tête `Cache-Control: no-store, private`. Toujours cohérent avec la liste : même valeur que `meta.unread_count` de « Notifications » et que `data.unread_count` renvoyé par « Marquer une notification lue » et « Tout marquer lu ».\n\nÀ relire au retour au premier plan et au retour du réseau ; à la réception d’un push, utiliser d’abord `data.unread_count` du push (voir le dossier « Appareils »). **401** « Session expirée : reconnectez-vous. » sans jeton valide (rafraîchir puis rejouer), **403**, **429** (`retry_after`).",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{registered_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "6e185fa8-15a1-5aa3-8fa0-541dd146ff3f",
+                  "name": "200 · Non lues",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{registered_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/notifications/unread-count",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "notifications",
+                        "unread-count"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "Cache-Control",
+                      "value": "no-store, private"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"unread_count\": 8\n  }\n}"
+                },
+                {
+                  "id": "30e391c1-1d34-583f-a1dd-dab52f1b0169",
+                  "name": "401 · Session expirée",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/promoter/notifications/unread-count",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "promoter",
+                        "notifications",
+                        "unread-count"
+                      ]
+                    }
+                  },
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Session expirée : reconnectez-vous.\"\n}"
                 }
               ]
             },
@@ -14161,7 +14370,8 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Compteur du badge', () => pm.expect(pm.response.json().data.unread_count).to.eql(pm.response.json().data.unread));"
                     ]
                   }
                 }
@@ -14186,7 +14396,7 @@
                     "read"
                   ]
                 },
-                "description": "À l’ouverture d’une notification. **Réponse 200** : nombre de non lues restantes (`data.unread`). Sautée lors de l’exécution de la collection sans notification.",
+                "description": "À l’ouverture d’une notification. **Réponse 200** : nombre de non lues restantes (`data.unread` et `data.unread_count`, même valeur). Sautée lors de l’exécution de la collection sans notification.",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -14244,7 +14454,7 @@
                       "value": "73"
                     }
                   ],
-                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"unread\": 7\n  }\n}"
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"unread\": 7,\n    \"unread_count\": 7\n  }\n}"
                 }
               ]
             },
@@ -14257,7 +14467,8 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Compteur du badge', () => pm.expect(pm.response.json().data.unread_count).to.eql(pm.response.json().data.unread));"
                     ]
                   }
                 }
@@ -14281,7 +14492,7 @@
                     "read-all"
                   ]
                 },
-                "description": "« Tout marquer lu ». **Réponse 200** : `data.unread` à 0 ; `message` « Toutes les notifications sont lues » s’il y en avait.",
+                "description": "« Tout marquer lu ». **Réponse 200** : `data.unread` et `data.unread_count` à 0 ; `message` « Toutes les notifications sont lues » s’il y en avait.",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -14338,7 +14549,7 @@
                       "value": "72"
                     }
                   ],
-                  "body": "{\n  \"message\": \"Toutes les notifications sont lues\",\n  \"data\": {\n    \"unread\": 0\n  }\n}"
+                  "body": "{\n  \"message\": \"Toutes les notifications sont lues\",\n  \"data\": {\n    \"unread\": 0,\n    \"unread_count\": 0\n  }\n}"
                 }
               ]
             }
@@ -14911,7 +15122,7 @@
           ]
         }
       ],
-      "description": "Jetons de notification push."
+      "description": "Jetons de notification push.\n\n## Contenu d’un push reçu\n\nChaque notification envoyée en push (FCM, APNs pour iOS) a cette forme :\n\n```json\n{\n  \"notification\": { \"title\": \"Dossier validé\", \"body\": \"Jean Kouassi a été validé(e). Commission de 25 000 FCFA confirmée.\" },\n  \"data\": {\n    \"notification_id\": \"01a1d9a0-4b5c-7d6e-8f90-a1b2c3d4e5f6\",\n    \"event\": \"worker.validated\",\n    \"target\": \"{\\\"type\\\":\\\"worker\\\",\\\"id\\\":\\\"…\\\"}\",\n    \"unread_count\": \"3\"\n  },\n  \"android\": { \"priority\": \"high\", \"notification\": { \"channel_id\": \"ochantier_default_v2\", \"sound\": \"ochantier_commercial\" } },\n  \"apns\": { \"headers\": { \"apns-priority\": \"10\" }, \"payload\": { \"aps\": { \"badge\": 3, \"sound\": \"ochantier_commercial.wav\" } } }\n}\n```\n\n| Champ | Description |\n|---|---|\n| `data.notification_id` | Identifiant de la notification (même `id` que dans « Notifications ») : au tap, la marquer lue avec « Marquer une notification lue ». |\n| `data.event` | Code de l’événement (`worker.validated`, `proposal.received`…). |\n| `data.target` | Écran à ouvrir, **encodé en JSON dans une chaîne** (à décoder). |\n| `data.unread_count` | Notifications non lues du destinataire, **notification envoyée comprise**, en chaîne (FCM n’accepte que des chaînes) : à convertir en entier. |\n| `apns.payload.aps.badge` | Même nombre en entier : iOS met à jour le badge de l’icône, même app fermée. |\n\n`unread_count` permet de mettre le badge à jour **sans requête** à la réception du push. C’est une indication : « Nombre de non lues » fait foi à la prochaine relecture (retour au premier plan, retour du réseau), car une lecture sur un autre appareil ne déclenche pas de push. Si `unread_count` est absent ou illisible, relire « Nombre de non lues ». Aucun push n’est envoyé à la lecture : après « Tout marquer lu », remettre le badge iOS à 0 côté app.\n\n## Son des notifications\n\nChaque application a son propre son, déjà embarqué dans l’app ; l’API le nomme d’après le type du destinataire. Toutes les apps utilisent le canal Android `ochantier_default_v2` (variable `PUSH_ANDROID_CHANNEL` côté serveur).\n\n| Application | Android (`android.notification.sound`) | iOS (`apns.payload.aps.sound`) |\n|---|---|---|\n| Commercial | `ochantier_commercial` | `ochantier_commercial.wav` |\n| Promoteur | `ochantier_promoteur` | `ochantier_promoteur.wav` |\n\n- Application inconnue : `default` (son système) sur les deux plateformes ; la notification est toujours livrée.\n- Message `notification` (titre et corps) avec priorité maximale : Android `high`, `apns-priority: 10`, pour une livraison immédiate avec son, app ouverte ou fermée.\n- Un changement de son impose un nouveau canal Android (`ochantier_default_v3`…) : l’équipe mobile prévient le backend, qui change `PUSH_ANDROID_CHANNEL`.\n- La console Firebase ne permet pas de choisir un son personnalisé : valider les sons sur de vrais appareils."
     },
     {
       "id": "8378033b-186a-5669-af79-288384cf35d3",
@@ -18279,7 +18490,8 @@
                     "exec": [
                       "pm.test('Statut 200', () => pm.response.to.have.status(200));",
                       "const row = pm.response.json().data.find(w => w.can_correct);",
-                      "pm.collectionVariables.set('correction_prospect_id', row ? row.prospect_id : '');"
+                      "pm.collectionVariables.set('correction_prospect_id', row ? row.prospect_id : '');",
+                      "pm.collectionVariables.set('commercial_worker_id', pm.response.json().data.length ? pm.response.json().data[0].worker_id : '');"
                     ]
                   }
                 }
@@ -18512,6 +18724,143 @@
                     }
                   ],
                   "body": "{\n  \"message\": \"Filtre inconnu.\",\n  \"errors\": {\n    \"filter\": [\n      \"Filtre inconnu.\"\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "03c6d25e-7a0d-571b-a9b9-d85f2aadd5e6",
+              "name": "Détail d’un ouvrier",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.collectionVariables.get('commercial_worker_id')) { pm.execution.skipRequest(); }"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "const worker = pm.response.json().data;",
+                      "pm.test('Ouvrier demandé', () => pm.expect(worker.id).to.eql(pm.collectionVariables.get('commercial_worker_id')));",
+                      "pm.test('Performance seulement si validé', () => pm.expect(worker.performance === null).to.eql(worker.status.value !== 'valide'));",
+                      "pm.test('Remplissage seulement si validé', () => pm.expect(worker.profile_completion === null).to.eql(worker.status.value !== 'valide'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/workers/{{commercial_worker_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "workers",
+                    "{{commercial_worker_id}}"
+                  ]
+                },
+                "description": "« Voir le dossier » / « Voir le profil » : fiche d’un ouvrier transmis par le commercial connecté.\n\nReprend la ligne de « Mes ouvriers » (`status`, `issue`, `date_label`, `cta`, `can_correct`, `prospect_id`), puis : téléphone et `photo_url`, `identity` (sexe, naissance), `activity` (tarif journalier, niveau, `trades[]` avec le métier principal `is_primary`, spécialités, compétences, expériences), `emergency_contact`, `documents` (pièces actives), `submission` (statut, motif, corrections demandées), `commission` (`amount`, `status` : estimé, acquis, payé, annulé…) `profile_completion` (remplissage du profil sur 12 éléments : `percent`, `done`, `total`, `complete`, `items`, `missing`) et `performance` (validé le, disponibilité, note, missions terminées) — ces deux blocs valent `null` tant que l’ouvrier n’est pas validé.\n\nConsultation seule : un dossier « À corriger » se corrige toujours par son prospect (`prospect_id`). **404** pour un ouvrier d’un autre commercial, un brouillon ou un identifiant inconnu. Sautée sans ouvrier transmis.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "fa4fa6b0-d3d5-5926-b2de-a87a9d93f613",
+                  "name": "200 · Ouvrier validé",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/workers/01a17701-a6ac-71b8-a966-b0f399b9a8a4",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "workers",
+                        "01a17701-a6ac-71b8-a966-b0f399b9a8a4"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"worker_id\": \"01a17701-a6ac-71b8-a966-b0f399b9a8a4\",\n    \"prospect_id\": null,\n    \"reference\": \"OUV-D00004\",\n    \"name\": \"Yao Koffi\",\n    \"initials\": \"YK\",\n    \"trade\": {\n      \"id\": \"01a17701-9bd8-72e3-b3bd-53765c249ba2\",\n      \"code\": \"macon\",\n      \"label\": \"Maçon\"\n    },\n    \"commune\": {\n      \"id\": \"01a17701-9ba8-73d1-9104-815e4460e348\",\n      \"name\": \"Marcory\"\n    },\n    \"status\": {\n      \"value\": \"valide\",\n      \"label\": \"Validé\"\n    },\n    \"issue\": null,\n    \"date_label\": \"Validé le 26 oct. 2026\",\n    \"cta\": \"Voir le profil\",\n    \"can_correct\": false,\n    \"id\": \"01a17701-a6ac-71b8-a966-b0f399b9a8a4\",\n    \"first_name\": \"Yao\",\n    \"last_name\": \"Koffi\",\n    \"dial_code\": \"225\",\n    \"phone_number\": \"0707070704\",\n    \"phone\": \"+225 07 07 07 07 04\",\n    \"photo_url\": null,\n    \"neighborhood\": null,\n    \"identity\": {\n      \"gender\": {\n        \"value\": \"M\",\n        \"label\": \"Homme\"\n      },\n      \"birth_date\": \"1990-03-15\",\n      \"birth_place\": \"Bouaké\"\n    },\n    \"activity\": {\n      \"daily_rate\": 15000,\n      \"level\": {\n        \"value\": \"confirme\",\n        \"label\": \"Confirmé\"\n      },\n      \"experience_years\": 8,\n      \"trades\": [\n        {\n          \"trade\": {\n            \"id\": \"01a17701-9bd8-72e3-b3bd-53765c249ba2\",\n            \"code\": \"macon\",\n            \"label\": \"Maçon\"\n          },\n          \"is_primary\": true,\n          \"level\": {\n            \"value\": \"confirme\",\n            \"label\": \"Confirmé\"\n          },\n          \"experience_years\": 8\n        }\n      ],\n      \"specialties\": [],\n      \"skills\": [],\n      \"experiences\": []\n    },\n    \"emergency_contact\": {\n      \"name\": \"Awa Koffi\",\n      \"dial_code\": \"225\",\n      \"phone_number\": \"0598765432\",\n      \"phone\": \"+225 05 98 76 54 32\"\n    },\n    \"documents\": [],\n    \"submission\": {\n      \"worker_id\": \"01a17701-a6ac-71b8-a966-b0f399b9a8a4\",\n      \"reference\": \"OUV-D00004\",\n      \"status\": {\n        \"value\": \"valide\",\n        \"label\": \"Validé\"\n      },\n      \"submitted_at\": \"2026-10-24T09:12:00+00:00\",\n      \"submission_number\": 1,\n      \"decision_reason\": null,\n      \"corrections\": [],\n      \"can_correct\": false\n    },\n    \"commission\": {\n      \"amount\": 25000,\n      \"status\": {\n        \"value\": \"acquis\",\n        \"label\": \"Acquis\"\n      }\n    },\n    \"profile_completion\": {\n      \"percent\": 42,\n      \"done\": 5,\n      \"total\": 12,\n      \"complete\": false,\n      \"items\": [\n        {\n          \"key\": \"photo\",\n          \"label\": \"Photo d’identité\",\n          \"done\": true\n        },\n        {\n          \"key\": \"identity\",\n          \"label\": \"Pièce d’identité\",\n          \"done\": true\n        },\n        {\n          \"key\": \"trade\",\n          \"label\": \"Métier principal et niveau\",\n          \"done\": true\n        },\n        {\n          \"key\": \"daily_rate\",\n          \"label\": \"Coût journalier\",\n          \"done\": true\n        },\n        {\n          \"key\": \"emergency_contact\",\n          \"label\": \"Contact d’urgence\",\n          \"done\": true\n        },\n        {\n          \"key\": \"specialties\",\n          \"label\": \"Spécialités\",\n          \"done\": false\n        },\n        {\n          \"key\": \"skills\",\n          \"label\": \"Compétences\",\n          \"done\": false\n        },\n        {\n          \"key\": \"experiences\",\n          \"label\": \"Expériences\",\n          \"done\": false\n        },\n        {\n          \"key\": \"qualification\",\n          \"label\": \"Diplôme ou attestation\",\n          \"done\": false\n        },\n        {\n          \"key\": \"proof_of_address\",\n          \"label\": \"Justificatif de domicile\",\n          \"done\": false\n        },\n        {\n          \"key\": \"mobility\",\n          \"label\": \"Zone de mobilité\",\n          \"done\": false\n        },\n        {\n          \"key\": \"payment_method\",\n          \"label\": \"Moyen de paiement\",\n          \"done\": false\n        }\n      ],\n      \"missing\": [\n        {\n          \"key\": \"specialties\",\n          \"label\": \"Spécialités\"\n        },\n        {\n          \"key\": \"skills\",\n          \"label\": \"Compétences\"\n        },\n        {\n          \"key\": \"experiences\",\n          \"label\": \"Expériences\"\n        },\n        {\n          \"key\": \"qualification\",\n          \"label\": \"Diplôme ou attestation\"\n        },\n        {\n          \"key\": \"proof_of_address\",\n          \"label\": \"Justificatif de domicile\"\n        },\n        {\n          \"key\": \"mobility\",\n          \"label\": \"Zone de mobilité\"\n        },\n        {\n          \"key\": \"payment_method\",\n          \"label\": \"Moyen de paiement\"\n        }\n      ]\n    },\n    \"performance\": {\n      \"validated_at\": \"2026-10-26T10:30:00+00:00\",\n      \"availability\": {\n        \"value\": \"disponible\",\n        \"label\": \"Disponible\"\n      },\n      \"rating_avg\": null,\n      \"rating_count\": 0,\n      \"missions_completed\": 0\n    }\n  }\n}"
+                },
+                {
+                  "id": "b76e1aeb-ec69-5416-a42e-0610ecf38e84",
+                  "name": "404 · Ouvrier d’un autre commercial",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/workers/01a17701-0000-7000-8000-000000000000",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "workers",
+                        "01a17701-0000-7000-8000-000000000000"
+                      ]
+                    }
+                  },
+                  "status": "Not Found",
+                  "code": 404,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Élément introuvable.\"\n}"
                 }
               ]
             },
@@ -20143,7 +20492,7 @@
                     "help"
                   ]
                 },
-                "description": "« Aide » du profil : questions fréquentes de l’application Commercial (`faq` : `section`, `question`, `answer`) et contacts du support (`support` : `phone`, `whatsapp`, `email`, `hours`) pour « Appeler le support », « Écrire sur WhatsApp » et « Envoyer un e-mail ».\n\nMême route que le centre d’aide du promoteur : chaque application reçoit ses questions. À mettre en cache (`Cache-Control: private, max-age=3600`).",
+                "description": "« Aide » du profil : questions fréquentes de l’application Commercial (`faq` : `section`, `question`, `answer`) et contacts du support (`support` : `phone`, `whatsapp`, `email`, `hours`) pour « Appeler le support », « Écrire sur WhatsApp » et « Envoyer un e-mail ».\n\nMême route que le centre d’aide du promoteur : chaque application reçoit ses questions. À mettre en cache (`Cache-Control: private, max-age=3600`).\n\nCoordonnées seules, sans connexion : « Support › Coordonnées du support » (`GET /support`).",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -20243,7 +20592,7 @@
                     "notifications"
                   ]
                 },
-                "description": "Groupes `AUJOURD’HUI`, `CETTE SEMAINE`, `PLUS ANCIENNES` ; chaque notification : titre, texte, `time`, `unread`, bouton (`cta`) et écran à ouvrir (`target` : `worker`, `prospect`, `earnings`…).\n\nFiltre `filter` : `toutes`, `non_lues`, `dossiers`, `paiements`. `meta` : non lues et onglets avec leurs non lues.",
+                "description": "Groupes `AUJOURD’HUI`, `CETTE SEMAINE`, `PLUS ANCIENNES` ; chaque notification : titre, texte, `time`, `unread`, bouton (`cta`) et écran à ouvrir (`target` : `worker`, `prospect`, `earnings`…).\n\nFiltre `filter` : `toutes`, `non_lues`, `dossiers`, `paiements`. `meta` : non lues et onglets avec leurs non lues. `meta.unread` et `meta.unread_count` portent sur tout l’historique (la liste affiche les 100 plus récentes) ; pour le seul badge, préférer « Nombre de non lues ».",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -20299,7 +20648,7 @@
                       "value": "68"
                     }
                   ],
-                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a17702-535c-70a9-9c6d-aebe93de1eb3\",\n          \"event\": \"ranking.updated\",\n          \"tab\": \"infos\",\n          \"title\": \"Classement mis à jour\",\n          \"body\": \"Vous êtes 1ᵉʳ sur 2 commerciaux ce mois-ci.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:03+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"ranking\"\n          },\n          \"cta\": null\n        },\n        {\n          \"id\": \"01a17702-50f4-72ea-87d1-4b79ffc7f9e2\",\n          \"event\": \"payout.paid\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement reçu\",\n          \"body\": \"25 000 FCFA versés sur votre compte Mobile Money.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:02+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"earnings\",\n            \"month\": \"2026-10\"\n          },\n          \"cta\": \"Voir mes gains\"\n        },\n        {\n          \"id\": \"01a17702-4a26-708b-a109-36d81bb1c486\",\n          \"event\": \"worker.refused\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Dossier refusé\",\n          \"body\": \"Marc Kouassi — Identité non vérifiable.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:01+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3f07-71ce-ba1d-d6b57e6704ab\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-3e33-71ce-9a9c-e36cbf47398d\"\n          },\n          \"cta\": \"Voir le dossier\"\n        },\n        {\n          \"id\": \"01a17702-487c-7270-8f92-8caca8f0b1d9\",\n          \"event\": \"worker.correction\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Correction demandée\",\n          \"body\": \"Issa Traoré — Photo de la pièce d’identité illisible.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:00+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3b8c-700b-a84a-0bd16218aa98\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-3af4-709b-945c-5f1ca9bbb290\"\n          },\n          \"cta\": \"Corriger le dossier\"\n        },\n        {\n          \"id\": \"01a17702-468e-72b1-ae43-7bf3b3076632\",\n          \"event\": \"worker.validated\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Dossier validé\",\n          \"body\": \"Aïcha Koné a été validé(e). Commission de 25 000 FCFA confirmée.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:00+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3866-7095-84da-2c8193087040\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-37cf-71e5-b569-c20373c5c02b\"\n          },\n          \"cta\": \"Voir le dossier\"\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 5,\n    \"summary\": \"5 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"toutes\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"non_lues\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"dossiers\",\n        \"label\": \"Dossiers\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 1\n      }\n    ]\n  }\n}"
+                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a17702-535c-70a9-9c6d-aebe93de1eb3\",\n          \"event\": \"ranking.updated\",\n          \"tab\": \"infos\",\n          \"title\": \"Classement mis à jour\",\n          \"body\": \"Vous êtes 1ᵉʳ sur 2 commerciaux ce mois-ci.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:03+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"ranking\"\n          },\n          \"cta\": null\n        },\n        {\n          \"id\": \"01a17702-50f4-72ea-87d1-4b79ffc7f9e2\",\n          \"event\": \"payout.paid\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement reçu\",\n          \"body\": \"25 000 FCFA versés sur votre compte Mobile Money.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:02+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"earnings\",\n            \"month\": \"2026-10\"\n          },\n          \"cta\": \"Voir mes gains\"\n        },\n        {\n          \"id\": \"01a17702-4a26-708b-a109-36d81bb1c486\",\n          \"event\": \"worker.refused\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Dossier refusé\",\n          \"body\": \"Marc Kouassi — Identité non vérifiable.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:01+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3f07-71ce-ba1d-d6b57e6704ab\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-3e33-71ce-9a9c-e36cbf47398d\"\n          },\n          \"cta\": \"Voir le dossier\"\n        },\n        {\n          \"id\": \"01a17702-487c-7270-8f92-8caca8f0b1d9\",\n          \"event\": \"worker.correction\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Correction demandée\",\n          \"body\": \"Issa Traoré — Photo de la pièce d’identité illisible.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:00+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3b8c-700b-a84a-0bd16218aa98\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-3af4-709b-945c-5f1ca9bbb290\"\n          },\n          \"cta\": \"Corriger le dossier\"\n        },\n        {\n          \"id\": \"01a17702-468e-72b1-ae43-7bf3b3076632\",\n          \"event\": \"worker.validated\",\n          \"tab\": \"dossiers\",\n          \"title\": \"Dossier validé\",\n          \"body\": \"Aïcha Koné a été validé(e). Commission de 25 000 FCFA confirmée.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:00+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": \"01a17702-3866-7095-84da-2c8193087040\",\n            \"type\": \"worker\",\n            \"prospect_id\": \"01a17702-37cf-71e5-b569-c20373c5c02b\"\n          },\n          \"cta\": \"Voir le dossier\"\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 5,\n    \"unread_count\": 5,\n    \"summary\": \"5 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"toutes\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"non_lues\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"dossiers\",\n        \"label\": \"Dossiers\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 1\n      }\n    ]\n  }\n}"
                 },
                 {
                   "id": "c852f118-9f72-5b91-b6d3-550e024df299",
@@ -20350,7 +20699,133 @@
                       "value": "67"
                     }
                   ],
-                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a17702-50f4-72ea-87d1-4b79ffc7f9e2\",\n          \"event\": \"payout.paid\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement reçu\",\n          \"body\": \"25 000 FCFA versés sur votre compte Mobile Money.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:02+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"earnings\",\n            \"month\": \"2026-10\"\n          },\n          \"cta\": \"Voir mes gains\"\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 5,\n    \"summary\": \"5 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"toutes\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"non_lues\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"dossiers\",\n        \"label\": \"Dossiers\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 1\n      }\n    ]\n  }\n}"
+                  "body": "{\n  \"message\": null,\n  \"data\": [\n    {\n      \"key\": \"today\",\n      \"label\": \"AUJOURD’HUI\",\n      \"items\": [\n        {\n          \"id\": \"01a17702-50f4-72ea-87d1-4b79ffc7f9e2\",\n          \"event\": \"payout.paid\",\n          \"tab\": \"paiements\",\n          \"title\": \"Paiement reçu\",\n          \"body\": \"25 000 FCFA versés sur votre compte Mobile Money.\",\n          \"time\": \"À l’instant\",\n          \"created_at\": \"2026-10-26T07:00:02+00:00\",\n          \"unread\": true,\n          \"target\": {\n            \"id\": null,\n            \"type\": \"earnings\",\n            \"month\": \"2026-10\"\n          },\n          \"cta\": \"Voir mes gains\"\n        }\n      ]\n    }\n  ],\n  \"meta\": {\n    \"unread\": 5,\n    \"unread_count\": 5,\n    \"summary\": \"5 non lues\",\n    \"tabs\": [\n      {\n        \"key\": \"toutes\",\n        \"label\": \"Toutes\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"non_lues\",\n        \"label\": \"Non lues\",\n        \"unread\": null\n      },\n      {\n        \"key\": \"dossiers\",\n        \"label\": \"Dossiers\",\n        \"unread\": 3\n      },\n      {\n        \"key\": \"paiements\",\n        \"label\": \"Paiements\",\n        \"unread\": 1\n      }\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "id": "95e00f55-91e0-5339-b536-59efdb39767c",
+              "name": "Nombre de non lues",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Compteur entier', () => pm.expect(pm.response.json().data.unread_count).to.be.a('number').and.to.be.at.least(0));",
+                      "pm.test('Jamais en cache', () => pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store'));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/notifications/unread-count",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "notifications",
+                    "unread-count"
+                  ]
+                },
+                "description": "Badge de la cloche : nombre de notifications **non lues** de l’utilisateur connecté, sur tout l’historique, sans télécharger la liste. Sans paramètre.\n\n**Réponse 200** : `data.unread_count` (entier ≥ 0, `0` sans notification), en-tête `Cache-Control: no-store, private`. Toujours cohérent avec la liste : même valeur que `meta.unread_count` de « Notifications » et que `data.unread_count` renvoyé par « Marquer une notification lue » et « Tout marquer lu ».\n\nÀ relire au retour au premier plan et au retour du réseau ; à la réception d’un push, utiliser d’abord `data.unread_count` du push (voir le dossier « Appareils »). **401** « Session expirée : reconnectez-vous. » sans jeton valide (rafraîchir puis rejouer), **403**, **429** (`retry_after`).",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{commercial_access_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "id": "d3264547-570b-58aa-80b5-ba80ccadc375",
+                  "name": "200 · Non lues",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      },
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{commercial_access_token}}"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/notifications/unread-count",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "notifications",
+                        "unread-count"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    },
+                    {
+                      "key": "Cache-Control",
+                      "value": "no-store, private"
+                    }
+                  ],
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"unread_count\": 5\n  }\n}"
+                },
+                {
+                  "id": "a8676a28-9a16-56da-bfaa-df66bdc0f432",
+                  "name": "401 · Session expirée",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "Accept",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/commercial/notifications/unread-count",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "commercial",
+                        "notifications",
+                        "unread-count"
+                      ]
+                    }
+                  },
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"message\": \"Session expirée : reconnectez-vous.\"\n}"
                 }
               ]
             },
@@ -20372,7 +20847,8 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Compteur du badge', () => pm.expect(pm.response.json().data.unread_count).to.eql(pm.response.json().data.unread));"
                     ]
                   }
                 }
@@ -20397,7 +20873,7 @@
                     "read"
                   ]
                 },
-                "description": "À l’ouverture d’une notification. **Réponse 200** : non lues restantes (`data.unread`). Sautée sans notification.",
+                "description": "À l’ouverture d’une notification. **Réponse 200** : non lues restantes (`data.unread` et `data.unread_count`, même valeur). Sautée sans notification.",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -20455,7 +20931,7 @@
                       "value": "66"
                     }
                   ],
-                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"unread\": 4\n  }\n}"
+                  "body": "{\n  \"message\": null,\n  \"data\": {\n    \"unread\": 4,\n    \"unread_count\": 4\n  }\n}"
                 }
               ]
             },
@@ -20468,7 +20944,8 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                      "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Compteur du badge', () => pm.expect(pm.response.json().data.unread_count).to.eql(pm.response.json().data.unread));"
                     ]
                   }
                 }
@@ -20492,7 +20969,7 @@
                     "read-all"
                   ]
                 },
-                "description": "« Tout marquer lu ». **Réponse 200** : `data.unread` à 0 ; `message` « Toutes les notifications sont lues » s’il y en avait.",
+                "description": "« Tout marquer lu ». **Réponse 200** : `data.unread` et `data.unread_count` à 0 ; `message` « Toutes les notifications sont lues » s’il y en avait.",
                 "auth": {
                   "type": "bearer",
                   "bearer": [
@@ -20549,7 +21026,7 @@
                       "value": "65"
                     }
                   ],
-                  "body": "{\n  \"message\": \"Toutes les notifications sont lues\",\n  \"data\": {\n    \"unread\": 0\n  }\n}"
+                  "body": "{\n  \"message\": \"Toutes les notifications sont lues\",\n  \"data\": {\n    \"unread\": 0,\n    \"unread_count\": 0\n  }\n}"
                 }
               ]
             }
@@ -22601,6 +23078,12 @@
       "value": "",
       "type": "string",
       "description": "Commune demandée en plus de Cocody (renseignée par « Référentiels des formulaires »)."
+    },
+    {
+      "key": "commercial_worker_id",
+      "value": "",
+      "type": "string",
+      "description": "Ouvrier transmis ouvert par « Détail d’un ouvrier » (renseigné par « Mes ouvriers »)."
     },
     {
       "key": "correction_prospect_id",

@@ -24,7 +24,8 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * « Rapport de fin de chantier » : description, technicien, pointages, chronologie, bilan financier et évaluation
- * de l’équipe. Disponible à la fin du chantier, réservé aux comptes abonnés ; téléchargeable en PDF.
+ * de l’équipe. Disponible à la fin du chantier, réservé aux comptes abonnés ; téléchargeable en PDF. Le bilan
+ * financier n’est montré qu’aux rôles qui voient les finances (finance.view) : null pour les autres.
  */
 class SiteReport
 {
@@ -36,6 +37,7 @@ class SiteReport
         private PromoterPayments $payments,
         private PromoterSubscriptions $subscriptions,
         private MediaStore $media,
+        private PromoterAccess $promoterAccess,
     ) {}
 
     /**
@@ -124,7 +126,7 @@ class SiteReport
                     SiteStepStatus::AFaire => 'Non démarrée',
                 },
             ])->values()->all(),
-            'finances' => $this->invoices->balance($site),
+            'finances' => $this->promoterAccess->can($viewer, 'finance.view') ? $this->invoices->balance($site) : null,
             'evaluation' => $this->evaluation($site, $viewer),
             'signature' => [
                 'promoter' => trim($promoter->first_name.' '.$promoter->last_name),
@@ -186,14 +188,19 @@ class SiteReport
             $pdf->row($step['sequence'].'. '.$step['title'], $step['dates']);
         }
 
-        $pdf->heading('5 · Bilan financier');
+        $section = 5;
 
-        foreach ($report['finances']['lines'] as $line) {
-            $pdf->row($line['label'], $this->payments->money($line['amount']));
+        if ($report['finances'] !== null) {
+            $pdf->heading($section++.' · Bilan financier');
+
+            foreach ($report['finances']['lines'] as $line) {
+                $pdf->row($line['label'], $this->payments->money($line['amount']));
+            }
+
+            $pdf->row('Total décaissé', $report['finances']['total_disbursed_label'], true);
         }
 
-        $pdf->row('Total décaissé', $report['finances']['total_disbursed_label'], true)
-            ->heading('6 · Évaluation de l’équipe')
+        $pdf->heading($section.' · Évaluation de l’équipe')
             ->text($report['evaluation']['label'])
             ->space(20)
             ->text('Document généré par O’CHANTIER', 9)

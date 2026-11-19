@@ -14,6 +14,7 @@ use App\Models\Site;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Models\WorkerReservation;
+use App\Support\Promoter\Reservations;
 use Database\Seeders\AdminAccessSeeder;
 use Database\Seeders\PlatformRulesSeeder;
 
@@ -123,7 +124,32 @@ class ReservationTest extends PromoterTestCase
         $this->assertSame(NeedStatus::PaiementEnAttente, Need::query()->whereBelongsTo($this->trade('macon'))->sole()->status);
 
         $this->postJson("/api/v1/promoter/proposals/{$proposal->id}/accept")
+            ->assertOk()
+            ->assertJsonPath('message', 'Proposition déjà acceptée.')
+            ->assertJsonPath('data.state.value', 'acompte')
+            ->assertJsonPath('data.can_pay_deposit', true);
+
+        $this->assertSame(3, WorkerReservation::query()->where('status', 'active')->count());
+        $this->assertSame(3, $proposal->offer->needs()->withCount('selections')->get()->sum('selections_count'));
+        $this->postJson("/api/v1/promoter/proposals/{$proposal->id}/refuse", ['reason_code' => 'tarif_eleve'])
             ->assertJsonValidationErrors(['proposal' => 'Vous avez déjà accepté cette proposition.']);
+    }
+
+    public function test_a_second_acceptance_from_a_stale_copy_does_not_select_the_workers_twice(): void
+    {
+        $this->publishedSite();
+        $this->artisan('ochantier:simulate-matching', ['--missing' => 1])->assertSuccessful();
+        $proposal = Proposal::query()->sole();
+        $stale = Proposal::query()->sole();
+        $needs = Need::query()->count();
+
+        app(Reservations::class)->accept($proposal, $this->promoter);
+        $accepted = app(Reservations::class)->accept($stale, $this->promoter);
+
+        $this->assertSame(ProposalStatus::Acceptee, $accepted->status);
+        $this->assertSame(2, WorkerReservation::query()->where('status', 'active')->count());
+        $this->assertSame(2, $proposal->offer->needs()->withCount('selections')->get()->sum('selections_count'));
+        $this->assertSame($needs + 1, Need::query()->count());
     }
 
     public function test_a_partial_proposal_keeps_searching_for_the_missing_workers(): void
@@ -243,6 +269,41 @@ class ReservationTest extends PromoterTestCase
 
         $this->getJson("/api/v1/promoter/reservations?site_id={$site['id']}")->assertJsonCount(2, 'data');
         $this->assertSame(4, Need::query()->where('trade_id', $this->trade('peintre')->id)->where('start_date', $start)->sole()->duration_days);
+    }
+
+    public function test_the_site_detail_separates_the_initial_reservation_from_the_additional_ones(): void
+    {
+        $site = $this->publishedSite();
+        $initial = Offer::query()->sole();
+
+        $this->travel(1)->minutes();
+        $this->postJson("/api/v1/promoter/sites/{$site['id']}/reservations", ['needs' => [['trade_id' => $this->trade('peintre')->id, 'headcount' => 2, 'daily_rate' => 18000]]])->assertCreated();
+        $additional = Offer::query()->whereKeyNot($initial->getKey())->sole();
+
+        $this->getJson("/api/v1/promoter/sites/{$site['id']}")
+            ->assertOk()
+            ->assertJsonPath('data.offer.published.id', $initial->id)
+            ->assertJsonPath('data.offer.published.needs.*.headcount', [2, 1])
+            ->assertJsonCount(2, 'data.reservations')
+            ->assertJsonPath('data.reservations.*.id', [$initial->id, $additional->id])
+            ->assertJsonPath('data.reservations.*.kind.value', ['initiale', 'supplementaire'])
+            ->assertJsonPath('data.reservations.0.workers_count', 3)
+            ->assertJsonPath('data.reservations.1.workers_count', 2)
+            ->assertJsonPath('data.reservations.1.needs.0.trade.code', 'peintre')
+            ->assertJsonPath('data.reservations.1.state.value', 'recherche')
+            ->assertJsonPath('data.reservations.1.start_date', $initial->start_date->toDateString())
+            ->assertJsonPath('data.workers_total', 5);
+    }
+
+    public function test_a_draft_site_has_no_reservation(): void
+    {
+        $draft = $this->postJson('/api/v1/promoter/sites', ['title' => 'Duplex Bingerville'])->json('data');
+
+        $this->getJson("/api/v1/promoter/sites/{$draft['id']}")
+            ->assertOk()
+            ->assertJsonPath('data.offer.published', null)
+            ->assertJsonPath('data.reservations', [])
+            ->assertJsonPath('data.workers_total', 0);
     }
 
     /**

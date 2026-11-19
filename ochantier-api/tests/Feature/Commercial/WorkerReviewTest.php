@@ -6,10 +6,13 @@ use App\Enums\CommercialEarningStatus;
 use App\Enums\WorkerVerificationStatus;
 use App\Models\CommercialEarning;
 use App\Models\Notification;
+use App\Models\Specialty;
+use App\Models\User;
 use App\Models\VerificationCorrection;
 use App\Models\Worker;
 use Database\Seeders\AdminAccessSeeder;
 use Database\Seeders\PlatformRulesSeeder;
+use Illuminate\Support\Str;
 
 class WorkerReviewTest extends CommercialTestCase
 {
@@ -110,6 +113,74 @@ class WorkerReviewTest extends CommercialTestCase
             ->assertJsonPath('data.0.status', ['value' => 'refuse', 'label' => 'Refusé'])
             ->assertJsonPath('data.0.issue', 'Identité non vérifiable');
         $this->artisan('ochantier:simulate-worker-review', ['worker' => 'OUV-999999', 'decision' => 'valider'])->assertFailed();
+    }
+
+    public function test_the_commercial_opens_the_detail_of_a_submitted_worker(): void
+    {
+        $worker = $this->submit();
+
+        $this->getJson("/api/v1/commercial/workers/{$worker->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $worker->id)
+            ->assertJsonPath('data.prospect_id', $worker->prospect_id)
+            ->assertJsonPath('data.reference', $worker->reference)
+            ->assertJsonPath('data.name', 'Jean Kouassi')
+            ->assertJsonPath('data.status', ['value' => 'attente', 'label' => 'En attente'])
+            ->assertJsonPath('data.trade.code', 'macon')
+            ->assertJsonPath('data.commune.name', 'Cocody')
+            ->assertJsonPath('data.identity.birth_place', 'Bouaké')
+            ->assertJsonPath('data.activity.daily_rate', 15000)
+            ->assertJsonPath('data.activity.trades.0.trade.code', 'macon')
+            ->assertJsonPath('data.activity.trades.0.is_primary', true)
+            ->assertJsonPath('data.submission.status.value', 'attente')
+            ->assertJsonPath('data.commission', ['amount' => 25000, 'status' => ['value' => 'estime', 'label' => CommercialEarningStatus::Estime->label()]])
+            ->assertJsonPath('data.profile_completion', null)
+            ->assertJsonPath('data.performance', null);
+
+        $this->artisan('ochantier:simulate-worker-review', ['worker' => $worker->reference, 'decision' => 'valider'])->assertSuccessful();
+
+        $this->getJson("/api/v1/commercial/workers/{$worker->id}")
+            ->assertJsonPath('data.status.value', 'valide')
+            ->assertJsonPath('data.cta', 'Voir le profil')
+            ->assertJsonPath('data.commission.status.value', 'acquis')
+            ->assertJsonPath('data.performance.rating_count', 0)
+            ->assertJsonPath('data.performance.missions_completed', 0);
+    }
+
+    public function test_the_profile_completion_of_a_validated_worker_counts_the_twelve_items(): void
+    {
+        $worker = $this->submit();
+        $this->artisan('ochantier:simulate-worker-review', ['worker' => $worker->reference, 'decision' => 'valider'])->assertSuccessful();
+
+        $this->getJson("/api/v1/commercial/workers/{$worker->id}")
+            ->assertOk()
+            ->assertJsonPath('data.profile_completion.items.*.key', [
+                'photo', 'identity', 'trade', 'daily_rate', 'emergency_contact', 'specialties', 'skills', 'experiences',
+                'qualification', 'proof_of_address', 'mobility', 'payment_method',
+            ])
+            ->assertJsonPath('data.profile_completion.done', 5)
+            ->assertJsonPath('data.profile_completion.total', 12)
+            ->assertJsonPath('data.profile_completion.percent', 42)
+            ->assertJsonPath('data.profile_completion.complete', false)
+            ->assertJsonPath('data.profile_completion.missing.0', ['key' => 'specialties', 'label' => 'Spécialités']);
+
+        $worker->specialties()->attach(Specialty::query()->where('trade_id', $this->trade()->id)->value('id'));
+        $worker->update(['mobility_radius_km' => 15]);
+
+        $this->getJson("/api/v1/commercial/workers/{$worker->id}")
+            ->assertJsonPath('data.profile_completion.done', 7)
+            ->assertJsonPath('data.profile_completion.percent', 58)
+            ->assertJsonPath('data.profile_completion.missing.*.key', ['skills', 'experiences', 'qualification', 'proof_of_address', 'payment_method']);
+    }
+
+    public function test_the_detail_of_another_commercials_worker_is_not_found(): void
+    {
+        $worker = $this->submit();
+
+        $this->actingAsCommercial(User::factory()->commercial()->create(['dial_code' => '225', 'phone_number' => '0500000002']));
+
+        $this->getJson("/api/v1/commercial/workers/{$worker->id}")->assertNotFound();
+        $this->getJson('/api/v1/commercial/workers/'.Str::uuid())->assertNotFound();
     }
 
     private function submit(string $phone = '0700000099'): Worker

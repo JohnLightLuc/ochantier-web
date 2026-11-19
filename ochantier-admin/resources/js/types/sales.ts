@@ -33,7 +33,7 @@ type UploadType = NonNullable<ComponentProps<typeof UploadDocumentDialog>['types
 
 export type SalesFilters = Partial<Record<'q' | 'statut' | 'zone' | 'superviseur' | 'periode' | 'rapide' | 'tri' | 'sens' | 'page', string>>;
 
-export type SalesCan = { create: boolean; update: boolean; terminate: boolean; export: boolean; documents: boolean; validate: boolean; proposeAdjustment: boolean; approveAdjustment: boolean };
+export type SalesCan = { create: boolean; update: boolean; terminate: boolean; export: boolean; documents: boolean; validate: boolean; proposeAdjustment: boolean; approveAdjustment: boolean; notify: boolean };
 
 export type SalesIndexProps = {
     agents: { data: SalesAgentRow[]; currentPage: number; lastPage: number; total: number; from: number; to: number };

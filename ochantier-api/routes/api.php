@@ -58,6 +58,7 @@ use App\Http\Controllers\Api\V1\Promoter\SubscriptionController;
 use App\Http\Controllers\Api\V1\Promoter\TeamController;
 use App\Http\Controllers\Api\V1\Promoter\WorkerCatalogController;
 use App\Http\Controllers\Api\V1\ReferenceController;
+use App\Http\Controllers\Api\V1\SupportController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -134,6 +135,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::middleware('promoter.can:sites.view')->group(function () {
                     Route::get('home', HomeController::class)->name('home');
                     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+                    Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
                     Route::post('notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
                     Route::post('notifications/{notification}/read', [NotificationController::class, 'read'])->whereUuid('notification')->name('notifications.read');
                     Route::get('referrals', [ReferralController::class, 'show'])->name('referrals.show');
@@ -158,9 +160,12 @@ Route::prefix('v1')->name('v1.')->group(function () {
                     Route::get('ratings', [RatingController::class, 'index'])->name('ratings.index');
                 });
 
-                // Chantiers, besoins et réservations : propriétaire, administrateur, chef de chantier.
+                // Création et suppression d’un chantier : propriétaire, administrateur, chef de chantier.
+                Route::apiResource('sites', SiteController::class)->only(['store', 'destroy'])->middleware('promoter.can:sites.create');
+
+                // Chantier, besoins et réservations : propriétaire, administrateur, chef de chantier, technicien (ses chantiers).
                 Route::middleware('promoter.can:sites.manage')->group(function () {
-                    Route::apiResource('sites', SiteController::class)->only(['store', 'update', 'destroy']);
+                    Route::apiResource('sites', SiteController::class)->only(['update']);
                     Route::post('sites/{site}/photo', [SiteMediaController::class, 'storePhoto'])->name('sites.photo.store');
                     Route::delete('sites/{site}/photo', [SiteMediaController::class, 'destroyPhoto'])->name('sites.photo.destroy');
                     Route::post('sites/{site}/documents', [SiteMediaController::class, 'storeDocument'])->name('sites.documents.store');
@@ -211,12 +216,16 @@ Route::prefix('v1')->name('v1.')->group(function () {
                     Route::put('ratings/{rating}', [RatingController::class, 'update'])->name('ratings.update');
                 });
 
-                // Finances : paiements (propriétaire, administrateur, comptable), factures et rapport.
+                // Finances : paiements et factures (propriétaire, administrateur, comptable, observateur).
                 Route::middleware('promoter.can:finance.view')->group(function () {
                     Route::get('payments', [PaymentController::class, 'index'])->name('payments.index');
                     Route::get('payments/schedules/{schedule}', [PaymentController::class, 'show'])->name('payments.show');
                     Route::get('payments/transactions/{transaction}', [PaymentController::class, 'transaction'])->name('payments.transactions.show');
                     Route::get('sites/{site}/invoices', [SiteReportController::class, 'invoices'])->name('sites.invoices');
+                });
+
+                // Rapport de fin de chantier : tous les rôles ; le bilan financier seulement avec finance.view.
+                Route::middleware('promoter.can:reports.view')->group(function () {
                     Route::get('sites/{site}/report', [SiteReportController::class, 'show'])->name('sites.report');
                     Route::get('sites/{site}/report/pdf', [SiteReportController::class, 'pdf'])->name('sites.report.pdf');
                 });
@@ -349,6 +358,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
                 Route::get('home', CommercialHomeController::class)->name('home');
                 Route::get('workers', [CommercialWorkerController::class, 'index'])->name('workers.index');
+                Route::get('workers/{worker}', [CommercialWorkerController::class, 'show'])->whereUuid('worker')->name('workers.show');
                 Route::get('earnings', [CommercialEarningController::class, 'index'])->name('earnings.index');
                 Route::get('objectives', [CommercialPerformanceController::class, 'objectives'])->name('objectives');
                 Route::get('ranking', [CommercialPerformanceController::class, 'ranking'])->name('ranking');
@@ -358,11 +368,15 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::get('notification-preferences', [NotificationPreferenceController::class, 'show'])->name('notification-preferences.show');
                 Route::put('notification-preferences', [NotificationPreferenceController::class, 'update'])->name('notification-preferences.update');
                 Route::get('notifications', [CommercialNotificationController::class, 'index'])->name('notifications.index');
+                Route::get('notifications/unread-count', [CommercialNotificationController::class, 'unreadCount'])->name('notifications.unread-count');
                 Route::post('notifications/read-all', [CommercialNotificationController::class, 'readAll'])->name('notifications.read-all');
                 Route::post('notifications/{notification}/read', [CommercialNotificationController::class, 'read'])->whereUuid('notification')->name('notifications.read');
             });
         });
     });
+
+    // Coordonnées du support : publiques, affichables avant la connexion.
+    Route::get('support', SupportController::class)->middleware('throttle:30,1')->name('support');
 
     // Fichiers : lien signé à durée limitée fourni dans les réponses de l’API.
     Route::get('media/{media}', MediaController::class)->middleware('signed')->name('media.show');

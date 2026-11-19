@@ -112,13 +112,20 @@ class Reservations
 
     /**
      * Accepte la proposition (« Accepter et payer l’acompte ») : ouvriers sélectionnés et bloqués sur la période
-     * jusqu’au paiement de l’acompte.
+     * jusqu’au paiement de l’acompte. Idempotent : une proposition déjà acceptée est renvoyée telle quelle (nouvel
+     * essai après une coupure réseau, double appui). La proposition est verrouillée pendant l’acceptation : deux
+     * appels simultanés ne sélectionnent pas les ouvriers deux fois.
      */
     public function accept(Proposal $proposal, User $user): Proposal
     {
-        $this->ensurePending($proposal);
-
         return DB::transaction(function () use ($proposal, $user): Proposal {
+            $proposal = $this->lock($proposal);
+
+            if ($proposal->status === ProposalStatus::Acceptee) {
+                return $proposal;
+            }
+
+            $this->ensurePending($proposal);
             $hold = now()->addHours((int) (Setting::query()->whereKey('reservations.hold_hours')->value('value') ?? 48));
             $suggestions = $proposal->suggestions()->with(['need', 'worker'])->get();
 
@@ -149,9 +156,9 @@ class Reservations
      */
     public function refuse(Proposal $proposal, User $user, ReasonCode $reason, ?string $comment): Proposal
     {
-        $this->ensurePending($proposal);
-
         return DB::transaction(function () use ($proposal, $user, $reason, $comment): Proposal {
+            $proposal = $this->lock($proposal);
+            $this->ensurePending($proposal);
             $suggestions = $proposal->suggestions()->with('need')->get();
             $proposal->suggestions()->update(['status' => SuggestionStatus::Ecarte]);
 
@@ -201,6 +208,15 @@ class Reservations
         }
 
         return $this->publisher->publishAdditional($site, $user, $data);
+    }
+
+    /**
+     * Relit la proposition verrouillée jusqu’à la fin de la transaction : son statut est vérifié sur la dernière
+     * version, pas sur celle chargée au début de la requête.
+     */
+    private function lock(Proposal $proposal): Proposal
+    {
+        return Proposal::query()->whereKey($proposal->getKey())->lockForUpdate()->firstOrFail();
     }
 
     private function ensurePending(Proposal $proposal): void

@@ -60,6 +60,7 @@ export default function SalesAgentsIndex({ agents, filters, filterOptions, kpis,
     const rowMenu = (c: SalesAgentRow): MenuItem[] => {
         const on = c.status.value;
         return [
+            ...(can.notify && on === 'actif' ? [{ icon: 'send', label: 'Envoyer un message', onClick: () => actions.notify(c) }] : []),
             ...(can.update && on === 'actif' ? [{ icon: 'block', label: 'Suspendre', danger: true, onClick: () => actions.suspend(c) }] : []),
             ...(can.update && (on === 'suspendu' || on === 'termine') ? [{ icon: 'settings_backup_restore', label: 'Réactiver', onClick: () => actions.reactivate(c) }] : []),
             ...(can.terminate && on !== 'termine' ? [{ icon: 'person_off', label: 'Mettre fin au contrat', danger: true, onClick: () => actions.terminate(c) }] : []),

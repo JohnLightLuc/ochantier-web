@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\AdminAccessSeeder;
 use Database\Seeders\HelpCenterSeeder;
 use Database\Seeders\PlatformRulesSeeder;
+use Illuminate\Support\Str;
 
 class CommercialProfileTest extends CommercialTestCase
 {
@@ -122,5 +123,59 @@ class CommercialProfileTest extends CommercialTestCase
         $this->postJson("/api/v1/commercial/notifications/{$followUp['id']}/read")->assertOk()->assertJsonPath('data.unread', 2);
         $this->postJson('/api/v1/commercial/notifications/read-all')->assertOk()->assertJsonPath('message', 'Toutes les notifications sont lues');
         $this->assertSame(0, Notification::query()->whereNull('read_at')->count());
+    }
+
+    public function test_the_unread_count_feeds_the_bell_badge_and_follows_the_reads(): void
+    {
+        $this->getJson('/api/v1/commercial/notifications/unread-count')
+            ->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertExactJson(['message' => null, 'data' => ['unread_count' => 0]]);
+
+        $this->seedNotifications(105, read: 2);
+
+        $this->getJson('/api/v1/commercial/notifications/unread-count')->assertJsonPath('data.unread_count', 103);
+        $center = $this->getJson('/api/v1/commercial/notifications')
+            ->assertJsonPath('meta.unread', 103)
+            ->assertJsonPath('meta.unread_count', 103)
+            ->assertJsonPath('meta.summary', '103 non lues')
+            ->json('data');
+        $unread = collect($center)->pluck('items')->flatten(1)->firstWhere('unread', true);
+
+        $this->postJson("/api/v1/commercial/notifications/{$unread['id']}/read")
+            ->assertOk()
+            ->assertJsonPath('data', ['unread' => 102, 'unread_count' => 102]);
+        $this->getJson('/api/v1/commercial/notifications/unread-count')->assertJsonPath('data.unread_count', 102);
+
+        $this->postJson('/api/v1/commercial/notifications/read-all')->assertJsonPath('data', ['unread' => 0, 'unread_count' => 0]);
+        $this->getJson('/api/v1/commercial/notifications/unread-count')->assertJsonPath('data.unread_count', 0);
+
+        $this->app['auth']->forgetGuards();
+        $this->flushHeaders()->getJson('/api/v1/commercial/notifications/unread-count')
+            ->assertUnauthorized()
+            ->assertJsonPath('message', 'Session expirée : reconnectez-vous.');
+    }
+
+    /**
+     * Inscrit des notifications in_app pour l’utilisateur ; les « read » premières sont déjà lues.
+     */
+    private function seedNotifications(int $count, int $read = 0): void
+    {
+        $user = $this->commercial;
+
+        Notification::query()->insert(collect(range(1, $count))->map(fn (int $index) => [
+            'id' => (string) Str::uuid(),
+            'recipient_type' => $user->getMorphClass(),
+            'recipient_id' => $user->getKey(),
+            'event_code' => 'test.event',
+            'channel' => 'in_app',
+            'title' => 'Notification '.$index,
+            'body' => 'Corps '.$index,
+            'data' => '{}',
+            'priority' => 'normale',
+            'status' => 'livree',
+            'read_at' => $index <= $read ? now() : null,
+            'created_at' => now()->subMinutes($index),
+        ])->all());
     }
 }

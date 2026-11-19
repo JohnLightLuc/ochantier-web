@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Promoter;
 
+use App\Enums\ProposalStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Promoter\RefuseProposalRequest;
 use App\Http\Requests\V1\Promoter\ReservationRequest;
@@ -64,12 +65,18 @@ class ReservationController extends Controller
     /**
      * « Accepter et payer l’acompte » : les ouvriers sont réservés le temps du paiement de l’acompte.
      */
+    /**
+     * Accepte la proposition. Déjà acceptée : 200 avec l’état actuel de la réservation (nouvel essai sans effet).
+     */
     public function accept(Request $request, Proposal $proposal): ReservationDetailResource
     {
+        $alreadyAccepted = $proposal->status === ProposalStatus::Acceptee;
         $proposal = $this->reservations->accept($proposal, $request->user());
 
         return ReservationDetailResource::make($proposal->offer->load(Reservations::WITH))
-            ->additional(['message' => 'Proposition acceptée — réglez l’acompte pour confirmer la réservation.']);
+            ->additional(['message' => $alreadyAccepted
+                ? 'Proposition déjà acceptée.'
+                : 'Proposition acceptée — réglez l’acompte pour confirmer la réservation.']);
     }
 
     public function refuse(RefuseProposalRequest $request, Proposal $proposal): ReservationDetailResource

@@ -38,19 +38,25 @@ class PromoterAccess
     /**
      * Droit => rôles qui l’ont. Le technicien n’agit que sur les chantiers dont il est responsable.
      *
+     * Comptable : tout ce qui touche aux finances (paiements, acomptes, factures, réclamations). Chef de chantier et
+     * technicien : chantier, ouvriers, pointage, étapes et rapport ; seuls propriétaire, administrateur et chef de
+     * chantier créent ou suppriment un chantier.
+     *
      * @var array<string, list<string>>
      */
     public const ABILITIES = [
         'sites.view' => [self::OWNER, 'administrateur', 'chef_projet', 'responsable_chantier', 'responsable_financier', 'lecteur'],
-        'sites.manage' => [self::OWNER, 'administrateur', 'chef_projet'],
-        'proposals.decide' => [self::OWNER, 'administrateur', 'chef_projet'],
+        'sites.create' => [self::OWNER, 'administrateur', 'chef_projet'],
+        'sites.manage' => [self::OWNER, 'administrateur', 'chef_projet', 'responsable_chantier'],
+        'proposals.decide' => [self::OWNER, 'administrateur', 'chef_projet', 'responsable_chantier'],
         'attendance.manage' => [self::OWNER, 'administrateur', 'chef_projet', 'responsable_chantier'],
         'steps.manage' => [self::OWNER, 'administrateur', 'chef_projet', 'responsable_chantier'],
-        'replacements.manage' => [self::OWNER, 'administrateur', 'chef_projet'],
-        'ratings.manage' => [self::OWNER, 'administrateur', 'chef_projet'],
+        'replacements.manage' => [self::OWNER, 'administrateur', 'chef_projet', 'responsable_chantier'],
+        'ratings.manage' => [self::OWNER, 'administrateur', 'chef_projet', 'responsable_chantier'],
+        'reports.view' => [self::OWNER, 'administrateur', 'chef_projet', 'responsable_chantier', 'responsable_financier', 'lecteur'],
         'payments.manage' => [self::OWNER, 'administrateur', 'responsable_financier'],
-        'finance.view' => [self::OWNER, 'administrateur', 'chef_projet', 'responsable_financier', 'lecteur'],
-        'claims.manage' => [self::OWNER, 'administrateur', 'chef_projet', 'responsable_financier'],
+        'finance.view' => [self::OWNER, 'administrateur', 'responsable_financier', 'lecteur'],
+        'claims.manage' => [self::OWNER, 'administrateur', 'responsable_financier'],
         'team.manage' => [self::OWNER, 'administrateur'],
         'activity.view' => [self::OWNER, 'administrateur'],
         'account.manage' => [self::OWNER],

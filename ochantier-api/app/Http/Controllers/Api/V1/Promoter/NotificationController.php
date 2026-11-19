@@ -27,11 +27,23 @@ class NotificationController extends Controller
         return ApiResponse::success($center['data'], meta: $center['meta']);
     }
 
+    /**
+     * Badge de la cloche : nombre de notifications non lues, sans la liste.
+     */
+    public function unreadCount(Request $request): JsonResponse
+    {
+        return ApiResponse::success(['unread_count' => $this->notifier->unreadCount($request->user())], headers: ['Cache-Control' => 'no-store, private']);
+    }
+
+    /**
+     * Marque une notification lue ; renvoie le nombre de non lues restantes (unread, et unread_count pour le badge).
+     */
     public function read(Request $request, string $notification): JsonResponse
     {
         $this->notifier->markRead($request->user(), $notification);
+        $unread = $this->notifier->unreadCount($request->user());
 
-        return ApiResponse::success(['unread' => $this->notifier->unreadCount($request->user())]);
+        return ApiResponse::success(['unread' => $unread, 'unread_count' => $unread]);
     }
 
     /**
@@ -41,6 +53,6 @@ class NotificationController extends Controller
     {
         $count = $this->notifier->markRead($request->user());
 
-        return ApiResponse::success(['unread' => 0], $count ? 'Toutes les notifications sont lues' : null);
+        return ApiResponse::success(['unread' => 0, 'unread_count' => 0], $count ? 'Toutes les notifications sont lues' : null);
     }
 }

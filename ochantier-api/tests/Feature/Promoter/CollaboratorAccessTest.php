@@ -45,8 +45,10 @@ class CollaboratorAccessTest extends PromoterTestCase
         $this->assertSame([$this->promoter->promoterProfile->id, $chef->id], [Site::query()->find($created)->promoter_profile_id, Site::query()->find($created)->created_by_user_id]);
         $this->postJson("/api/v1/promoter/sites/{$this->site->id}/steps", ['title' => 'Fondations'])->assertCreated();
         $this->getJson("/api/v1/promoter/sites/{$this->site->id}/report")->assertOk();
-        $this->getJson('/api/v1/promoter/payments')->assertOk();
 
+        $this->getJson('/api/v1/promoter/payments')->assertForbidden();
+        $this->getJson("/api/v1/promoter/sites/{$this->site->id}/invoices")->assertForbidden();
+        $this->getJson('/api/v1/promoter/claims')->assertForbidden();
         $this->getJson('/api/v1/promoter/payments/options')->assertForbidden()->assertJsonPath('message', 'Votre rôle ne permet pas cette action.');
         $this->getJson('/api/v1/promoter/team')->assertForbidden();
         $this->getJson('/api/v1/promoter/subscription')->assertForbidden();
@@ -77,10 +79,27 @@ class CollaboratorAccessTest extends PromoterTestCase
         $this->getJson('/api/v1/promoter/reservations')->assertJsonCount(1, 'data');
         $this->postJson("/api/v1/promoter/sites/{$this->site->id}/steps", ['title' => 'Fondations'])->assertCreated();
 
+        $this->getJson("/api/v1/promoter/sites/{$this->site->id}/report")->assertOk();
+        $this->postJson("/api/v1/promoter/assignments/{$this->assignmentOf('Kouamé Koffi')->id}/replacement", [])->assertUnprocessable();
+
         $this->postJson('/api/v1/promoter/sites', ['title' => 'Villa Riviera'])->assertForbidden();
+        $this->deleteJson("/api/v1/promoter/sites/{$this->site->id}")->assertForbidden();
         $this->getJson('/api/v1/promoter/payments')->assertForbidden();
         $this->getJson("/api/v1/promoter/sites/{$this->site->id}/invoices")->assertForbidden();
-        $this->postJson("/api/v1/promoter/assignments/{$this->assignmentOf('Kouamé Koffi')->id}/replacement", [])->assertForbidden();
+        $this->getJson('/api/v1/promoter/claims')->assertForbidden();
+        $this->getJson('/api/v1/promoter/payments/options')->assertForbidden();
+        $this->getJson('/api/v1/me')->assertJsonPath('data.promoter_account.permissions', ['sites.view', 'sites.manage', 'proposals.decide', 'attendance.manage', 'steps.manage', 'replacements.manage', 'ratings.manage', 'reports.view']);
+    }
+
+    public function test_a_technician_cannot_hand_his_site_over(): void
+    {
+        $chef = $this->collaborator(OrganizationRole::ChefProjet, 'Moussa Koné');
+        $technician = $this->collaborator(OrganizationRole::ResponsableChantier, 'Awa Traoré');
+        $this->site->update(['responsible_user_id' => $technician->id]);
+
+        $this->patchJson("/api/v1/promoter/sites/{$this->site->id}", ['responsible_user_id' => $chef->id])
+            ->assertJsonValidationErrors(['responsible_user_id' => 'Seul le chef de chantier ou l’administrateur change le responsable du chantier.']);
+        $this->assertSame($technician->id, $this->site->fresh()->responsible_user_id);
     }
 
     public function test_an_accountant_pays_but_does_not_manage_the_sites_or_the_subscription(): void
@@ -94,7 +113,15 @@ class CollaboratorAccessTest extends PromoterTestCase
             ->assertForbidden()
             ->assertJsonPath('message', 'Seul le propriétaire du compte gère l’abonnement.');
 
+        $this->getJson('/api/v1/promoter/payments')->assertOk();
+        $this->getJson("/api/v1/promoter/sites/{$this->site->id}/invoices")->assertOk();
+        $this->getJson('/api/v1/promoter/claims')->assertOk();
+        $this->getJson("/api/v1/promoter/sites/{$this->site->id}/report")->assertOk();
+
         $this->postJson("/api/v1/promoter/sites/{$this->site->id}/steps", ['title' => 'Fondations'])->assertForbidden();
+        $this->postJson("/api/v1/promoter/sites/{$this->site->id}/attendance/absences", [])->assertForbidden();
+        $this->patchJson("/api/v1/promoter/sites/{$this->site->id}", ['title' => 'Pirate'])->assertForbidden();
+        $this->postJson("/api/v1/promoter/assignments/{$this->assignmentOf('Kouamé Koffi')->id}/replacement", [])->assertForbidden();
         $this->deleteJson("/api/v1/promoter/sites/{$this->site->id}")->assertForbidden();
         $this->getJson('/api/v1/promoter/team/activity')->assertForbidden();
 

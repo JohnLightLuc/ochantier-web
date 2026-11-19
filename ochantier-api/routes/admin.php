@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\Admin\Finance\ClosingController;
 use App\Http\Controllers\Api\V1\Admin\Finance\FinanceController;
 use App\Http\Controllers\Api\V1\Admin\Finance\ReconciliationController;
 use App\Http\Controllers\Api\V1\Admin\Matching\MatchingController;
+use App\Http\Controllers\Api\V1\Admin\Notification\NotificationController as AdminNotificationController;
 use App\Http\Controllers\Api\V1\Admin\Offer\OfferController;
 use App\Http\Controllers\Api\V1\Admin\Payment\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Api\V1\Admin\Payment\RefundController;
@@ -358,6 +359,9 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('appeal-decision', 'decideAppeal')->middleware('admin.can:disputes.approve')->name('appeal-decision');
             });
         });
+
+        // Notifications du Back office : inscrites dans le centre de notifications du destinataire, puis envoyées en push.
+        Route::post('notifications', [AdminNotificationController::class, 'store'])->middleware('admin.can:notifications.create')->name('notifications.store');
 
         // Avis : la note et le texte ne changent jamais, chaque décision de modération est motivée.
         Route::prefix('ratings')->name('ratings.')->controller(RatingController::class)->group(function () {
