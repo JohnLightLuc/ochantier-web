@@ -49,6 +49,7 @@ class ContractorDetailResource extends ContractorProfileResource
                 'approve' => $pending,
                 'request_corrections' => $pending,
                 'reject' => $pending,
+                'review_documents' => $pending,
                 'suspend' => $this->status->value === 'actif',
                 'reactivate' => $this->status->value === 'suspendu',
             ],

@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialPortfolioController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialRankingController;
 use App\Http\Controllers\Api\V1\Admin\Commercial\CommercialTerritoryController;
 use App\Http\Controllers\Api\V1\Admin\Contractor\ContractorController;
+use App\Http\Controllers\Api\V1\Admin\Contractor\ContractorRelationController;
 use App\Http\Controllers\Api\V1\Admin\Contractor\ContractorReviewController;
 use App\Http\Controllers\Api\V1\Admin\Contractor\StaffingRequestController;
 use App\Http\Controllers\Api\V1\Admin\Dashboard\DashboardController;
@@ -125,15 +126,19 @@ Route::middleware('auth:admin')->group(function () {
             });
         });
 
-        // Entrepreneurs et techniciens : liste, fiche, décision sur le dossier KYB/KYC, suspension et réactivation.
+        // Entrepreneurs et techniciens : liste, fiche et ses onglets, décision sur le dossier KYB/KYC et sur chaque pièce, suspension et réactivation.
         Route::prefix('contractors')->name('contractors.')->group(function () {
             Route::get('/', [ContractorController::class, 'index'])->middleware('admin.can:contractors.read')->name('index');
 
             Route::prefix('{contractor}')->whereUuid('contractor')->group(function () {
                 Route::get('/', [ContractorController::class, 'show'])->middleware('admin.can:contractors.read')->name('show');
+                Route::get('responses', [ContractorRelationController::class, 'responses'])->middleware('admin.can:contractors.read')->name('responses');
+                Route::get('history', [ContractorRelationController::class, 'history'])->middleware('admin.can:contractors.read')->name('history');
                 Route::post('approve', [ContractorReviewController::class, 'approve'])->middleware('admin.can:contractors.validate')->name('approve');
                 Route::post('corrections', [ContractorReviewController::class, 'requestCorrections'])->middleware('admin.can:contractors.validate')->name('corrections');
                 Route::post('reject', [ContractorReviewController::class, 'reject'])->middleware('admin.can:contractors.validate')->name('reject');
+                Route::post('documents/{document}/approve', [ContractorReviewController::class, 'approveDocument'])->whereUuid('document')->middleware('admin.can:documents.validate')->name('documents.approve');
+                Route::post('documents/{document}/reject', [ContractorReviewController::class, 'rejectDocument'])->whereUuid('document')->middleware('admin.can:documents.validate')->name('documents.reject');
                 Route::post('suspension', [ContractorReviewController::class, 'suspend'])->middleware('admin.can:contractors.update')->name('suspend');
                 Route::delete('suspension', [ContractorReviewController::class, 'reactivate'])->middleware('admin.can:contractors.update')->name('reactivate');
             });

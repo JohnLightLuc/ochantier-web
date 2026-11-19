@@ -44,6 +44,22 @@ class ContractorReviewController extends Controller
         return $this->fiche($request, $model, 'Dossier refusé.');
     }
 
+    public function approveDocument(Request $request, string $contractor, string $document): JsonResponse
+    {
+        $model = ContractorController::find($contractor);
+        $this->verification->approveDocument($model, $this->verification->document($model, $document), $request->user(), $request);
+
+        return $this->fiche($request, $model, 'Pièce confirmée.');
+    }
+
+    public function rejectDocument(ContractorReasonRequest $request, string $contractor, string $document): JsonResponse
+    {
+        $model = ContractorController::find($contractor);
+        $this->verification->rejectDocument($model, $this->verification->document($model, $document), $request->user(), $request->reason(), $request);
+
+        return $this->fiche($request, $model, 'Pièce rejetée.');
+    }
+
     public function suspend(ContractorReasonRequest $request, string $contractor): JsonResponse
     {
         $model = ContractorController::find($contractor);

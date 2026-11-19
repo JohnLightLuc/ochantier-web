@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Support\Documents\SimplePdf;
 use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -51,6 +52,20 @@ class ContractorSubscriptions
         return Subscription::query()->with('plan')->where('contractor_id', $contractor->getKey())
             ->whereIn('status', array_map(fn (SubscriptionStatus $status) => $status->value, self::LIVE))
             ->latest('started_at')->latest()->first();
+    }
+
+    /**
+     * Abonnement en cours de chaque entrepreneur, en une requête (listes du Back Office). Absent = formule Solo.
+     *
+     * @param  list<string>  $contractorIds
+     * @return Collection<string, Subscription>
+     */
+    public function currentFor(array $contractorIds): Collection
+    {
+        return Subscription::query()->with('plan')->whereIn('contractor_id', $contractorIds)
+            ->whereIn('status', array_map(fn (SubscriptionStatus $status) => $status->value, self::LIVE))
+            ->orderByDesc('started_at')->latest()->get()
+            ->unique('contractor_id')->keyBy('contractor_id');
     }
 
     public function isSubscribed(Contractor $contractor): bool

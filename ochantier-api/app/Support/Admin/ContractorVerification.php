@@ -33,6 +33,10 @@ class ContractorVerification
             throw ValidationException::withMessages(['contractor' => 'Le dossier est incomplet : demandez plutôt des corrections.']);
         }
 
+        if ($admin && ($refusal = $this->approvalRefusal($contractor))) {
+            throw ValidationException::withMessages(['contractor' => $refusal]);
+        }
+
         DB::transaction(function () use ($contractor, $admin): void {
             $contractor->forceFill([
                 'verification_status' => ContractorVerificationStatus::Valide,
@@ -53,7 +57,26 @@ class ContractorVerification
     }
 
     /**
-     * Demande des corrections ; les pièces désignées sont rejetées avec le même motif.
+     * Motif pour lequel un administrateur ne peut pas valider le dossier, ou null : la pièce d’identité doit être
+     * confirmée et aucune pièce ne doit rester rejetée. Les autres pièces encore en attente sont validées avec le dossier.
+     */
+    public function approvalRefusal(Contractor $contractor): ?string
+    {
+        $documents = $this->account->activeDocuments($contractor);
+        $identity = $documents->first(fn (Document $document) => $document->documentType->is_identity);
+
+        if ($identity?->verification_status !== DocumentVerificationStatus::Valide) {
+            return 'Confirmez d’abord la pièce d’identité.';
+        }
+
+        $rejected = $documents->filter(fn (Document $document) => $document->verification_status === DocumentVerificationStatus::Rejete);
+
+        return $rejected->isEmpty() ? null : 'Pièces rejetées : '.$rejected->map(fn (Document $document) => $document->documentType->label)->implode(', ').'. Demandez plutôt un complément.';
+    }
+
+    /**
+     * Demande des corrections : les pièces désignées sont rejetées avec le motif général, et les pièces déjà rejetées
+     * une à une sont reprises avec leur propre motif.
      *
      * @param  list<string>  $documentIds
      */
@@ -63,13 +86,20 @@ class ContractorVerification
 
         $documents = collect($documentIds)->map(fn (string $id) => $this->account->findDocument($contractor, $id)
             ?? throw ValidationException::withMessages(['document_ids' => 'Cette pièce n’appartient pas au dossier.']));
+        $alreadyRejected = $this->account->activeDocuments($contractor)->filter(
+            fn (Document $document) => $document->verification_status === DocumentVerificationStatus::Rejete && ! in_array($document->getKey(), $documentIds, true),
+        );
 
-        DB::transaction(function () use ($contractor, $reason, $documents, $admin): void {
+        DB::transaction(function () use ($contractor, $reason, $documents, $alreadyRejected, $admin): void {
             $review = $this->currentReview($contractor);
 
             foreach ($documents as $document) {
                 $document->forceFill(['verification_status' => DocumentVerificationStatus::Rejete, 'rejection_reason' => $reason, 'verified_by_admin_id' => $admin?->getKey(), 'verified_at' => now()])->save();
                 $review->verificationCorrections()->create(['document_id' => $document->getKey(), 'reason' => $reason]);
+            }
+
+            foreach ($alreadyRejected as $document) {
+                $review->verificationCorrections()->create(['document_id' => $document->getKey(), 'reason' => $document->rejection_reason ?: $reason]);
             }
 
             $contractor->forceFill(['verification_status' => ContractorVerificationStatus::ACorriger, 'verification_reason' => $reason])->save();
@@ -118,6 +148,56 @@ class ContractorVerification
 
         $this->audit($admin, $request, 'contractor.reactivated', $contractor, ['status' => 'actif']);
         $this->notifier->notify($contractor, 'account.reactivated', 'Compte réactivé', 'Vous pouvez de nouveau utiliser O’CHANTIER.');
+    }
+
+    /**
+     * Confirme une pièce du dossier transmis.
+     */
+    public function approveDocument(Contractor $contractor, Document $document, Admin $admin, Request $request): void
+    {
+        $this->decideDocument($contractor, $document, $admin, DocumentVerificationStatus::Valide, null, $request);
+    }
+
+    /**
+     * Rejette une pièce (« Rejeter » ou « Demander un complément ») : l’entrepreneur n’est prévenu qu’avec la demande
+     * de corrections sur le dossier, qui reprend cette pièce et son motif.
+     */
+    public function rejectDocument(Contractor $contractor, Document $document, Admin $admin, string $reason, Request $request): void
+    {
+        $this->decideDocument($contractor, $document, $admin, DocumentVerificationStatus::Rejete, $reason, $request);
+    }
+
+    public function document(Contractor $contractor, string $id): Document
+    {
+        return $this->account->findDocument($contractor, $id)
+            ?? throw ValidationException::withMessages(['document_id' => 'Cette pièce n’appartient pas au dossier de l’entrepreneur.']);
+    }
+
+    private function decideDocument(Contractor $contractor, Document $document, Admin $admin, DocumentVerificationStatus $status, ?string $reason, Request $request): void
+    {
+        $this->ensurePending($contractor);
+        $before = $document->verification_status->value;
+
+        DB::transaction(function () use ($contractor, $document, $admin, $status, $reason): void {
+            $document->forceFill(['verification_status' => $status, 'rejection_reason' => $reason, 'verified_by_admin_id' => $admin->getKey(), 'verified_at' => now()])->save();
+            $this->startControl($contractor, $admin);
+        });
+
+        AdminAudit::record($admin, 'documents', $status === DocumentVerificationStatus::Valide ? 'document.approved' : 'document.rejected', $request, $document,
+            ['verification_status' => $before], array_filter(['verification_status' => $status->value, 'reason' => $reason, 'contractor_id' => $contractor->getKey()]));
+    }
+
+    /**
+     * Première décision sur une pièce : le dossier passe « En contrôle », pris en charge par l’administrateur.
+     */
+    private function startControl(Contractor $contractor, Admin $admin): void
+    {
+        $review = $this->currentReview($contractor);
+        $review->update(['status' => VerificationReviewStatus::EnControle, 'assigned_admin_id' => $review->assigned_admin_id ?? $admin->getKey()]);
+
+        if ($contractor->verification_status === ContractorVerificationStatus::Soumis) {
+            $contractor->forceFill(['verification_status' => ContractorVerificationStatus::EnControle])->save();
+        }
     }
 
     private function ensurePending(Contractor $contractor): void

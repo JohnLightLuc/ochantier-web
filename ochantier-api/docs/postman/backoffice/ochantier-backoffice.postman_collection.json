@@ -4227,7 +4227,7 @@
                 }
               ]
             },
-            "description": "Entrepreneurs et techniciens, dossiers à vérifier en premier. Enregistre le premier (`admin_contractor_id`).\n\n| Paramètre | Description |\n|---|---|\n| `search` | Nom, référence, e-mail ou téléphone. |\n| `verification_status` | brouillon, soumis, en_controle, a_corriger, valide, refuse. |\n| `kind` | entreprise ou independant. |\n| `status` | actif, suspendu, exclu. |\n| `per_page` | 1 à 100 (20 par défaut). |\n\n`meta` : pagination et `counts` (nombre de dossiers par statut de vérification).\n\nPermission : `contractors.read`."
+            "description": "Entrepreneurs et techniciens, dossiers à vérifier en premier. Enregistre le premier (`admin_contractor_id`).\n\n| Paramètre | Description |\n|---|---|\n| `search` | Nom, référence, e-mail ou téléphone. |\n| `verification_status` | brouillon, soumis, en_controle, a_corriger, valide, refuse. |\n| `kind` | entreprise ou independant. |\n| `status` | actif, suspendu, exclu. |\n| `state` | État affiché (onglets du Back Office) : verifie, en_verification, a_corriger, rejete, brouillon, suspendu. |\n| `trade` | Code du métier (ex. `electricien`). |\n| `zone_city_id` | Ville de la zone d’intervention. |\n| `per_page` | 1 à 100 (20 par défaut). |\n\nChaque ligne : `zones`, `plan` (abonnement en cours, sinon Solo), `activity` (`open` réponses en cours, `total` hors brouillons) et `rating` (`average`, `count`).\n\n`meta` : pagination, `counts` (nombre de dossiers par statut de vérification) et `states` (nombre par état affiché).\n\nPermission : `contractors.read`."
           },
           "response": []
         },
@@ -4240,7 +4240,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const docs = pm.response.json().data.documents || [];",
+                  "if (docs.length) { pm.collectionVariables.set('admin_contractor_document_id', docs[0].id); }"
                 ]
               }
             }
@@ -4264,7 +4266,176 @@
                 "{{admin_contractor_id}}"
               ]
             },
-            "description": "Réponse : la fiche, avec le dossier complet (comme dans l’application), `status` du compte (actif, suspendu, exclu), `account`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `suspend`, `reactivate`).\n\nPermission : `contractors.read`."
+            "description": "Enregistre la première pièce (`admin_contractor_document_id`).\n\nRéponse : la fiche, avec le dossier complet (comme dans l’application, pièces avec leur `status` et leur `rejection_reason`), `status` du compte (actif, suspendu, exclu), `account`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `review_documents`, `suspend`, `reactivate`).\n\nPermission : `contractors.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "10017930-f009-5c6f-a0ce-ead98f6a5fa0",
+          "name": "Réponses aux opportunités",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/responses",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "responses"
+              ]
+            },
+            "description": "Onglet de la fiche, en lecture seule : propositions de visite (demandes de devis) et réponses aux offres contractuelles, les 100 plus récentes. Les brouillons de réponse ne sont pas montrés.\n\nChaque ligne : `kind` (demande_devis, offre_contractuelle), `opportunity` (`id`, `reference`), `title`, `promoter`, `amount` et `amount_label` (frais de visite ou prix proposé), `status`, `at`.\n\nPermission : `contractors.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "a98ca0f1-3ead-5a31-8e36-86b5d18db10c",
+          "name": "Historique du dossier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/history",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "history"
+              ]
+            },
+            "description": "Onglet de la fiche, en lecture seule : soumissions du dossier par l’entrepreneur et décisions du Back Office sur le dossier et ses pièces, des plus récentes aux plus anciennes (100 au plus).\n\nChaque ligne : `kind` (admin, contractor), `author`, `what`, `detail` (pièce, motif), `at`.\n\nPermission : `contractors.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "b665a768-845f-5a25-ab04-4d02ccfceecd",
+          "name": "Confirmer une pièce",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/documents/{{admin_contractor_document_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "documents",
+                "{{admin_contractor_document_id}}",
+                "approve"
+              ]
+            },
+            "description": "Confirme une pièce du dossier transmis. La première décision sur une pièce fait passer le dossier **en contrôle**, pris en charge par l’administrateur. Journal d’audit : `document.approved`.\n\n**422** si le dossier n’est pas en attente de vérification ou si la pièce n’appartient pas au dossier.\n\nRéponse : la fiche, avec le dossier complet (comme dans l’application, pièces avec leur `status` et leur `rejection_reason`), `status` du compte (actif, suspendu, exclu), `account`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `review_documents`, `suspend`, `reactivate`).\n\nPermission : `documents.validate`."
+          },
+          "response": []
+        },
+        {
+          "id": "59d93725-2b50-58d4-b7cd-51dc129696c5",
+          "name": "Rejeter une pièce",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/documents/{{admin_contractor_document_id}}/reject",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "documents",
+                "{{admin_contractor_document_id}}",
+                "reject"
+              ]
+            },
+            "description": "Rejette une pièce (boutons « Rejeter » et « Demander un complément »). L’entrepreneur n’est pas prévenu tout de suite : il l’est avec la demande de corrections sur le dossier, qui reprend cette pièce et son motif. Journal d’audit : `document.rejected`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | Motif (5 à 1000 caractères). |\n\n**422** si le dossier n’est pas en attente de vérification ou si la pièce n’appartient pas au dossier.\n\nRéponse : la fiche, avec le dossier complet (comme dans l’application, pièces avec leur `status` et leur `rejection_reason`), `status` du compte (actif, suspendu, exclu), `account`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `review_documents`, `suspend`, `reactivate`).\n\nPermission : `documents.validate`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Verso illisible : reprenez la photo en pleine lumière.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": []
         },
@@ -4306,7 +4477,7 @@
                 "corrections"
               ]
             },
-            "description": "Dossier soumis → **à corriger**. Le motif est affiché à l’entrepreneur ; les pièces de `document_ids` sont rejetées avec ce motif. Notification et SMS « Des corrections sont demandées ». Journal d’audit : `contractor.corrections_requested`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | Motif (5 à 1000 caractères). |\n| `document_ids` | non | Pièces du dossier à remplacer. |\n\n**422** si le dossier n’est pas en attente de vérification.\n\nRéponse : la fiche, avec le dossier complet (comme dans l’application), `status` du compte (actif, suspendu, exclu), `account`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `suspend`, `reactivate`).\n\nPermission : `contractors.validate`.",
+            "description": "Dossier soumis → **à corriger**. Le motif est affiché à l’entrepreneur ; les pièces de `document_ids` sont rejetées avec ce motif, et les pièces déjà rejetées une à une sont reprises avec leur propre motif. Notification et SMS « Des corrections sont demandées ». Journal d’audit : `contractor.corrections_requested`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | Motif (5 à 1000 caractères). |\n| `document_ids` | non | Pièces du dossier à remplacer. |\n\n**422** si le dossier n’est pas en attente de vérification.\n\nRéponse : la fiche, avec le dossier complet (comme dans l’application, pièces avec leur `status` et leur `rejection_reason`), `status` du compte (actif, suspendu, exclu), `account`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `review_documents`, `suspend`, `reactivate`).\n\nPermission : `contractors.validate`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"reason\": \"Pièce d’identité illisible : envoyez une photo nette.\",\n  \"document_ids\": []\n}",
@@ -4353,7 +4524,7 @@
                 "approve"
               ]
             },
-            "description": "Dossier soumis et complet → **vérifié** : les pièces en attente sont validées et l’entrepreneur peut répondre aux opportunités. Notification et SMS « Votre profil est vérifié ». Journal d’audit : `contractor.approved`.\n\n**422** si le dossier n’est pas en attente de vérification ou est incomplet.\n\nRéponse : la fiche, avec le dossier complet (comme dans l’application), `status` du compte (actif, suspendu, exclu), `account`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `suspend`, `reactivate`).\n\nPermission : `contractors.validate`."
+            "description": "Dossier soumis et complet → **vérifié** : les pièces en attente sont validées et l’entrepreneur peut répondre aux opportunités. Notification et SMS « Votre profil est vérifié ». Journal d’audit : `contractor.approved`.\n\n**422** si le dossier n’est pas en attente de vérification ou est incomplet.\n\nRéponse : la fiche, avec le dossier complet (comme dans l’application, pièces avec leur `status` et leur `rejection_reason`), `status` du compte (actif, suspendu, exclu), `account`, `reviews` (demandes de vérification et décisions) et `actions` possibles (`approve`, `request_corrections`, `reject`, `review_documents`, `suspend`, `reactivate`).\n\nPermission : `contractors.validate`.\n\n**422** « Confirmez d’abord la pièce d’identité. » tant que la pièce d’identité n’est pas confirmée, ou si une pièce reste rejetée (demandez plutôt un complément). Les autres pièces en attente sont validées avec le dossier."
           },
           "response": []
         },
@@ -5813,6 +5984,10 @@
       "value": "",
       "type": "string",
       "description": "Première recherche d’effectifs en attente."
+    },
+    {
+      "key": "admin_contractor_document_id",
+      "value": ""
     }
   ]
 }
