@@ -23,6 +23,7 @@ use App\Models\WorkerReservation;
 use Database\Seeders\AdminAccessSeeder;
 use Database\Seeders\CommercialOfferSeeder;
 use Database\Seeders\PlatformRulesSeeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class PaymentTest extends PromoterTestCase
@@ -146,6 +147,72 @@ class PaymentTest extends PromoterTestCase
 
         $this->assertSame(1, PaymentTransaction::query()->count());
         $this->assertSame(2, Mission::query()->count());
+    }
+
+    public function test_an_idempotency_key_cannot_pay_something_else(): void
+    {
+        $this->postJson('/api/v1/promoter/payments', $this->deposit(), ['Idempotency-Key' => 'cle-unique'])->assertCreated();
+
+        $this->postJson('/api/v1/promoter/payments', $this->deposit(['operator_code' => 'wave', 'phone_number' => '0512345634']), ['Idempotency-Key' => 'cle-unique'])
+            ->assertJsonValidationErrors(['idempotency_key' => 'Cette clé d’idempotence a déjà servi à un autre paiement.']);
+
+        $this->postJson('/api/v1/promoter/payments', ['plan_code' => 'equipe', 'operator_code' => 'orange_money', 'dial_code' => '225', 'phone_number' => '0712345634'], ['Idempotency-Key' => 'cle-unique'])
+            ->assertJsonValidationErrors(['idempotency_key']);
+
+        $this->assertSame(1, PaymentTransaction::query()->count());
+    }
+
+    public function test_the_idempotency_key_of_another_account_never_returns_its_payment(): void
+    {
+        $this->postJson('/api/v1/promoter/payments', $this->deposit(), ['Idempotency-Key' => 'cle-unique'])->assertCreated();
+
+        $this->actingAsPromoter(User::factory()->promoter()->create());
+        $this->postJson('/api/v1/promoter/payments', ['plan_code' => 'equipe', 'operator_code' => 'orange_money', 'dial_code' => '225', 'phone_number' => '0712345634'], ['Idempotency-Key' => 'cle-unique'])
+            ->assertJsonValidationErrors(['idempotency_key' => 'Cette clé d’idempotence est déjà utilisée.'])
+            ->assertJsonMissingPath('data');
+
+        $this->assertSame(1, PaymentTransaction::query()->count());
+        $this->assertSame(0, DB::table('payment_holds')->count());
+    }
+
+    public function test_what_is_being_paid_cannot_be_paid_a_second_time_meanwhile(): void
+    {
+        $holder = str_repeat('a', 64);
+        DB::table('payment_holds')->insert(['target_type' => 'proposal', 'target_id' => $this->proposal->id, 'holder_key' => $holder, 'expires_at' => now()->addMinutes(10)]);
+
+        $this->postJson('/api/v1/promoter/payments', $this->deposit())
+            ->assertJsonValidationErrors(['payment' => 'Un paiement est déjà en cours pour cet élément. Patientez quelques instants avant de réessayer.']);
+
+        $this->assertSame(0, PaymentTransaction::query()->count());
+        $this->assertSame(0, Mission::query()->count());
+
+        // Une retenue expirée (issue jamais connue) ne bloque plus le paiement.
+        DB::table('payment_holds')->where('holder_key', $holder)->update(['expires_at' => now()->subMinute()]);
+
+        $this->postJson('/api/v1/promoter/payments', $this->deposit())->assertCreated()->assertJsonPath('data.status.value', 'reussie');
+        $this->assertSame(0, DB::table('payment_holds')->count());
+    }
+
+    public function test_a_failed_payment_releases_what_it_was_paying(): void
+    {
+        $this->postJson('/api/v1/promoter/payments', $this->deposit(['phone_number' => '0712340000']))->assertCreated()->assertJsonPath('data.status.value', 'echouee');
+
+        $this->assertSame(0, DB::table('payment_holds')->count());
+    }
+
+    public function test_installments_being_paid_are_held_one_by_one(): void
+    {
+        $this->postJson('/api/v1/promoter/payments', $this->deposit())->assertCreated();
+        $schedules = PaymentSchedule::query()->where('schedule_type', PaymentScheduleType::Hebdomadaire)->orderBy('reference')->get();
+        $first = $schedules->where('sequence', 1)->pluck('id')->values()->all();
+        DB::table('payment_holds')->insert(['target_type' => 'payment_schedule', 'target_id' => $first[0], 'holder_key' => str_repeat('b', 64), 'expires_at' => now()->addMinutes(10)]);
+
+        $this->postJson('/api/v1/promoter/payments', ['schedule_ids' => $first, 'operator_code' => 'orange_money', 'dial_code' => '225', 'phone_number' => '0712345634'])
+            ->assertJsonValidationErrors(['payment']);
+
+        // Rien n’est retenu à moitié : seule la retenue posée par l’autre paiement subsiste.
+        $this->assertSame(1, DB::table('payment_holds')->count());
+        $this->assertSame(1, PaymentTransaction::query()->count());
     }
 
     public function test_a_failed_payment_can_be_retried(): void

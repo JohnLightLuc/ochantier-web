@@ -25,7 +25,7 @@ class PaymentTransaction extends Model
     protected $fillable = [
         'reference', 'direction', 'purpose', 'payer_type', 'payer_id', 'payee_type', 'payee_id', 'payment_schedule_id',
         'worker_payout_id', 'refund_id', 'commercial_payout_id', 'subscription_invoice_id', 'payment_method_id',
-        'operator_id', 'provider', 'provider_reference', 'idempotency_key', 'amount', 'fees_amount', 'currency', 'status',
+        'operator_id', 'provider', 'provider_reference', 'idempotency_key', 'request_hash', 'amount', 'fees_amount', 'currency', 'status',
         'failure_code', 'failure_message', 'retry_of_transaction_id', 'initiated_by_type', 'initiated_by_id',
         'initiated_at', 'completed_at', 'reconciled_at', 'metadata',
     ];

@@ -21,6 +21,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
@@ -144,21 +145,26 @@ class PaymentController extends Controller
     }
 
     /**
-     * Paie par Mobile Money. En-tête Idempotency-Key recommandé : la même clé renvoie le paiement déjà demandé.
+     * Paie par Mobile Money. En-tête Idempotency-Key recommandé : la même clé renvoie le paiement déjà demandé, et
+     * est refusée si elle sert à payer autre chose.
      */
     public function store(PaymentRequest $request): JsonResponse
     {
         $this->ensureCanPay($request);
         $profile = ProfileController::profile($request);
         $key = (string) ($request->header('Idempotency-Key') ?: Str::uuid7());
-        $existing = PaymentTransaction::query()->where('idempotency_key', $key)->where('payer_type', $profile->getMorphClass())->where('payer_id', $profile->getKey())->first();
+        $existing = $this->payments->requested($profile, $key);
 
         if ($existing) {
+            if ($existing->request_hash !== null && ! hash_equals($existing->request_hash, $request->fingerprint())) {
+                throw ValidationException::withMessages(['idempotency_key' => 'Cette clé d’idempotence a déjà servi à un autre paiement.']);
+            }
+
             return PaymentTransactionResource::make($existing->load(['operator', 'receipts.mediaFile']))->response()->setStatusCode(200);
         }
 
         $payable = $this->payments->split($this->payments->payable($request->user(), $request->target()), $profile, $request->installments());
-        $transaction = $this->payments->pay($request->user(), $profile, $payable, $request->operator(), $request->phoneNumber(), $key, $request->boolean('remember_number'));
+        $transaction = $this->payments->pay($request->user(), $profile, $payable, $request->operator(), $request->phoneNumber(), $key, $request->boolean('remember_number'), $request->target(), $request->installments(), $request->fingerprint());
 
         return PaymentTransactionResource::make($transaction->load(['operator', 'receipts.mediaFile']))->response()->setStatusCode(201);
     }

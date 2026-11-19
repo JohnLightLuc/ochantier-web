@@ -33,16 +33,20 @@ use App\Models\User;
 use App\Support\Contractor\ContractorNotifier;
 use App\Support\Documents\SimplePdf;
 use App\Support\Media\MediaStore;
+use App\Support\Payments\GatewayResult;
 use App\Support\Payments\PaymentGateway;
+use App\Support\Payments\PaymentHolds;
 use App\Support\PhoneNumber;
 use App\Support\Pricing\PricingRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Paiements du promoteur (« Paiements », « Payer ») : acompte d’une proposition acceptée, échéances des missions,
@@ -81,6 +85,7 @@ class PromoterPayments
         private MediaStore $media,
         private PromoterSubscriptions $subscriptions,
         private PromoterAccess $access,
+        private PaymentHolds $holds,
     ) {}
 
     /**
@@ -186,16 +191,102 @@ class PromoterPayments
     }
 
     /**
-     * Paie par Mobile Money. Une même clé d’idempotence renvoie le paiement déjà demandé.
+     * Paie par Mobile Money. Une même clé d’idempotence renvoie le paiement déjà demandé par ce compte, jamais celui
+     * d’un autre. Les éléments payés sont retenus le temps du paiement : un second paiement du même élément est
+     * refusé tant que le premier n’a pas abouti ou échoué. $target (ce que l’on paie, tel que reçu) fait revérifier
+     * l’élément une fois retenu, pour ne pas encaisser ce qu’un paiement concurrent vient de régler.
      *
      * @param  array<string, mixed>  $payable
+     * @param  array<string, mixed>|null  $target
      */
-    public function pay(User $user, PromoterProfile $profile, array $payable, PaymentOperator $operator, PhoneNumber $phone, string $idempotencyKey, bool $remember = false): PaymentTransaction
+    public function pay(User $user, PromoterProfile $profile, array $payable, PaymentOperator $operator, PhoneNumber $phone, string $idempotencyKey, bool $remember = false, ?array $target = null, int $installments = 1, ?string $requestHash = null): PaymentTransaction
     {
-        if ($existing = PaymentTransaction::query()->where('idempotency_key', $idempotencyKey)->first()) {
+        if ($existing = $this->requested($profile, $idempotencyKey)) {
             return $existing;
         }
 
+        $holder = $this->holds->holder($profile->getMorphClass(), (string) $profile->getKey(), $idempotencyKey);
+        $this->holds->acquire($this->heldTargets($payable, $profile), $holder);
+
+        try {
+            if ($target !== null) {
+                $payable = $this->split($this->payable($user, $target), $profile, $installments);
+            }
+
+            $transaction = DB::transaction(fn (): PaymentTransaction => $this->initiate($user, $profile, $payable, $operator, $phone, $idempotencyKey, $remember, $requestHash));
+        } catch (UniqueConstraintViolationException $exception) {
+            $this->holds->release($holder);
+
+            if (! str_contains($exception->getMessage(), 'idempotency_key')) {
+                throw $exception;
+            }
+
+            // La même clé vient d’être enregistrée par une requête simultanée de ce compte, ou appartient à un autre.
+            return $this->requested($profile, $idempotencyKey)
+                ?? throw ValidationException::withMessages(['idempotency_key' => 'Cette clé d’idempotence est déjà utilisée.']);
+        } catch (Throwable $exception) {
+            $this->holds->release($holder);
+
+            throw $exception;
+        }
+
+        $this->holds->attach($holder, $transaction);
+        $quote = $this->quote($payable, $operator);
+
+        // Si le prestataire ne répond pas, l’issue est inconnue : la retenue reste en place jusqu’à son expiration.
+        $result = $this->gateway->collect($operator, $phone, $quote['total'], $transaction->reference);
+
+        if ($result->status !== PaymentTransactionStatus::Reussie->value) {
+            $transaction->forceFill(['status' => PaymentTransactionStatus::Echouee, 'provider_reference' => $result->providerReference, 'failure_code' => $result->failureCode, 'failure_message' => $result->failureMessage])->save();
+            $this->history($transaction, PaymentTransactionStatus::Initiee, PaymentTransactionStatus::Echouee, $user);
+            $this->holds->release($holder);
+
+            return $transaction;
+        }
+
+        $settled = $this->settle($transaction, $payable, $user, $profile, $result);
+        $this->holds->release($holder);
+
+        return $settled;
+    }
+
+    /**
+     * Paiement déjà demandé par ce compte avec cette clé d’idempotence.
+     */
+    public function requested(PromoterProfile $profile, string $idempotencyKey): ?PaymentTransaction
+    {
+        return PaymentTransaction::query()
+            ->where('idempotency_key', $idempotencyKey)
+            ->where('payer_type', $profile->getMorphClass())
+            ->where('payer_id', $profile->getKey())
+            ->first();
+    }
+
+    /**
+     * Éléments retenus le temps du paiement : [type, identifiant].
+     *
+     * @param  array<string, mixed>  $payable
+     * @return list<array{0: string, 1: string}>
+     */
+    private function heldTargets(array $payable, PromoterProfile $profile): array
+    {
+        return match (true) {
+            $payable['kind'] === 'abonnement' => [['promoter_subscription', (string) $profile->getKey()]],
+            $payable['kind'] === 'commande_devis' => [['quote_request', (string) $payable['quote_request']->getKey()]],
+            $payable['kind'] === 'versement' => [['payment_installment', (string) $payable['installment']->getKey()]],
+            isset($payable['contractor_bid']) => [['contractor_bid', (string) $payable['contractor_bid']->getKey()]],
+            $payable['kind'] === 'acompte' => [['proposal', (string) $payable['proposal']->getKey()]],
+            default => collect($this->keys($payable['schedules']))->sort()->map(fn (string $id) => ['payment_schedule', $id])->values()->all(),
+        };
+    }
+
+    /**
+     * Enregistre la demande de paiement, avant tout appel au prestataire.
+     *
+     * @param  array<string, mixed>  $payable
+     */
+    private function initiate(User $user, PromoterProfile $profile, array $payable, PaymentOperator $operator, PhoneNumber $phone, string $idempotencyKey, bool $remember, ?string $requestHash): PaymentTransaction
+    {
         $quote = $this->quote($payable, $operator);
         $method = $remember ? $this->rememberNumber($profile, $user, $operator, $phone) : null;
 
@@ -217,6 +308,7 @@ class PromoterPayments
             'operator_id' => $operator->getKey(),
             'provider' => $operator->provider,
             'idempotency_key' => $idempotencyKey,
+            'request_hash' => $requestHash,
             'amount' => $quote['amount'],
             'fees_amount' => $quote['fees'],
             'status' => PaymentTransactionStatus::Initiee,
@@ -241,15 +333,16 @@ class PromoterPayments
         ]);
         $this->history($transaction, null, PaymentTransactionStatus::Initiee, $user);
 
-        $result = $this->gateway->collect($operator, $phone, $quote['total'], $transaction->reference);
+        return $transaction;
+    }
 
-        if ($result->status !== PaymentTransactionStatus::Reussie->value) {
-            $transaction->forceFill(['status' => PaymentTransactionStatus::Echouee, 'provider_reference' => $result->providerReference, 'failure_code' => $result->failureCode, 'failure_message' => $result->failureMessage])->save();
-            $this->history($transaction, PaymentTransactionStatus::Initiee, PaymentTransactionStatus::Echouee, $user);
-
-            return $transaction;
-        }
-
+    /**
+     * Applique un paiement encaissé : missions, échéances, versements, abonnement ou commande, puis reçu.
+     *
+     * @param  array<string, mixed>  $payable
+     */
+    private function settle(PaymentTransaction $transaction, array $payable, User $user, PromoterProfile $profile, GatewayResult $result): PaymentTransaction
+    {
         return DB::transaction(function () use ($transaction, $payable, $user, $profile, $result): PaymentTransaction {
             if ($payable['kind'] === 'abonnement') {
                 $invoice = $this->subscriptions->settle($transaction, $profile, $user, $payable);
