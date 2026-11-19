@@ -26,6 +26,10 @@ class DashboardPresenter
         'anomalies' => ['anomalies de pointage', 'À traiter', 'schedule', '/pointages/anomalies', 'info'],
         'disputes' => ['litiges en cours', 'Ouverts, en instruction ou en recours', 'gavel', '/avis-litiges/litiges', 'danger'],
         'ratings' => ['avis à modérer', 'Signalés par l’équipe', 'flag', '/avis-litiges/avis?moderation=signale', 'info'],
+        'contractors' => ['dossiers de professionnels à vérifier', 'Pièces KYB/KYC à contrôler', 'handyman', '/entrepreneurs?onglet=a-verifier', 'warning'],
+        'contract_deposits' => ['acomptes d’offres contractuelles attendus', 'Le promoteur a choisi une offre, l’acompte reste à payer', 'hourglass_top', '/offres-contractuelles?onglet=acompte', 'warning'],
+        'contractor_payouts' => ['versements aux professionnels à traiter', 'À valider par une seconde personne ou rejetés', 'savings', '/paiements/professionnels', 'warning'],
+        'quote_replies' => ['demandes de devis en attente du promoteur', 'Report de visite ou devis à confirmer', 'request_quote', '/demandes-devis?onglet=en-cours', 'info'],
     ];
 
     private const FEED = [
@@ -81,10 +85,45 @@ class DashboardPresenter
             [$title, $text, $icon, $href] = self::QUEUES[$row['key']];
 
             return ['count' => $row['count'], 'title' => $title, 'text' => $text, 'priority' => $row['priority'], 'icon' => $icon, 'href' => $href];
-        }, $rows);
+        }, self::known($rows));
         $visible = array_slice($items, 0, self::VISIBLE_PRIORITIES);
 
         return ['total' => array_sum(array_column($visible, 'count')), 'totalAll' => array_sum(array_column($items, 'count')), 'items' => $visible, 'more' => array_slice($items, self::VISIBLE_PRIORITIES)];
+    }
+
+    /**
+     * Bloc O’CHANTIER PRO : tuiles cliquables, selon les parties que l’administrateur a le droit de voir.
+     *
+     * @param  array<string, mixed>  $p
+     * @return list<array{label: string, value: string, hint: string|null, icon: string, tone: string, href: string, highlight: bool}>
+     */
+    public function pro(array $p): array
+    {
+        $money = fn (int $amount): string => number_format($amount, 0, ',', ' ').' FCFA';
+        $tile = fn (string $label, string $value, ?string $hint, string $icon, string $tone, string $href, bool $highlight = false): array => compact('label', 'value', 'hint', 'icon', 'tone', 'href', 'highlight');
+        $tiles = [];
+
+        if ($c = $p['contractors'] ?? null) {
+            $tiles[] = $tile('Professionnels vérifiés', (string) $c['verified'], $c['to_review'] ? $c['to_review'].' dossier(s) à vérifier' : 'Aucun dossier en attente', 'handyman', 'g', $c['to_review'] ? '/entrepreneurs?onglet=a-verifier' : '/entrepreneurs', $c['to_review'] > 0);
+        }
+
+        if ($q = $p['quotes'] ?? null) {
+            $tiles[] = $tile('Demandes de devis', (string) ($q['open'] + $q['in_progress']), $q['open'].' ouverte(s) · '.$q['in_progress'].' en cours'.($q['waiting_promoter'] ? ' · '.$q['waiting_promoter'].' en attente du promoteur' : ''), 'request_quote', 'b', '/demandes-devis');
+        }
+
+        if ($o = $p['contract_offers'] ?? null) {
+            $tiles[] = $tile('Offres contractuelles', (string) $o['open'], $o['comparing'].' en comparaison · '.$o['deposit'].' acompte(s) attendu(s) · '.$o['attributed'].' attribuée(s)', 'handshake', 'p', $o['deposit'] ? '/offres-contractuelles?onglet=acompte' : '/offres-contractuelles', $o['deposit'] > 0);
+        }
+
+        if ($m = $p['commissions'] ?? null) {
+            $tiles[] = $tile('Commissions PRO du mois', $money($m['collected_month']), $money($m['to_collect']).' à collecter', 'percent', 'g', '/offres-contractuelles?onglet=commissions');
+        }
+
+        if ($v = $p['payouts'] ?? null) {
+            $tiles[] = $tile('À verser aux professionnels', $money($v['amount']), $v['contractors'].' professionnel(s)', 'savings', 'a', '/paiements/professionnels', $v['amount'] > 0);
+        }
+
+        return $tiles;
     }
 
     /**
@@ -99,7 +138,18 @@ class DashboardPresenter
             [$title, $text, $icon, $href, $tone] = self::QUEUES[$row['key']];
 
             return ['id' => $row['key'], 'icon' => $icon, 'tone' => $tone, 'title' => $row['count'].' '.$title, 'text' => $text, 'priority' => $row['priority'], 'when' => 'À traiter', 'read' => false, 'href' => $href];
-        }, $rows);
+        }, self::known($rows));
+    }
+
+    /**
+     * Files connues du Back Office : une file ajoutée dans l’API avant le Back Office est ignorée, sans erreur.
+     *
+     * @param  list<array{key: string, count: int, priority: string}>  $rows
+     * @return list<array{key: string, count: int, priority: string}>
+     */
+    private static function known(array $rows): array
+    {
+        return array_values(array_filter($rows, fn (array $row): bool => isset(self::QUEUES[$row['key']])));
     }
 
     /**

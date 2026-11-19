@@ -13,7 +13,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
 /** Vue d’ensemble : KPI, activité, priorités, chantiers, matching, finances, journal. */
-export default function Dashboard({ kpis, activity, priorities, recentSites, siteDistribution, matching, finance, feed, updatedAt }: DashboardProps) {
+export default function Dashboard({ kpis, activity, priorities, recentSites, siteDistribution, matching, finance, pro, feed, updatedAt }: DashboardProps) {
     const ui = useAdminUi();
     const online = useOnlineStatus();
     const [loading, setLoading] = useState<{ activity?: boolean; finance?: boolean; all?: boolean }>({});
@@ -123,6 +123,24 @@ export default function Dashboard({ kpis, activity, priorities, recentSites, sit
                         </Link>
                     ))}
                 </div>
+
+                {pro.length > 0 && (
+                    <section data-component="ProBlock" aria-labelledby="pro-title" style={{ background: 'var(--c-surface)', border: '1px solid var(--c-line)', borderRadius: 'var(--radius-2xl)', padding: 'var(--space-5)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+                            <Icon name="workspace_premium" size="var(--icon-md)" color="var(--c-primary)" />
+                            <h2 id="pro-title" style={{ margin: 0, fontSize: 'var(--fs-2xl)', fontWeight: 'var(--fw-bold)' }}>
+                                O’CHANTIER PRO
+                            </h2>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 'var(--space-4)' }}>
+                            {pro.map((t) => (
+                                <Link key={t.label} href={t.href} aria-label={`${t.label} : ${t.value}. Ouvrir le module`} className="och-hover-lift" style={{ display: 'block', minWidth: 0, borderRadius: 'var(--radius-2xl)', color: 'inherit', textDecoration: 'none' }}>
+                                    <StatCard label={t.label} value={t.value} icon={t.icon} tone={t.tone} hint={t.hint ?? undefined} highlight={t.highlight} />
+                                </Link>
+                            ))}
+                        </div>
+                    </section>
+                )}
 
                 <div className="och-dash-grid">
                     {activity && <ActivityChart activity={activity} loading={!!(loading.activity || loading.all)} onRange={changeActivityRange} onPoint={openPoint} onReport={() => router.visit('/rapports')} />}

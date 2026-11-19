@@ -4,6 +4,7 @@ namespace App\Support\Admin;
 
 use App\Enums\AttendanceAnomalyStatus;
 use App\Enums\ClaimStatus;
+use App\Enums\ContractorPayoutStatus;
 use App\Enums\DisputeStatus;
 use App\Enums\OfferStatus;
 use App\Enums\PaymentTransactionDirection;
@@ -20,6 +21,8 @@ use App\Enums\WorkerPayoutBatchStatus;
 use App\Models\Admin;
 use App\Models\AttendanceAnomaly;
 use App\Models\Claim;
+use App\Models\Contractor;
+use App\Models\ContractorPayout;
 use App\Models\Dispute;
 use App\Models\PaymentTransaction;
 use App\Models\PromoterProfile;
@@ -49,7 +52,7 @@ class DashboardOverview
 
     private const WAITING_PROMOTERS = ['soumis', 'en_controle'];
 
-    public function __construct(private PaymentDirectory $payments, private SiteDirectory $sites) {}
+    public function __construct(private PaymentDirectory $payments, private SiteDirectory $sites, private QuoteRequestDirectory $quotes, private ContractOfferDirectory $contractOffers, private ProCommissionLedger $ledger, private ContractorPayouts $contractorPayouts) {}
 
     /**
      * @return array<string, mixed>
@@ -67,6 +70,7 @@ class DashboardOverview
             'site_distribution' => $can('sites.read') ? $this->distribution() : null,
             'matching' => $can('matching.read') ? $this->matching() : null,
             'finance' => $can('payments.read') ? $this->finance($filters['finance'] ?? '7j') : null,
+            'pro' => $this->pro($admin),
             'feed' => $this->feed($admin),
         ];
     }
@@ -84,7 +88,10 @@ class DashboardOverview
         return array_filter([
             'affectations' => $count('replacements'),
             'pointages' => $count('anomalies'),
-            'paiements' => $count('batches') + $count('refunds'),
+            'paiements' => $count('batches') + $count('refunds') + $count('contractor_payouts'),
+            'entrepreneurs' => $count('contractors'),
+            'demandes-devis' => $count('quote_replies'),
+            'offres-contractuelles' => $count('contract_deposits'),
             'abonnements' => $admin->hasPermission('subscriptions.read') ? Subscription::query()->where('status', SubscriptionStatus::EnRetard)->count() : 0,
             'avis' => $count('ratings') + $count('claims') + $count('disputes'),
         ]);
@@ -117,8 +124,12 @@ class DashboardOverview
             ['refunds', 'payments.read', 'Élevé', fn () => Refund::query()->whereIn('status', [RefundStatus::Demande, RefundStatus::Echoue])->count()],
             ['workers', 'workers.read', 'Élevé', fn () => Worker::query()->whereIn('verification_status', self::WAITING_WORKERS)->count()],
             ['promoters', 'promoters.read', 'Élevé', fn () => PromoterProfile::query()->whereIn('verification_status', self::WAITING_PROMOTERS)->count()],
+            ['contractors', 'contractors.read', 'Élevé', fn () => $this->contractorsToReview()],
+            ['contract_deposits', 'offers.read', 'Élevé', fn () => $this->contractOffers->counts()['acompte_attendu']],
+            ['contractor_payouts', 'payouts.read', 'Élevé', fn () => ContractorPayout::query()->whereIn('status', [ContractorPayoutStatus::APayer->value, ContractorPayoutStatus::Rejete->value])->count()],
             ['anomalies', 'attendance.read', 'Élevé', fn () => AttendanceAnomaly::query()->whereIn('status', [AttendanceAnomalyStatus::Ouverte, AttendanceAnomalyStatus::EnTraitement])->count()],
             ['disputes', 'disputes.read', 'Moyen', fn () => Dispute::query()->whereIn('status', DisputeDirectory::OPEN)->count()],
+            ['quote_replies', 'offers.read', 'Moyen', fn () => array_sum(array_intersect_key($this->quotes->counts(), array_flip(['report_propose', 'devis_envoye'])))],
             ['ratings', 'ratings.read', 'Moyen', fn () => Rating::query()->where('status', RatingStatus::Publie)->where('moderation_status', RatingModerationStatus::Signale)->count()],
         ];
 
@@ -128,6 +139,55 @@ class DashboardOverview
             ->filter(fn (array $row) => $row['count'] > 0)
             ->values()
             ->all();
+    }
+
+    /**
+     * Bloc O’CHANTIER PRO : professionnels, demandes de devis, offres contractuelles et commissions, chaque partie selon
+     * le droit de l’administrateur. Null si aucune n’est permise.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function pro(Admin $admin): ?array
+    {
+        $can = fn (string $permission): bool => $admin->hasPermission($permission);
+        $quotes = $can('offers.read') ? $this->quotes->counts() : null;
+        $offers = $can('offers.read') ? $this->contractOffers->counts() : null;
+        $month = $can('finance.read') ? $this->ledger->totals(['from' => now()->startOfMonth()->toDateString()]) : null;
+        $payable = $can('payouts.read') ? $this->contractorPayouts->payable() : null;
+
+        $block = array_filter([
+            'contractors' => $can('contractors.read') ? [
+                'verified' => Contractor::query()->where('status', 'actif')->where('verification_status', 'valide')->count(),
+                'to_review' => $this->contractorsToReview(),
+            ] : null,
+            'quotes' => $quotes ? [
+                'open' => $quotes['ouverte'],
+                'in_progress' => $quotes['visite_programmee'] + $quotes['report_propose'] + $quotes['devis_en_preparation'] + $quotes['devis_envoye'],
+                'waiting_promoter' => $quotes['report_propose'] + $quotes['devis_envoye'],
+                'received' => $quotes['devis_recu'],
+            ] : null,
+            'contract_offers' => $offers ? [
+                'open' => $offers['ouverte'] + $offers['en_comparaison'],
+                'comparing' => $offers['en_comparaison'],
+                'deposit' => $offers['acompte_attendu'],
+                'attributed' => $offers['attribuee'],
+            ] : null,
+            'commissions' => $month ? [
+                'collected_month' => $month['commission']['collectee'],
+                'to_collect' => $this->ledger->totals(['status' => 'a_collecter'])['commission']['a_collecter'],
+            ] : null,
+            'payouts' => $payable !== null ? [
+                'contractors' => $payable->count(),
+                'amount' => (int) $payable->sum('total'),
+            ] : null,
+        ], fn ($part) => $part !== null);
+
+        return $block === [] ? null : $block;
+    }
+
+    private function contractorsToReview(): int
+    {
+        return Contractor::query()->where('status', 'actif')->whereIn('verification_status', ['soumis', 'en_controle'])->count();
     }
 
     /**

@@ -11,7 +11,7 @@ import { fcfa } from '@/lib/format';
 import PaymentNav from '@/components/payments/PaymentNav';
 import { Head, router } from '@inertiajs/react';
 
-type FilterKey = 'periode' | 'statut' | 'nature' | 'operateur';
+type FilterKey = 'periode' | 'statut' | 'nature' | 'payeur' | 'operateur';
 
 type Filters = Partial<Record<FilterKey | 'q' | 'chantier' | 'tri' | 'sens' | 'page', string>>;
 
@@ -23,6 +23,8 @@ type Row = {
     label: string | null;
     site: { id: string; label: string } | null;
     promoter: { name: string };
+    /** Promoteur, ou professionnel O’CHANTIER PRO (recherche d’effectifs, abonnement). */
+    payer: { type: 'promoter' | 'contractor'; id: string | null; name: string | null; label: string };
     operator: string | null;
     amount: number;
     fees: number;
@@ -41,7 +43,7 @@ type Props = {
 const COLUMNS: [string, string | null][] = [
     ['Date', 'date'],
     ['Référence', null],
-    ['Promoteur', null],
+    ['Payeur', null],
     ['Nature', null],
     ['Opérateur', null],
     ['Montant', 'montant'],
@@ -53,10 +55,11 @@ const FILTERS: [FilterKey, string][] = [
     ['periode', 'Période'],
     ['statut', 'Statut'],
     ['nature', 'Nature'],
+    ['payeur', 'Payeur'],
     ['operateur', 'Opérateur'],
 ];
 
-/** Encaissements : une ligne par paiement reçu ou tenté par un promoteur. */
+/** Encaissements : une ligne par paiement reçu ou tenté par un promoteur ou un professionnel O’CHANTIER PRO. */
 export default function PaymentsIndex({ transactions, filters, filterOptions, kpis, can }: Props) {
     const apply = (changes: Filters, keepPage = false) => {
         const next: Filters = { ...filters, ...changes, ...(keepPage ? {} : { page: undefined }) };
@@ -122,7 +125,7 @@ export default function PaymentsIndex({ transactions, filters, filterOptions, kp
                                     <TextCell>{t.reference}</TextCell>
                                 </td>
                                 <td style={tdStyle}>
-                                    <StackCell main={t.promoter.name} sub={t.site?.label ?? '—'} strong />
+                                    <StackCell main={t.payer.name || '—'} sub={`${t.payer.type === 'contractor' ? 'Professionnel · ' : ''}${t.site?.label ?? '—'}`} strong />
                                 </td>
                                 <td style={tdStyle}>
                                     <StackCell main={t.purpose} sub={t.label ?? '—'} />

@@ -20,6 +20,7 @@ class TransactionIndexRequest extends FormRequest
             'search' => ['nullable', 'string', 'max:80'],
             'status' => ['nullable', Rule::in(PaymentDirectory::TRANSACTION_STATUSES)],
             'purpose' => ['nullable', Rule::in(PaymentDirectory::PURPOSES)],
+            'payer' => ['nullable', Rule::in(array_keys(PaymentDirectory::PAYERS))],
             'operator_id' => ['nullable', 'uuid'],
             'site_id' => ['nullable', 'uuid'],
             'date_from' => ['nullable', 'date_format:Y-m-d'],
