@@ -40,6 +40,7 @@ use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterAccountController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterRelationController;
 use App\Http\Controllers\Api\V1\Admin\Promoter\PromoterReviewController;
+use App\Http\Controllers\Api\V1\Admin\Quote\QuoteRequestController;
 use App\Http\Controllers\Api\V1\Admin\Rating\RatingController;
 use App\Http\Controllers\Api\V1\Admin\Report\ReportController;
 use App\Http\Controllers\Api\V1\Admin\Report\ReportLibraryController;
@@ -141,6 +142,18 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('documents/{document}/reject', [ContractorReviewController::class, 'rejectDocument'])->whereUuid('document')->middleware('admin.can:documents.validate')->name('documents.reject');
                 Route::post('suspension', [ContractorReviewController::class, 'suspend'])->middleware('admin.can:contractors.update')->name('suspend');
                 Route::delete('suspension', [ContractorReviewController::class, 'reactivate'])->middleware('admin.can:contractors.update')->name('reactivate');
+            });
+        });
+
+        // Demandes de devis (O’CHANTIER PRO) : une ligne par corps de métier, fiche, prolongation, annulation et relances.
+        Route::prefix('quote-requests')->name('quote-requests.')->controller(QuoteRequestController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:offers.read')->name('index');
+
+            Route::prefix('{line}')->whereUuid('line')->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:offers.read')->name('show');
+                Route::post('extension', 'extend')->middleware('admin.can:offers.update')->name('extend');
+                Route::post('cancellation', 'cancel')->middleware('admin.can:offers.validate')->name('cancel');
+                Route::post('reminders', 'remind')->middleware('admin.can:offers.update')->name('remind');
             });
         });
 

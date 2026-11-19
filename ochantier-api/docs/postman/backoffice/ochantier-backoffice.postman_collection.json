@@ -4671,6 +4671,247 @@
       ]
     },
     {
+      "id": "25babe8e-d450-55fb-bc9f-8bf75ecf9b86",
+      "name": "Demandes de devis",
+      "item": [
+        {
+          "id": "409fb1f0-53f1-5863-8e5d-c4a4da1a85d7",
+          "name": "Liste des demandes de devis",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.data.length) { pm.collectionVariables.set('admin_quote_line_id', body.data[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/quote-requests?status=ouverte,visite_programmee",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "quote-requests"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "ouverte,visite_programmee"
+                }
+              ]
+            },
+            "description": "Une ligne par corps de métier d’une demande (un professionnel choisi, une visite, un devis). Enregistre la première (`admin_quote_line_id`).\n\n| Paramètre | Description |\n|---|---|\n| `search` | Référence (DV-…), chantier ou promoteur. |\n| `trade` | Code du métier. |\n| `city_id` | Ville du chantier. |\n| `status` | Statuts affichés, séparés par des virgules : ouverte, visite_programmee, report_propose, devis_en_preparation, devis_envoye, devis_recu, expiree, annulee. |\n| `per_page` | 1 à 100 (20 par défaut). |\n\n`meta` : pagination, `counts` (lignes par statut affiché), `trades` et `cities` (options des filtres).\n\nPermission : `offers.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "23b25549-6168-56c4-be53-7bf27bffaaa4",
+          "name": "Fiche d’une demande de devis",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/quote-requests/{{admin_quote_line_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "quote-requests",
+                "{{admin_quote_line_id}}"
+              ]
+            },
+            "description": "Réponse : la fiche de la ligne (corps de métier) : `reference`, `trade`, `site`, `promoter` (nom, téléphone, e-mail), `status` affiché, `request` (statut de la demande, notes, nombre de métiers, `other_lines`), `bids` (propositions de visite : professionnel, frais de visite, frais de service, total, créneau, `is_selected`, `is_shown`), `visit` (mission de visite et report éventuel), `payment` (commande des devis, partagée par tous les métiers), `versions` (devis envoyés, avec leur PDF), `timeline` et `actions` (`extend`, `cancel`, `remind_promoter`, `remind_contractor`).\n\nPermission : `offers.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "d1636c6b-cd3e-5768-ab30-a3c6fbf1f663",
+          "name": "Prolonger la date limite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/quote-requests/{{admin_quote_line_id}}/extension",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "quote-requests",
+                "{{admin_quote_line_id}}",
+                "extension"
+              ]
+            },
+            "description": "Repousse la date limite de réponse d’une demande encore en recherche, même expirée (toute la demande, tous ses métiers). Journal d’audit : `quote_request.extended`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `deadline` | oui | Nouvelle date limite (AAAA-MM-JJ, future ; fin de journée). |\n\n**422** si la demande est déjà commandée ou annulée.\n\nRéponse : la fiche de la ligne (corps de métier) : `reference`, `trade`, `site`, `promoter` (nom, téléphone, e-mail), `status` affiché, `request` (statut de la demande, notes, nombre de métiers, `other_lines`), `bids` (propositions de visite : professionnel, frais de visite, frais de service, total, créneau, `is_selected`, `is_shown`), `visit` (mission de visite et report éventuel), `payment` (commande des devis, partagée par tous les métiers), `versions` (devis envoyés, avec leur PDF), `timeline` et `actions` (`extend`, `cancel`, `remind_promoter`, `remind_contractor`).\n\nPermission : `offers.update`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deadline\": \"2026-12-15\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "bff2b1cf-f0df-5990-b3d3-2f1764ce316b",
+          "name": "Relancer le promoteur ou le professionnel",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/quote-requests/{{admin_quote_line_id}}/reminders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "quote-requests",
+                "{{admin_quote_line_id}}",
+                "reminders"
+              ]
+            },
+            "description": "Notification de rappel (centre de notifications et push). Promoteur : choisir une proposition, répondre au report, accuser réception du devis. Professionnel choisi : visite à faire, devis à envoyer. Une relance par destinataire et par jour. Journal d’audit : `quote_request.reminded`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `target` | oui | `promoter` ou `contractor`. |\n| `message` | non | Texte du rappel (5 à 500 caractères) ; sinon un texte selon l’étape. |\n\n**422** si aucune action n’est attendue du destinataire, ou relance déjà envoyée aujourd’hui.\n\nRéponse : la fiche de la ligne (corps de métier) : `reference`, `trade`, `site`, `promoter` (nom, téléphone, e-mail), `status` affiché, `request` (statut de la demande, notes, nombre de métiers, `other_lines`), `bids` (propositions de visite : professionnel, frais de visite, frais de service, total, créneau, `is_selected`, `is_shown`), `visit` (mission de visite et report éventuel), `payment` (commande des devis, partagée par tous les métiers), `versions` (devis envoyés, avec leur PDF), `timeline` et `actions` (`extend`, `cancel`, `remind_promoter`, `remind_contractor`).\n\nPermission : `offers.update`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target\": \"promoter\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "c397327c-1751-527d-91bf-0bac70297e23",
+          "name": "Annuler la demande de devis",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/quote-requests/{{admin_quote_line_id}}/cancellation",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "quote-requests",
+                "{{admin_quote_line_id}}",
+                "cancellation"
+              ]
+            },
+            "description": "Annule toute la demande (tous ses métiers) avant la commande (aucun paiement) : le chantier revient au brouillon, les propositions ne sont pas retenues. Le promoteur (`quote.cancelled`) et les professionnels (`proposal.not_retained`, avec le motif) sont prévenus. Journal d’audit : `quote_request.cancelled`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | Motif (5 à 1000 caractères). |\n\n**422** si la demande est déjà commandée.\n\nRéponse : la fiche de la ligne (corps de métier) : `reference`, `trade`, `site`, `promoter` (nom, téléphone, e-mail), `status` affiché, `request` (statut de la demande, notes, nombre de métiers, `other_lines`), `bids` (propositions de visite : professionnel, frais de visite, frais de service, total, créneau, `is_selected`, `is_shown`), `visit` (mission de visite et report éventuel), `payment` (commande des devis, partagée par tous les métiers), `versions` (devis envoyés, avec leur PDF), `timeline` et `actions` (`extend`, `cancel`, `remind_promoter`, `remind_contractor`).\n\nPermission : `offers.validate`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Demande en double : le promoteur a publié une autre demande.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Demandes de devis O’CHANTIER PRO, une ligne par corps de métier."
+    },
+    {
       "id": "ae835b7e-91b3-5d50-a43d-6b2be4d6ba7d",
       "name": "Accords des ouvriers",
       "description": "Équipes des entrepreneurs : affectations directes en attente de la réponse de l’ouvrier.",
@@ -5987,6 +6228,10 @@
     },
     {
       "key": "admin_contractor_document_id",
+      "value": ""
+    },
+    {
+      "key": "admin_quote_line_id",
       "value": ""
     }
   ]

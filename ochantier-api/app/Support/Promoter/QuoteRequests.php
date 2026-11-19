@@ -113,9 +113,9 @@ class QuoteRequests
 
     /**
      * Annule une demande encore en recherche (aucun paiement) : le chantier revient au brouillon et les
-     * propositions ne sont pas retenues.
+     * propositions ne sont pas retenues. Auteur : le promoteur, ou un administrateur (avec son motif).
      */
-    public function cancel(Site $site, User $author): void
+    public function cancel(Site $site, Model $author, ?string $reason = null): void
     {
         $request = $this->current($site);
 
@@ -133,7 +133,7 @@ class QuoteRequests
         });
 
         foreach ($bids as $bid) {
-            app(ContractorNotifier::class)->proposalEvent($bid, 'proposal.not_retained', 'Demande de devis annulée', $site->label.' : le promoteur a annulé sa demande de devis.');
+            app(ContractorNotifier::class)->proposalEvent($bid, 'proposal.not_retained', 'Demande de devis annulée', $site->label.($reason ? ' : demande annulée par O’CHANTIER. '.$reason : ' : le promoteur a annulé sa demande de devis.'));
         }
     }
 

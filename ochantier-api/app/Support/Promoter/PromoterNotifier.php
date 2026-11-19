@@ -50,6 +50,8 @@ class PromoterNotifier
         'proposal.received' => ['tab' => 'offres', 'alert' => 'offres', 'ability' => 'proposals.decide', 'priority' => Priority::Haute, 'sms' => true],
         'quote.reschedule_requested' => ['tab' => 'offres', 'alert' => 'offres', 'ability' => 'sites.manage', 'priority' => Priority::Haute, 'sms' => true],
         'quote.sent' => ['tab' => 'offres', 'alert' => 'offres', 'ability' => 'sites.view', 'priority' => Priority::Normale, 'sms' => false],
+        'quote.reminder' => ['tab' => 'offres', 'alert' => 'offres', 'ability' => 'sites.manage', 'priority' => Priority::Normale, 'sms' => false],
+        'quote.cancelled' => ['tab' => 'offres', 'alert' => 'offres', 'ability' => 'sites.view', 'priority' => Priority::Haute, 'sms' => false],
         'replacement.proposed' => ['tab' => 'offres', 'alert' => 'offres', 'ability' => 'replacements.manage', 'priority' => Priority::Haute, 'sms' => false],
         'payment.succeeded' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'payments.manage', 'priority' => Priority::Normale, 'sms' => false],
         'payment.due' => ['tab' => 'paiements', 'alert' => 'paiements', 'ability' => 'payments.manage', 'priority' => Priority::Normale, 'sms' => false],
