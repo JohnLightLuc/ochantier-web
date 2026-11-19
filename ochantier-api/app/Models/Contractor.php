@@ -119,6 +119,24 @@ class Contractor extends Model
     }
 
     /**
+     * Numéros Mobile Money qui reçoivent les reversements (saisis et confirmés par le Back Office).
+     *
+     * @return MorphMany<PaymentMethod, $this>
+     */
+    public function paymentMethods(): MorphMany
+    {
+        return $this->morphMany(PaymentMethod::class, 'owner');
+    }
+
+    /**
+     * @return HasMany<ContractorPayout, $this>
+     */
+    public function payouts(): HasMany
+    {
+        return $this->hasMany(ContractorPayout::class);
+    }
+
+    /**
      * @return MorphMany<Document, $this>
      */
     public function documents(): MorphMany

@@ -2,6 +2,7 @@
 
 namespace App\Support\Admin;
 
+use App\Models\ContractorPayoutItem;
 use App\Support\Promoter\ContractorOffers;
 use Carbon\CarbonImmutable;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -40,6 +41,8 @@ class ProCommissionLedger
         $to = isset($filters['to']) ? CarbonImmutable::parse($filters['to'])->endOfDay() : null;
         $sources = $filters['source'] ?? null;
 
+        $payouts = ContractorPayoutItem::query()->with('payout:id,reference,status')->get()->keyBy('source_key');
+
         return collect()
             ->concat(! $sources || $sources === 'demande_devis' ? $this->quotes() : [])
             ->concat(! $sources || $sources === 'offre_contractuelle' ? $this->contracts() : [])
@@ -52,7 +55,25 @@ class ProCommissionLedger
 
                 return (! $from || ($at && $at->gte($from))) && (! $to || ($at && $at->lte($to)));
             })
+            ->map(function (array $line) use ($payouts): array {
+                $payout = $payouts->get($line['id'])?->payout;
+
+                return [...$line, 'payout' => $payout ? ['id' => $payout->id, 'reference' => $payout->reference, 'status' => ['value' => $payout->status->value, 'label' => $payout->status->label()]] : null];
+            })
             ->sortByDesc(fn (array $line) => ($line['date'] ?? '').'|'.$line['id'])
+            ->values();
+    }
+
+    /**
+     * Parts nettes encore dues à un professionnel : encaissées, service rendu (visite faite, échéance payée) et pas
+     * encore réunies dans un versement.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function payable(?string $contractorId = null): Collection
+    {
+        return $this->lines(array_filter(['status' => 'collectee', 'contractor_id' => $contractorId]))
+            ->filter(fn (array $line) => $line['service_done'] && $line['professional_net'] > 0 && $line['payout'] === null)
             ->values();
     }
 
@@ -108,7 +129,7 @@ class ProCommissionLedger
             ->where('b.status', 'choisie')
             ->whereNotNull('r.ordered_at')
             ->select('b.id', 'l.id as line_id', 'r.reference', 's.id as site_id', 's.label as site', 'c.id as contractor_id', 'c.name as contractor', 't.label as trade')
-            ->addSelect('b.amount', 'b.fee_amount', 'b.service_fee_amount', 'b.service_fee_percent', 'tx.reference as payment_reference', 'r.ordered_at', 'tx.completed_at')
+            ->addSelect('b.amount', 'b.fee_amount', 'b.service_fee_amount', 'b.service_fee_percent', 'b.visit_status', 'tx.reference as payment_reference', 'r.ordered_at', 'tx.completed_at')
             ->selectRaw($this->promoterName('s').' as payer')
             ->get()
             ->map(fn (object $row) => $this->line(
@@ -127,6 +148,7 @@ class ProCommissionLedger
                 status: 'collectee',
                 date: $row->completed_at ?? $row->ordered_at,
                 payment: $row->payment_reference,
+                serviceDone: $row->visit_status === 'realisee',
             ));
     }
 
@@ -190,6 +212,7 @@ class ProCommissionLedger
                     },
                     date: $row->paid_at ?? $row->due_date,
                     payment: $row->schedule_reference,
+                    serviceDone: $row->status === 'payee',
                 );
             });
     }
@@ -225,6 +248,7 @@ class ProCommissionLedger
                 status: $row->status === 'payee' ? 'collectee' : 'a_collecter',
                 date: $row->paid_at ?? $row->offered_at,
                 payment: $row->payment_reference,
+                serviceDone: false,
             ));
     }
 
@@ -234,7 +258,7 @@ class ProCommissionLedger
      * @param  array{id: string, name: string}  $contractor
      * @return array<string, mixed>
      */
-    private function line(string $id, string $source, string $reference, string $label, array $opportunity, array $site, array $contractor, ?string $payer, int $base, float $rate, int $commission, ?int $net, string $status, ?string $date, ?string $payment): array
+    private function line(string $id, string $source, string $reference, string $label, array $opportunity, array $site, array $contractor, ?string $payer, int $base, float $rate, int $commission, ?int $net, string $status, ?string $date, ?string $payment, bool $serviceDone): array
     {
         return [
             'id' => $id,
@@ -252,6 +276,7 @@ class ProCommissionLedger
             'status' => ['value' => $status, 'label' => self::STATUSES[$status]],
             'date' => $date ? CarbonImmutable::parse($date)->toIso8601String() : null,
             'payment_reference' => $payment,
+            'service_done' => $serviceDone,
         ];
     }
 

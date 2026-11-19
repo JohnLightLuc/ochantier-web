@@ -59,6 +59,7 @@ class ContractorNotifier
         'subscription.expired' => ['tab' => 'compte', 'alert' => 'abonnement', 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Renouveler'],
         'team.joined' => ['tab' => 'compte', 'alert' => null, 'priority' => Priority::Basse, 'sms' => false, 'cta' => 'Voir mon équipe'],
         'payment.received' => ['tab' => 'paiements', 'alert' => 'paiements', 'priority' => Priority::Normale, 'sms' => true, 'cta' => 'Voir les paiements'],
+        'payout.paid' => ['tab' => 'paiements', 'alert' => 'paiements', 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Voir les paiements'],
     ];
 
     /**
@@ -93,6 +94,7 @@ class ContractorNotifier
         'proposal.not_retained' => 'offres_refusees',
         'offer.not_retained' => 'offres_refusees',
         'payment.received' => 'paiements',
+        'payout.paid' => 'paiements',
         'staffing.paid' => 'paiements',
         'visit.reschedule_accepted' => 'rendez_vous',
         'visit.reschedule_refused' => 'rendez_vous',

@@ -257,6 +257,7 @@ class AppServiceProvider extends ServiceProvider
             'site_incident' => Models\SiteIncident::class,
             'site_member' => Models\SiteMember::class,
             'contractor' => Models\Contractor::class,
+            'contractor_payout' => Models\ContractorPayout::class,
             'contractor_bid' => Models\ContractorBid::class,
             'contractor_member' => Models\ContractorMember::class,
             'quote_bid' => Models\QuoteBid::class,

@@ -15,6 +15,7 @@ enum PaymentTransactionPurpose: string
     case Abonnement = 'abonnement';
     case CommandeDevis = 'commande_devis';
     case Effectifs = 'effectifs';
+    case ReversementProfessionnel = 'reversement_professionnel';
 
     public function label(): string
     {
@@ -27,6 +28,7 @@ enum PaymentTransactionPurpose: string
             self::Abonnement => 'Abonnement',
             self::CommandeDevis => 'Commande des devis',
             self::Effectifs => 'Recherche d’effectifs (entrepreneur)',
+            self::ReversementProfessionnel => 'Reversement professionnel',
         };
     }
 }

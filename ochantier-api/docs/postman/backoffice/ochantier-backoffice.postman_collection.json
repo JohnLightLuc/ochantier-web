@@ -5194,12 +5194,403 @@
                 }
               ]
             },
-            "description": "Une ligne par encaissement O’CHANTIER PRO portant une commission : frais de service d’une proposition de devis commandée (`demande_devis`), part de commission de l’acompte et de chaque échéance d’un forfait (`offre_contractuelle`, au taux figé de la mission ; la dernière échéance reçoit l’arrondi), frais de service d’une recherche d’effectifs (`recherche_effectifs`, payés par le professionnel).\n\n| Paramètre | Description |\n|---|---|\n| `source` | demande_devis, offre_contractuelle, recherche_effectifs. |\n| `status` | a_collecter, collectee, remboursee. |\n| `contractor_id` | Professionnel. |\n| `search` | Référence, chantier, professionnel ou payeur. |\n| `from`, `to` | Période (date de paiement, ou d’échéance pour ce qui reste à collecter). |\n| `per_page`, `page` | Pagination (20 par défaut). |\n\nChaque ligne : `source`, `reference`, `label`, `opportunity` (type et id pour ouvrir la fiche), `site`, `contractor`, `payer`, `base` (montant encaissé), `rate`, `commission`, `professional_net` (part à reverser au professionnel, sans objet pour une recherche d’effectifs), `status`, `date`, `payment_reference`.\n\n`meta.totals` : commission par statut, collectée et à collecter par source, montant encaissé et part nette des professionnels (lignes collectées).\n\nPermission : `finance.read`."
+            "description": "Une ligne par encaissement O’CHANTIER PRO portant une commission : frais de service d’une proposition de devis commandée (`demande_devis`), part de commission de l’acompte et de chaque échéance d’un forfait (`offre_contractuelle`, au taux figé de la mission ; la dernière échéance reçoit l’arrondi), frais de service d’une recherche d’effectifs (`recherche_effectifs`, payés par le professionnel).\n\n| Paramètre | Description |\n|---|---|\n| `source` | demande_devis, offre_contractuelle, recherche_effectifs. |\n| `status` | a_collecter, collectee, remboursee. |\n| `contractor_id` | Professionnel. |\n| `search` | Référence, chantier, professionnel ou payeur. |\n| `from`, `to` | Période (date de paiement, ou d’échéance pour ce qui reste à collecter). |\n| `per_page`, `page` | Pagination (20 par défaut). |\n\nChaque ligne : `source`, `reference`, `label`, `opportunity` (type et id pour ouvrir la fiche), `site`, `contractor`, `payer`, `base` (montant encaissé), `rate`, `commission`, `professional_net` (part à reverser au professionnel, sans objet pour une recherche d’effectifs), `status`, `date`, `payment_reference`, `service_done` (visite faite ou échéance payée), `payout` (versement au professionnel, s’il est préparé).\n\n`meta.totals` : commission par statut, collectée et à collecter par source, montant encaissé et part nette des professionnels (lignes collectées).\n\nPermission : `finance.read`."
           },
           "response": []
         }
       ],
       "description": "Registre des commissions et frais de service O’CHANTIER PRO."
+    },
+    {
+      "id": "374c6307-0f5c-5267-9a4f-68a0aeabcb58",
+      "name": "Reversements aux professionnels",
+      "item": [
+        {
+          "id": "847a55c0-5038-5258-a6b6-752081b96f0e",
+          "name": "Numéro de versement d’un professionnel",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/payment-method",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "payment-method"
+              ]
+            },
+            "description": "Numéro Mobile Money confirmé (`current`), numéro en attente (`pending`, avec `can_decide`), opérateurs de versement et numéro de contact par défaut.\n\nPermission : `payouts.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "194eba77-5587-5021-a1da-a1a8bbfec6d9",
+          "name": "Saisir le numéro de versement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));",
+                  "const id = pm.response.json().data?.pending?.id;",
+                  "if (id) { pm.collectionVariables.set('admin_contractor_method_id', id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/payment-method",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "payment-method"
+              ]
+            },
+            "description": "Enregistre un numéro en attente : une autre personne doit le confirmer avant tout versement. Journal d’audit : `payouts.method_proposed`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `operator_id` | oui | Opérateur qui accepte les versements. |\n| `dial_code`, `phone_number` | oui | Numéro Mobile Money. |\n\nPermission : `payouts.create`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operator_id\": \"{{admin_operator_id}}\",\n  \"dial_code\": \"225\",\n  \"phone_number\": \"0712345678\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "982dc236-a846-5287-ba01-ea560dd3a990",
+          "name": "Confirmer le numéro de versement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractors/{{admin_contractor_id}}/payment-method/{{admin_contractor_method_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractors",
+                "{{admin_contractor_id}}",
+                "payment-method",
+                "{{admin_contractor_method_id}}",
+                "approve"
+              ]
+            },
+            "description": "Par une autre personne que celle qui l’a saisi. Journal d’audit : `payouts.method_approved`.\n\nPermission : `payouts.approve`."
+          },
+          "response": []
+        },
+        {
+          "id": "91063118-48f7-5066-8ded-71852df56f6e",
+          "name": "Professionnels à payer et versements",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const p = pm.response.json().data.payouts;",
+                  "if (p.length) { pm.collectionVariables.set('admin_contractor_payout_id', p[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractor-payouts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractor-payouts"
+              ]
+            },
+            "description": "`data.payable` : professionnels à qui une part nette est due (frais de visite après la visite faite, part nette de l’acompte et des échéances d’un forfait payées), avec `total`, `items`, numéro et `blockers` (versement déjà en cours, aucun numéro confirmé). `data.payouts` : versements, des plus récents aux plus anciens (filtre `status`). Enregistre le premier versement (`admin_contractor_payout_id`).\n\nPermission : `payouts.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "35a61500-e211-510a-9823-46feb558f0c8",
+          "name": "Préparer le versement d’un professionnel",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));",
+                  "const id = pm.response.json().data?.id;",
+                  "if (id) { pm.collectionVariables.set('admin_contractor_payout_id', id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractor-payouts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractor-payouts"
+              ]
+            },
+            "description": "Réunit toutes les parts dues au professionnel dans un versement « à valider ». Chaque part n’est reversée qu’une fois. Journal d’audit : `contractor.payout_prepared`.\n\n**422** si rien n’est dû, si un versement est déjà en cours ou si aucun numéro n’est confirmé.\n\nRéponse : le versement (`reference`, `contractor`, `total_amount`, `status` : a_payer, en_traitement, paye, rejete, annule ; `prepared_by`, `approved_by`, `method`, `items` (parts nettes réunies), `transactions`, `actions` : `approve`, `retry`, `cancel`).\n\nPermission : `payouts.create`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contractor_id\": \"{{admin_contractor_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "b90a1683-5e00-53e7-b560-9f0647d939ae",
+          "name": "Fiche d’un versement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractor-payouts/{{admin_contractor_payout_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractor-payouts",
+                "{{admin_contractor_payout_id}}"
+              ]
+            },
+            "description": "Réponse : le versement (`reference`, `contractor`, `total_amount`, `status` : a_payer, en_traitement, paye, rejete, annule ; `prepared_by`, `approved_by`, `method`, `items` (parts nettes réunies), `transactions`, `actions` : `approve`, `retry`, `cancel`).\n\nPermission : `payouts.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "b9caf7e9-b6ba-59a6-bb60-ea6d2eac1d15",
+          "name": "Valider et envoyer le versement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractor-payouts/{{admin_contractor_payout_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractor-payouts",
+                "{{admin_contractor_payout_id}}",
+                "approve"
+              ]
+            },
+            "description": "Par une autre personne que celle qui l’a préparé : envoi par Mobile Money sur le numéro confirmé. Payé : le professionnel est prévenu (`payout.paid`) ; refusé par l’opérateur : statut rejete, à relancer. Journal d’audit : `contractor.payout_approved`.\n\nRéponse : le versement (`reference`, `contractor`, `total_amount`, `status` : a_payer, en_traitement, paye, rejete, annule ; `prepared_by`, `approved_by`, `method`, `items` (parts nettes réunies), `transactions`, `actions` : `approve`, `retry`, `cancel`).\n\nPermission : `payouts.approve`."
+          },
+          "response": []
+        },
+        {
+          "id": "c82be5ff-ca5d-5f1b-b0a8-78cf673ee15a",
+          "name": "Relancer un versement rejeté",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractor-payouts/{{admin_contractor_payout_id}}/retry",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractor-payouts",
+                "{{admin_contractor_payout_id}}",
+                "retry"
+              ]
+            },
+            "description": "Renvoie un versement rejeté sur le numéro confirmé actuel. Journal d’audit : `contractor.payout_retried`.\n\nRéponse : le versement (`reference`, `contractor`, `total_amount`, `status` : a_payer, en_traitement, paye, rejete, annule ; `prepared_by`, `approved_by`, `method`, `items` (parts nettes réunies), `transactions`, `actions` : `approve`, `retry`, `cancel`).\n\nPermission : `payouts.approve`."
+          },
+          "response": []
+        },
+        {
+          "id": "c6727b1e-fe51-552d-9a8e-001e6dbe23af",
+          "name": "Annuler un versement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/contractor-payouts/{{admin_contractor_payout_id}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "contractor-payouts",
+                "{{admin_contractor_payout_id}}",
+                "cancel"
+              ]
+            },
+            "description": "Versement à valider ou rejeté : annulé, ses parts redeviennent dues. Journal d’audit : `contractor.payout_cancelled`.\n\n| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | Motif (5 à 1000 caractères). |\n\nRéponse : le versement (`reference`, `contractor`, `total_amount`, `status` : a_payer, en_traitement, paye, rejete, annule ; `prepared_by`, `approved_by`, `method`, `items` (parts nettes réunies), `transactions`, `actions` : `approve`, `retry`, `cancel`).\n\nPermission : `payouts.create`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Numéro erroné, à corriger avant le versement.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Part nette des professionnels O’CHANTIER PRO : numéro confirmé par une autre personne, versement préparé par l’un et validé (envoyé) par l’autre."
     },
     {
       "id": "ae835b7e-91b3-5d50-a43d-6b2be4d6ba7d",
@@ -6527,6 +6918,19 @@
     {
       "key": "admin_contract_offer_id",
       "value": ""
+    },
+    {
+      "key": "admin_contractor_payout_id",
+      "value": ""
+    },
+    {
+      "key": "admin_contractor_method_id",
+      "value": ""
+    },
+    {
+      "key": "admin_operator_id",
+      "value": "",
+      "description": "Opérateur de versement (identifiant, voir « Numéro de versement d’un professionnel » → operators)."
     }
   ]
 }

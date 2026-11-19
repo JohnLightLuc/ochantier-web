@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\V1\Admin\Payment\PaymentController as AdminPaymentC
 use App\Http\Controllers\Api\V1\Admin\Payment\RefundController;
 use App\Http\Controllers\Api\V1\Admin\Payment\RegularisationController;
 use App\Http\Controllers\Api\V1\Admin\Payout\CommercialPayoutController;
+use App\Http\Controllers\Api\V1\Admin\Payout\ContractorPayoutController;
 use App\Http\Controllers\Api\V1\Admin\Payout\PayoutBatchController;
 use App\Http\Controllers\Api\V1\Admin\Payout\PayoutController;
 use App\Http\Controllers\Api\V1\Admin\Payout\PayoutMethodController;
@@ -144,6 +145,12 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('documents/{document}/reject', [ContractorReviewController::class, 'rejectDocument'])->whereUuid('document')->middleware('admin.can:documents.validate')->name('documents.reject');
                 Route::post('suspension', [ContractorReviewController::class, 'suspend'])->middleware('admin.can:contractors.update')->name('suspend');
                 Route::delete('suspension', [ContractorReviewController::class, 'reactivate'])->middleware('admin.can:contractors.update')->name('reactivate');
+                Route::controller(PayoutMethodController::class)->group(function () {
+                    Route::get('payment-method', 'showContractor')->middleware('admin.can:payouts.read')->name('payment-method.show');
+                    Route::post('payment-method', 'storeContractor')->middleware('admin.can:payouts.create')->name('payment-method.store');
+                    Route::post('payment-method/{method}/approve', 'approveContractor')->whereUuid('method')->middleware('admin.can:payouts.approve')->name('payment-method.approve');
+                    Route::post('payment-method/{method}/reject', 'rejectContractor')->whereUuid('method')->middleware('admin.can:payouts.approve')->name('payment-method.reject');
+                });
             });
         });
 
@@ -332,6 +339,19 @@ Route::middleware('auth:admin')->group(function () {
             Route::get('overview', 'overview')->middleware('admin.can:finance.read')->name('overview');
             Route::get('commissions', 'commissions')->middleware('admin.can:finance.read')->name('commissions');
             Route::get('commissions/export', 'export')->middleware('admin.can:finance.export')->name('commissions.export');
+        });
+
+        // Reversements aux professionnels O’CHANTIER PRO : une personne prépare, une autre valide (envoi).
+        Route::prefix('contractor-payouts')->name('contractor-payouts.')->controller(ContractorPayoutController::class)->group(function () {
+            Route::get('/', 'index')->middleware('admin.can:payouts.read')->name('index');
+            Route::post('/', 'store')->middleware('admin.can:payouts.create')->name('store');
+
+            Route::prefix('{payout}')->whereUuid('payout')->group(function () {
+                Route::get('/', 'show')->middleware('admin.can:payouts.read')->name('show');
+                Route::post('approve', 'approve')->middleware('admin.can:payouts.approve')->name('approve');
+                Route::post('retry', 'retry')->middleware('admin.can:payouts.approve')->name('retry');
+                Route::post('cancel', 'cancel')->middleware('admin.can:payouts.create')->name('cancel');
+            });
         });
 
         // Registre des commissions O’CHANTIER PRO (devis, offres contractuelles, recherches d’effectifs).
