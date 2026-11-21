@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Support\SiteContent;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreContactRequest extends FormRequest
 {
@@ -18,7 +20,7 @@ class StoreContactRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'profil' => ['required', 'in:Promoteur immobilier,Entreprise de BTP,Technicien chantier,Ouvrier,Autre'],
+            'profil' => ['required', Rule::in(app(SiteContent::class)->contactProfiles())],
             'nom' => ['required', 'string', 'max:120'],
             'entreprise' => ['nullable', 'string', 'max:120'],
             'tel' => ['required', 'string', 'max:30'],

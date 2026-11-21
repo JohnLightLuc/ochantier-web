@@ -372,9 +372,9 @@ class LandingContentSchema
             'contact' => ['kick' => 'Nous contacter', 'title' => 'Une question ? Parlons de votre chantier.', 'text' => 'Votre message est transmis directement à l’équipe O’CHANTIER. Nous répondons sous 24 h ouvrées.', 'phone' => '+225 07 00 00 00 00', 'email' => 'contact@ochantier.ci', 'address' => 'Cocody, Abidjan · Côte d’Ivoire', 'hours' => 'Lun. – Sam. · 8 h – 18 h',
                 'profiles' => ['Promoteur immobilier', 'Entreprise de BTP', 'Technicien chantier', 'Ouvrier', 'Autre'],
                 'subjects' => ['Demande de démonstration', 'Abonnement Équipe ou Pro', 'Recrutement d’ouvriers', 'Partenariat', 'Assistance technique', 'Autre demande']],
-            'newsletter' => ['title' => 'Newsletter', 'text' => 'Nouveautés, conseils chantier et offres O’CHANTIER, une fois par mois.', 'placeholder' => 'Votre adresse e-mail', 'cta' => 'S’inscrire', 'notice' => 'Désinscription possible à tout moment.', 'success' => 'Merci ! Vous êtes inscrit à la lettre d’information O’CHANTIER.'],
+            'newsletter' => ['title' => 'Newsletter', 'text' => 'Nouveautés, conseils chantier et offres O’CHANTIER, une fois par mois.', 'placeholder' => 'Votre adresse e-mail', 'cta' => 'S’abonner', 'notice' => 'Désinscription possible à tout moment.', 'success' => 'Merci ! Inscription confirmée.'],
             'footer' => ['slogan' => 'Trouvez vos prochains ouvriers, ici et maintenant.', 'phone' => '+225 07 00 00 00 00', 'email' => 'contact@ochantier.ci', 'legal' => '© 2026 O’CHANTIER · Mentions légales · CGU', 'legal_url' => null, 'terms_url' => null],
-            'seo' => ['title' => 'O’CHANTIER · Recrutez des ouvriers du BTP qualifiés, ici et maintenant', 'description' => 'O’CHANTIER, la plateforme de recrutement d’ouvriers du BTP à Abidjan : des ouvriers qualifiés et vérifiés, le suivi des présences et de l’avancement, le paiement sécurisé.', 'og_image' => null, 'indexable' => true],
+            'seo' => ['title' => 'O’CHANTIER · Recrutez des ouvriers du BTP qualifiés, ici et maintenant', 'description' => 'O’CHANTIER, la plateforme de recrutement d’ouvriers du BTP à Abidjan : des ouvriers qualifiés et vérifiés, le suivi des présences et de l’avancement, le paiement sécurisé de vos chantiers.', 'og_image' => null, 'indexable' => true],
         ]];
     }
 }

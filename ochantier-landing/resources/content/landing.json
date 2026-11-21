@@ -1,0 +1,258 @@
+{
+    "version": null,
+    "published_at": null,
+    "content": {
+        "order": [
+            "demo",
+            "solution",
+            "paiement",
+            "tarifs",
+            "carte",
+            "app",
+            "contact"
+        ],
+        "hidden": [],
+        "sections": {
+            "cover": {
+                "kick": "La plateforme de recrutement d’ouvriers du BTP",
+                "title": "Trouvez vos prochains ouvriers.",
+                "accent": "Ici et maintenant.",
+                "text": "Des ouvriers qualifiés et disponibles, puis le suivi et le paiement de vos chantiers. Tout est dans la même application.",
+                "cta": "Découvrir O’CHANTIER",
+                "live": "Ouvriers disponibles maintenant",
+                "video": null
+            },
+            "header": {
+                "logo": null,
+                "nav": [
+                    {
+                        "label": "La solution",
+                        "section": "solution"
+                    },
+                    {
+                        "label": "Tarifs",
+                        "section": "tarifs"
+                    },
+                    {
+                        "label": "Chantiers près de vous",
+                        "section": "carte"
+                    },
+                    {
+                        "label": "Contact",
+                        "section": "contact"
+                    }
+                ],
+                "cta_worker": "Devenir ouvrier",
+                "cta_app": "Télécharger l’app"
+            },
+            "demo": {
+                "kick": "Promoteurs · Entreprises générales · Bureaux techniques",
+                "title": "Des ouvriers qualifiés disponibles pour votre chantier.",
+                "highlight": "disponibles",
+                "text": "Testez l’application client. Choisissez un chantier, indiquez le nombre d’ouvriers par métier et lancez la recherche. Vous recevez une offre d’ouvriers vérifiés, que vous confirmez en payant l’acompte.",
+                "steps": [
+                    {
+                        "title": "Choisissez le chantier",
+                        "text": "Tous vos chantiers et leur avancement."
+                    },
+                    {
+                        "title": "Indiquez vos besoins par métier",
+                        "text": "Dates, nombre d’ouvriers et tarif moyen."
+                    },
+                    {
+                        "title": "Recevez une offre vérifiée",
+                        "text": "Les ouvriers disponibles près du chantier."
+                    },
+                    {
+                        "title": "Payez l’acompte en sécurité",
+                        "text": "30 % à la réservation, solde après validation."
+                    }
+                ]
+            },
+            "solution": {
+                "kick": "La solution",
+                "title": "Recruter, suivre, payer. Au même endroit.",
+                "text": "Six outils reliés entre eux : chaque information saisie sert à toute l’équipe.",
+                "features": [
+                    {
+                        "title": "Recrutement à la demande",
+                        "text": "Trouvez en quelques heures des ouvriers qualifiés et disponibles. Identité, diplômes, habilitations et assurances sont vérifiés.",
+                        "core": true
+                    },
+                    {
+                        "title": "Suivi des présences",
+                        "text": "Pointage géolocalisé avec photo et signature de l’ouvrier. Taux de présence du jour et global.",
+                        "core": false
+                    },
+                    {
+                        "title": "Planification des travaux",
+                        "text": "Une chronologie d’étapes à démarrer et à valider. L’avancement du chantier se met à jour automatiquement.",
+                        "core": false
+                    },
+                    {
+                        "title": "Gestion d’équipe multi-utilisateurs",
+                        "text": "Invitez vos collaborateurs par SMS ou e-mail : administrateur, chef de chantier, technicien, comptable ou observateur.",
+                        "core": false
+                    },
+                    {
+                        "title": "Paiement flexible et sécurisé",
+                        "text": "Acompte de 30 % à la réservation, puis solde ou paiement en 2 ou 3 fois. Échéances suivies dans l’app.",
+                        "core": false
+                    },
+                    {
+                        "title": "Rapport de fin de chantier",
+                        "text": "Un document généré automatiquement : durée, présence, étapes, équipe et historique des pointages.",
+                        "core": false
+                    }
+                ]
+            },
+            "paiement": {
+                "kick": "Paiement flexible & sécurisé",
+                "title": "Payé pour le travail fait. Ni avant, ni après.",
+                "text": "Vous déposez les fonds au lancement de la mission. Ils restent sécurisés jusqu’à la validation du travail, puis l’ouvrier est payé immédiatement. Vous êtes protégé, et lui aussi.",
+                "chips": [
+                    "Acompte de 30 %",
+                    "En 2 ou 3 fois",
+                    "Solde après validation"
+                ],
+                "steps": [
+                    {
+                        "title": "Fonds déposés",
+                        "text": "Le montant est réservé sur un compte de séquestre."
+                    },
+                    {
+                        "title": "Travail validé",
+                        "text": "Vous validez à partir des présences et des étapes réalisées."
+                    },
+                    {
+                        "title": "Ouvrier payé",
+                        "text": "Le virement part tout de suite et la facture est générée automatiquement."
+                    }
+                ]
+            },
+            "tarifs": {
+                "kick": "Abonnements",
+                "title": "Une formule pour chaque équipe.",
+                "text": "Avec une formule Équipe ou Pro, invitez vos collaborateurs par SMS ou e-mail et attribuez-leur un rôle : chef de chantier, technicien, comptable ou observateur."
+            },
+            "carte": {
+                "kick": "Vous êtes ouvrier ?",
+                "title": "Des chantiers recrutent près de chez vous.",
+                "text": "Filtrez par métier, localisez-vous et postulez depuis la carte. Les candidatures sont étudiées par l’équipe O’CHANTIER, qui vous recontacte pour vous affecter aux chantiers.",
+                "cta": "Devenir ouvrier →"
+            },
+            "app": {
+                "kick": "Application promoteurs & techniciens",
+                "title": "Téléchargez l’application O’CHANTIER.",
+                "text": "L’application des promoteurs immobiliers et des techniciens de chantier. Réservez des ouvriers qualifiés, suivez les présences et l’avancement, payez en toute sécurité. Disponible sur iPhone et Android.",
+                "ios": null,
+                "android": null,
+                "qr": null
+            },
+            "contact": {
+                "kick": "Nous contacter",
+                "title": "Une question ? Parlons de votre chantier.",
+                "text": "Votre message est transmis directement à l’équipe O’CHANTIER. Nous répondons sous 24 h ouvrées.",
+                "phone": "+225 07 00 00 00 00",
+                "email": "contact@ochantier.ci",
+                "address": "Cocody, Abidjan · Côte d’Ivoire",
+                "hours": "Lun. – Sam. · 8 h – 18 h",
+                "profiles": [
+                    "Promoteur immobilier",
+                    "Entreprise de BTP",
+                    "Technicien chantier",
+                    "Ouvrier",
+                    "Autre"
+                ],
+                "subjects": [
+                    "Demande de démonstration",
+                    "Abonnement Équipe ou Pro",
+                    "Recrutement d’ouvriers",
+                    "Partenariat",
+                    "Assistance technique",
+                    "Autre demande"
+                ]
+            },
+            "newsletter": {
+                "title": "Newsletter",
+                "text": "Nouveautés, conseils chantier et offres O’CHANTIER, une fois par mois.",
+                "placeholder": "Votre adresse e-mail",
+                "cta": "S’abonner",
+                "notice": "Désinscription possible à tout moment.",
+                "success": "Merci ! Inscription confirmée."
+            },
+            "footer": {
+                "slogan": "Trouvez vos prochains ouvriers, ici et maintenant.",
+                "phone": "+225 07 00 00 00 00",
+                "email": "contact@ochantier.ci",
+                "legal": "© 2026 O’CHANTIER · Mentions légales · CGU",
+                "legal_url": null,
+                "terms_url": null
+            },
+            "seo": {
+                "title": "O’CHANTIER · Recrutez des ouvriers du BTP qualifiés, ici et maintenant",
+                "description": "O’CHANTIER, la plateforme de recrutement d’ouvriers du BTP à Abidjan : des ouvriers qualifiés et vérifiés, le suivi des présences et de l’avancement, le paiement sécurisé de vos chantiers.",
+                "og_image": null,
+                "indexable": true
+            }
+        }
+    },
+    "plans": [
+        {
+            "code": "solo",
+            "name": "Solo",
+            "subtitle": "1 utilisateur",
+            "description": null,
+            "price_amount": 0,
+            "billing_period": "mois",
+            "max_users": 1,
+            "features": [
+                "Gestion jusqu’à 5 chantiers",
+                "Propriétaire uniquement",
+                "Chantiers et réservations",
+                "Pointage jusqu’à 300",
+                "Paiement en 2 fois · sans rapport global"
+            ],
+            "is_featured": false
+        },
+        {
+            "code": "equipe",
+            "name": "Équipe",
+            "subtitle": "Jusqu’à 5 utilisateurs",
+            "description": null,
+            "price_amount": 99900,
+            "billing_period": "mois",
+            "max_users": 5,
+            "features": [
+                "Gestion jusqu’à 25 chantiers",
+                "Jusqu’à 5 utilisateurs · rôles clés",
+                "Pointage jusqu’à 500",
+                "Gestion chronologique du chantier",
+                "Journal d’activité",
+                "Paiement flexible, adapté à la durée de votre chantier",
+                "Rapport global de fin de chantier"
+            ],
+            "is_featured": true
+        },
+        {
+            "code": "pro",
+            "name": "Pro",
+            "subtitle": "Jusqu’à 15 utilisateurs",
+            "description": null,
+            "price_amount": 149900,
+            "billing_period": "mois",
+            "max_users": 15,
+            "features": [
+                "Gestion illimitée de chantiers",
+                "Jusqu’à 15 utilisateurs · rôles clés",
+                "Pointage illimité",
+                "Gestion chronologique du chantier",
+                "Journal d’activité",
+                "Paiement flexible, adapté à la durée de votre chantier",
+                "Rapport global de fin de chantier"
+            ],
+            "is_featured": false
+        }
+    ],
+    "files": {}
+}

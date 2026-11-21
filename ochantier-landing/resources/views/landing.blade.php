@@ -3,19 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>O’CHANTIER · Recrutez des ouvriers du BTP qualifiés, ici et maintenant</title>
-<meta name="description" content="O’CHANTIER, la plateforme de recrutement d’ouvriers du BTP à Abidjan : des ouvriers qualifiés et vérifiés, le suivi des présences et de l’avancement, le paiement sécurisé de vos chantiers.">
+<title>{{ $seo['title'] }}</title>
+<meta name="description" content="{{ $seo['description'] }}">
+@unless ($seo['indexable'])
+<meta name="robots" content="noindex, nofollow">
+@endunless
 <meta name="theme-color" content="#14261F">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="fr_CI">
 <meta property="og:site_name" content="O’CHANTIER">
-<meta property="og:title" content="O’CHANTIER · Trouvez vos prochains ouvriers, ici et maintenant">
-<meta property="og:description" content="Des ouvriers qualifiés et disponibles, puis le suivi et le paiement de vos chantiers. Tout est dans la même application.">
-<meta property="og:image" content="{{ asset('assets/app-accueil.webp') }}">
+<meta property="og:title" content="{{ $seo['title'] }}">
+<meta property="og:description" content="{{ $seo['description'] }}">
+<meta property="og:image" content="{{ $shareImage }}">
 <link rel="icon" type="image/webp" href="assets/mono-couleur.webp">
 <link rel="preconnect" href="https://unpkg.com" crossorigin>
 <link rel="preload" as="image" href="assets/logo-couleur.webp">
 <meta name="csrf-token" content="{{ csrf_token() }}">
+<script>window.OCH_SITE = {!! json_encode($site, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) !!};</script>
 <script src="{{ asset('support.js') }}"></script>
 </head>
 <body>
@@ -53,6 +57,8 @@ textarea.f-inp{resize:vertical}
 .floor{flex:1;border-top:6px solid #9FA8A3;background:repeating-linear-gradient(90deg,#5B645F 0 8px,transparent 8px 25%);transform-origin:bottom center;position:relative}
 .floor>i{position:absolute;left:14%;right:14%;top:30%;bottom:22%;background:repeating-linear-gradient(90deg,rgba(62,184,132,.18) 0 18%,transparent 18% 25%)}
 :focus-visible{outline:3px solid #FAB82A;outline-offset:2px}
+#accueil{display:flex;flex-direction:column}
+[hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition-duration:.01ms!important}}
 </style>
 </helmet>
@@ -90,15 +96,15 @@ textarea.f-inp{resize:vertical}
   <div ref="{{ coverStripeRef }}" style="position:absolute;left:0;right:0;top:0;height:12px;background:repeating-linear-gradient(-45deg,#FAB82A 0 14px,#14261F 14px 28px);background-size:39.6px 39.6px"></div>
   <div style="position:relative;height:100%;display:flex;flex-direction:column;justify-content:space-between;padding:clamp(36px,5vw,64px) clamp(24px,5vw,64px)">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
-      <img src="assets/logo-couleur.webp" alt="O'CHANTIER" style="width:clamp(130px,14vw,180px);display:block">
-      <div style="display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#CFEDE0"><span ref="{{ liveDotRef }}" style="width:8px;height:8px;border-radius:50%;background:#3EB884"></span>Ouvriers disponibles maintenant</div>
+      <img src="{{ logoSrc }}" alt="O'CHANTIER" style="width:clamp(130px,14vw,180px);display:block">
+      <div style="display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#CFEDE0"><span ref="{{ liveDotRef }}" style="width:8px;height:8px;border-radius:50%;background:#3EB884"></span>{{ C.cover.live }}</div>
     </div>
     <div ref="{{ coverContentRef }}" style="display:flex;flex-direction:column;gap:clamp(20px,3vw,32px);max-width:1100px">
-      <div class="kicker" style="color:#FAB82A">La plateforme de recrutement d’ouvriers du BTP</div>
-      <div style="margin:0;font-size:clamp(32px,5.3vw,76px);line-height:.9;font-weight:900;text-transform:uppercase;letter-spacing:-.02em;color:#F8F7F3;text-wrap:balance;max-width:820px">Trouvez vos<br>prochains ouvriers. <span style="color:#3EB884">Ici et<br>maintenant.</span></div>
+      <div class="kicker" style="color:#FAB82A">{{ C.cover.kick }}</div>
+      <div style="margin:0;font-size:clamp(32px,5.3vw,76px);line-height:.9;font-weight:900;text-transform:uppercase;letter-spacing:-.02em;color:#F8F7F3;text-wrap:balance;max-width:820px">{{ C.cover.title }} <span style="color:#3EB884">{{ C.cover.accent }}</span></div>
       <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
-        <button onClick="{{ enter }}" style="display:flex;align-items:center;gap:16px;background:#FAB82A;color:#14261F;border:none;padding:10px 10px 10px 28px;font-size:clamp(15px,1.4vw,18px);font-weight:900;text-transform:uppercase;letter-spacing:.02em;cursor:pointer;transition:background .2s,transform .2s" style-hover="background:#FFFFFF;transform:translateY(-2px)">Découvrir O’CHANTIER<span style="width:48px;height:48px;border-radius:50%;background:#14261F;color:#FAB82A;display:flex;align-items:center;justify-content:center;font-size:22px">↓</span></button>
-        <span style="font-size:14px;color:#CFEDE0;max-width:340px;line-height:1.5">Des ouvriers qualifiés et disponibles, puis le suivi et le paiement de vos chantiers. Tout est dans la même application.</span>
+        <button onClick="{{ enter }}" style="display:flex;align-items:center;gap:16px;background:#FAB82A;color:#14261F;border:none;padding:10px 10px 10px 28px;font-size:clamp(15px,1.4vw,18px);font-weight:900;text-transform:uppercase;letter-spacing:.02em;cursor:pointer;transition:background .2s,transform .2s" style-hover="background:#FFFFFF;transform:translateY(-2px)">{{ C.cover.cta }}<span style="width:48px;height:48px;border-radius:50%;background:#14261F;color:#FAB82A;display:flex;align-items:center;justify-content:center;font-size:22px">↓</span></button>
+        <span style="font-size:14px;color:#CFEDE0;max-width:340px;line-height:1.5">{{ C.cover.text }}</span>
       </div>
     </div>
   </div>
@@ -186,15 +192,12 @@ textarea.f-inp{resize:vertical}
 
 <header style="position:sticky;top:0;z-index:40;background:rgba(248,247,243,.95);backdrop-filter:blur(10px);border-bottom:1px solid #E8E6DF">
   <div style="max-width:1240px;margin:0 auto;padding:14px clamp(20px,4vw,48px);display:flex;align-items:center;justify-content:space-between;gap:24px">
-    <a href="#accueil" onClick="{{ logoClick }}" title="Revoir la page de garde" style="display:block"><img src="assets/logo-couleur.webp" alt="O'CHANTIER" style="width:150px;display:block"></a>
+    <a href="#accueil" onClick="{{ logoClick }}" title="Revoir la page de garde" style="display:block"><img src="{{ logoSrc }}" alt="O'CHANTIER" style="width:150px;display:block"></a>
     <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
       <nav style="display:flex;align-items:center;gap:32px;font-size:15px;font-weight:600">
-                <a href="#solution" style="color:#14261F" style-hover="color:#1E6B4F">La solution</a>
-        <a href="#tarifs" style="color:#14261F" style-hover="color:#1E6B4F">Tarifs</a>
-                <a href="#carte" style="color:#14261F" style-hover="color:#1E6B4F">Chantiers près de vous</a>
-        <a href="#contact" style="color:#14261F" style-hover="color:#1E6B4F">Contact</a>
-        <button onClick="{{ openForm }}" style="background:none;border:2px solid #14261F;color:#14261F;padding:10px 16px;font-size:15px;font-weight:800;cursor:pointer" style-hover="background:#FAB82A;border-color:#FAB82A">Devenir ouvrier</button>
-        <a href="#telecharger" style="background:#14261F;color:#F8F7F3;padding:12px 20px;font-weight:800" style-hover="background:#1E6B4F;color:#FFFFFF">Télécharger l’app</a>
+        <sc-for list="{{ navLinks }}" as="n" hint-placeholder-count="4"><a href="{{ n.href }}" style="color:#14261F" style-hover="color:#1E6B4F">{{ n.label }}</a></sc-for>
+        <button onClick="{{ openForm }}" style="background:none;border:2px solid #14261F;color:#14261F;padding:10px 16px;font-size:15px;font-weight:800;cursor:pointer" style-hover="background:#FAB82A;border-color:#FAB82A">{{ C.header.cta_worker }}</button>
+        <a href="#telecharger" style="background:#14261F;color:#F8F7F3;padding:12px 20px;font-weight:800" style-hover="background:#1E6B4F;color:#FFFFFF">{{ C.header.cta_app }}</a>
       </nav>
     </sc-if>
     <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
@@ -203,22 +206,19 @@ textarea.f-inp{resize:vertical}
   </div>
   <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
     <nav style="display:flex;flex-direction:column;padding:8px clamp(20px,4vw,48px) 24px;font-size:20px;font-weight:800;border-top:1px solid #E8E6DF">
-            <a href="#solution" onClick="{{ closeMenu }}" style="color:#14261F;padding:14px 0;border-bottom:1px solid #E8E6DF">La solution</a>
-      <a href="#tarifs" onClick="{{ closeMenu }}" style="color:#14261F;padding:14px 0;border-bottom:1px solid #E8E6DF">Tarifs</a>
-            <a href="#carte" onClick="{{ closeMenu }}" style="color:#14261F;padding:14px 0;border-bottom:1px solid #E8E6DF">Chantiers près de vous</a>
-      <a href="#contact" onClick="{{ closeMenu }}" style="color:#14261F;padding:14px 0;border-bottom:1px solid #E8E6DF">Nous contacter</a>
-      <button onClick="{{ openForm }}" style="text-align:left;background:none;border:none;border-bottom:1px solid #E8E6DF;color:#14261F;padding:14px 0;font-size:20px;font-weight:800;cursor:pointer">Devenir ouvrier</button>
-      <a href="#telecharger" onClick="{{ closeMenu }}" style="background:#FAB82A;color:#14261F;padding:16px;margin-top:14px;text-align:center">Télécharger l’app</a>
+      <sc-for list="{{ navLinks }}" as="n" hint-placeholder-count="4"><a href="{{ n.href }}" onClick="{{ closeMenu }}" style="color:#14261F;padding:14px 0;border-bottom:1px solid #E8E6DF">{{ n.label }}</a></sc-for>
+      <button onClick="{{ openForm }}" style="text-align:left;background:none;border:none;border-bottom:1px solid #E8E6DF;color:#14261F;padding:14px 0;font-size:20px;font-weight:800;cursor:pointer">{{ C.header.cta_worker }}</button>
+      <a href="#telecharger" onClick="{{ closeMenu }}" style="background:#FAB82A;color:#14261F;padding:16px;margin-top:14px;text-align:center">{{ C.header.cta_app }}</a>
     </nav>
   </sc-if>
 </header>
 
 <main id="accueil">
-  <section data-screen-label="01 Accueil · Démo" style="max-width:1240px;margin:0 auto;padding:clamp(56px,7vw,96px) clamp(20px,4vw,48px) clamp(56px,7vw,96px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:clamp(40px,5vw,72px);align-items:center">
+  <section data-screen-label="01 Accueil · Démo" hidden="{{ L.demo.hidden }}" style="order:{{ L.demo.order }};padding:clamp(56px,7vw,96px) max(clamp(20px,4vw,48px),calc((100% - 1240px) / 2));display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:clamp(40px,5vw,72px);align-items:center">
     <div data-reveal="" style="display:flex;flex-direction:column;gap:26px">
-      <div style="display:flex;align-items:center;gap:12px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#1E6B4F"><span style="width:28px;height:6px;background:#FAB82A"></span>Promoteurs · Entreprises générales · Bureaux techniques</div>
-      <h1 style="margin:0;font-size:clamp(29px,4vw,56px);line-height:.92;font-weight:900;text-transform:uppercase;letter-spacing:-.02em;text-wrap:balance">Des ouvriers qualifiés <span style="background:#FAB82A;padding:0 .1em">disponibles</span> pour votre chantier.</h1>
-      <p style="margin:0;font-size:clamp(16px,1.4vw,19px);line-height:1.6;max-width:560px;color:#3B4540;text-wrap:pretty">Testez l’application client. Choisissez un chantier, indiquez le nombre d’ouvriers par métier et lancez la recherche. Vous recevez une offre d’ouvriers vérifiés, que vous confirmez en payant l’acompte.</p>
+      <div style="display:flex;align-items:center;gap:12px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#1E6B4F"><span style="width:28px;height:6px;background:#FAB82A"></span>{{ C.demo.kick }}</div>
+      <h1 style="margin:0;font-size:clamp(29px,4vw,56px);line-height:.92;font-weight:900;text-transform:uppercase;letter-spacing:-.02em;text-wrap:balance">{{ demoTitle.before }}<sc-if value="{{ demoTitle.has }}" hint-placeholder-val="{{ true }}"><span style="background:#FAB82A;padding:0 .1em">{{ demoTitle.word }}</span></sc-if>{{ demoTitle.after }}</h1>
+      <p style="margin:0;font-size:clamp(16px,1.4vw,19px);line-height:1.6;max-width:560px;color:#3B4540;text-wrap:pretty">{{ C.demo.text }}</p>
       <div style="display:flex;flex-direction:column;border-top:2px solid #14261F">
         <sc-for list="{{ demoSteps }}" as="s" hint-placeholder-count="4">
           <button onClick="{{ s.go }}" style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:14px;align-items:center;text-align:left;padding:13px 12px;border:none;border-bottom:1px solid #D9D6CD;background:{{ s.bg }};color:{{ s.fg }};cursor:pointer;transition:background .25s,color .25s">
@@ -228,8 +228,8 @@ textarea.f-inp{resize:vertical}
         </sc-for>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-  <a href="#telecharger" style="display:flex;flex-direction:column;justify-content:center;background:#14261F;color:#FFFFFF;border-radius:10px;padding:8px 18px;min-width:150px;line-height:1.1" style-hover="background:#1E6B4F;color:#FFFFFF"><span style="font-size:11px">Télécharger dans l’</span><span style="font-size:19px;font-weight:700">App Store</span></a>
-  <a href="#telecharger" style="display:flex;flex-direction:column;justify-content:center;background:#14261F;color:#FFFFFF;border-radius:10px;padding:8px 18px;min-width:150px;line-height:1.1" style-hover="background:#1E6B4F;color:#FFFFFF"><span style="font-size:11px">DISPONIBLE SUR</span><span style="font-size:19px;font-weight:700">Google Play</span></a>
+  <a href="{{ stores.ios }}" target="{{ stores.iosTarget }}" rel="noopener" style="display:flex;flex-direction:column;justify-content:center;background:#14261F;color:#FFFFFF;border-radius:10px;padding:8px 18px;min-width:150px;line-height:1.1" style-hover="background:#1E6B4F;color:#FFFFFF"><span style="font-size:11px">Télécharger dans l’</span><span style="font-size:19px;font-weight:700">App Store</span></a>
+  <a href="{{ stores.android }}" target="{{ stores.androidTarget }}" rel="noopener" style="display:flex;flex-direction:column;justify-content:center;background:#14261F;color:#FFFFFF;border-radius:10px;padding:8px 18px;min-width:150px;line-height:1.1" style-hover="background:#1E6B4F;color:#FFFFFF"><span style="font-size:11px">DISPONIBLE SUR</span><span style="font-size:19px;font-weight:700">Google Play</span></a>
 </div>
     </div>
 
@@ -365,10 +365,10 @@ textarea.f-inp{resize:vertical}
     </div>
   </section>
 
-  <section id="solution" data-screen-label="02 La solution" style="max-width:1240px;margin:0 auto;padding:clamp(56px,6vw,88px) clamp(20px,4vw,48px)">
+  <section id="solution" data-screen-label="02 La solution" hidden="{{ L.solution.hidden }}" style="order:{{ L.solution.order }};padding:clamp(56px,6vw,88px) max(clamp(20px,4vw,48px),calc((100% - 1240px) / 2))">
     <div data-reveal="" style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap">
-      <div><div class="kicker" style="color:#1E6B4F">La solution</div><h2 class="h-sec">Recruter, suivre, payer.<br>Au même endroit.</h2></div>
-      <p style="margin:0;max-width:380px;font-size:16px;line-height:1.6;color:#5B645F">Six outils reliés entre eux : chaque information saisie sert à toute l’équipe.</p>
+      <div><div class="kicker" style="color:#1E6B4F">{{ C.solution.kick }}</div><h2 class="h-sec">{{ C.solution.title }}</h2></div>
+      <p style="margin:0;max-width:380px;font-size:16px;line-height:1.6;color:#5B645F">{{ C.solution.text }}</p>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:clamp(24px,3vw,40px);margin-top:48px;align-items:stretch">
       <div style="display:flex;flex-direction:column;border-top:2px solid #14261F">
@@ -387,78 +387,61 @@ textarea.f-inp{resize:vertical}
     </div>
   </section>
 
-  <section id="paiement" data-screen-label="03 Paiement" style="background:#3EB884">
+  <section id="paiement" data-screen-label="03 Paiement" hidden="{{ L.paiement.hidden }}" style="order:{{ L.paiement.order }};background:#3EB884">
     <div style="max-width:1240px;margin:0 auto;padding:clamp(56px,6vw,88px) clamp(20px,4vw,48px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:clamp(40px,5vw,72px);align-items:center">
       <div data-reveal="" style="display:flex;flex-direction:column;gap:22px">
-        <div class="kicker">Paiement flexible &amp; sécurisé</div>
-        <h2 class="h-sec" style="margin:0">Payé pour le travail fait. Ni avant, ni après.</h2>
-        <p style="margin:0;font-size:17px;line-height:1.6;max-width:520px">Vous déposez les fonds au lancement de la mission. Ils restent sécurisés jusqu’à la validation du travail, puis l’ouvrier est payé immédiatement. Vous êtes protégé, et lui aussi.</p>
+        <div class="kicker">{{ C.paiement.kick }}</div>
+        <h2 class="h-sec" style="margin:0">{{ C.paiement.title }}</h2>
+        <p style="margin:0;font-size:17px;line-height:1.6;max-width:520px">{{ C.paiement.text }}</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <span style="border:2px solid #14261F;padding:10px 14px;font-weight:800;font-size:14px">Acompte de 30 %</span>
-          <span style="border:2px solid #14261F;padding:10px 14px;font-weight:800;font-size:14px">En 2 ou 3 fois</span>
-          <span style="border:2px solid #14261F;padding:10px 14px;font-weight:800;font-size:14px">Solde après validation</span>
+          <sc-for list="{{ payChips }}" as="chip" hint-placeholder-count="3"><span style="border:2px solid #14261F;padding:10px 14px;font-weight:800;font-size:14px">{{ chip.label }}</span></sc-for>
         </div>
       </div>
       <div data-reveal="" style="display:flex;flex-direction:column;gap:0;background:#14261F;color:#F8F7F3;padding:clamp(24px,3vw,36px)">
-        <div style="display:grid;grid-template-columns:56px minmax(0,1fr);gap:18px;padding-bottom:24px;border-bottom:1px solid #2A3D35"><span style="width:56px;height:56px;border-radius:50%;border:3px solid #FAB82A;display:flex;align-items:center;justify-content:center;font-weight:900;color:#FAB82A">1</span><div><div style="font-size:20px;font-weight:800">Fonds déposés</div><div style="font-size:14px;line-height:1.5;color:#CFEDE0;margin-top:4px">Le montant est réservé sur un compte de séquestre.</div></div></div>
-        <div style="display:grid;grid-template-columns:56px minmax(0,1fr);gap:18px;padding:24px 0;border-bottom:1px solid #2A3D35"><span style="width:56px;height:56px;border-radius:50%;border:3px solid #FAB82A;display:flex;align-items:center;justify-content:center;font-weight:900;color:#FAB82A">2</span><div><div style="font-size:20px;font-weight:800">Travail validé</div><div style="font-size:14px;line-height:1.5;color:#CFEDE0;margin-top:4px">Vous validez à partir des présences et des étapes réalisées.</div></div></div>
-        <div style="display:grid;grid-template-columns:56px minmax(0,1fr);gap:18px;padding-top:24px"><span style="width:56px;height:56px;border-radius:50%;background:#FAB82A;color:#14261F;display:flex;align-items:center;justify-content:center;font-weight:900">3</span><div><div style="font-size:20px;font-weight:800">Ouvrier payé</div><div style="font-size:14px;line-height:1.5;color:#CFEDE0;margin-top:4px">Le virement part tout de suite et la facture est générée automatiquement.</div></div></div>
+        <sc-for list="{{ paySteps }}" as="p" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:56px minmax(0,1fr);gap:18px;padding:{{ p.pad }};border-bottom:{{ p.border }}"><span style="width:56px;height:56px;border-radius:50%;border:3px solid #FAB82A;display:flex;align-items:center;justify-content:center;font-weight:900;background:{{ p.dotBg }};color:{{ p.dotFg }}">{{ p.n }}</span><div><div style="font-size:20px;font-weight:800">{{ p.title }}</div><div style="font-size:14px;line-height:1.5;color:#CFEDE0;margin-top:4px">{{ p.text }}</div></div></div></sc-for>
       </div>
     </div>
   </section>
 
-  <section id="tarifs" data-screen-label="04 Tarifs" style="max-width:1240px;margin:0 auto;padding:clamp(56px,6vw,88px) clamp(20px,4vw,48px)">
+  <section id="tarifs" data-screen-label="04 Tarifs" hidden="{{ L.tarifs.hidden }}" style="order:{{ L.tarifs.order }};padding:clamp(56px,6vw,88px) max(clamp(20px,4vw,48px),calc((100% - 1240px) / 2))">
     <div data-reveal="" style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap">
-      <div><div class="kicker" style="color:#1E6B4F">Abonnements</div><h2 class="h-sec">Une formule pour chaque équipe.</h2></div>
-      <p style="margin:0;max-width:420px;font-size:16px;line-height:1.6;color:#5B645F">Avec une formule Équipe ou Pro, invitez vos collaborateurs par SMS ou e-mail et attribuez-leur un rôle : chef de chantier, technicien, comptable ou observateur.</p>
+      <div><div class="kicker" style="color:#1E6B4F">{{ C.tarifs.kick }}</div><h2 class="h-sec">{{ C.tarifs.title }}</h2></div>
+      <p style="margin:0;max-width:420px;font-size:16px;line-height:1.6;color:#5B645F">{{ C.tarifs.text }}</p>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:20px;margin-top:44px;align-items:stretch">
-      <div data-reveal="" style="position:relative;background:#FFFFFF;color:#14261F;padding:28px;display:flex;flex-direction:column;gap:18px;border:2px solid #14261F">
-        
-        <div><div style="font-size:26px;font-weight:900;text-transform:uppercase">Solo</div><div style="font-size:14px;opacity:.75;margin-top:4px">1 utilisateur</div></div>
-        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span style="font-size:clamp(30px,3vw,40px);font-weight:900;color:#14261F">Gratuit</span><span style="font-size:14px;opacity:.75">pour toujours</span></div>
-        <div style="display:flex;flex-direction:column;gap:10px;border-top:1px solid #E8E6DF;padding-top:16px;font-size:15px;line-height:1.4"><div class="tick"><span><strong>Gestion jusqu’à 5 chantiers</strong></span></div><div class="tick"><span>Propriétaire uniquement</span></div><div class="tick"><span>Chantiers et réservations</span></div><div class="tick"><span>Pointage jusqu’à 300</span></div><div class="tick"><span>Paiement en 2 fois · sans rapport global</span></div></div>
-        <a href="#telecharger" style="margin-top:auto;text-align:center;padding:16px;font-weight:800;background:transparent;color:#14261F;border:2px solid #14261F" style-hover="background:#14261F;color:#F8F7F3">Commencer gratuitement</a>
-      </div>
-      <div data-reveal="" style="position:relative;background:#14261F;color:#F8F7F3;padding:28px;display:flex;flex-direction:column;gap:18px;border:2px solid #14261F">
-        <span style="position:absolute;right:20px;top:-14px;background:#FAB82A;color:#14261F;font-size:12px;font-weight:800;padding:6px 10px">Le plus choisi</span>
-        <div><div style="font-size:26px;font-weight:900;text-transform:uppercase">Équipe</div><div style="font-size:14px;opacity:.75;margin-top:4px">Jusqu’à 5 utilisateurs</div></div>
-        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span style="font-size:clamp(30px,3vw,40px);font-weight:900;color:#FAB82A">99 900 FCFA</span><span style="font-size:14px;opacity:.75">par mois</span></div>
-        <div style="display:flex;flex-direction:column;gap:10px;border-top:1px solid #2A3D35;padding-top:16px;font-size:15px;line-height:1.4"><div class="tick"><span><strong>Gestion jusqu’à 25 chantiers</strong></span></div><div class="tick"><span>Jusqu’à 5 utilisateurs · rôles clés</span></div><div class="tick"><span>Pointage jusqu’à 500</span></div><div class="tick"><span>Gestion chronologique du chantier</span></div><div class="tick"><span>Journal d’activité</span></div><div class="tick"><span>Paiement flexible, adapté à la durée de votre chantier</span></div><div class="tick"><span>Rapport global de fin de chantier</span></div></div>
-        <a href="#telecharger" style="margin-top:auto;text-align:center;padding:16px;font-weight:800;background:#FAB82A;color:#14261F;border:2px solid #FAB82A" style-hover="background:#FFFFFF;color:#14261F">Choisir Équipe</a>
-      </div>
-      <div data-reveal="" style="position:relative;background:#FFFFFF;color:#14261F;padding:28px;display:flex;flex-direction:column;gap:18px;border:2px solid #14261F">
-        
-        <div><div style="font-size:26px;font-weight:900;text-transform:uppercase">Pro</div><div style="font-size:14px;opacity:.75;margin-top:4px">Jusqu’à 15 utilisateurs</div></div>
-        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span style="font-size:clamp(30px,3vw,40px);font-weight:900;color:#14261F">149 900 FCFA</span><span style="font-size:14px;opacity:.75">par mois</span></div>
-        <div style="display:flex;flex-direction:column;gap:10px;border-top:1px solid #E8E6DF;padding-top:16px;font-size:15px;line-height:1.4"><div class="tick"><span><strong>Gestion illimitée de chantiers</strong></span></div><div class="tick"><span>Jusqu’à 15 utilisateurs · rôles clés</span></div><div class="tick"><span>Pointage illimité</span></div><div class="tick"><span>Gestion chronologique du chantier</span></div><div class="tick"><span>Journal d’activité</span></div><div class="tick"><span>Paiement flexible, adapté à la durée de votre chantier</span></div><div class="tick"><span>Rapport global de fin de chantier</span></div></div>
-        <a href="#telecharger" style="margin-top:auto;text-align:center;padding:16px;font-weight:800;background:transparent;color:#14261F;border:2px solid #14261F" style-hover="background:#14261F;color:#F8F7F3">Choisir Pro</a>
-      </div>
+      <sc-for list="{{ plans }}" as="pl" hint-placeholder-count="3"><div data-reveal="" style="position:relative;background:{{ pl.bg }};color:{{ pl.fg }};padding:28px;display:flex;flex-direction:column;gap:18px;border:2px solid #14261F">
+        <sc-if value="{{ pl.featured }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;right:20px;top:-14px;background:#FAB82A;color:#14261F;font-size:12px;font-weight:800;padding:6px 10px">Le plus choisi</span></sc-if>
+        <div><div style="font-size:26px;font-weight:900;text-transform:uppercase">{{ pl.name }}</div><div style="font-size:14px;opacity:.75;margin-top:4px">{{ pl.subtitle }}</div></div>
+        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span style="font-size:clamp(30px,3vw,40px);font-weight:900;color:{{ pl.priceColor }}">{{ pl.price }}</span><span style="font-size:14px;opacity:.75">{{ pl.period }}</span></div>
+        <div style="display:flex;flex-direction:column;gap:10px;border-top:1px solid {{ pl.line }};padding-top:16px;font-size:15px;line-height:1.4"><sc-for list="{{ pl.features }}" as="ft" hint-placeholder-count="5"><div class="tick"><span style="font-weight:{{ ft.weight }}">{{ ft.label }}</span></div></sc-for></div>
+        <sc-if value="{{ pl.featured }}" hint-placeholder-val="{{ false }}"><a href="#telecharger" style="margin-top:auto;text-align:center;padding:16px;font-weight:800;background:#FAB82A;color:#14261F;border:2px solid #FAB82A" style-hover="background:#FFFFFF;color:#14261F">{{ pl.cta }}</a></sc-if>
+        <sc-if value="{{ pl.plain }}" hint-placeholder-val="{{ true }}"><a href="#telecharger" style="margin-top:auto;text-align:center;padding:16px;font-weight:800;background:transparent;color:#14261F;border:2px solid #14261F" style-hover="background:#14261F;color:#F8F7F3">{{ pl.cta }}</a></sc-if>
+      </div></sc-for>
     </div>
   </section>
 
-  <section id="carte" data-screen-label="05 Carte des chantiers" style="background:#14261F;color:#F8F7F3">
+  <section id="carte" data-screen-label="05 Carte des chantiers" hidden="{{ L.carte.hidden }}" style="order:{{ L.carte.order }};background:#14261F;color:#F8F7F3">
     <div style="max-width:1240px;margin:0 auto;padding:clamp(56px,6vw,88px) clamp(20px,4vw,48px);display:flex;flex-direction:column;gap:32px">
       <div data-reveal="" style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap">
-        <div><div class="kicker" style="color:#FAB82A">Vous êtes ouvrier ?</div><h2 class="h-sec">Des chantiers recrutent près de chez vous.</h2></div>
-        <div style="display:flex;flex-direction:column;gap:14px;max-width:400px"><p style="margin:0;font-size:16px;line-height:1.6;color:#CFEDE0">Filtrez par métier, localisez-vous et postulez depuis la carte. Les candidatures sont étudiées par l’équipe O’CHANTIER, qui vous recontacte pour vous affecter aux chantiers.</p><button onClick="{{ openForm }}" style="align-self:flex-start;background:#FAB82A;color:#14261F;border:none;padding:16px 24px;font-size:15px;font-weight:900;text-transform:uppercase;cursor:pointer" style-hover="background:#FFFFFF">Devenir ouvrier →</button></div>
+        <div><div class="kicker" style="color:#FAB82A">{{ C.carte.kick }}</div><h2 class="h-sec">{{ C.carte.title }}</h2></div>
+        <div style="display:flex;flex-direction:column;gap:14px;max-width:400px"><p style="margin:0;font-size:16px;line-height:1.6;color:#CFEDE0">{{ C.carte.text }}</p><button onClick="{{ openForm }}" style="align-self:flex-start;background:#FAB82A;color:#14261F;border:none;padding:16px 24px;font-size:15px;font-weight:900;text-transform:uppercase;cursor:pointer" style-hover="background:#FFFFFF">{{ C.carte.cta }}</button></div>
       </div>
       <div data-reveal="" style="height:620px;background:#E8E6DF;border:3px solid #FAB82A"><iframe src="carte-chantiers.html" title="Carte des chantiers qui recrutent" loading="lazy" style="width:100%;height:100%;border:0;display:block"></iframe></div>
     </div>
   </section>
 
-  <section id="telecharger" data-screen-label="06 Application" style="background:#1E6B4F;color:#FFFFFF;overflow:hidden">
+  <section id="telecharger" data-screen-label="06 Application" hidden="{{ L.app.hidden }}" style="order:{{ L.app.order }};background:#1E6B4F;color:#FFFFFF;overflow:hidden">
     <div style="max-width:1240px;margin:0 auto;padding:clamp(56px,6vw,88px) clamp(20px,4vw,48px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:clamp(40px,5vw,72px);align-items:center">
       <div data-reveal="" style="display:flex;flex-direction:column;gap:22px">
-        <div class="kicker" style="color:#FAB82A">Application promoteurs &amp; techniciens</div>
-        <h2 class="h-sec" style="margin:0">Téléchargez l’application O’CHANTIER.</h2>
-        <p style="margin:0;font-size:17px;line-height:1.6;max-width:500px;color:#ECF8F3">L’application des promoteurs immobiliers et des techniciens de chantier. Réservez des ouvriers qualifiés, suivez les présences et l’avancement, payez en toute sécurité. Disponible sur iPhone et Android.</p>
+        <div class="kicker" style="color:#FAB82A">{{ C.app.kick }}</div>
+        <h2 class="h-sec" style="margin:0">{{ C.app.title }}</h2>
+        <p style="margin:0;font-size:17px;line-height:1.6;max-width:500px;color:#ECF8F3">{{ C.app.text }}</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-  <a href="#telecharger" style="display:flex;flex-direction:column;justify-content:center;background:#000000;color:#FFFFFF;border:1px solid #5B645F;border-radius:10px;padding:8px 18px;min-width:150px;line-height:1.1" style-hover="background:#1E6B4F;color:#FFFFFF"><span style="font-size:11px">Télécharger dans l’</span><span style="font-size:19px;font-weight:700">App Store</span></a>
-  <a href="#telecharger" style="display:flex;flex-direction:column;justify-content:center;background:#000000;color:#FFFFFF;border:1px solid #5B645F;border-radius:10px;padding:8px 18px;min-width:150px;line-height:1.1" style-hover="background:#1E6B4F;color:#FFFFFF"><span style="font-size:11px">DISPONIBLE SUR</span><span style="font-size:19px;font-weight:700">Google Play</span></a>
+  <a href="{{ stores.ios }}" target="{{ stores.iosTarget }}" rel="noopener" style="display:flex;flex-direction:column;justify-content:center;background:#000000;color:#FFFFFF;border:1px solid #5B645F;border-radius:10px;padding:8px 18px;min-width:150px;line-height:1.1" style-hover="background:#1E6B4F;color:#FFFFFF"><span style="font-size:11px">Télécharger dans l’</span><span style="font-size:19px;font-weight:700">App Store</span></a>
+  <a href="{{ stores.android }}" target="{{ stores.androidTarget }}" rel="noopener" style="display:flex;flex-direction:column;justify-content:center;background:#000000;color:#FFFFFF;border:1px solid #5B645F;border-radius:10px;padding:8px 18px;min-width:150px;line-height:1.1" style-hover="background:#1E6B4F;color:#FFFFFF"><span style="font-size:11px">DISPONIBLE SUR</span><span style="font-size:19px;font-weight:700">Google Play</span></a>
 </div>
         <div style="display:flex;align-items:center;gap:16px;margin-top:6px">
-          <img src="assets/qr-code.png" loading="lazy" decoding="async" alt="QR code de téléchargement de l’application O’CHANTIER" style="width:120px;height:120px;object-fit:contain;background:#FFFFFF;display:block;flex:none">
+          <img src="{{ qrSrc }}" loading="lazy" decoding="async" alt="QR code de téléchargement de l’application O’CHANTIER" style="width:120px;height:120px;object-fit:contain;background:#FFFFFF;display:block;flex:none">
           <span style="font-size:14px;line-height:1.5;color:#CFEDE0">Scannez le code avec votre téléphone pour installer l’application.</span>
         </div>
       </div>
@@ -470,17 +453,14 @@ textarea.f-inp{resize:vertical}
     </div>
   </section>
 
-  <section id="contact" data-screen-label="07 Nous contacter" style="background:#F8F7F3">
+  <section id="contact" data-screen-label="07 Nous contacter" hidden="{{ L.contact.hidden }}" style="order:{{ L.contact.order }};background:#F8F7F3">
     <div style="max-width:1240px;margin:0 auto;padding:clamp(56px,6vw,88px) clamp(20px,4vw,48px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:clamp(32px,5vw,64px);align-items:start">
       <div data-reveal="" style="display:flex;flex-direction:column;gap:20px">
-        <div class="kicker" style="color:#1E6B4F">Nous contacter</div>
-        <h2 class="h-sec" style="margin:0">Une question ? Parlons de votre chantier.</h2>
-        <p style="margin:0;font-size:16px;line-height:1.6;color:#5B645F;max-width:460px">Votre message est transmis directement à l’équipe O’CHANTIER. Nous répondons sous 24 h ouvrées.</p>
+        <div class="kicker" style="color:#1E6B4F">{{ C.contact.kick }}</div>
+        <h2 class="h-sec" style="margin:0">{{ C.contact.title }}</h2>
+        <p style="margin:0;font-size:16px;line-height:1.6;color:#5B645F;max-width:460px">{{ C.contact.text }}</p>
         <div style="display:flex;flex-direction:column;border-top:2px solid #14261F;max-width:460px">
-          <div style="display:flex;flex-direction:column;gap:4px;padding:14px 0;border-bottom:1px solid #D9D6CD"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#1E6B4F">Téléphone</span><span style="font-size:16px;font-weight:700">+225 07 00 00 00 00</span></div>
-          <div style="display:flex;flex-direction:column;gap:4px;padding:14px 0;border-bottom:1px solid #D9D6CD"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#1E6B4F">E-mail</span><span style="font-size:16px;font-weight:700">contact@ochantier.ci</span></div>
-          <div style="display:flex;flex-direction:column;gap:4px;padding:14px 0;border-bottom:1px solid #D9D6CD"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#1E6B4F">Adresse</span><span style="font-size:16px;font-weight:700">Cocody, Abidjan · Côte d’Ivoire</span></div>
-          <div style="display:flex;flex-direction:column;gap:4px;padding:14px 0;border-bottom:1px solid #D9D6CD"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#1E6B4F">Horaires</span><span style="font-size:16px;font-weight:700">Lun. – Sam. · 8 h – 18 h</span></div>
+          <sc-for list="{{ contactRows }}" as="r" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:4px;padding:14px 0;border-bottom:1px solid #D9D6CD"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#1E6B4F">{{ r.label }}</span><span style="font-size:16px;font-weight:700">{{ r.value }}</span></div></sc-for>
         </div>
       </div>
       <div data-reveal="" style="background:#FFFFFF;border:2px solid #14261F;box-shadow:10px 10px 0 #14261F">
@@ -493,7 +473,7 @@ textarea.f-inp{resize:vertical}
               <label class="f-lbl">Téléphone *<input type="tel" value="{{ cv.tel }}" onChange="{{ con.tel }}" placeholder="+225 07 00 00 00 00" class="f-inp"></label>
               <label class="f-lbl">E-mail *<input type="email" value="{{ cv.email }}" onChange="{{ con.email }}" placeholder="vous@entreprise.ci" class="f-inp"></label>
             </div>
-            <label class="f-lbl">Objet<select value="{{ cv.objet }}" onChange="{{ con.objet }}" class="f-inp"><option>Demande de démonstration</option><option>Abonnement Équipe ou Pro</option><option>Recrutement d’ouvriers</option><option>Partenariat</option><option>Assistance technique</option><option>Autre demande</option></select></label>
+            <label class="f-lbl">Objet<select value="{{ cv.objet }}" onChange="{{ con.objet }}" class="f-inp"><sc-for list="{{ subjects }}" as="o" hint-placeholder-count="6"><option>{{ o.label }}</option></sc-for></select></label>
             <label class="f-lbl">Message *<textarea value="{{ cv.message }}" onChange="{{ con.message }}" rows="5" placeholder="Décrivez votre besoin : type de chantier, localisation, nombre d’ouvriers, délais…" class="f-inp"></textarea></label>
             <label style="display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;cursor:pointer"><input type="checkbox" checked="{{ cv.consent }}" onChange="{{ con.consent }}" style="width:20px;height:20px;accent-color:#1E6B4F;flex:none;margin-top:1px">J’accepte que mes informations soient utilisées par O’CHANTIER pour traiter ma demande. *</label>
             <sc-if value="{{ cHasErr }}" hint-placeholder-val="{{ false }}"><div class="f-err" role="alert">{{ cErr }}</div></sc-if>
@@ -517,29 +497,29 @@ textarea.f-inp{resize:vertical}
 <footer style="background:#14261F;color:#CFEDE0">
   <div style="max-width:1240px;margin:0 auto;padding:48px clamp(20px,4vw,48px) 32px;display:flex;flex-direction:column;gap:40px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:32px;flex-wrap:wrap">
-      <div style="display:flex;flex-direction:column;gap:14px"><img src="assets/logo-couleur.webp" loading="lazy" decoding="async" width="600" height="86" alt="O'CHANTIER" style="width:min(100%,300px);height:auto;display:block"><span style="font-size:14px;color:#9FDBC2">Trouvez vos prochains ouvriers, ici et maintenant.</span></div>
+      <div style="display:flex;flex-direction:column;gap:14px"><img src="{{ logoSrc }}" loading="lazy" decoding="async" width="600" height="86" alt="O'CHANTIER" style="width:min(100%,300px);height:auto;display:block"><span style="font-size:14px;color:#9FDBC2">{{ C.footer.slogan }}</span></div>
       <div style="display:flex;gap:48px;flex-wrap:wrap;font-size:14px;line-height:2">
         <div style="display:flex;flex-direction:column"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;color:#FAB82A">ENTREPRISES</span><a href="#accueil" style="color:#F8F7F3">Démo</a><a href="#solution" style="color:#F8F7F3">La solution</a><a href="#paiement" style="color:#F8F7F3">Paiement</a><a href="#tarifs" style="color:#F8F7F3">Tarifs</a></div>
         <div style="display:flex;flex-direction:column"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;color:#FAB82A">OUVRIERS</span><a href="#carte" style="color:#F8F7F3">Chantiers près de vous</a><a href="#carte" onClick="{{ openFormLink }}" style="color:#F8F7F3">Devenir ouvrier</a><a href="#telecharger" style="color:#F8F7F3">Télécharger l’app</a></div>
-        <div style="display:flex;flex-direction:column"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;color:#FAB82A">CONTACT</span><a href="#contact" style="color:#F8F7F3">Nous contacter</a><span style="color:#F8F7F3">contact@ochantier.ci</span><span style="color:#F8F7F3">00 00 00 00 00</span></div>
+        <div style="display:flex;flex-direction:column"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;color:#FAB82A">CONTACT</span><a href="#contact" style="color:#F8F7F3">Nous contacter</a><span style="color:#F8F7F3">{{ C.footer.email }}</span><span style="color:#F8F7F3">{{ C.footer.phone }}</span></div>
       </div>
       <div style="display:flex;flex-direction:column;gap:12px;width:min(100%,380px)">
-        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;color:#FAB82A">NEWSLETTER</span>
-        <span style="font-size:15px;line-height:1.5;color:#F8F7F3">Nouveautés, conseils chantier et offres O’CHANTIER, une fois par mois.</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;color:#FAB82A;text-transform:uppercase">{{ C.newsletter.title }}</span>
+        <span style="font-size:15px;line-height:1.5;color:#F8F7F3">{{ C.newsletter.text }}</span>
         <sc-if value="{{ nlNotDone }}" hint-placeholder-val="{{ true }}">
           <form onSubmit="{{ nlSubmit }}" style="display:flex;border:2px solid #3EB884">
-            <input type="email" value="{{ nlEmail }}" onChange="{{ nlChange }}" placeholder="Votre adresse e-mail" aria-label="Adresse e-mail" style="flex:1;min-width:0;background:transparent;border:none;outline:none;color:#F8F7F3;padding:14px;font-size:15px;font-family:'Play',sans-serif">
-            <button type="submit" style="background:#FAB82A;color:#14261F;border:none;padding:0 18px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Play',sans-serif;text-transform:uppercase" style-hover="background:#3EB884">S’abonner</button>
+            <input type="email" value="{{ nlEmail }}" onChange="{{ nlChange }}" placeholder="{{ C.newsletter.placeholder }}" aria-label="Adresse e-mail" style="flex:1;min-width:0;background:transparent;border:none;outline:none;color:#F8F7F3;padding:14px;font-size:15px;font-family:'Play',sans-serif">
+            <button type="submit" style="background:#FAB82A;color:#14261F;border:none;padding:0 18px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Play',sans-serif;text-transform:uppercase" style-hover="background:#3EB884">{{ C.newsletter.cta }}</button>
           </form>
         </sc-if>
         <sc-if value="{{ nlErrShow }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#FAB82A">{{ nlErr }}</span></sc-if>
-        <sc-if value="{{ nlDone }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:10px;align-items:center;background:#1E6B4F;padding:14px;font-size:14px;color:#F8F7F3"><span style="font-weight:700;color:#FAB82A">✓</span>Merci ! Inscription confirmée pour {{ nlEmail }}.</div></sc-if>
-        <span style="font-size:12px;color:#9FDBC2">Désinscription possible à tout moment.</span>
+        <sc-if value="{{ nlDone }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:10px;align-items:center;background:#1E6B4F;padding:14px;font-size:14px;color:#F8F7F3"><span style="font-weight:700;color:#FAB82A">✓</span>{{ C.newsletter.success }}</div></sc-if>
+        <sc-if value="{{ C.newsletter.notice }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;color:#9FDBC2">{{ C.newsletter.notice }}</span></sc-if>
       </div>
     </div>
     <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-top:20px;border-top:1px solid #2A3D35;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em">
-      <span>© 2026 O’CHANTIER · Mentions légales · CGU</span>
-      <button onClick="{{ replay }}" style="background:none;border:none;color:#FAB82A;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;cursor:pointer;padding:0">↺ REVOIR L’INTRO</button>
+      <span>{{ C.footer.legal }}<sc-for list="{{ legalLinks }}" as="lk" hint-placeholder-count="0"> · <a href="{{ lk.href }}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">{{ lk.label }}</a></sc-for></span>
+      <sc-if value="{{ hasCover }}" hint-placeholder-val="{{ true }}"><button onClick="{{ replay }}" style="background:none;border:none;color:#FAB82A;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;cursor:pointer;padding:0">↺ REVOIR L’INTRO</button></sc-if>
     </div>
   </div>
 </footer>
@@ -547,7 +527,10 @@ textarea.f-inp{resize:vertical}
 @endverbatim
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
-  state = { entered: false, gone: false, active: 0, menuOpen: false, w: typeof window !== 'undefined' ? window.innerWidth : 1280, step: 0, ch: 0, needs: null, nlEmail: '', nlErr: '', nlDone: false, cSent: false, cErr: '', cSending: false, cRef: '', cv: { profil: 'Promoteur immobilier', nom: '', entreprise: '', tel: '', email: '', objet: 'Demande de démonstration', message: '', consent: false }, formOpen: false, fstep: 0, ferr: '', target: null, fv: this.blankForm() };
+  // Contenu publié dans le Back Office, transmis par le serveur du site (window.OCH_SITE).
+  site = (typeof window !== 'undefined' && window.OCH_SITE) || { order: [], hidden: [], sections: {}, plans: [], files: {} };
+  hasCover = !(this.site.hidden || []).includes('cover');
+  state = { entered: !this.hasCover, gone: !this.hasCover, active: 0, menuOpen: false, w: typeof window !== 'undefined' ? window.innerWidth : 1280, step: 0, ch: 0, needs: null, nlEmail: '', nlErr: '', nlDone: false, cSent: false, cErr: '', cSending: false, cRef: '', cv: { profil: (this.site.sections.contact?.profiles || ['Promoteur immobilier'])[0], nom: '', entreprise: '', tel: '', email: '', objet: (this.site.sections.contact?.subjects || ['Demande de démonstration'])[0], message: '', consent: false }, formOpen: false, fstep: 0, ferr: '', target: null, fv: this.blankForm() };
   formRef = React.createRef();
   files = { photo: null, cni: null };
   // Envoie un formulaire à l'API Laravel ; renvoie le JSON ou lève le premier message d'erreur.
@@ -574,14 +557,7 @@ class Component extends DCLogic {
   coverContentRef = React.createRef(); sceneRef = React.createRef(); screenRef = React.createRef();
   radarAnims = []; chronoAnims = []; coverAnims = [];
   reduced = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  FEATS = [
-    { n: '01', title: 'Recrutement à la demande', text: 'Trouvez en quelques heures des ouvriers qualifiés et disponibles. Identité, diplômes, habilitations et assurances sont vérifiés.', isCore: true },
-    { n: '02', title: 'Suivi des présences', text: 'Pointage géolocalisé avec photo et signature de l’ouvrier. Taux de présence du jour et global.' },
-    { n: '03', title: 'Planification des travaux', text: 'Une chronologie d’étapes à démarrer et à valider. L’avancement du chantier se met à jour automatiquement.' },
-    { n: '04', title: 'Gestion d’équipe multi-utilisateurs', text: 'Invitez vos collaborateurs par SMS ou e-mail : administrateur, chef de chantier, technicien, comptable ou observateur.' },
-    { n: '05', title: 'Paiement flexible et sécurisé', text: 'Acompte de 30 % à la réservation, puis solde ou paiement en 2 ou 3 fois. Échéances suivies dans l’app.' },
-    { n: '06', title: 'Rapport de fin de chantier', text: 'Un document généré automatiquement : durée, présence, étapes, équipe et historique des pointages.' },
-  ];
+  FEATS = (this.site.sections.solution?.features || []).map((f, i) => ({ n: String(i + 1).padStart(2, '0'), title: f.title, text: f.text, isCore: !!f.core }));
   TARIFS = { 'Maçon': 25000, 'Électricien': 30000, 'Plombier': 20000, 'Peintre': 18000, 'Carreleur': 22000, 'Ferrailleur': 20000 };
   PLURAL = { 'Maçon': 'maçons', 'Électricien': 'électriciens', 'Plombier': 'plombiers', 'Peintre': 'peintres', 'Carreleur': 'carreleurs', 'Ferrailleur': 'ferrailleurs' };
   POOL = {
@@ -628,8 +604,7 @@ class Component extends DCLogic {
     this.onTouchMove = (e) => { if (!this.state.entered && this.touchY - e.touches[0].clientY > 30) this.enter(); };
     window.addEventListener('touchstart', this.onTouchStart, { passive: true });
     window.addEventListener('touchmove', this.onTouchMove, { passive: true });
-    this.lockScroll(true);
-    this.startCoverAnims();
+    if (this.hasCover) { this.lockScroll(true); this.startCoverAnims(); }
     if (this.reduced) return;
     this.io = new IntersectionObserver((entries) => entries.forEach(en => {
       if (en.isIntersecting) { en.target.animate([{ opacity: 0, transform: 'translateY(32px)' }, { opacity: 1, transform: 'none' }], { duration: 800, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'backwards' }); this.io.unobserve(en.target); }
@@ -655,10 +630,11 @@ class Component extends DCLogic {
     const v = this.videoRef.current;
     if (v) {
       v.muted = true; v.defaultMuted = true;
-      fetch('assets/chantier.mp4', { method: 'HEAD' }).then(res => {
+      const src = this.fileUrl(this.site.sections.cover?.video, 'assets/chantier.mp4');
+      fetch(src, { method: 'HEAD' }).then(res => {
         if (!res.ok || !this.videoRef.current) return;
         v.addEventListener('playing', () => { v.style.opacity = 1; }, { once: true });
-        v.src = 'assets/chantier.mp4'; const p = v.play(); p && p.catch(() => {});
+        v.src = src; const p = v.play(); p && p.catch(() => {});
       }).catch(() => {});
     }
     run(this.coverStripeRef.current, [{ backgroundPosition: '0 0' }, { backgroundPosition: '39.6px 0' }], { duration: 900, iterations: Infinity });
@@ -692,6 +668,7 @@ class Component extends DCLogic {
     setTimeout(() => { const v = this.videoRef.current; v && v.pause(); this.cancel('coverAnims'); this.setState({ gone: true }); }, 1050);
   };
   replay = () => {
+    if (!this.hasCover) return;
     window.scrollTo(0, 0); this.lockScroll(true);
     this.setState({ gone: false, entered: true }, () => requestAnimationFrame(() => requestAnimationFrame(() => { this.setState({ entered: false }); this.startCoverAnims(); })));
   };
@@ -712,8 +689,31 @@ class Component extends DCLogic {
     this.t = setTimeout(() => this.setState({ step: 4 }), 1900);
   };
 
+  fileUrl(id, fallback) { return (id && this.site.files && this.site.files[id]) || fallback; }
   renderVals() {
     const a = this.state.active, st = this.state.step;
+    const S = this.site, C = S.sections, hidden = S.hidden || [];
+    const anchor = (k) => ({ demo: '#accueil', app: '#telecharger' })[k] || '#' + k;
+    const L = Object.fromEntries((S.order || []).map((k, i) => [k, { order: i, hidden: hidden.includes(k) }]));
+    const dt = C.demo.title || '', hw = C.demo.highlight || '', hi = hw ? dt.indexOf(hw) : -1;
+    const money = (n) => n.toLocaleString('fr-FR').replace(/\u202f|\u00a0/g, ' ') + ' FCFA';
+    const PERIOD = { mois: 'par mois', trimestre: 'par trimestre', annee: 'par an' };
+    const store = (url) => url ? { href: url, target: '_blank' } : { href: '#telecharger', target: '_self' };
+    const ios = store(C.app.ios), android = store(C.app.android);
+    const siteVals = {
+      C, L, hasCover: this.hasCover,
+      logoSrc: this.fileUrl(C.header.logo, 'assets/logo-couleur.webp'),
+      qrSrc: this.fileUrl(C.app.qr, 'assets/qr-code.png'),
+      navLinks: (C.header.nav || []).filter(n => !hidden.includes(n.section)).map(n => ({ label: n.label, href: anchor(n.section) })),
+      demoTitle: hi >= 0 ? { before: dt.slice(0, hi), word: hw, after: dt.slice(hi + hw.length), has: true } : { before: dt, word: '', after: '', has: false },
+      stores: { ios: ios.href, iosTarget: ios.target, android: android.href, androidTarget: android.target },
+      paySteps: (C.paiement.steps || []).map((p, i, all) => { const last = i === all.length - 1; return { n: String(i + 1), title: p.title, text: p.text || '', pad: i === 0 ? '0 0 24px' : (last ? '24px 0 0' : '24px 0'), border: last ? 'none' : '1px solid #2A3D35', dotBg: last ? '#FAB82A' : 'transparent', dotFg: last ? '#14261F' : '#FAB82A' }; }),
+      plans: (S.plans || []).map(p => { const free = !p.price_amount, f = !!p.is_featured; return { name: p.name, subtitle: p.subtitle || (p.max_users ? (p.max_users > 1 ? 'Jusqu’à ' + p.max_users + ' utilisateurs' : '1 utilisateur') : ''), price: free ? 'Gratuit' : money(p.price_amount), period: free ? 'pour toujours' : (PERIOD[p.billing_period] || ''), featured: f, plain: !f, bg: f ? '#14261F' : '#FFFFFF', fg: f ? '#F8F7F3' : '#14261F', priceColor: f ? '#FAB82A' : '#14261F', line: f ? '#2A3D35' : '#E8E6DF', cta: free ? 'Commencer gratuitement' : 'Choisir ' + p.name, features: (p.features || []).map((l, i) => ({ label: l, weight: i === 0 ? 800 : 400 })) }; }),
+      payChips: (C.paiement.chips || []).map(label => ({ label })),
+      subjects: (C.contact.subjects || []).map(label => ({ label })),
+      contactRows: [['Téléphone', C.contact.phone], ['E-mail', C.contact.email], ['Adresse', C.contact.address], ['Horaires', C.contact.hours]].filter(r => r[1]).map(([label, value]) => ({ label, value })),
+      legalLinks: [['Mentions légales', C.footer.legal_url], ['CGU', C.footer.terms_url]].filter(l => l[1]).map(([label, href]) => ({ label, href })),
+    };
     const fmt = (n) => n.toLocaleString('fr-FR').replace(/\u202f|\u00a0/g, ' ') + ' FCFA';
     const curRaw = this.CHANTIERS[this.state.ch];
     const cur = { ...curRaw, photoDisplay: curRaw.photo ? 'block' : 'none' };
@@ -726,12 +726,8 @@ class Component extends DCLogic {
     const team = [];
     Object.entries(needs).forEach(([m, n]) => { for (let x = 0; x < n; x++) { team.push({ metier: m, name: this.POOL[m][x % this.POOL[m].length], tarif: fmt(this.TARIFS[m]), photo: this.PHOTOS[k++ % 3] }); } });
     const stepIdx = st <= 1 ? 0 : st === 2 ? 1 : st <= 4 ? 2 : 3;
-    const stepsDef = [
-      ['1', 'Choisissez le chantier', 'Tous vos chantiers et leur avancement.', () => this.setState({ step: 1 })],
-      ['2', 'Indiquez vos besoins par métier', 'Dates, nombre d’ouvriers et tarif moyen.', () => this.setState({ step: 2 })],
-      ['3', 'Recevez une offre vérifiée', 'Les ouvriers disponibles près du chantier.', () => this.launch()],
-      ['4', 'Payez l’acompte en sécurité', '30 % à la réservation, solde après validation.', () => this.setState({ step: 5 })],
-    ];
+    const demoGo = [() => this.setState({ step: 1 }), () => this.setState({ step: 2 }), () => this.launch(), () => this.setState({ step: 5 })];
+    const stepsDef = (this.site.sections.demo?.steps || []).slice(0, 4).map((d, i) => [String(i + 1), d.title, d.text || '', demoGo[i]]);
     const home = st === 0;
     const fv = this.state.fv, fs = this.state.fstep;
     const setF = (k, v) => this.setState(s => ({ fv: { ...s.fv, [k]: v }, ferr: '' }));
@@ -769,9 +765,10 @@ class Component extends DCLogic {
     };
     const stepNames = ['1 · Identité', '2 · Métier & expertise', '3 · Localisation & disponibilité'];
     return {
+      ...siteVals,
       cv, con, cSubmit, cSent: this.state.cSent, cNotSent: !this.state.cSent, cErr: this.state.cErr, cHasErr: !!this.state.cErr, cRef: this.state.cRef,
       cBtn: this.state.cSending ? 'Envoi en cours…' : 'Envoyer au Back Office →',
-      cProfils: ['Promoteur immobilier', 'Entreprise de BTP', 'Technicien chantier', 'Ouvrier', 'Autre'].map(l => ({ label: l, on: cv.profil === l, bg: cv.profil === l ? '#14261F' : '#FFFFFF', fg: cv.profil === l ? '#F8F7F3' : '#14261F', pick: () => setC('profil', l) })),
+      cProfils: (C.contact.profiles || []).map(l => ({ label: l, on: cv.profil === l, bg: cv.profil === l ? '#14261F' : '#FFFFFF', fg: cv.profil === l ? '#F8F7F3' : '#14261F', pick: () => setC('profil', l) })),
       cReset: () => this.setState(s => ({ cSent: false, cv: { ...s.cv, message: '', consent: false } })),
       nlEmail: this.state.nlEmail, nlErr: this.state.nlErr, nlErrShow: !!this.state.nlErr, nlDone: this.state.nlDone, nlNotDone: !this.state.nlDone,
       nlChange: (e) => this.setState({ nlEmail: e.target.value, nlErr: '' }),

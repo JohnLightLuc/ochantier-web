@@ -73,6 +73,44 @@ class OchantierApi
         $this->send(fn () => $this->client()->asJson()->post('landing/newsletter', ['email' => $email]));
     }
 
+    /**
+     * Contenu en ligne du site (version publiée dans le Back Office), ou null si l’API ne répond pas.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function content(): ?array
+    {
+        try {
+            $response = $this->client()->timeout((int) config('services.ochantier_api.content_timeout', 4))->get('landing/content');
+        } catch (ConnectionException $e) {
+            Log::warning('Contenu du site : API O’CHANTIER injoignable', ['erreur' => $e->getMessage()]);
+
+            return null;
+        }
+
+        if (! $response->successful() || ! is_array($response->json('data.content.sections'))) {
+            Log::warning('Contenu du site : réponse inattendue de l’API', ['statut' => $response->status()]);
+
+            return null;
+        }
+
+        return $response->json('data');
+    }
+
+    /**
+     * Fichier publié (vidéo, logo, QR code, image de partage), ou null s’il n’est pas disponible.
+     */
+    public function file(string $id): ?Response
+    {
+        try {
+            $response = $this->client()->timeout(60)->get("landing/files/{$id}");
+        } catch (ConnectionException) {
+            return null;
+        }
+
+        return $response->successful() ? $response : null;
+    }
+
     private function client(): PendingRequest
     {
         return Http::baseUrl((string) config('services.ochantier_api.url'))

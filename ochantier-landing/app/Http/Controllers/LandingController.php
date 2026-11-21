@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreContactRequest;
 use App\Http\Requests\StoreWorkerApplicationRequest;
 use App\Support\OchantierApi;
+use App\Support\SiteContent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Site public O’CHANTIER : la page, et ses formulaires (contact, newsletter, « Devenir ouvrier »). Chaque formulaire
@@ -15,11 +17,32 @@ use Illuminate\View\View;
  */
 class LandingController extends Controller
 {
-    public function __construct(private OchantierApi $api) {}
+    public function __construct(private OchantierApi $api, private SiteContent $content) {}
 
+    /**
+     * La page, avec le contenu publié dans le Back Office (ou, si l’API ne répond pas, la dernière version reçue).
+     */
     public function index(): View
     {
-        return view('landing');
+        $site = $this->content->current();
+        $files = array_map(fn (string $id) => route('landing.file', $id), array_combine(array_keys($site['files']), array_keys($site['files'])));
+
+        return view('landing', [
+            'seo' => $site['content']['sections']['seo'],
+            'shareImage' => $files[$site['content']['sections']['seo']['og_image'] ?? ''] ?? asset('assets/app-accueil.webp'),
+            'site' => ['version' => $site['version'], 'order' => $site['content']['order'], 'hidden' => $site['content']['hidden'], 'sections' => $site['content']['sections'], 'plans' => $site['plans'], 'files' => (object) $files],
+        ]);
+    }
+
+    /**
+     * Fichier publié (vidéo, logo, QR code, image de partage), recopié depuis l’API à sa première demande.
+     */
+    public function file(string $id): BinaryFileResponse
+    {
+        $file = $this->content->file($id);
+        abort_if($file === null, 404);
+
+        return response()->file($file[0], ['Content-Type' => $file[1], 'Cache-Control' => 'public, max-age=86400']);
     }
 
     public function contact(StoreContactRequest $request): JsonResponse
