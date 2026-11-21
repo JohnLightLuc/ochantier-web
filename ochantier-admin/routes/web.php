@@ -18,6 +18,7 @@ use App\Http\Controllers\ContractorReviewController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisputeController;
 use App\Http\Controllers\FinanceController;
+use App\Http\Controllers\LandingPageController;
 use App\Http\Controllers\MatchingController;
 use App\Http\Controllers\NeedController;
 use App\Http\Controllers\NeedDecisionController;
@@ -239,6 +240,17 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::post('/annulation', [ContractOfferDecisionController::class, 'cancel'])->name('cancel');
             Route::post('/relance', [ContractOfferDecisionController::class, 'remind'])->name('remind');
         });
+    });
+
+    // Landing Page : demandes du site public (api/v1/admin/landing). Candidatures, messages, newsletter.
+    Route::prefix('landing-page')->name('landing.')->controller(LandingPageController::class)->group(function () {
+        Route::get('/candidatures/{application}', 'application')->whereUuid('application')->name('applications.show');
+        Route::post('/candidatures/{application}/prise-en-charge', 'review')->whereUuid('application')->name('applications.review');
+        Route::post('/candidatures/{application}/refus', 'refuse')->whereUuid('application')->name('applications.refuse');
+        Route::get('/messages/{message}', 'message')->whereUuid('message')->name('messages.show');
+        Route::post('/messages/{message}/statut', 'handle')->whereUuid('message')->name('messages.status');
+        Route::get('/newsletter/export', 'exportNewsletter')->name('newsletter.export');
+        Route::get('/{tab?}', 'index')->where('tab', 'candidatures|messages|newsletter')->name('index');
     });
 
     // Besoins : données de l’API (api/v1/admin/offers). Liste, fiche, onglets et décisions.
