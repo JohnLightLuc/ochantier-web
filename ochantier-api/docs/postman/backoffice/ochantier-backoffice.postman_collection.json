@@ -6724,6 +6724,384 @@
           ]
         }
       ]
+    },
+    {
+      "id": "2e65ac98-b9d3-55b8-9cba-d27f8f7f3d0b",
+      "name": "Landing Page",
+      "item": [
+        {
+          "id": "b892d646-0c98-5963-b091-c46134359d46",
+          "name": "Vue d’ensemble de la Landing Page",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/overview",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "overview"
+              ]
+            },
+            "description": "Compteurs selon les droits : `applications` (par statut, workers.read), `messages` (par statut, `late`, `response_hours`, tickets.read), `newsletter` (`active`, `month`, content.read)."
+          },
+          "response": []
+        },
+        {
+          "id": "67718466-3b2b-577b-8cce-aceb12f6a0ec",
+          "name": "Candidatures « Devenir ouvrier »",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "if (d.length) { pm.collectionVariables.set('admin_landing_application_id', d[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/applications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "applications"
+              ]
+            },
+            "description": "Candidatures reçues par le site. Filtres : `status` (nouvelle, en_verification, convertie, refusee), `search` (nom, référence, téléphone), `trade` (libellé). Chaque ligne : métier et commune saisis et reconnus dans le référentiel (`matched`), `duplicates_count` (même téléphone). Enregistre la première (`admin_landing_application_id`).\n\nPermission : `workers.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "c146a2fe-71f4-5c15-9d77-7c0f26508410",
+          "name": "Fiche d’une candidature",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/applications/{{admin_landing_application_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "applications",
+                "{{admin_landing_application_id}}"
+              ]
+            },
+            "description": "Détail, pièces (`files.identity`, `files.photo`, liens temporaires), `duplicates` (candidatures et ouvriers au même téléphone), `prefill` (champs du formulaire de création d’ouvrier), `actions` (`review`, `refuse`, `convert`).\n\nConversion : créer l’ouvrier avec `POST admin/workers` et `landing_application_id` ; la pièce d’identité et la photo sont ajoutées à son dossier, la candidature passe « convertie ».\n\nPermission : `workers.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "a551ede8-12d5-5ca3-b912-f4d3155b9f89",
+          "name": "Prendre en charge une candidature",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/applications/{{admin_landing_application_id}}/review",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "applications",
+                "{{admin_landing_application_id}}",
+                "review"
+              ]
+            },
+            "description": "Nouvelle → en vérification. Journal d’audit : `landing.application_reviewed`.\n\nPermission : `workers.validate`."
+          },
+          "response": []
+        },
+        {
+          "id": "4043e22c-7841-566a-9447-301afc3ea78e",
+          "name": "Refuser une candidature",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/applications/{{admin_landing_application_id}}/refuse",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "applications",
+                "{{admin_landing_application_id}}",
+                "refuse"
+              ]
+            },
+            "description": "| Champ | Obligatoire | Description |\n|---|---|---|\n| `reason` | oui | Motif (5 à 1000 caractères). |\n\nJournal d’audit : `landing.application_refused`.\n\nPermission : `workers.validate`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Pièce d’identité illisible.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "25fad991-cb8e-5a44-9833-7498a3d33d14",
+          "name": "Messages de contact",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "if (d.length) { pm.collectionVariables.set('admin_landing_message_id', d[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "messages"
+              ]
+            },
+            "description": "Filtres : `status` (nouveau, en_cours, traite), `search`, `late=1` (non traités au-delà du délai de réponse annoncé, réglage `landing.contact_response_hours`, 24 h par défaut). Enregistre le premier (`admin_landing_message_id`).\n\nPermission : `tickets.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "2460519b-4004-59b6-bc04-583a8e8b1dc0",
+          "name": "Fiche d’un message",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/messages/{{admin_landing_message_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "messages",
+                "{{admin_landing_message_id}}"
+              ]
+            },
+            "description": "Message complet, `due_at` (réponse attendue), note interne, `actions` (`start`, `close`).\n\nPermission : `tickets.read`."
+          },
+          "response": []
+        },
+        {
+          "id": "a74e310c-d753-5048-bd6f-14d3609ad17a",
+          "name": "Prendre en charge ou traiter un message",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200 ou 422', () => pm.expect(pm.response.code).to.be.oneOf([200, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/messages/{{admin_landing_message_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "messages",
+                "{{admin_landing_message_id}}",
+                "status"
+              ]
+            },
+            "description": "| Champ | Obligatoire | Description |\n|---|---|---|\n| `status` | oui | en_cours ou traite. |\n| `note` | non | Note interne (2000 caractères). |\n\nJournal d’audit : `landing.message_en_cours`, `landing.message_traite`.\n\nPermission : `tickets.update`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"traite\",\n  \"note\": \"Rappelé, démonstration prévue lundi.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "3721ad58-8aa8-5b8a-907a-481238c0880f",
+          "name": "Inscrits à la newsletter",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/newsletter",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "newsletter"
+              ]
+            },
+            "description": "Inscrits actifs (filtre `search`), 50 par page. Export CSV : `GET admin/landing/newsletter/export`.\n\nPermission : `content.read`."
+          },
+          "response": []
+        }
+      ],
+      "description": "Demandes du site public. Le site les dépose sur `POST /api/v1/landing/worker-applications` (multipart, `identity_document`, `photo`), `/contact-messages` et `/newsletter`, avec l’en-tête `X-Landing-Key` (clé `LANDING_API_KEY`)."
     }
   ],
   "variable": [
@@ -6931,6 +7309,14 @@
       "key": "admin_operator_id",
       "value": "",
       "description": "Opérateur de versement (identifiant, voir « Numéro de versement d’un professionnel » → operators)."
+    },
+    {
+      "key": "admin_landing_application_id",
+      "value": ""
+    },
+    {
+      "key": "admin_landing_message_id",
+      "value": ""
     }
   ]
 }

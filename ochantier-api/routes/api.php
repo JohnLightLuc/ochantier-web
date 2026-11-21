@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\V1\Contractor\StaffingController as ContractorStaff
 use App\Http\Controllers\Api\V1\Contractor\SubscriptionController as ContractorSubscriptionController;
 use App\Http\Controllers\Api\V1\Contractor\TeamController as ContractorTeamController;
 use App\Http\Controllers\Api\V1\HelpController;
+use App\Http\Controllers\Api\V1\Landing\LandingFormController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\PaymentWebhookController;
@@ -86,6 +87,13 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->name('v1.')->group(function () {
     // Notifications du prestataire de paiement : authentifiées par leur signature, pas par un jeton.
     Route::post('webhooks/payments/{provider}', PaymentWebhookController::class)->middleware('throttle:120,1')->name('webhooks.payments');
+
+    // Site public O’CHANTIER : formulaires transmis par son serveur (clé partagée X-Landing-Key).
+    Route::prefix('landing')->name('landing.')->middleware(['landing.key', 'throttle:60,1'])->controller(LandingFormController::class)->group(function () {
+        Route::post('worker-applications', 'application')->name('worker-applications');
+        Route::post('contact-messages', 'message')->name('contact-messages');
+        Route::post('newsletter', 'newsletter')->name('newsletter');
+    });
 
     Route::prefix('auth')->name('auth.')->group(function () {
         Route::prefix('promoter')->name('promoter.')->group(function () {

@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\V1\Admin\Finance\ClosingController;
 use App\Http\Controllers\Api\V1\Admin\Finance\FinanceController;
 use App\Http\Controllers\Api\V1\Admin\Finance\ProCommissionController;
 use App\Http\Controllers\Api\V1\Admin\Finance\ReconciliationController;
+use App\Http\Controllers\Api\V1\Admin\Landing\LandingLeadController;
 use App\Http\Controllers\Api\V1\Admin\Matching\MatchingController;
 use App\Http\Controllers\Api\V1\Admin\Notification\NotificationController as AdminNotificationController;
 use App\Http\Controllers\Api\V1\Admin\Offer\OfferController;
@@ -176,6 +177,20 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('cancellation', 'cancel')->middleware('admin.can:offers.validate')->name('cancel');
                 Route::post('reminders', 'remind')->middleware('admin.can:offers.update')->name('remind');
             });
+        });
+
+        // Landing Page : demandes du site public (candidatures « Devenir ouvrier », messages de contact, newsletter).
+        Route::prefix('landing')->name('landing.')->controller(LandingLeadController::class)->group(function () {
+            Route::get('overview', 'overview')->name('overview');
+            Route::get('applications', 'applications')->middleware('admin.can:workers.read')->name('applications.index');
+            Route::get('applications/{application}', 'application')->whereUuid('application')->middleware('admin.can:workers.read')->name('applications.show');
+            Route::post('applications/{application}/review', 'review')->whereUuid('application')->middleware('admin.can:workers.validate')->name('applications.review');
+            Route::post('applications/{application}/refuse', 'refuse')->whereUuid('application')->middleware('admin.can:workers.validate')->name('applications.refuse');
+            Route::get('messages', 'messages')->middleware('admin.can:tickets.read')->name('messages.index');
+            Route::get('messages/{message}', 'message')->whereUuid('message')->middleware('admin.can:tickets.read')->name('messages.show');
+            Route::post('messages/{message}/status', 'handle')->whereUuid('message')->middleware('admin.can:tickets.update')->name('messages.status');
+            Route::get('newsletter', 'newsletter')->middleware('admin.can:content.read')->name('newsletter.index');
+            Route::get('newsletter/export', 'exportNewsletter')->middleware('admin.can:content.read')->name('newsletter.export');
         });
 
         // Ouvriers : liste, export, création et modification, fiche, contrôle du dossier et des pièces, suspension et exclusion.

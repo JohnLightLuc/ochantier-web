@@ -8,6 +8,7 @@ use App\Enums\Gender;
 use App\Enums\OfferType;
 use App\Enums\PaymentFrequency;
 use App\Enums\WorkerVerificationStatus;
+use App\Http\Controllers\Api\V1\Admin\Landing\LandingLeadController;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Admin\Worker\WorkerFormRequest;
 use App\Http\Requests\V1\Commercial\ProspectDocumentRequest;
@@ -17,9 +18,11 @@ use App\Models\CommercialProfile;
 use App\Models\DocumentType;
 use App\Models\Trade;
 use App\Models\Worker;
+use App\Support\Admin\LandingLeads;
 use App\Support\Admin\WorkerAdministration;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -83,7 +86,19 @@ class WorkerAccountController extends Controller
 
     public function store(WorkerFormRequest $request): JsonResponse
     {
-        $worker = $this->administration->create($request->validated(), $request->user(), $request);
+        $data = $request->validated();
+        $applicationId = $data['landing_application_id'] ?? null;
+        unset($data['landing_application_id']);
+        // Créé depuis une candidature du site : le profil et la conversion réussissent ou échouent ensemble.
+        $worker = DB::transaction(function () use ($data, $applicationId, $request) {
+            $worker = $this->administration->create($data, $request->user(), $request);
+
+            if ($applicationId) {
+                app(LandingLeads::class)->convert(LandingLeadController::findApplication($applicationId), $worker, $request->user(), $request);
+            }
+
+            return $worker;
+        });
 
         return ApiResponse::success(
             WorkerDetailResource::make(WorkerController::find($worker->id))->resolve($request),
