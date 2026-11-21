@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Mail;
 
 /**
  * Codes à usage unique (OTP_LENGTH chiffres, 6 par défaut) envoyés par SMS ou e-mail : activation, connexion,
- * réinitialisation du mot de passe, changement de numéro.
+ * réinitialisation du mot de passe, changement de numéro ou d’adresse e-mail.
  *
  * Les codes sont rattachés à un type de compte (user ou admin) : une même adresse peut appartenir à un utilisateur
  * des applications et à un administrateur sans que leurs codes se confondent.
@@ -170,6 +170,7 @@ class OneTimePassword
             OtpPurpose::Login => 'de connexion',
             OtpPurpose::PasswordReset => 'de réinitialisation',
             OtpPurpose::PhoneChange => 'de confirmation du numéro',
+            OtpPurpose::EmailChange => 'de confirmation de l’adresse e-mail',
             default => 'de vérification',
         };
     }

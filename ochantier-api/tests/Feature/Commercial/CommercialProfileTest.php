@@ -4,10 +4,12 @@ namespace Tests\Feature\Commercial;
 
 use App\Models\Notification;
 use App\Models\Prospect;
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AdminAccessSeeder;
 use Database\Seeders\HelpCenterSeeder;
 use Database\Seeders\PlatformRulesSeeder;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class CommercialProfileTest extends CommercialTestCase
@@ -37,14 +39,56 @@ class CommercialProfileTest extends CommercialTestCase
 
     public function test_the_commercial_updates_his_information(): void
     {
-        $this->patchJson('/api/v1/commercial/profile', ['first_name' => '  Adama  ', 'last_name' => 'Coulibaly Bamba', 'email' => 'a.coulibaly@ochantier.ci'])
+        $this->patchJson('/api/v1/commercial/profile', ['first_name' => '  Adama  ', 'last_name' => 'Coulibaly Bamba', 'email' => 'Adama@ochantier.ci'])
             ->assertOk()
             ->assertJsonPath('message', 'Informations mises à jour')
             ->assertJsonPath('data.name', 'Adama Coulibaly Bamba')
-            ->assertJsonPath('data.email', 'a.coulibaly@ochantier.ci');
+            ->assertJsonPath('data.email', 'adama@ochantier.ci');
 
         $this->patchJson('/api/v1/commercial/profile', ['first_name' => ''])->assertJsonValidationErrors(['first_name' => 'Indiquez votre prénom.']);
-        $this->patchJson('/api/v1/commercial/profile', ['email' => 'pas-un-email'])->assertJsonValidationErrors(['email' => 'Adresse e-mail invalide.']);
+        $this->patchJson('/api/v1/commercial/profile', ['email' => 'a.coulibaly@ochantier.ci'])
+            ->assertJsonValidationErrors(['email' => 'Confirmez la nouvelle adresse e-mail avec le code qui lui est envoyé.']);
+        $this->assertSame('adama@ochantier.ci', $this->commercial->fresh()->email);
+    }
+
+    public function test_a_new_email_is_saved_once_the_code_sent_to_it_is_confirmed(): void
+    {
+        Mail::fake();
+        $this->commercial->forceFill(['email_verified_at' => null])->save();
+        $email = ['email' => ' A.Coulibaly@ochantier.ci '];
+
+        $this->postJson('/api/v1/commercial/profile/email', $email)
+            ->assertAccepted()
+            ->assertJsonPath('message', 'Code de confirmation envoyé à la nouvelle adresse e-mail.')
+            ->assertJsonPath('data.channel', 'email')
+            ->assertJsonPath('data.destination', 'a•••@ochantier.ci')
+            ->assertJsonPath('data.code_length', 6);
+        $this->assertDatabaseHas('otp_codes', ['purpose' => 'email_change', 'channel' => 'email', 'destination' => 'a.coulibaly@ochantier.ci', 'authenticatable_id' => $this->commercial->getKey()]);
+        $this->assertSame('adama@ochantier.ci', $this->commercial->fresh()->email);
+
+        $this->postJson('/api/v1/commercial/profile/email', $email)->assertStatus(429)->assertJsonStructure(['retry_after']);
+
+        $this->postJson('/api/v1/commercial/profile/email/verify', $email)->assertJsonValidationErrors(['code' => 'Saisissez le code reçu par e-mail.']);
+        $this->postJson('/api/v1/commercial/profile/email/verify', [...$email, 'code' => '000000'])->assertJsonValidationErrors(['code' => 'Code incorrect ou expiré.']);
+        $this->postJson('/api/v1/commercial/profile/email/verify', ['email' => 'autre@ochantier.ci', 'code' => '123456'])->assertJsonValidationErrors(['code' => 'Code incorrect ou expiré.']);
+
+        $this->postJson('/api/v1/commercial/profile/email/verify', [...$email, 'code' => '123456'])
+            ->assertOk()
+            ->assertJsonPath('message', 'Adresse e-mail mise à jour')
+            ->assertJsonPath('data.email', 'a.coulibaly@ochantier.ci');
+        $this->assertNotNull($this->commercial->fresh()->email_verified_at);
+    }
+
+    public function test_the_new_email_must_be_valid_free_and_different(): void
+    {
+        User::factory()->commercial()->create(['email' => 'pris@ochantier.ci']);
+
+        $this->postJson('/api/v1/commercial/profile/email', [])->assertJsonValidationErrors(['email' => 'Indiquez votre nouvelle adresse e-mail.']);
+        $this->postJson('/api/v1/commercial/profile/email', ['email' => 'pas-un-email'])->assertJsonValidationErrors(['email' => 'Adresse e-mail invalide.']);
+        $this->postJson('/api/v1/commercial/profile/email', ['email' => 'Pris@ochantier.ci'])->assertJsonValidationErrors(['email' => 'Cette adresse e-mail est déjà utilisée par un autre commercial.']);
+        $this->postJson('/api/v1/commercial/profile/email', ['email' => 'ADAMA@ochantier.ci'])->assertJsonValidationErrors(['email' => 'C’est déjà votre adresse e-mail.']);
+        $this->postJson('/api/v1/commercial/profile/email', ['email' => 'neuf@ochantier.ci', 'code' => '123456'])->assertJsonValidationErrors(['code']);
+        $this->assertDatabaseCount('otp_codes', 0);
     }
 
     public function test_a_zone_change_is_requested_to_the_manager(): void

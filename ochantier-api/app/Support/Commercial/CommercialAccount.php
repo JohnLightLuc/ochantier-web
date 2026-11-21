@@ -59,17 +59,13 @@ class CommercialAccount
     /**
      * « Modifier mes informations » : prénom, nom et adresse e-mail.
      *
-     * @param  array{first_name?: string, last_name?: string, email?: string|null}  $data
+     * L’adresse e-mail se change à part, confirmée par un code (Commercial\EmailController).
+     *
+     * @param  array{first_name?: string, last_name?: string}  $data
      */
     public function update(User $user, array $data): User
     {
-        $user->fill(array_intersect_key($data, array_flip(['first_name', 'last_name', 'email'])));
-
-        if ($user->isDirty('email')) {
-            $user->email_verified_at = null;
-        }
-
-        $user->save();
+        $user->fill(array_intersect_key($data, array_flip(['first_name', 'last_name'])))->save();
 
         return $user;
     }

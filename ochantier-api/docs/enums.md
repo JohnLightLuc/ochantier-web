@@ -844,6 +844,7 @@ Valeurs de `purpose` pour la table `otp_codes`.
 | `password_reset` | Réinitialisation du mot de passe |
 | `sensitive_action` | Action sensible |
 | `phone_change` | Changement de numéro |
+| `email_change` | Changement d’adresse e-mail |
 | `worker_phone_check` | Vérification du numéro de l’ouvrier |
 
 ## ParameterStatus

@@ -12,6 +12,7 @@ enum OtpPurpose: string
     case PasswordReset = 'password_reset';
     case SensitiveAction = 'sensitive_action';
     case PhoneChange = 'phone_change';
+    case EmailChange = 'email_change';
     case WorkerPhoneCheck = 'worker_phone_check';
 
     public function label(): string
@@ -22,6 +23,7 @@ enum OtpPurpose: string
             self::PasswordReset => 'Réinitialisation du mot de passe',
             self::SensitiveAction => 'Action sensible',
             self::PhoneChange => 'Changement de numéro',
+            self::EmailChange => 'Changement d’adresse e-mail',
             self::WorkerPhoneCheck => 'Vérification du numéro de l’ouvrier',
         };
     }

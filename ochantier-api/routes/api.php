@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\Auth\PromoterRegistrationController;
 use App\Http\Controllers\Api\V1\Auth\SessionController;
 use App\Http\Controllers\Api\V1\Commercial\AccountController as CommercialAccountController;
 use App\Http\Controllers\Api\V1\Commercial\EarningController as CommercialEarningController;
+use App\Http\Controllers\Api\V1\Commercial\EmailController as CommercialEmailController;
 use App\Http\Controllers\Api\V1\Commercial\HomeController as CommercialHomeController;
 use App\Http\Controllers\Api\V1\Commercial\NotificationController as CommercialNotificationController;
 use App\Http\Controllers\Api\V1\Commercial\PerformanceController as CommercialPerformanceController;
@@ -368,6 +369,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
                 Route::get('ranking', [CommercialPerformanceController::class, 'ranking'])->name('ranking');
                 Route::get('profile', [CommercialAccountController::class, 'show'])->name('profile.show');
                 Route::patch('profile', [CommercialAccountController::class, 'update'])->name('profile.update');
+                Route::post('profile/email', [CommercialEmailController::class, 'request'])->middleware('throttle:otp')->name('profile.email');
+                Route::post('profile/email/verify', [CommercialEmailController::class, 'confirm'])->middleware('throttle:10,1')->name('profile.email.verify');
                 Route::post('zone-requests', [CommercialAccountController::class, 'requestZone'])->name('zone-requests.store');
                 Route::get('notification-preferences', [NotificationPreferenceController::class, 'show'])->name('notification-preferences.show');
                 Route::put('notification-preferences', [NotificationPreferenceController::class, 'update'])->name('notification-preferences.update');
