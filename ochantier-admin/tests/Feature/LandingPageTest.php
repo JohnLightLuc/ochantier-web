@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Support\Api\ApiTokens;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -57,6 +58,16 @@ class LandingPageTest extends TestCase
     }
 
     /**
+     * État de l’éditeur de contenu renvoyé par l’API (schéma et textes réels de la version 1).
+     *
+     * @return array<string, mixed>
+     */
+    private function editor(): array
+    {
+        return json_decode((string) file_get_contents(base_path('tests/Fixtures/landing-content.json')), true);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function application(): array
@@ -78,16 +89,22 @@ class LandingPageTest extends TestCase
 
     public function test_the_tabs_follow_the_rights_and_the_overview_counts_what_to_handle(): void
     {
-        Http::fake([self::API.'/landing/overview' => Http::response($this->overview())]);
+        Http::fake([self::API.'/landing/overview' => Http::response($this->overview()), self::API.'/landing/content' => Http::response(['data' => $this->editor()])]);
 
         $this->get('/landing-page')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page->component('Landing/Index')
                 ->where('tab', '')
-                ->has('tabs', 4)
-                ->where('tabs.1', ['key' => 'candidatures', 'label' => 'Candidatures ouvriers', 'icon' => 'engineering', 'count' => 3])
-                ->where('tabs.2.count', 1)
-                ->where('overview.newsletter.active', 12));
+                ->has('tabs', 6)
+                ->where('tabs.2', ['key' => 'candidatures', 'label' => 'Candidatures ouvriers', 'icon' => 'engineering', 'count' => 3])
+                ->where('tabs.3.count', 1)
+                ->where('overview.newsletter.active', 12)
+                ->where('site.live.number', 1)
+                ->where('site.visible', 7)
+                ->where('site.sections.2.key', 'demo')
+                ->where('site.sections.2.number', '01')
+                ->where('draft.changes', [])
+                ->missing('editor'));
     }
 
     public function test_a_tab_without_its_right_is_forbidden(): void
@@ -96,13 +113,15 @@ class LandingPageTest extends TestCase
         Http::fake([self::API.'/landing/overview' => Http::response(['data' => ['messages' => $this->overview()['data']['messages']]])]);
 
         $this->get('/landing-page/candidatures')->assertForbidden();
-        $this->get('/landing-page')->assertInertia(fn (Assert $page) => $page->has('tabs', 2)->where('tabs.1.key', 'messages'));
+        $this->get('/landing-page')->assertInertia(fn (Assert $page) => $page->has('tabs', 2)->where('tabs.1.key', 'messages')->where('draft', null)->where('site', null));
+        $this->get('/landing-page/contenu/cover')->assertForbidden();
     }
 
     public function test_the_application_list_and_detail_read_the_api(): void
     {
         Http::fake([
             self::API.'/landing/overview' => Http::response($this->overview()),
+            self::API.'/landing/content' => Http::response(['data' => $this->editor()]),
             self::API.'/landing/applications/'.self::APPLICATION => Http::response(['data' => $this->application()]),
             self::API.'/landing/applications*' => Http::response(['data' => [$this->application()], 'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 20, 'total' => 1, 'counts' => ['nouvelle' => 1], 'trades' => ['Maçon']]]),
         ]);
@@ -157,5 +176,84 @@ class LandingPageTest extends TestCase
         $this->get('/landing-page/newsletter/export')->assertOk()->assertHeader('Content-Disposition', 'attachment; filename="newsletter-2026-11-21.csv"');
 
         Http::assertSent(fn (ClientRequest $r) => str_ends_with($r->url(), '/status') && $r['status'] === 'traite' && $r['note'] === 'Rappelé.');
+    }
+
+    public function test_the_content_editor_shows_a_section_and_the_draft_banner(): void
+    {
+        $editor = $this->editor();
+        $editor['draft']['sections']['tarifs']['title'] = 'Une formule pour chaque équipe, sans engagement.';
+        $editor['draft']['hidden'] = ['carte'];
+        $editor['changes'] = [['key' => 'tarifs', 'label' => 'Tarifs'], ['key' => 'layout', 'label' => 'Ordre et affichage des sections']];
+        $editor['checks'] = [['level' => 'error', 'section' => 'tarifs', 'message' => '« Titre » est obligatoire.']];
+        $editor['draft_updated_by'] = 'Awa Koné';
+        Http::fake([self::API.'/landing/overview' => Http::response($this->overview()), self::API.'/landing/content' => Http::response(['data' => $editor])]);
+
+        $this->get('/landing-page/contenu')->assertRedirect('/landing-page/contenu/cover');
+        $this->get('/landing-page/contenu/inconnue')->assertRedirect('/landing-page/contenu/cover');
+
+        $this->get('/landing-page/contenu/tarifs')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Landing/Content')
+                ->where('tab', 'contenu')
+                ->where('tabs.1.count', 2)
+                ->where('editor.section.key', 'tarifs')
+                ->where('editor.section.changed', true)
+                ->where('editor.section.values.title', 'Une formule pour chaque équipe, sans engagement.')
+                ->has('editor.section.fields', 3)
+                ->has('editor.nav', 12)
+                ->where('editor.nav.6', ['key' => 'carte', 'label' => 'Carte des chantiers', 'icon' => 'map', 'hidden' => true, 'changed' => false, 'error' => false])
+                ->where('editor.checks.0.sectionLabel', 'Tarifs')
+                ->where('editor.layout.hidden', ['carte'])
+                ->where('draft.errors', 1)
+                ->where('draft.firstError', 'tarifs')
+                ->where('draft.updatedBy', 'Awa Koné')
+                ->where('draft.canEdit', false));
+    }
+
+    public function test_editor_actions_are_sent_to_the_api(): void
+    {
+        $this->signIn(['content.read', 'content.update']);
+        Http::fake([
+            self::API.'/landing/content/sections/contact' => Http::response(['message' => 'The given data was invalid.', 'errors' => ['email' => ['Saisissez une adresse e-mail valide.'], 'profiles' => ['Ajoutez au moins 1 élément(s).']]], 422),
+            self::API.'/landing/content/sections/tarifs' => Http::response(['message' => 'Brouillon enregistré.', 'data' => []]),
+            self::API.'/landing/content/layout' => Http::response(['message' => 'Brouillon enregistré.', 'data' => []]),
+            self::API.'/landing/content/publish' => Http::response(['message' => 'Publication impossible : Tarifs · « Titre » est obligatoire.', 'errors' => ['content' => ['Publication impossible : Tarifs · « Titre » est obligatoire.']]], 422),
+            self::API.'/landing/content/versions/1/restore' => Http::response(['message' => 'Version 1 restaurée dans le brouillon : publiez pour mettre le site à jour.', 'data' => []]),
+            self::API.'/landing/content/files' => Http::response(['message' => 'Fichier envoyé.', 'data' => ['id' => '01a2004e-89b8-717f-a7be-59712dd71b75', 'name' => 'qr.png', 'mime_type' => 'image/png', 'url' => 'https://api.test/m/1']], 201),
+        ]);
+        $page = '/landing-page/contenu/contact';
+
+        $this->from($page)->put($page, ['values' => ['email' => 'x']])->assertRedirect($page)->assertSessionHasErrors(['email' => 'Saisissez une adresse e-mail valide.', 'profiles']);
+        $this->from('/landing-page/contenu/tarifs')->put('/landing-page/contenu/tarifs', ['values' => ['kick' => 'Abonnements', 'title' => 'Titre']])->assertSessionHas('inertia.flash_data.toast', 'Brouillon enregistré.');
+        $this->from('/landing-page')->put('/landing-page/structure', ['order' => ['solution', 'demo'], 'hidden' => ['carte']])->assertRedirect('/landing-page');
+        $this->from('/landing-page')->post('/landing-page/publier', ['note' => ' Tarifs '])->assertSessionHas('inertia.flash_data.toastError', 'Publication impossible : Tarifs · « Titre » est obligatoire.');
+        $this->from('/landing-page/publications')->post('/landing-page/publications/1/restaurer')->assertSessionHas('inertia.flash_data.toast');
+        $this->from($page)->post('/landing-page/fichiers', ['file' => UploadedFile::fake()->image('qr.png'), 'accept' => 'image/*', 'field' => 'qr'])
+            ->assertRedirect($page)
+            ->assertSessionHas('inertia.flash_data.upload.id', '01a2004e-89b8-717f-a7be-59712dd71b75');
+
+        Http::assertSent(fn (ClientRequest $r) => str_ends_with($r->url(), '/landing/content/sections/tarifs') && $r->method() === 'PUT' && $r['values']['title'] === 'Titre');
+        Http::assertSent(fn (ClientRequest $r) => str_ends_with($r->url(), '/landing/content/layout') && $r['hidden'] === ['carte']);
+        Http::assertSent(fn (ClientRequest $r) => str_ends_with($r->url(), '/landing/content/publish') && $r['note'] === 'Tarifs');
+    }
+
+    public function test_the_publications_tab_lists_the_versions(): void
+    {
+        Http::fake([
+            self::API.'/landing/overview' => Http::response($this->overview()),
+            self::API.'/landing/content' => Http::response(['data' => $this->editor()]),
+            self::API.'/landing/content/versions*' => Http::response(['data' => [
+                ['number' => 2, 'note' => 'Tarifs', 'sections' => ['Tarifs'], 'restored_from' => null, 'published_by' => 'Awa Koné', 'published_at' => '2026-11-21T11:00:00+00:00', 'live' => true],
+                ['number' => 1, 'note' => 'Version initiale : textes du site.', 'sections' => [], 'restored_from' => null, 'published_by' => null, 'published_at' => '2026-11-21T10:00:00+00:00', 'live' => false],
+            ], 'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 20, 'total' => 2]]),
+        ]);
+
+        $this->get('/landing-page/publications')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Landing/Publications')
+                ->where('tab', 'publications')
+                ->where('list.total', 2)
+                ->where('list.data.0.live', true)
+                ->where('list.data.1.publishedBy', 'Mise en service'));
     }
 }

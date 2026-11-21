@@ -1,8 +1,9 @@
+import SiteBlock from '@/components/landing/SiteBlock';
+import LandingShell from '@/components/landing/LandingShell';
 import { FilterSelect, SearchInput } from '@/components/list/ListToolbar';
 import Pagination from '@/components/list/Pagination';
 import { RowActions, TableFrame, TextCell, tdStyle, thStyle } from '@/components/list/Table';
 import Button from '@/components/ui/Button';
-import Icon from '@/components/ui/Icon';
 import StatCard from '@/components/ui/StatCard';
 import StateBlock from '@/components/ui/StateBlock';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -24,10 +25,10 @@ const MESSAGE_STATUSES = [
 ];
 
 /**
- * Landing Page : demandes reçues par le site O’CHANTIER. Vue d’ensemble, candidatures « Devenir ouvrier », messages
- * de contact et inscrits à la newsletter, chaque onglet selon les droits.
+ * Landing Page : le site O’CHANTIER et ses demandes. Vue d’ensemble (site public, structure, demandes à traiter),
+ * candidatures « Devenir ouvrier », messages de contact et inscrits à la newsletter, chaque onglet selon les droits.
  */
-export default function LandingIndex({ tab, tabs, overview, filters, list }: LandingIndexProps) {
+export default function LandingIndex({ tab, tabs, draft, site, overview, filters, list }: LandingIndexProps) {
     const base = tab ? `/landing-page/${tab}` : '/landing-page';
     const apply = (changes: LandingIndexProps['filters'], keepPage = false) => {
         const next = { ...filters, ...changes, ...(keepPage ? {} : { page: undefined }) };
@@ -38,28 +39,13 @@ export default function LandingIndex({ tab, tabs, overview, filters, list }: Lan
         <>
             <Head title="Landing Page" />
 
-            <section style={{ background: 'var(--c-surface)', border: '1px solid var(--c-line)', borderRadius: 'var(--radius-2xl)', padding: 'var(--space-2) var(--space-5) var(--space-5)', minWidth: 0 }}>
-                <div role="tablist" style={{ display: 'flex', gap: 'var(--space-1)', borderBottom: '1px solid var(--c-line)', marginBottom: 'var(--space-5)', overflowX: 'auto' }}>
-                    {tabs.map((t) => {
-                        const on = t.key === tab;
-                        return (
-                            <Link
-                                key={t.key}
-                                href={t.key ? `/landing-page/${t.key}` : '/landing-page'}
-                                role="tab"
-                                aria-selected={on}
-                                className="och-hover-tab"
-                                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', height: 'var(--control-md)', padding: '0 var(--space-4)', borderBottom: `2.5px solid ${on ? 'var(--c-primary)' : 'transparent'}`, marginBottom: -1, fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-base)', color: on ? 'var(--c-primary)' : 'var(--c-muted)', whiteSpace: 'nowrap', textDecoration: 'none' }}
-                            >
-                                <Icon name={t.icon} size="var(--icon-sm)" />
-                                {t.label}
-                                {!!t.count && <span style={{ minWidth: 22, padding: '1px var(--space-1_5)', borderRadius: 'var(--radius-pill)', fontSize: 'var(--fs-xs)', textAlign: 'center', background: on ? 'var(--c-primary)' : 'var(--c-warning-bg)', color: on ? 'var(--c-on-dark)' : 'var(--c-warning-fg)' }}>{t.count}</span>}
-                            </Link>
-                        );
-                    })}
-                </div>
-
-                {tab === '' && <Overview overview={overview} />}
+            <LandingShell tab={tab} tabs={tabs} draft={draft}>
+                {tab === '' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+                        {site && <SiteBlock site={site} canEdit={!!draft?.canEdit} />}
+                        <Overview overview={overview} />
+                    </div>
+                )}
 
                 {tab !== '' && list && (
                     <>
@@ -82,7 +68,7 @@ export default function LandingIndex({ tab, tabs, overview, filters, list }: Lan
                         <Pagination page={list.currentPage} lastPage={list.lastPage} from={list.from} to={list.to} total={list.total} onPage={(page) => apply({ page: String(page) }, true)} />
                     </>
                 )}
-            </section>
+            </LandingShell>
         </>
     );
 }

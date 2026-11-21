@@ -18,6 +18,7 @@ use App\Http\Controllers\ContractorReviewController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisputeController;
 use App\Http\Controllers\FinanceController;
+use App\Http\Controllers\LandingContentController;
 use App\Http\Controllers\LandingPageController;
 use App\Http\Controllers\MatchingController;
 use App\Http\Controllers\NeedController;
@@ -251,6 +252,17 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
         Route::post('/messages/{message}/statut', 'handle')->whereUuid('message')->name('messages.status');
         Route::get('/newsletter/export', 'exportNewsletter')->name('newsletter.export');
         Route::get('/{tab?}', 'index')->where('tab', 'candidatures|messages|newsletter')->name('index');
+    });
+    Route::prefix('landing-page')->name('landing.')->controller(LandingContentController::class)->group(function () {
+        Route::get('/contenu/{section?}', 'edit')->where('section', '[a-z_]+')->name('content');
+        Route::put('/contenu/{section}', 'save')->where('section', '[a-z_]+')->name('content.save');
+        Route::post('/contenu/{section}/retablir', 'reset')->where('section', '[a-z_]+')->name('content.reset');
+        Route::put('/structure', 'layout')->name('content.layout');
+        Route::post('/brouillon/annuler', 'discard')->name('content.discard');
+        Route::post('/publier', 'publish')->name('content.publish');
+        Route::get('/publications', 'versions')->name('versions');
+        Route::post('/publications/{number}/restaurer', 'restore')->whereNumber('number')->name('versions.restore');
+        Route::post('/fichiers', 'upload')->name('content.upload');
     });
 
     // Besoins : données de l’API (api/v1/admin/offers). Liste, fiche, onglets et décisions.

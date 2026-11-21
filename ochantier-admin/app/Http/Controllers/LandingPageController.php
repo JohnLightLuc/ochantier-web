@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Support\Api\AdminApi;
 use App\Support\Api\AdminUser;
+use App\Support\LandingContentPresenter;
 use App\Support\LandingPresenter;
 use Closure;
 use Illuminate\Http\Client\Response as ApiResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -25,27 +27,29 @@ class LandingPageController extends Controller
     /**
      * Onglet (clé d’URL) => [libellé, icône, droit requis].
      */
-    private const TABS = [
+    protected const TABS = [
         '' => ['Vue d’ensemble', 'dashboard', null],
+        'contenu' => ['Contenu', 'edit_document', 'content.read'],
         'candidatures' => ['Candidatures ouvriers', 'engineering', 'workers.read'],
         'messages' => ['Messages de contact', 'mail', 'tickets.read'],
+        'publications' => ['Publications', 'history', 'content.read'],
         'newsletter' => ['Newsletter', 'campaign', 'content.read'],
     ];
 
-    public function __construct(private AdminApi $api) {}
+    public function __construct(protected AdminApi $api) {}
 
     public function index(Request $request, ?string $tab = null): Response
     {
         $tab ??= '';
-        abort_unless(array_key_exists($tab, self::TABS), 404);
+        abort_unless(in_array($tab, ['', 'candidatures', 'messages', 'newsletter'], true), 404);
         abort_if(self::TABS[$tab][2] && ! $this->allowed($request, self::TABS[$tab][2]), 403);
         $filters = array_filter($request->only(['statut', 'q', 'metier', 'retard', 'page']), fn ($v) => is_string($v) && $v !== '');
-        $overview = $this->api->get('landing/overview')->json('data');
+        $shell = $this->shell($request);
 
         return Inertia::render('Landing/Index', [
             'tab' => $tab,
-            'tabs' => array_values(array_filter(array_map(fn (string $key, array $t) => ! $t[2] || $this->allowed($request, $t[2]) ? ['key' => $key, 'label' => $t[0], 'icon' => $t[1], 'count' => $this->tabCount($key, $overview)] : null, array_keys(self::TABS), self::TABS))),
-            'overview' => $overview,
+            ...Arr::except($shell, 'editor'),
+            'site' => $tab === '' && $shell['editor'] ? LandingContentPresenter::site($shell['editor'], (string) config('admin.landing_url')) : null,
             'filters' => $filters,
             'list' => match ($tab) {
                 'candidatures' => $this->list('landing/applications', ['status' => $filters['statut'] ?? null, 'search' => $filters['q'] ?? null, 'trade' => $filters['metier'] ?? null, 'page' => $filters['page'] ?? null], LandingPresenter::applicationRow(...)),
@@ -129,6 +133,32 @@ class LandingPageController extends Controller
     }
 
     /**
+     * Partie commune aux onglets : onglets selon les droits (avec leurs compteurs), compteurs des demandes, état de
+     * l’éditeur de contenu et bandeau des modifications non publiées.
+     *
+     * @return array{tabs: list<array<string, mixed>>, overview: array<string, mixed>, editor: array<string, mixed>|null, draft: array<string, mixed>|null}
+     */
+    protected function shell(Request $request): array
+    {
+        $overview = $this->api->get('landing/overview')->json('data');
+        $editor = $this->allowed($request, 'content.read') ? $this->api->get('landing/content')->json('data') : null;
+        $tabs = [];
+
+        foreach (self::TABS as $key => [$label, $icon, $permission]) {
+            if (! $permission || $this->allowed($request, $permission)) {
+                $tabs[] = ['key' => $key, 'label' => $label, 'icon' => $icon, 'count' => $key === 'contenu' ? ($editor ? count($editor['changes']) : null) : $this->tabCount($key, $overview)];
+            }
+        }
+
+        return [
+            'tabs' => $tabs,
+            'overview' => $overview,
+            'editor' => $editor,
+            'draft' => $editor ? LandingContentPresenter::draft($editor, $this->allowed($request, 'content.update')) : null,
+        ];
+    }
+
+    /**
      * Demandes à traiter d’un onglet (nouvelles candidatures, messages non traités).
      *
      * @param  array<string, mixed>  $overview
@@ -147,12 +177,12 @@ class LandingPageController extends Controller
      *
      * @param  Closure(): ApiResponse  $call
      */
-    private function send(Closure $call): RedirectResponse
+    protected function send(Closure $call): RedirectResponse
     {
         try {
             $response = $call();
         } catch (ValidationException $e) {
-            $refusal = array_intersect_key($e->errors(), array_flip(['application', 'message', 'status', 'api']));
+            $refusal = array_intersect_key($e->errors(), array_flip(['application', 'message', 'status', 'api', 'content']));
 
             if ($refusal === []) {
                 throw $e;
@@ -170,7 +200,7 @@ class LandingPageController extends Controller
         return back();
     }
 
-    private function allowed(Request $request, string $permission): bool
+    protected function allowed(Request $request, string $permission): bool
     {
         $user = $request->user();
 

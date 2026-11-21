@@ -1,6 +1,6 @@
 import type { ValueBadge } from '@/types/workers';
 
-export type LandingTab = '' | 'candidatures' | 'messages' | 'newsletter';
+export type LandingTab = '' | 'contenu' | 'candidatures' | 'messages' | 'publications' | 'newsletter';
 
 export type LandingApplicationRow = {
     id: string;
@@ -53,9 +53,70 @@ export type LandingOverview = {
     newsletter?: { active: number; month: number };
 };
 
-export type LandingIndexProps = {
-    tab: LandingTab;
-    tabs: { key: LandingTab; label: string; icon: string; count: number | null }[];
+export type LandingTabItem = { key: LandingTab; label: string; icon: string; count: number | null };
+
+/** Modifications du brouillon non publiées (bandeau commun aux onglets). */
+export type LandingDraft = {
+    changes: { key: string; label: string }[];
+    errors: number;
+    firstError: string | null;
+    liveNumber: number;
+    restoredFrom: number | null;
+    updatedAt: string | null;
+    updatedBy: string | null;
+    canEdit: boolean;
+};
+
+export type LandingShellProps = { tab: LandingTab; tabs: LandingTabItem[]; draft: LandingDraft | null };
+
+export type LandingCheck = { level: 'error' | 'warning'; section: string; sectionLabel: string; message: string };
+
+export type LandingSiteSection = { key: string; label: string; icon: string; description: string; hideable: boolean; movable: boolean; hidden: boolean; changed: boolean; errors: number; number: string };
+
+export type LandingSite = {
+    url: string;
+    live: { number: number; publishedAt: string | null; publishedBy: string | null };
+    visible: number;
+    movable: number;
+    checks: LandingCheck[];
+    order: string[];
+    hidden: string[];
+    sections: LandingSiteSection[];
+};
+
+export type LandingFieldType = 'text' | 'area' | 'url' | 'tel' | 'email' | 'toggle' | 'file' | 'lines' | 'items' | 'select';
+
+export type LandingField = {
+    key: string;
+    label: string;
+    type: LandingFieldType;
+    required?: boolean;
+    max?: number;
+    min?: number;
+    item_max?: number;
+    rows?: number;
+    hint?: string;
+    placeholder?: string;
+    accept?: string;
+    add?: string;
+    options?: { value: string; label: string }[];
+    sub?: LandingField[];
+};
+
+export type LandingValue = string | boolean | null | string[] | Record<string, string | boolean | null>[];
+
+export type LandingEditor = {
+    section: { key: string; label: string; icon: string; description: string; hideable: boolean; hidden: boolean; changed: boolean; fields: LandingField[]; values: Record<string, LandingValue> };
+    nav: { key: string; label: string; icon: string; hidden: boolean; changed: boolean; error: boolean }[];
+    checks: LandingCheck[];
+    layout: { order: string[]; hidden: string[] };
+    files: Record<string, { id: string; name: string; mimeType: string; url: string }>;
+};
+
+export type LandingVersion = { number: number; note: string | null; sections: string[]; restoredFrom: number | null; publishedBy: string; publishedAt: string | null; live: boolean };
+
+export type LandingIndexProps = LandingShellProps & {
+    site: LandingSite | null;
     overview: LandingOverview;
     filters: Partial<Record<'statut' | 'q' | 'metier' | 'retard' | 'page', string>>;
     list: LandingList<LandingApplicationRow | LandingMessageRow | NewsletterRow> | null;
