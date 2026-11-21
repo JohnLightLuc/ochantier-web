@@ -15,7 +15,7 @@ class WorkerApplication extends Model
         'reference', 'prenom', 'nom', 'telephone', 'email', 'date_naissance', 'genre', 'photo_path', 'cni_path',
         'metier', 'tarif_journalier', 'experience_annees', 'niveau', 'competences', 'certifications', 'presentation',
         'commune', 'quartier', 'rayon_deplacement', 'disponibilite', 'jours_disponibles', 'moyen_paiement',
-        'numero_paiement', 'chantier_cible', 'chantier_commune', 'statut',
+        'numero_paiement', 'chantier_cible', 'chantier_commune', 'statut', 'reference_api',
     ];
 
     protected function casts(): array

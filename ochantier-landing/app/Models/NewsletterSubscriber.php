@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class NewsletterSubscriber extends Model
 {
-    protected $fillable = ['email', 'desinscrit_le'];
+    protected $fillable = ['email', 'desinscrit_le', 'reference_api'];
 
     protected function casts(): array
     {
