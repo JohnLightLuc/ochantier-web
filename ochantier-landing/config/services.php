@@ -14,6 +14,16 @@ return [
     |
     */
 
+    // API O’CHANTIER : reçoit les formulaires du site (candidatures, contact, newsletter). La clé est partagée avec
+    // l’API (LANDING_API_KEY des deux côtés).
+    'ochantier_api' => [
+        'url' => rtrim((string) env('OCHANTIER_API_URL', 'http://localhost:8001/api/v1'), '/'),
+        'key' => env('LANDING_API_KEY'),
+        'timeout' => (int) env('OCHANTIER_API_TIMEOUT', 15),
+        'content_timeout' => (int) env('OCHANTIER_API_CONTENT_TIMEOUT', 4),
+        'content_ttl' => (int) env('LANDING_CONTENT_TTL', 300),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

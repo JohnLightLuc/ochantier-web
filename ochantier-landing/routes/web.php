@@ -4,6 +4,7 @@ use App\Http\Controllers\LandingController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [LandingController::class, 'index'])->name('landing');
+Route::get('/fichiers/{id}', [LandingController::class, 'file'])->whereUuid('id')->name('landing.file');
 
 Route::middleware('throttle:landing-forms')->group(function () {
     Route::post('/contact', [LandingController::class, 'contact'])->name('landing.contact');

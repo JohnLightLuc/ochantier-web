@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureActiveCommercial;
 use App\Http\Middleware\EnsureAdminPermission;
 use App\Http\Middleware\EnsureContractorAbility;
+use App\Http\Middleware\EnsureLandingKey;
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\EnsurePromoterAbility;
 use App\Http\Middleware\EnsureResponseMessage;
@@ -36,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'promoter.can' => EnsurePromoterAbility::class,
             'promoter.activity' => RecordPromoterActivity::class,
             'admin.can' => EnsureAdminPermission::class,
+            'landing.key' => EnsureLandingKey::class,
         ]);
         // Le serveur du Back Office relaie l’adresse IP de l’administrateur (X-Forwarded-For) : liste blanche, journal.
         $middleware->trustProxies(at: array_filter(explode(',', (string) env('TRUSTED_PROXIES'))));

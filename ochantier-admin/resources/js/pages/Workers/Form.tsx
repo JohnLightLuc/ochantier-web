@@ -39,6 +39,8 @@ type Values = {
     accepted_offer_types: string[];
     accepted_payment_frequencies: string[];
     references: Reference[];
+    /** Candidature du site d’origine : rattachée au profil à l’enregistrement. */
+    landing_application_id: string;
 };
 
 type TextKey = { [K in keyof Values]: Values[K] extends string ? K : never }[keyof Values];
@@ -48,6 +50,8 @@ type FlagKey = 'accepts_long_travel' | 'needs_accommodation' | 'works_solo' | 'w
 type Props = {
     mode: 'create' | 'edit';
     worker: { id: string; name: string; status: string } | null;
+    /** Candidature du site d’origine (profil créé depuis la Landing Page). */
+    source?: { reference: string; name: string; id: string } | null;
     values: Values;
     options: Record<'commercial' | 'trade' | 'commune' | 'gender' | 'offer_type' | 'payment_frequency' | 'transport', Option[]>;
     neighborhoods: Record<string, Option[]>;
@@ -57,7 +61,7 @@ type Props = {
 const EMPTY_REFERENCE: Reference = { project: '', role: '', employer: '', start_date: '', end_date: '' };
 
 /** Création ou modification d’un ouvrier par le Back Office. */
-export default function WorkerForm({ mode, worker, values, options, neighborhoods, tradeLists }: Props) {
+export default function WorkerForm({ mode, worker, source, values, options, neighborhoods, tradeLists }: Props) {
     const ui = useAdminUi();
     const form = useForm<Values>(values);
     const { data } = form;
@@ -170,6 +174,14 @@ export default function WorkerForm({ mode, worker, values, options, neighborhood
         <>
             <Head title={isNew ? 'Nouvel ouvrier' : `Modifier ${worker?.name}`} />
             <form onSubmit={submit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                {source && (
+                    <div role="note" style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', flexWrap: 'wrap', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius-lg)', background: 'var(--c-info-bg)', color: 'var(--c-info-fg)', fontSize: 'var(--fs-md)' }}>
+                        <Icon name="person_add" />
+                        <span style={{ flex: 1, minWidth: 220 }}>
+                            <b>Profil créé depuis la candidature {source.reference}</b> ({source.name}) · formulaire prérempli. Choisissez le commercial référent et vérifiez le métier et la commune ; la pièce d’identité et la photo envoyées seront ajoutées au dossier.
+                        </span>
+                    </div>
+                )}
                 {errorCount > 0 && (
                     <div role="alert" style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius-lg)', background: 'var(--c-danger-bg)', color: 'var(--c-danger-fg)' }}>
                         <Icon name="error" />

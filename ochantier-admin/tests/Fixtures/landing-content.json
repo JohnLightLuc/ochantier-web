@@ -1,0 +1,1071 @@
+{
+    "schema": [
+        {
+            "key": "cover",
+            "label": "Page de garde",
+            "icon": "wallpaper",
+            "description": "Écran plein format affiché à l’ouverture du site.",
+            "hideable": true,
+            "movable": false,
+            "fields": [
+                {
+                    "key": "kick",
+                    "label": "Surtitre",
+                    "type": "text",
+                    "max": 70
+                },
+                {
+                    "key": "title",
+                    "label": "Titre",
+                    "type": "text",
+                    "required": true,
+                    "max": 60
+                },
+                {
+                    "key": "accent",
+                    "label": "Fin du titre (en vert)",
+                    "type": "text",
+                    "max": 40
+                },
+                {
+                    "key": "text",
+                    "label": "Texte d’accroche",
+                    "type": "area",
+                    "rows": 2,
+                    "max": 180
+                },
+                {
+                    "key": "cta",
+                    "label": "Bouton principal",
+                    "type": "text",
+                    "required": true,
+                    "max": 30
+                },
+                {
+                    "key": "live",
+                    "label": "Indicateur en direct",
+                    "type": "text",
+                    "max": 40,
+                    "hint": "Affiché en haut à droite, avec un point vert clignotant."
+                },
+                {
+                    "key": "video",
+                    "label": "Vidéo de fond",
+                    "type": "file",
+                    "accept": "video/mp4",
+                    "hint": "MP4, 20 Mo max. Sans vidéo, la vidéo actuelle du site est affichée."
+                }
+            ]
+        },
+        {
+            "key": "header",
+            "label": "En-tête & menu",
+            "icon": "menu",
+            "description": "Logo, liens du menu et boutons d’action.",
+            "hideable": false,
+            "movable": false,
+            "fields": [
+                {
+                    "key": "logo",
+                    "label": "Logo",
+                    "type": "file",
+                    "accept": "image/*",
+                    "hint": "Sans fichier, le logo actuel du site est affiché."
+                },
+                {
+                    "key": "nav",
+                    "label": "Liens du menu",
+                    "type": "items",
+                    "min": 1,
+                    "max": 6,
+                    "add": "Ajouter un lien",
+                    "sub": [
+                        {
+                            "key": "label",
+                            "label": "Libellé",
+                            "type": "text",
+                            "required": true,
+                            "max": 30
+                        },
+                        {
+                            "key": "section",
+                            "label": "Section cible",
+                            "type": "select",
+                            "required": true,
+                            "options": [
+                                {
+                                    "value": "demo",
+                                    "label": "Accueil · Démo"
+                                },
+                                {
+                                    "value": "solution",
+                                    "label": "La solution"
+                                },
+                                {
+                                    "value": "paiement",
+                                    "label": "Paiement"
+                                },
+                                {
+                                    "value": "tarifs",
+                                    "label": "Tarifs"
+                                },
+                                {
+                                    "value": "carte",
+                                    "label": "Carte des chantiers"
+                                },
+                                {
+                                    "value": "app",
+                                    "label": "Application"
+                                },
+                                {
+                                    "value": "contact",
+                                    "label": "Nous contacter"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "key": "cta_worker",
+                    "label": "Bouton « inscription ouvrier »",
+                    "type": "text",
+                    "required": true,
+                    "max": 24,
+                    "hint": "Ouvre le formulaire d’inscription ouvrier."
+                },
+                {
+                    "key": "cta_app",
+                    "label": "Bouton principal",
+                    "type": "text",
+                    "required": true,
+                    "max": 24,
+                    "hint": "Renvoie vers la section Application."
+                }
+            ]
+        },
+        {
+            "key": "demo",
+            "label": "Accueil · Démo",
+            "icon": "smartphone",
+            "description": "Accroche promoteurs et démo interactive de l’application.",
+            "hideable": true,
+            "movable": true,
+            "fields": [
+                {
+                    "key": "kick",
+                    "label": "Surtitre",
+                    "type": "text",
+                    "max": 70
+                },
+                {
+                    "key": "title",
+                    "label": "Titre",
+                    "type": "area",
+                    "rows": 2,
+                    "required": true,
+                    "max": 90
+                },
+                {
+                    "key": "highlight",
+                    "label": "Mot surligné en jaune",
+                    "type": "text",
+                    "max": 30,
+                    "hint": "Doit figurer tel quel dans le titre."
+                },
+                {
+                    "key": "text",
+                    "label": "Texte",
+                    "type": "area",
+                    "rows": 3,
+                    "max": 320
+                },
+                {
+                    "key": "steps",
+                    "label": "Étapes de la démo",
+                    "type": "items",
+                    "min": 4,
+                    "max": 4,
+                    "hint": "Les 4 étapes suivent les écrans de la démo : seul leur texte se modifie.",
+                    "sub": [
+                        {
+                            "key": "title",
+                            "label": "Titre",
+                            "type": "text",
+                            "required": true,
+                            "max": 40
+                        },
+                        {
+                            "key": "text",
+                            "label": "Description",
+                            "type": "text",
+                            "max": 70
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "key": "solution",
+            "label": "La solution",
+            "icon": "widgets",
+            "description": "Les fonctionnalités de la plateforme.",
+            "hideable": true,
+            "movable": true,
+            "fields": [
+                {
+                    "key": "kick",
+                    "label": "Surtitre",
+                    "type": "text",
+                    "max": 70
+                },
+                {
+                    "key": "title",
+                    "label": "Titre",
+                    "type": "area",
+                    "rows": 2,
+                    "required": true,
+                    "max": 90
+                },
+                {
+                    "key": "text",
+                    "label": "Texte",
+                    "type": "area",
+                    "rows": 3,
+                    "max": 320
+                },
+                {
+                    "key": "features",
+                    "label": "Fonctionnalités",
+                    "type": "items",
+                    "min": 3,
+                    "max": 8,
+                    "add": "Ajouter une fonctionnalité",
+                    "sub": [
+                        {
+                            "key": "title",
+                            "label": "Titre",
+                            "type": "text",
+                            "required": true,
+                            "max": 50
+                        },
+                        {
+                            "key": "text",
+                            "label": "Description",
+                            "type": "area",
+                            "rows": 2,
+                            "required": true,
+                            "max": 200
+                        },
+                        {
+                            "key": "core",
+                            "label": "Badge « Cœur de métier »",
+                            "type": "toggle"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "key": "paiement",
+            "label": "Paiement",
+            "icon": "lock",
+            "description": "Fonctionnement du paiement sécurisé.",
+            "hideable": true,
+            "movable": true,
+            "fields": [
+                {
+                    "key": "kick",
+                    "label": "Surtitre",
+                    "type": "text",
+                    "max": 70
+                },
+                {
+                    "key": "title",
+                    "label": "Titre",
+                    "type": "area",
+                    "rows": 2,
+                    "required": true,
+                    "max": 90
+                },
+                {
+                    "key": "text",
+                    "label": "Texte",
+                    "type": "area",
+                    "rows": 3,
+                    "max": 320
+                },
+                {
+                    "key": "chips",
+                    "label": "Étiquettes",
+                    "type": "lines",
+                    "max": 4,
+                    "item_max": 40,
+                    "add": "Ajouter une étiquette"
+                },
+                {
+                    "key": "steps",
+                    "label": "Étapes du paiement",
+                    "type": "items",
+                    "min": 2,
+                    "max": 4,
+                    "add": "Ajouter une étape",
+                    "sub": [
+                        {
+                            "key": "title",
+                            "label": "Titre",
+                            "type": "text",
+                            "required": true,
+                            "max": 40
+                        },
+                        {
+                            "key": "text",
+                            "label": "Description",
+                            "type": "area",
+                            "rows": 2,
+                            "max": 120
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "key": "tarifs",
+            "label": "Tarifs",
+            "icon": "sell",
+            "description": "Formules d’abonnement promoteur, reprises du module Abonnements.",
+            "hideable": true,
+            "movable": true,
+            "fields": [
+                {
+                    "key": "kick",
+                    "label": "Surtitre",
+                    "type": "text",
+                    "max": 70
+                },
+                {
+                    "key": "title",
+                    "label": "Titre",
+                    "type": "area",
+                    "rows": 2,
+                    "required": true,
+                    "max": 90
+                },
+                {
+                    "key": "text",
+                    "label": "Texte",
+                    "type": "area",
+                    "rows": 3,
+                    "max": 320
+                }
+            ]
+        },
+        {
+            "key": "carte",
+            "label": "Carte des chantiers",
+            "icon": "map",
+            "description": "Chantiers qui recrutent, visibles par les ouvriers.",
+            "hideable": true,
+            "movable": true,
+            "fields": [
+                {
+                    "key": "kick",
+                    "label": "Surtitre",
+                    "type": "text",
+                    "max": 70
+                },
+                {
+                    "key": "title",
+                    "label": "Titre",
+                    "type": "area",
+                    "rows": 2,
+                    "required": true,
+                    "max": 90
+                },
+                {
+                    "key": "text",
+                    "label": "Texte",
+                    "type": "area",
+                    "rows": 3,
+                    "max": 320
+                },
+                {
+                    "key": "cta",
+                    "label": "Bouton",
+                    "type": "text",
+                    "required": true,
+                    "max": 30
+                }
+            ]
+        },
+        {
+            "key": "app",
+            "label": "Application",
+            "icon": "install_mobile",
+            "description": "Liens de téléchargement et QR code.",
+            "hideable": true,
+            "movable": true,
+            "fields": [
+                {
+                    "key": "kick",
+                    "label": "Surtitre",
+                    "type": "text",
+                    "max": 70
+                },
+                {
+                    "key": "title",
+                    "label": "Titre",
+                    "type": "area",
+                    "rows": 2,
+                    "required": true,
+                    "max": 90
+                },
+                {
+                    "key": "text",
+                    "label": "Texte",
+                    "type": "area",
+                    "rows": 3,
+                    "max": 320
+                },
+                {
+                    "key": "ios",
+                    "label": "Lien App Store",
+                    "type": "url",
+                    "max": 255,
+                    "placeholder": "https://apps.apple.com/…"
+                },
+                {
+                    "key": "android",
+                    "label": "Lien Google Play",
+                    "type": "url",
+                    "max": 255,
+                    "placeholder": "https://play.google.com/store/apps/…"
+                },
+                {
+                    "key": "qr",
+                    "label": "QR code de téléchargement",
+                    "type": "file",
+                    "accept": "image/*",
+                    "hint": "Sans fichier, le QR code actuel du site est affiché."
+                }
+            ]
+        },
+        {
+            "key": "contact",
+            "label": "Nous contacter",
+            "icon": "mail",
+            "description": "Coordonnées et formulaire de contact.",
+            "hideable": true,
+            "movable": true,
+            "fields": [
+                {
+                    "key": "kick",
+                    "label": "Surtitre",
+                    "type": "text",
+                    "max": 70
+                },
+                {
+                    "key": "title",
+                    "label": "Titre",
+                    "type": "area",
+                    "rows": 2,
+                    "required": true,
+                    "max": 90
+                },
+                {
+                    "key": "text",
+                    "label": "Texte",
+                    "type": "area",
+                    "rows": 3,
+                    "max": 320
+                },
+                {
+                    "key": "phone",
+                    "label": "Téléphone",
+                    "type": "tel",
+                    "required": true,
+                    "max": 30,
+                    "placeholder": "+225 07 00 00 00 00"
+                },
+                {
+                    "key": "email",
+                    "label": "E-mail",
+                    "type": "email",
+                    "required": true,
+                    "max": 120
+                },
+                {
+                    "key": "address",
+                    "label": "Adresse",
+                    "type": "text",
+                    "max": 80
+                },
+                {
+                    "key": "hours",
+                    "label": "Horaires",
+                    "type": "text",
+                    "max": 60
+                },
+                {
+                    "key": "profiles",
+                    "label": "Profils proposés (« Vous êtes »)",
+                    "type": "lines",
+                    "min": 1,
+                    "max": 8,
+                    "item_max": 40,
+                    "add": "Ajouter un profil"
+                },
+                {
+                    "key": "subjects",
+                    "label": "Objets de la demande",
+                    "type": "lines",
+                    "min": 1,
+                    "max": 10,
+                    "item_max": 80,
+                    "add": "Ajouter un objet",
+                    "hint": "Les messages reçus sont classés selon ces objets."
+                }
+            ]
+        },
+        {
+            "key": "newsletter",
+            "label": "Newsletter",
+            "icon": "campaign",
+            "description": "Inscription à la lettre d’information, dans le pied de page.",
+            "hideable": false,
+            "movable": false,
+            "fields": [
+                {
+                    "key": "title",
+                    "label": "Titre",
+                    "type": "text",
+                    "max": 40
+                },
+                {
+                    "key": "text",
+                    "label": "Texte",
+                    "type": "area",
+                    "rows": 2,
+                    "max": 160
+                },
+                {
+                    "key": "placeholder",
+                    "label": "Texte du champ e-mail",
+                    "type": "text",
+                    "required": true,
+                    "max": 40
+                },
+                {
+                    "key": "cta",
+                    "label": "Bouton",
+                    "type": "text",
+                    "required": true,
+                    "max": 24
+                },
+                {
+                    "key": "notice",
+                    "label": "Mention sous le formulaire",
+                    "type": "text",
+                    "max": 120
+                },
+                {
+                    "key": "success",
+                    "label": "Message après inscription",
+                    "type": "text",
+                    "required": true,
+                    "max": 120
+                }
+            ]
+        },
+        {
+            "key": "footer",
+            "label": "Pied de page",
+            "icon": "bottom_navigation",
+            "description": "Slogan, coordonnées et mentions.",
+            "hideable": false,
+            "movable": false,
+            "fields": [
+                {
+                    "key": "slogan",
+                    "label": "Slogan",
+                    "type": "text",
+                    "max": 80
+                },
+                {
+                    "key": "phone",
+                    "label": "Téléphone",
+                    "type": "tel",
+                    "max": 30,
+                    "placeholder": "+225 07 00 00 00 00"
+                },
+                {
+                    "key": "email",
+                    "label": "E-mail",
+                    "type": "email",
+                    "max": 120
+                },
+                {
+                    "key": "legal",
+                    "label": "Mention de copyright",
+                    "type": "text",
+                    "required": true,
+                    "max": 80
+                },
+                {
+                    "key": "legal_url",
+                    "label": "Lien « Mentions légales »",
+                    "type": "url",
+                    "max": 255,
+                    "placeholder": "https://…"
+                },
+                {
+                    "key": "terms_url",
+                    "label": "Lien « CGU »",
+                    "type": "url",
+                    "max": 255,
+                    "placeholder": "https://…"
+                }
+            ]
+        },
+        {
+            "key": "seo",
+            "label": "Référencement",
+            "icon": "travel_explore",
+            "description": "Titre, description et image de partage de la page.",
+            "hideable": false,
+            "movable": false,
+            "fields": [
+                {
+                    "key": "title",
+                    "label": "Titre de la page",
+                    "type": "text",
+                    "required": true,
+                    "max": 70
+                },
+                {
+                    "key": "description",
+                    "label": "Méta-description",
+                    "type": "area",
+                    "rows": 3,
+                    "required": true,
+                    "max": 160,
+                    "hint": "Entre 70 et 160 caractères pour un affichage complet."
+                },
+                {
+                    "key": "og_image",
+                    "label": "Image de partage",
+                    "type": "file",
+                    "accept": "image/*",
+                    "hint": "1200 × 630 px, affichée lors des partages WhatsApp, Facebook et LinkedIn."
+                },
+                {
+                    "key": "indexable",
+                    "label": "Indexation par les moteurs de recherche",
+                    "type": "toggle"
+                }
+            ]
+        }
+    ],
+    "draft": {
+        "order": [
+            "demo",
+            "solution",
+            "paiement",
+            "tarifs",
+            "carte",
+            "app",
+            "contact"
+        ],
+        "hidden": [],
+        "sections": {
+            "cover": {
+                "kick": "La plateforme de recrutement d’ouvriers du BTP",
+                "title": "Trouvez vos prochains ouvriers.",
+                "accent": "Ici et maintenant.",
+                "text": "Des ouvriers qualifiés et disponibles, puis le suivi et le paiement de vos chantiers. Tout est dans la même application.",
+                "cta": "Découvrir O’CHANTIER",
+                "live": "Ouvriers disponibles maintenant",
+                "video": null
+            },
+            "header": {
+                "logo": null,
+                "nav": [
+                    {
+                        "label": "La solution",
+                        "section": "solution"
+                    },
+                    {
+                        "label": "Tarifs",
+                        "section": "tarifs"
+                    },
+                    {
+                        "label": "Chantiers près de vous",
+                        "section": "carte"
+                    },
+                    {
+                        "label": "Contact",
+                        "section": "contact"
+                    }
+                ],
+                "cta_worker": "Devenir ouvrier",
+                "cta_app": "Télécharger l’app"
+            },
+            "demo": {
+                "kick": "Promoteurs · Entreprises générales · Bureaux techniques",
+                "title": "Des ouvriers qualifiés disponibles pour votre chantier.",
+                "highlight": "disponibles",
+                "text": "Testez l’application client. Choisissez un chantier, indiquez le nombre d’ouvriers par métier et lancez la recherche. Vous recevez une offre d’ouvriers vérifiés, que vous confirmez en payant l’acompte.",
+                "steps": [
+                    {
+                        "title": "Choisissez le chantier",
+                        "text": "Tous vos chantiers et leur avancement."
+                    },
+                    {
+                        "title": "Indiquez vos besoins par métier",
+                        "text": "Dates, nombre d’ouvriers et tarif moyen."
+                    },
+                    {
+                        "title": "Recevez une offre vérifiée",
+                        "text": "Les ouvriers disponibles près du chantier."
+                    },
+                    {
+                        "title": "Payez l’acompte en sécurité",
+                        "text": "30 % à la réservation, solde après validation."
+                    }
+                ]
+            },
+            "solution": {
+                "kick": "La solution",
+                "title": "Recruter, suivre, payer. Au même endroit.",
+                "text": "Six outils reliés entre eux : chaque information saisie sert à toute l’équipe.",
+                "features": [
+                    {
+                        "title": "Recrutement à la demande",
+                        "text": "Trouvez en quelques heures des ouvriers qualifiés et disponibles. Identité, diplômes, habilitations et assurances sont vérifiés.",
+                        "core": true
+                    },
+                    {
+                        "title": "Suivi des présences",
+                        "text": "Pointage géolocalisé avec photo et signature de l’ouvrier. Taux de présence du jour et global.",
+                        "core": false
+                    },
+                    {
+                        "title": "Planification des travaux",
+                        "text": "Une chronologie d’étapes à démarrer et à valider. L’avancement du chantier se met à jour automatiquement.",
+                        "core": false
+                    },
+                    {
+                        "title": "Gestion d’équipe multi-utilisateurs",
+                        "text": "Invitez vos collaborateurs par SMS ou e-mail : administrateur, chef de chantier, technicien, comptable ou observateur.",
+                        "core": false
+                    },
+                    {
+                        "title": "Paiement flexible et sécurisé",
+                        "text": "Acompte de 30 % à la réservation, puis solde ou paiement en 2 ou 3 fois. Échéances suivies dans l’app.",
+                        "core": false
+                    },
+                    {
+                        "title": "Rapport de fin de chantier",
+                        "text": "Un document généré automatiquement : durée, présence, étapes, équipe et historique des pointages.",
+                        "core": false
+                    }
+                ]
+            },
+            "paiement": {
+                "kick": "Paiement flexible & sécurisé",
+                "title": "Payé pour le travail fait. Ni avant, ni après.",
+                "text": "Vous déposez les fonds au lancement de la mission. Ils restent sécurisés jusqu’à la validation du travail, puis l’ouvrier est payé immédiatement. Vous êtes protégé, et lui aussi.",
+                "chips": [
+                    "Acompte de 30 %",
+                    "En 2 ou 3 fois",
+                    "Solde après validation"
+                ],
+                "steps": [
+                    {
+                        "title": "Fonds déposés",
+                        "text": "Le montant est réservé sur un compte de séquestre."
+                    },
+                    {
+                        "title": "Travail validé",
+                        "text": "Vous validez à partir des présences et des étapes réalisées."
+                    },
+                    {
+                        "title": "Ouvrier payé",
+                        "text": "Le virement part tout de suite et la facture est générée automatiquement."
+                    }
+                ]
+            },
+            "tarifs": {
+                "kick": "Abonnements",
+                "title": "Une formule pour chaque équipe.",
+                "text": "Avec une formule Équipe ou Pro, invitez vos collaborateurs par SMS ou e-mail et attribuez-leur un rôle : chef de chantier, technicien, comptable ou observateur."
+            },
+            "carte": {
+                "kick": "Vous êtes ouvrier ?",
+                "title": "Des chantiers recrutent près de chez vous.",
+                "text": "Filtrez par métier, localisez-vous et postulez depuis la carte. Les candidatures sont étudiées par l’équipe O’CHANTIER, qui vous recontacte pour vous affecter aux chantiers.",
+                "cta": "Devenir ouvrier →"
+            },
+            "app": {
+                "kick": "Application promoteurs & techniciens",
+                "title": "Téléchargez l’application O’CHANTIER.",
+                "text": "L’application des promoteurs immobiliers et des techniciens de chantier. Réservez des ouvriers qualifiés, suivez les présences et l’avancement, payez en toute sécurité. Disponible sur iPhone et Android.",
+                "ios": null,
+                "android": null,
+                "qr": null
+            },
+            "contact": {
+                "kick": "Nous contacter",
+                "title": "Une question ? Parlons de votre chantier.",
+                "text": "Votre message est transmis directement à l’équipe O’CHANTIER. Nous répondons sous 24 h ouvrées.",
+                "phone": "+225 07 00 00 00 00",
+                "email": "contact@ochantier.ci",
+                "address": "Cocody, Abidjan · Côte d’Ivoire",
+                "hours": "Lun. – Sam. · 8 h – 18 h",
+                "profiles": [
+                    "Promoteur immobilier",
+                    "Entreprise de BTP",
+                    "Technicien chantier",
+                    "Ouvrier",
+                    "Autre"
+                ],
+                "subjects": [
+                    "Demande de démonstration",
+                    "Abonnement Équipe ou Pro",
+                    "Recrutement d’ouvriers",
+                    "Partenariat",
+                    "Assistance technique",
+                    "Autre demande"
+                ]
+            },
+            "newsletter": {
+                "title": "Newsletter",
+                "text": "Nouveautés, conseils chantier et offres O’CHANTIER, une fois par mois.",
+                "placeholder": "Votre adresse e-mail",
+                "cta": "S’abonner",
+                "notice": "Désinscription possible à tout moment.",
+                "success": "Merci ! Inscription confirmée."
+            },
+            "footer": {
+                "slogan": "Trouvez vos prochains ouvriers, ici et maintenant.",
+                "phone": "+225 07 00 00 00 00",
+                "email": "contact@ochantier.ci",
+                "legal": "© 2026 O’CHANTIER · Mentions légales · CGU",
+                "legal_url": null,
+                "terms_url": null
+            },
+            "seo": {
+                "title": "O’CHANTIER · Recrutez des ouvriers du BTP qualifiés, ici et maintenant",
+                "description": "O’CHANTIER, la plateforme de recrutement d’ouvriers du BTP à Abidjan : des ouvriers qualifiés et vérifiés, le suivi des présences et de l’avancement, le paiement sécurisé de vos chantiers.",
+                "og_image": null,
+                "indexable": true
+            }
+        }
+    },
+    "draft_updated_at": null,
+    "draft_updated_by": null,
+    "restored_from": null,
+    "live": {
+        "number": 1,
+        "published_at": "2026-11-21T10:00:00+00:00",
+        "published_by": null,
+        "content": {
+            "order": [
+                "demo",
+                "solution",
+                "paiement",
+                "tarifs",
+                "carte",
+                "app",
+                "contact"
+            ],
+            "hidden": [],
+            "sections": {
+                "cover": {
+                    "kick": "La plateforme de recrutement d’ouvriers du BTP",
+                    "title": "Trouvez vos prochains ouvriers.",
+                    "accent": "Ici et maintenant.",
+                    "text": "Des ouvriers qualifiés et disponibles, puis le suivi et le paiement de vos chantiers. Tout est dans la même application.",
+                    "cta": "Découvrir O’CHANTIER",
+                    "live": "Ouvriers disponibles maintenant",
+                    "video": null
+                },
+                "header": {
+                    "logo": null,
+                    "nav": [
+                        {
+                            "label": "La solution",
+                            "section": "solution"
+                        },
+                        {
+                            "label": "Tarifs",
+                            "section": "tarifs"
+                        },
+                        {
+                            "label": "Chantiers près de vous",
+                            "section": "carte"
+                        },
+                        {
+                            "label": "Contact",
+                            "section": "contact"
+                        }
+                    ],
+                    "cta_worker": "Devenir ouvrier",
+                    "cta_app": "Télécharger l’app"
+                },
+                "demo": {
+                    "kick": "Promoteurs · Entreprises générales · Bureaux techniques",
+                    "title": "Des ouvriers qualifiés disponibles pour votre chantier.",
+                    "highlight": "disponibles",
+                    "text": "Testez l’application client. Choisissez un chantier, indiquez le nombre d’ouvriers par métier et lancez la recherche. Vous recevez une offre d’ouvriers vérifiés, que vous confirmez en payant l’acompte.",
+                    "steps": [
+                        {
+                            "title": "Choisissez le chantier",
+                            "text": "Tous vos chantiers et leur avancement."
+                        },
+                        {
+                            "title": "Indiquez vos besoins par métier",
+                            "text": "Dates, nombre d’ouvriers et tarif moyen."
+                        },
+                        {
+                            "title": "Recevez une offre vérifiée",
+                            "text": "Les ouvriers disponibles près du chantier."
+                        },
+                        {
+                            "title": "Payez l’acompte en sécurité",
+                            "text": "30 % à la réservation, solde après validation."
+                        }
+                    ]
+                },
+                "solution": {
+                    "kick": "La solution",
+                    "title": "Recruter, suivre, payer. Au même endroit.",
+                    "text": "Six outils reliés entre eux : chaque information saisie sert à toute l’équipe.",
+                    "features": [
+                        {
+                            "title": "Recrutement à la demande",
+                            "text": "Trouvez en quelques heures des ouvriers qualifiés et disponibles. Identité, diplômes, habilitations et assurances sont vérifiés.",
+                            "core": true
+                        },
+                        {
+                            "title": "Suivi des présences",
+                            "text": "Pointage géolocalisé avec photo et signature de l’ouvrier. Taux de présence du jour et global.",
+                            "core": false
+                        },
+                        {
+                            "title": "Planification des travaux",
+                            "text": "Une chronologie d’étapes à démarrer et à valider. L’avancement du chantier se met à jour automatiquement.",
+                            "core": false
+                        },
+                        {
+                            "title": "Gestion d’équipe multi-utilisateurs",
+                            "text": "Invitez vos collaborateurs par SMS ou e-mail : administrateur, chef de chantier, technicien, comptable ou observateur.",
+                            "core": false
+                        },
+                        {
+                            "title": "Paiement flexible et sécurisé",
+                            "text": "Acompte de 30 % à la réservation, puis solde ou paiement en 2 ou 3 fois. Échéances suivies dans l’app.",
+                            "core": false
+                        },
+                        {
+                            "title": "Rapport de fin de chantier",
+                            "text": "Un document généré automatiquement : durée, présence, étapes, équipe et historique des pointages.",
+                            "core": false
+                        }
+                    ]
+                },
+                "paiement": {
+                    "kick": "Paiement flexible & sécurisé",
+                    "title": "Payé pour le travail fait. Ni avant, ni après.",
+                    "text": "Vous déposez les fonds au lancement de la mission. Ils restent sécurisés jusqu’à la validation du travail, puis l’ouvrier est payé immédiatement. Vous êtes protégé, et lui aussi.",
+                    "chips": [
+                        "Acompte de 30 %",
+                        "En 2 ou 3 fois",
+                        "Solde après validation"
+                    ],
+                    "steps": [
+                        {
+                            "title": "Fonds déposés",
+                            "text": "Le montant est réservé sur un compte de séquestre."
+                        },
+                        {
+                            "title": "Travail validé",
+                            "text": "Vous validez à partir des présences et des étapes réalisées."
+                        },
+                        {
+                            "title": "Ouvrier payé",
+                            "text": "Le virement part tout de suite et la facture est générée automatiquement."
+                        }
+                    ]
+                },
+                "tarifs": {
+                    "kick": "Abonnements",
+                    "title": "Une formule pour chaque équipe.",
+                    "text": "Avec une formule Équipe ou Pro, invitez vos collaborateurs par SMS ou e-mail et attribuez-leur un rôle : chef de chantier, technicien, comptable ou observateur."
+                },
+                "carte": {
+                    "kick": "Vous êtes ouvrier ?",
+                    "title": "Des chantiers recrutent près de chez vous.",
+                    "text": "Filtrez par métier, localisez-vous et postulez depuis la carte. Les candidatures sont étudiées par l’équipe O’CHANTIER, qui vous recontacte pour vous affecter aux chantiers.",
+                    "cta": "Devenir ouvrier →"
+                },
+                "app": {
+                    "kick": "Application promoteurs & techniciens",
+                    "title": "Téléchargez l’application O’CHANTIER.",
+                    "text": "L’application des promoteurs immobiliers et des techniciens de chantier. Réservez des ouvriers qualifiés, suivez les présences et l’avancement, payez en toute sécurité. Disponible sur iPhone et Android.",
+                    "ios": null,
+                    "android": null,
+                    "qr": null
+                },
+                "contact": {
+                    "kick": "Nous contacter",
+                    "title": "Une question ? Parlons de votre chantier.",
+                    "text": "Votre message est transmis directement à l’équipe O’CHANTIER. Nous répondons sous 24 h ouvrées.",
+                    "phone": "+225 07 00 00 00 00",
+                    "email": "contact@ochantier.ci",
+                    "address": "Cocody, Abidjan · Côte d’Ivoire",
+                    "hours": "Lun. – Sam. · 8 h – 18 h",
+                    "profiles": [
+                        "Promoteur immobilier",
+                        "Entreprise de BTP",
+                        "Technicien chantier",
+                        "Ouvrier",
+                        "Autre"
+                    ],
+                    "subjects": [
+                        "Demande de démonstration",
+                        "Abonnement Équipe ou Pro",
+                        "Recrutement d’ouvriers",
+                        "Partenariat",
+                        "Assistance technique",
+                        "Autre demande"
+                    ]
+                },
+                "newsletter": {
+                    "title": "Newsletter",
+                    "text": "Nouveautés, conseils chantier et offres O’CHANTIER, une fois par mois.",
+                    "placeholder": "Votre adresse e-mail",
+                    "cta": "S’abonner",
+                    "notice": "Désinscription possible à tout moment.",
+                    "success": "Merci ! Inscription confirmée."
+                },
+                "footer": {
+                    "slogan": "Trouvez vos prochains ouvriers, ici et maintenant.",
+                    "phone": "+225 07 00 00 00 00",
+                    "email": "contact@ochantier.ci",
+                    "legal": "© 2026 O’CHANTIER · Mentions légales · CGU",
+                    "legal_url": null,
+                    "terms_url": null
+                },
+                "seo": {
+                    "title": "O’CHANTIER · Recrutez des ouvriers du BTP qualifiés, ici et maintenant",
+                    "description": "O’CHANTIER, la plateforme de recrutement d’ouvriers du BTP à Abidjan : des ouvriers qualifiés et vérifiés, le suivi des présences et de l’avancement, le paiement sécurisé de vos chantiers.",
+                    "og_image": null,
+                    "indexable": true
+                }
+            }
+        }
+    },
+    "changes": [],
+    "checks": [],
+    "files": {}
+}

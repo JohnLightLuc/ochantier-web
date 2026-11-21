@@ -29,6 +29,7 @@ class WorkerFormRequest extends FormRequest
 
         return [
             'commercial_id' => ['required', 'uuid', Rule::exists('commercial_profiles', 'id')->where('status', 'actif')],
+            'landing_application_id' => ['nullable', 'uuid', Rule::exists('landing_worker_applications', 'id')->whereIn('status', ['nouvelle', 'en_verification'])],
             'first_name' => ['required', 'string', 'max:80'],
             'last_name' => ['required', 'string', 'max:80'],
             ...$this->phoneRules(['required']),

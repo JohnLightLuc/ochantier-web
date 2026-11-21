@@ -52,6 +52,12 @@ return [
         'driver' => env('SMS_DRIVER', 'log'),
     ],
 
+    // Site public O’CHANTIER : clé partagée avec son serveur, qui transmet les formulaires (candidatures, contact,
+    // newsletter) à l’API. Sans clé configurée, les routes du site sont fermées.
+    'landing' => [
+        'key' => env('LANDING_API_KEY'),
+    ],
+
     // Parrainage : lien d’invitation partagé par le promoteur (suivi du code parrain).
     'referrals' => [
         'url' => env('REFERRAL_URL', 'https://ochantier.ci/i'),

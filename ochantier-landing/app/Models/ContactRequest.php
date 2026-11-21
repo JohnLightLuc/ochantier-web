@@ -12,7 +12,7 @@ class ContactRequest extends Model
     public const REFERENCE_PREFIX = 'OC';
 
     protected $fillable = [
-        'reference', 'profil', 'nom', 'entreprise', 'telephone', 'email', 'objet', 'message', 'traite_le',
+        'reference', 'profil', 'nom', 'entreprise', 'telephone', 'email', 'objet', 'message', 'traite_le', 'reference_api',
     ];
 
     protected function casts(): array

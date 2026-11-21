@@ -3,6 +3,11 @@
 return [
 
     /*
+    | Adresse du site public O’CHANTIER (lien « Voir le site » de la Landing Page).
+    */
+    'landing_url' => env('LANDING_URL', 'https://ochantier.ci'),
+
+    /*
     |--------------------------------------------------------------------------
     | Modules du back-office
     |--------------------------------------------------------------------------
@@ -30,6 +35,7 @@ return [
         ['key' => 'finance', 'label' => 'Finance & Reporting', 'icon' => 'monitoring', 'path' => '/finance-reporting', 'title' => 'Finance & Reporting', 'subtitle' => 'Centre financier O’CHANTIER'],
         ['key' => 'avis', 'label' => 'Avis & litiges', 'icon' => 'forum', 'path' => '/avis-litiges', 'title' => 'Avis & litiges', 'subtitle' => 'Modérez les avis et traitez les litiges'],
         ['key' => 'rapports', 'label' => 'Rapports', 'icon' => 'bar_chart', 'path' => '/rapports', 'title' => 'Rapports & analyses', 'subtitle' => 'Pilotez les performances opérationnelles et financières de la plateforme'],
+        ['key' => 'landing', 'label' => 'Landing Page', 'icon' => 'web', 'path' => '/landing-page', 'title' => 'Landing Page', 'subtitle' => 'Modifiez le site O’CHANTIER et traitez ses demandes : candidatures, messages et newsletter'],
         ['key' => 'parametres', 'label' => 'Paramètres', 'icon' => 'settings', 'path' => '/parametres', 'title' => 'Paramètres de la plateforme', 'subtitle' => 'Configurez les règles métier, les accès et les services O’CHANTIER'],
     ],
 

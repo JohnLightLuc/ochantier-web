@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -37,9 +38,17 @@ class WorkerFormController extends Controller
 
     public function __construct(private AdminApi $api) {}
 
-    public function create(): Response
+    /**
+     * Nouvel ouvrier, ou profil créé depuis une candidature du site (?candidature=…) : le formulaire est prérempli et
+     * l’enregistrement rattache la candidature, sa pièce d’identité et sa photo au nouvel ouvrier.
+     */
+    public function create(Request $request): Response
     {
-        return $this->form('create', null, [
+        $candidature = $request->query('candidature');
+        $application = is_string($candidature) && Str::isUuid($candidature) ? $this->api->get("landing/applications/{$candidature}")->json('data') : null;
+        $prefill = $application ? $this->prefill($application) : [];
+
+        return $this->form('create', null, [...[
             'commercial_id' => '', 'first_name' => '', 'last_name' => '', 'phone' => '', 'secondary_phone' => '',
             'gender' => '', 'birth_date' => '', 'birth_place' => '',
             'residence_commune_id' => '', 'residence_neighborhood_id' => '', 'residence_address' => '', 'residence_landmark' => '',
@@ -50,7 +59,32 @@ class WorkerFormController extends Controller
             'works_solo' => true, 'works_in_team' => true,
             'accepted_offer_types' => ['ponctuelle', 'temporaire', 'contractuelle'], 'accepted_payment_frequencies' => ['journalier', 'hebdomadaire', 'mensuel', 'jalon'],
             'references' => [],
-        ]);
+            'landing_application_id' => '',
+        ], ...$prefill], $application ? ['reference' => $application['reference'], 'name' => $application['full_name'], 'id' => $application['id']] : null);
+    }
+
+    /**
+     * Valeurs du formulaire reprises de la candidature (champs à plat du formulaire).
+     *
+     * @param  array<string, mixed>  $application
+     * @return array<string, mixed>
+     */
+    private function prefill(array $application): array
+    {
+        $p = $application['prefill'];
+
+        return array_filter([
+            'first_name' => $p['first_name'] ?? null,
+            'last_name' => $p['last_name'] ?? null,
+            'phone' => isset($p['phone_number']) ? '+225 '.$p['phone_number'] : null,
+            'gender' => $p['gender'] ?? null,
+            'birth_date' => $p['birth_date'] ?? null,
+            'residence_commune_id' => $p['residence_commune_id'] ?? null,
+            'trade_id' => $p['trade_id'] ?? null,
+            'experience_years' => isset($p['experience_years']) ? (string) $p['experience_years'] : null,
+            'daily_rate' => isset($p['daily_rate']) ? (string) $p['daily_rate'] : null,
+            'landing_application_id' => $application['id'],
+        ], fn ($value) => $value !== null);
     }
 
     public function store(Request $request): RedirectResponse
@@ -101,6 +135,7 @@ class WorkerFormController extends Controller
             'accepted_offer_types' => $w['work']['accepted_offer_types'],
             'accepted_payment_frequencies' => $w['work']['accepted_payment_frequencies'],
             'references' => array_map(fn (array $r) => ['project' => $string($r['project']), 'role' => $string($r['role']), 'employer' => $string($r['employer']), 'start_date' => $string($r['start_date']), 'end_date' => $string($r['end_date'])], $w['references']),
+            'landing_application_id' => '',
         ]);
     }
 
@@ -166,7 +201,10 @@ class WorkerFormController extends Controller
      * @param  array<string, mixed>|null  $worker
      * @param  array<string, mixed>  $values
      */
-    private function form(string $mode, ?array $worker, array $values): Response
+    /**
+     * @param  array{reference: string, name: string, id: string}|null  $source  Candidature du site d’origine.
+     */
+    private function form(string $mode, ?array $worker, array $values, ?array $source = null): Response
     {
         $options = $this->formOptions();
         $communes = collect($options['cities'])->flatMap(fn (array $city) => array_map(fn (array $commune) => [...$commune, 'city' => $city['name']], $city['communes']));
@@ -175,6 +213,7 @@ class WorkerFormController extends Controller
         return Inertia::render('Workers/Form', [
             'mode' => $mode,
             'worker' => $worker,
+            'source' => $source,
             'values' => $values,
             'options' => [
                 'commercial' => array_map(fn (array $c) => $option($c, 'full_name', 'id'), $options['commercials']),
@@ -218,6 +257,7 @@ class WorkerFormController extends Controller
 
         return [
             'commercial_id' => $value('commercial_id'),
+            'landing_application_id' => $value('landing_application_id'),
             'first_name' => $value('first_name'),
             'last_name' => $value('last_name'),
             'dial_code' => $dial,
