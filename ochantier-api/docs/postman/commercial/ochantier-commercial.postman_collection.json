@@ -4502,7 +4502,7 @@
                 "profile"
               ]
             },
-            "description": "« Modifier mes informations » : `first_name`, `last_name`, `email` (facultatif). Le numéro, identifiant de connexion, se change par « Changer de numéro ». Une nouvelle adresse e-mail est à revérifier. **Réponse 200** : le profil à jour.",
+            "description": "« Modifier mes informations » : `first_name`, `last_name`. `email` est accepté s’il reprend l’adresse actuelle ; une nouvelle adresse se confirme par un code (« Changer d’adresse e-mail »), sinon **422**. Le numéro, identifiant de connexion, se change par « Changer de numéro ». **Réponse 200** : le profil à jour.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -4605,7 +4605,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"first_name\": \"\",\n  \"email\": \"pas-un-email\"\n}",
+                  "raw": "{\n  \"first_name\": \"\",\n  \"email\": \"a.coulibaly@ochantier.ci\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -4630,7 +4630,367 @@
                   "value": "76"
                 }
               ],
-              "body": "{\n  \"message\": \"Indiquez votre prénom. (et 1 autre erreur)\",\n  \"errors\": {\n    \"first_name\": [\n      \"Indiquez votre prénom.\"\n    ],\n    \"email\": [\n      \"Adresse e-mail invalide.\"\n    ]\n  }\n}"
+              "body": "{\n  \"message\": \"Indiquez votre prénom. (et 1 autre erreur)\",\n  \"errors\": {\n    \"first_name\": [\n      \"Indiquez votre prénom.\"\n    ],\n    \"email\": [\n      \"Confirmez la nouvelle adresse e-mail avec le code qui lui est envoyé.\"\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "id": "b2fbef0d-d928-4b82-bafa-5a9adcf62255",
+          "name": "Changer d’adresse e-mail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 202', () => pm.response.to.have.status(202));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/commercial/profile/email",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "commercial",
+                "profile",
+                "email"
+              ]
+            },
+            "description": "« Changer d’adresse e-mail », étape 1 : envoie un code à la **nouvelle** adresse (`email`, obligatoire, différente de l’actuelle, libre parmi les commerciaux). L’adresse n’est pas encore modifiée. **Réponse 202** : canal, adresse masquée, durée de validité (`expires_in`, s) et délai avant renvoi (`resend_in`, s). **429** tant que le délai de renvoi n’est pas écoulé (`retry_after`).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{commercial_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nouvelle.adresse@demo.ochantier.ci\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "id": "4bbfeb6e-e7ea-4e61-ae36-de9b77546cd4",
+              "name": "202 · Code envoyé",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{commercial_access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/profile/email",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "profile",
+                    "email"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"nouvelle.adresse@demo.ochantier.ci\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Accepted",
+              "code": 202,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"Code de confirmation envoyé à la nouvelle adresse e-mail.\",\n  \"data\": {\n    \"channel\": \"email\",\n    \"destination\": \"n•••@demo.ochantier.ci\",\n    \"expires_in\": 300,\n    \"resend_in\": 45,\n    \"code_length\": 6\n  }\n}"
+            },
+            {
+              "id": "d8fc804a-bc70-4fa6-96e2-6ac72eb84eac",
+              "name": "422 · Adresse refusée",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{commercial_access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/profile/email",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "profile",
+                    "email"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"nouvelle.adresse@demo.ochantier.ci\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unprocessable Content",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"Cette adresse e-mail est déjà utilisée par un autre commercial.\",\n  \"errors\": {\n    \"email\": [\n      \"Cette adresse e-mail est déjà utilisée par un autre commercial.\"\n    ]\n  }\n}"
+            },
+            {
+              "id": "2a2209a1-8a38-4e20-8811-b670c8d61172",
+              "name": "429 · Renvoi trop tôt",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{commercial_access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/profile/email",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "profile",
+                    "email"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"nouvelle.adresse@demo.ochantier.ci\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Too Many Requests",
+              "code": 429,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"Patientez 45 s avant de demander un nouveau code.\",\n  \"retry_after\": 45\n}"
+            }
+          ]
+        },
+        {
+          "id": "ba153a66-3c5a-47da-98e3-9bdaf37cc73e",
+          "name": "Confirmer l’adresse e-mail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/commercial/profile/email/verify",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "commercial",
+                "profile",
+                "email",
+                "verify"
+              ]
+            },
+            "description": "« Changer d’adresse e-mail », étape 2 : `email` (la même que l’étape 1) et `code` reçu par e-mail. Enregistre l’adresse, désormais vérifiée. **Réponse 200** : le profil à jour. **422** si le code est incorrect ou expiré.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{commercial_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nouvelle.adresse@demo.ochantier.ci\",\n  \"code\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "id": "f9312963-a3c2-4fc9-9451-e1c405d2f119",
+              "name": "200 · Adresse e-mail mise à jour",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{commercial_access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/profile/email/verify",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "profile",
+                    "email",
+                    "verify"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"nouvelle.adresse@demo.ochantier.ci\",\n  \"code\": \"123456\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"Adresse e-mail mise à jour\",\n  \"data\": {\n    \"name\": \"Adama Coulibaly\",\n    \"first_name\": \"Adama\",\n    \"last_name\": \"Coulibaly\",\n    \"initials\": \"AC\",\n    \"role\": \"Commercial terrain\",\n    \"employee_number\": \"COM-00001\",\n    \"status\": {\n      \"value\": \"actif\",\n      \"label\": \"Compte actif\"\n    },\n    \"dial_code\": \"225\",\n    \"phone_number\": \"0500000001\",\n    \"phone\": \"+225 05 00 00 00 01\",\n    \"email\": \"nouvelle.adresse@demo.ochantier.ci\",\n    \"zones\": [\n      {\n        \"commune\": {\n          \"id\": \"01a17701-9b9c-7365-82d2-bdfe1efc5397\",\n          \"name\": \"Cocody\"\n        },\n        \"is_primary\": true\n      }\n    ],\n    \"zone_request\": null,\n    \"activity\": {\n      \"objective_label\": \"13 / 10 ouvriers validés ce mois\",\n      \"ranking_label\": \"1ᵉʳ sur 2 commerciaux\"\n    },\n    \"notifications_label\": \"Gérer mes préférences de notification\"\n  }\n}"
+            },
+            {
+              "id": "c3cde5cc-35e6-4a57-8ede-498bdccd0673",
+              "name": "422 · Code incorrect",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{commercial_access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/commercial/profile/email/verify",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "commercial",
+                    "profile",
+                    "email",
+                    "verify"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"nouvelle.adresse@demo.ochantier.ci\",\n  \"code\": \"000000\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unprocessable Content",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"message\": \"Code incorrect ou expiré.\",\n  \"errors\": {\n    \"code\": [\n      \"Code incorrect ou expiré.\"\n    ]\n  }\n}"
             }
           ]
         },
