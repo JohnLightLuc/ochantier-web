@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\Landing\ContactMessageRequest;
 use App\Http\Requests\V1\Landing\WorkerApplicationRequest;
 use App\Support\ApiResponse;
+use App\Support\Landing\LandingContent;
 use App\Support\Landing\LandingIntake;
+use App\Support\Media\MediaStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Formulaires du site public, déposés par son serveur (clé partagée) : candidature « Devenir ouvrier », message de
@@ -16,7 +19,7 @@ use Illuminate\Http\Request;
  */
 class LandingFormController extends Controller
 {
-    public function __construct(private LandingIntake $intake) {}
+    public function __construct(private LandingIntake $intake, private LandingContent $content, private MediaStore $media) {}
 
     public function application(WorkerApplicationRequest $request): JsonResponse
     {
@@ -38,5 +41,24 @@ class LandingFormController extends Controller
         $this->intake->subscribe($data['email']);
 
         return ApiResponse::success(['subscribed' => true], 'Inscription enregistrée.', 201);
+    }
+
+    /**
+     * Contenu en ligne du site (version publiée, formules d’abonnement promoteur actives, fichiers cités).
+     */
+    public function content(): JsonResponse
+    {
+        return ApiResponse::success($this->content->published());
+    }
+
+    /**
+     * Fichier cité par la version en ligne (vidéo, logo, QR code, image de partage).
+     */
+    public function file(string $file): StreamedResponse
+    {
+        $media = $this->content->publishedFile($file);
+        abort_if($media === null, 404);
+
+        return $this->media->response($media);
     }
 }

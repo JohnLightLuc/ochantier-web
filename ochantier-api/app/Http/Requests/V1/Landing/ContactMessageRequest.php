@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\V1\Landing;
 
+use App\Models\LandingContentVersion;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 /**
  * Message du formulaire de contact transmis par le site public.
@@ -17,7 +19,7 @@ class ContactMessageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'profile' => ['required', 'in:'.implode(',', self::PROFILES)],
+            'profile' => ['required', Rule::in(array_unique([...self::PROFILES, ...(LandingContentVersion::query()->orderByDesc('number')->value('content')['sections']['contact']['profiles'] ?? [])]))],
             'name' => ['required', 'string', 'max:120'],
             'company' => ['nullable', 'string', 'max:120'],
             'phone' => ['required', 'string', 'max:30'],

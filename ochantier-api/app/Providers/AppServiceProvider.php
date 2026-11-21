@@ -260,6 +260,7 @@ class AppServiceProvider extends ServiceProvider
             'contractor_payout' => Models\ContractorPayout::class,
             'landing_application' => Models\LandingWorkerApplication::class,
             'landing_message' => Models\LandingContactMessage::class,
+            'landing_version' => Models\LandingContentVersion::class,
             'contractor_bid' => Models\ContractorBid::class,
             'contractor_member' => Models\ContractorMember::class,
             'quote_bid' => Models\QuoteBid::class,

@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\V1\Admin\Finance\ClosingController;
 use App\Http\Controllers\Api\V1\Admin\Finance\FinanceController;
 use App\Http\Controllers\Api\V1\Admin\Finance\ProCommissionController;
 use App\Http\Controllers\Api\V1\Admin\Finance\ReconciliationController;
+use App\Http\Controllers\Api\V1\Admin\Landing\LandingContentController;
 use App\Http\Controllers\Api\V1\Admin\Landing\LandingLeadController;
 use App\Http\Controllers\Api\V1\Admin\Matching\MatchingController;
 use App\Http\Controllers\Api\V1\Admin\Notification\NotificationController as AdminNotificationController;
@@ -191,6 +192,19 @@ Route::middleware('auth:admin')->group(function () {
             Route::post('messages/{message}/status', 'handle')->whereUuid('message')->middleware('admin.can:tickets.update')->name('messages.status');
             Route::get('newsletter', 'newsletter')->middleware('admin.can:content.read')->name('newsletter.index');
             Route::get('newsletter/export', 'exportNewsletter')->middleware('admin.can:content.read')->name('newsletter.export');
+        });
+
+        // Landing Page : éditeur de contenu du site (brouillon, publication en versions, restauration).
+        Route::prefix('landing/content')->name('landing.content.')->controller(LandingContentController::class)->group(function () {
+            Route::get('/', 'show')->middleware('admin.can:content.read')->name('show');
+            Route::get('versions', 'versions')->middleware('admin.can:content.read')->name('versions');
+            Route::put('sections/{section}', 'saveSection')->middleware('admin.can:content.update')->name('sections.save');
+            Route::post('sections/{section}/reset', 'resetSection')->middleware('admin.can:content.update')->name('sections.reset');
+            Route::put('layout', 'saveLayout')->middleware('admin.can:content.update')->name('layout');
+            Route::post('discard', 'discard')->middleware('admin.can:content.update')->name('discard');
+            Route::post('publish', 'publish')->middleware('admin.can:content.update')->name('publish');
+            Route::post('versions/{number}/restore', 'restore')->whereNumber('number')->middleware('admin.can:content.update')->name('versions.restore');
+            Route::post('files', 'upload')->middleware('admin.can:content.update')->name('files');
         });
 
         // Ouvriers : liste, export, création et modification, fiche, contrôle du dossier et des pièces, suspension et exclusion.

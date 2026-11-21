@@ -7099,6 +7099,406 @@
             "description": "Inscrits actifs (filtre `search`), 50 par page. Export CSV : `GET admin/landing/newsletter/export`.\n\nPermission : `content.read`."
           },
           "response": []
+        },
+        {
+          "id": "333a4088-1afa-56c5-ae5d-729702690bc6",
+          "name": "Éditeur de contenu",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/content",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "content"
+              ]
+            },
+            "description": "content.read. `schema` (12 sections et leurs champs), `draft`, `live` (version en ligne), `changes` (sections modifiées, `layout` pour l’ordre et l’affichage), `checks` (erreurs bloquantes et points d’attention), `files` (fichiers cités, liens de 30 min)."
+          },
+          "response": []
+        },
+        {
+          "id": "cc7dc56d-1f03-5915-b89b-0eb01c89100e",
+          "name": "Enregistrer une section du brouillon",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/content/sections/tarifs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "content",
+                "sections",
+                "tarifs"
+              ]
+            },
+            "description": "content.update. `values` : valeurs de tous les champs de la section (voir `schema`). Les clés inconnues sont écartées.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"values\": {\n    \"kick\": \"Abonnements\",\n    \"title\": \"Une formule pour chaque équipe, sans engagement.\",\n    \"text\": null\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "02f39f0d-eb58-58dc-8007-241168ae964d",
+          "name": "Ordre et affichage des sections",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/content/layout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "content",
+                "layout"
+              ]
+            },
+            "description": "content.update. `order` : les 7 sections du corps de page ; `hidden` : sections masquées (page de garde comprise).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order\": [\n    \"demo\",\n    \"solution\",\n    \"paiement\",\n    \"tarifs\",\n    \"carte\",\n    \"app\",\n    \"contact\"\n  ],\n  \"hidden\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "67462d11-43f6-5ef1-89ab-52597457e88e",
+          "name": "Remettre une section à la version en ligne",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/content/sections/tarifs/reset",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "content",
+                "sections",
+                "tarifs",
+                "reset"
+              ]
+            },
+            "description": "content.update. Clé de section, ou `layout` pour l’ordre et l’affichage."
+          },
+          "response": []
+        },
+        {
+          "id": "7408c557-07bb-58dc-934a-d4c345670dd8",
+          "name": "Envoyer un fichier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/content/files",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "content",
+                "files"
+              ]
+            },
+            "description": "content.update. Formulaire multipart : `accept` (`image/*` ou `video/mp4`) et `file`. Renvoie `id`, à placer dans le champ fichier de la section.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "accept",
+                  "value": "image/*",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "50a04a77-dcbc-5177-87df-2679a931a022",
+          "name": "Annuler toutes les modifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/content/discard",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "content",
+                "discard"
+              ]
+            },
+            "description": "content.update. Le brouillon revient à la version en ligne."
+          },
+          "response": []
+        },
+        {
+          "id": "b2b960de-c917-5d71-bcba-8b415c407643",
+          "name": "Publier le brouillon",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/content/publish",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "content",
+                "publish"
+              ]
+            },
+            "description": "content.update. Crée la version suivante, aussitôt en ligne. Refusé (422, `content`) sans modification ou avec une erreur bloquante.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Mise à jour des tarifs\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "103b1700-47bd-59c4-a41a-3fdd8a9271c2",
+          "name": "Historique des publications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/content/versions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "content",
+                "versions"
+              ]
+            },
+            "description": "content.read. Versions, de la plus récente : `number`, `note`, `sections`, `restored_from`, `published_by`, `published_at`, `live`."
+          },
+          "response": []
+        },
+        {
+          "id": "43120e19-7abf-5928-9e89-238b0356c022",
+          "name": "Restaurer une version dans le brouillon",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/landing/content/versions/1/restore",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "landing",
+                "content",
+                "versions",
+                "1",
+                "restore"
+              ]
+            },
+            "description": "content.update. Le contenu de la version remplace le brouillon ; le site ne change qu’à la publication."
+          },
+          "response": []
         }
       ],
       "description": "Demandes du site public. Le site les dépose sur `POST /api/v1/landing/worker-applications` (multipart, `identity_document`, `photo`), `/contact-messages` et `/newsletter`, avec l’en-tête `X-Landing-Key` (clé `LANDING_API_KEY`)."

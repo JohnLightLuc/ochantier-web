@@ -93,6 +93,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('worker-applications', 'application')->name('worker-applications');
         Route::post('contact-messages', 'message')->name('contact-messages');
         Route::post('newsletter', 'newsletter')->name('newsletter');
+        Route::get('content', 'content')->name('content');
+        Route::get('files/{file}', 'file')->whereUuid('file')->name('files');
     });
 
     Route::prefix('auth')->name('auth.')->group(function () {
