@@ -201,7 +201,7 @@ class ContractorQuoteProposals
                 'create_quote' => $ordered && $bid->visit_status === QuoteVisitStatus::Realisee && $last?->status !== QuoteVersionStatus::Brouillon,
                 'edit_draft_id' => $last?->status === QuoteVersionStatus::Brouillon ? $last->id : null,
             ],
-            'options' => ['slots' => QuoteRequests::SLOTS, 'durations' => QuoteRequests::DURATIONS, 'units' => ['u', 'm', 'm²', 'ml', 'm³', 'h', 'jour', 'forfait'], 'validity_days' => [15, 30, 60, 90]],
+            'options' => ['slots' => QuoteRequests::SLOTS, 'durations' => QuoteRequests::DURATIONS, 'units' => ['u', 'm', 'm²', 'ml', 'm³', 'h', 'jour', 'forfait'], 'validity_days' => [15, 30, 60, 90], 'vat_rate' => QuoteRequests::DEFAULT_VAT_RATE],
         ];
     }
 

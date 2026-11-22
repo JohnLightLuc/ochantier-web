@@ -47,6 +47,7 @@ class ContractorQuoteProposalTest extends ContractorMarketTestCase
             ->assertJsonPath('data.tracking.1.state', 'current')
             ->assertJsonPath('data.mission', null)
             ->assertJsonPath('data.actions.withdraw', true)
+            ->assertJsonPath('data.options.vat_rate', 18)
             ->json('data');
 
         $this->propose($line->id)

@@ -130,6 +130,7 @@ class ContractorSubscriptions
             'plans' => SubscriptionPlan::query()->where('audience', 'contractor')->where('is_active', true)->orderBy('sort_order')->get()
                 ->map(fn (SubscriptionPlan $item) => [...$this->plan($item), 'current' => ($plan?->code ?? self::FREE_PLAN) === $item->code])->values()->all(),
             'open_invoice' => $open ? $this->invoice($open) : null,
+            'operators' => $this->payments->operators(),
             'invoices' => $invoices->map(fn (SubscriptionInvoice $invoice) => $this->invoice($invoice))->values()->all(),
             'actions' => [
                 'cancel' => $current !== null && $current->auto_renew,

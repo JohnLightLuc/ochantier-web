@@ -43,6 +43,24 @@ class PaymentOperator extends Model
     }
 
     /**
+     * Opérateur tel qu’il est proposé au payeur (promoteur ou entrepreneur).
+     *
+     * @return array{code: string, name: string, fee_percent: float, number_pattern: string|null, min_amount: int|null, max_amount: int|null, notice: string|null}
+     */
+    public function forPayer(): array
+    {
+        return [
+            'code' => $this->code,
+            'name' => $this->name,
+            'fee_percent' => (float) $this->collection_fee_percent,
+            'number_pattern' => $this->number_pattern,
+            'min_amount' => $this->min_amount,
+            'max_amount' => $this->max_amount,
+            'notice' => $this->notice,
+        ];
+    }
+
+    /**
      * @return BelongsTo<Country, $this>
      */
     public function country(): BelongsTo

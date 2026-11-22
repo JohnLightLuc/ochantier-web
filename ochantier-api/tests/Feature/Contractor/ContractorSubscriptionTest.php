@@ -45,7 +45,9 @@ class ContractorSubscriptionTest extends ContractorMarketTestCase
             ->assertJsonPath('data.current.plan.code', 'entrepreneur_solo')
             ->assertJsonPath('data.current.status', ['value' => 'gratuit', 'label' => 'Gratuit'])
             ->assertJsonPath('data.plans.*.code', ['entrepreneur_solo', 'entrepreneur_essentiel', 'entrepreneur_pro'])
-            ->assertJsonPath('data.plans.2.recommended', true);
+            ->assertJsonPath('data.plans.2.recommended', true)
+            ->assertJsonPath('data.operators.0.code', 'orange_money')
+            ->assertJsonStructure(['data' => ['operators' => [['code', 'name', 'fee_percent', 'number_pattern', 'min_amount', 'max_amount', 'notice']]]]);
 
         $this->assign([$worker])
             ->assertForbidden()

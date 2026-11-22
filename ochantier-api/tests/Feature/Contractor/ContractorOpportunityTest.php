@@ -4,8 +4,10 @@ namespace Tests\Feature\Contractor;
 
 use App\Enums\ContractorVerificationStatus;
 use App\Models\Offer;
+use App\Models\Setting;
 use App\Models\User;
 use App\Support\Promoter\ContractorOffers;
+use App\Support\Promoter\QuoteRequests;
 
 class ContractorOpportunityTest extends ContractorMarketTestCase
 {
@@ -55,7 +57,11 @@ class ContractorOpportunityTest extends ContractorMarketTestCase
             ->assertJsonPath('data.site.documents.0.type.code', 'site_plan')
             ->assertJsonPath('data.response.can_respond', false)
             ->assertJsonPath('data.response.reason', 'Vérification du profil requise pour répondre.')
+            ->assertJsonPath('data.proposal_options', ['service_fee_percent' => 10, 'slots' => QuoteRequests::SLOTS, 'durations' => QuoteRequests::DURATIONS])
             ->json('data');
+
+        Setting::query()->updateOrCreate(['key' => 'quotes.service_fee_percent'], ['value' => '15']);
+        $this->getJson('/api/v1/contractor/opportunities/quotes/'.$line->id)->assertJsonPath('data.proposal_options.service_fee_percent', 15);
 
         $this->assertArrayNotHasKey('address', $detail['site']);
         $this->assertStringNotContainsString('Rue des Jardins', json_encode($detail));

@@ -79,6 +79,11 @@ class QuoteRequests
      */
     public const DEFAULT_SERVICE_FEE = 10;
 
+    /**
+     * Taux de TVA proposé (%) pour la première version d’un devis.
+     */
+    public const DEFAULT_VAT_RATE = 18;
+
     public function __construct(private OfferDraft $drafts, private DocumentStore $documents, private MediaStore $media) {}
 
     /**
@@ -450,7 +455,7 @@ class QuoteRequests
             'status' => QuoteVersionStatus::Brouillon,
             'items' => $last?->items ?? [],
             'vat_applied' => $last?->vat_applied ?? false,
-            'vat_rate' => $last?->vat_rate ?? 18,
+            'vat_rate' => $last?->vat_rate ?? self::DEFAULT_VAT_RATE,
             'total_ht' => $last?->total_ht ?? 0,
             'vat_amount' => $last?->vat_amount ?? 0,
             'total_ttc' => $last?->total_ttc ?? 0,

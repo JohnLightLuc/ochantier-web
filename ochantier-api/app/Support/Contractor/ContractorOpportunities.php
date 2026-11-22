@@ -18,6 +18,7 @@ use App\Models\Site;
 use App\Models\Trade;
 use App\Support\Documents\DocumentStore;
 use App\Support\Media\MediaStore;
+use App\Support\Promoter\QuoteRequests;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -52,7 +53,7 @@ class ContractorOpportunities
 
     private const SITE_WITH = ['site.commune.city', 'site.neighborhood', 'site.mainImageMedia'];
 
-    public function __construct(private DocumentStore $documents, private MediaStore $media) {}
+    public function __construct(private DocumentStore $documents, private MediaStore $media, private QuoteRequests $quotes) {}
 
     /**
      * Opportunités éligibles et ouvertes, triées par date limite ; meta : compteurs par onglet, opportunités hors
@@ -118,6 +119,7 @@ class ContractorOpportunities
             'other_trades' => $request->trades->reject(fn (QuoteRequestTrade $other) => $other->is($line))
                 ->map(fn (QuoteRequestTrade $other) => $other->trade->only(['id', 'code', 'label']))->values()->all(),
             'response' => $this->response($contractor, $open, $request->response_deadline, $exclusion, 'Proposer ma prestation de devis', $line->bids()->where('contractor_id', $contractor->getKey())->exists()),
+            'proposal_options' => ['service_fee_percent' => $this->quotes->serviceFeePercent(), 'slots' => QuoteRequests::SLOTS, 'durations' => QuoteRequests::DURATIONS],
         ];
     }
 

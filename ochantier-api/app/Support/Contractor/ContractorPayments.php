@@ -25,6 +25,17 @@ class ContractorPayments
 {
     public function __construct(private PaymentGateway $gateway, private PricingRules $pricing) {}
 
+    /**
+     * Opérateurs proposés au paiement : actifs et ouverts à l’encaissement.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function operators(): array
+    {
+        return PaymentOperator::query()->where('is_active', true)->where('supports_collection', true)->orderBy('sort_order')->orderBy('created_at')->get()
+            ->map(fn (PaymentOperator $operator) => $operator->forPayer())->values()->all();
+    }
+
     public function operator(string $code): PaymentOperator
     {
         return PaymentOperator::query()->where('code', $code)->where('is_active', true)->where('supports_collection', true)->first()
