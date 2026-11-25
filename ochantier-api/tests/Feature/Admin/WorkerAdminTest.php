@@ -3,16 +3,20 @@
 namespace Tests\Feature\Admin;
 
 use App\Enums\CommercialEarningStatus;
+use App\Enums\DevicePlatform;
 use App\Enums\DocumentVerificationStatus;
 use App\Enums\WorkerVerificationStatus;
 use App\Models\Admin;
 use App\Models\AuditLog;
 use App\Models\CommercialEarning;
+use App\Models\DeviceToken;
 use App\Models\Document;
+use App\Models\Notification;
 use App\Models\Worker;
 use App\Models\WorkerSanction;
 use App\Support\Auth\AdminSessions;
 use App\Support\Auth\DeviceContext;
+use App\Support\Push\PushGateway;
 use Database\Seeders\AdminAccessSeeder;
 use Database\Seeders\PlatformRulesSeeder;
 use Illuminate\Testing\TestResponse;
@@ -222,5 +226,41 @@ class WorkerAdminTest extends CommercialTestCase
         Worker::query()->create(['first_name' => 'Brouillon', 'last_name' => 'Test', 'dial_code' => '225', 'phone_number' => '0700000062', 'verification_status' => WorkerVerificationStatus::Brouillon, 'availability_status' => 'disponible', 'acquisition_channel' => Worker::BACK_OFFICE_CHANNEL, 'origin_commercial_id' => $this->commercial->commercialProfile->id, 'current_commercial_id' => $this->commercial->commercialProfile->id, 'reference' => 'OUV-900002']);
 
         $this->asAdmin()->getJson('/api/v1/admin/workers?availability=disponible')->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $validated->id);
+    }
+
+    public function test_a_rejected_document_is_shown_as_rejected_to_the_commercial_who_is_notified_by_push(): void
+    {
+        $pushes = [];
+        $this->app->instance(PushGateway::class, new class($pushes) implements PushGateway
+        {
+            /**
+             * @param  list<array{0: list<string>, 1: string, 2: string, 3: array<string, mixed>}>  $sent
+             */
+            public function __construct(private array &$sent) {}
+
+            public function send(array $tokens, string $title, string $body, array $data = [], ?string $audience = null): void
+            {
+                $this->sent[] = [$tokens, $title, $body, $data];
+            }
+        });
+        DeviceToken::query()->create(['owner_type' => $this->commercial->getMorphClass(), 'owner_id' => $this->commercial->getKey(), 'platform' => DevicePlatform::Android, 'push_token' => 'jeton-commercial', 'device_id' => 'appareil-commercial', 'last_seen_at' => now()]);
+
+        $worker = $this->submit();
+        $photo = $this->asAdmin()->documents($worker)['photo'];
+
+        $this->postJson("/api/v1/admin/workers/{$worker->id}/documents/{$photo}/reject", ['reason' => 'Photo floue, visage non visible.'])->assertOk();
+
+        $notification = Notification::query()->where('recipient_id', $this->commercial->id)->where('event_code', 'worker.document_rejected')->sole();
+        $this->assertSame(['Document rejeté', 'Jean Kouassi — Photo d’identité : Photo floue, visage non visible.'], [$notification->title, $notification->body]);
+        $this->assertEquals(['type' => 'worker', 'id' => $worker->id, 'prospect_id' => $worker->prospect_id], $notification->data['target']);
+
+        $this->assertCount(1, $pushes);
+        $this->assertSame(['jeton-commercial'], $pushes[0][0]);
+        $this->assertSame(['Document rejeté', 'worker.document_rejected'], [$pushes[0][1], $pushes[0][3]['event']]);
+
+        $slots = collect($this->actingAsCommercial($this->commercial)->getJson("/api/v1/commercial/prospects/{$worker->prospect_id}")->assertOk()->json('data.documents'))->keyBy('key');
+        $this->assertSame(['value' => 'rejete', 'label' => 'Rejeté'], $slots['worker_photo']['state']);
+        $this->assertSame('Photo floue, visage non visible.', $slots['worker_photo']['document']['rejection_reason']);
+        $this->assertSame('fourni', $slots['identity']['state']['value']);
     }
 }

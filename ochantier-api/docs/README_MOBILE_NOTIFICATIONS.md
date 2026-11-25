@@ -223,7 +223,7 @@ Chaque notification porte un `target` qui indique l’écran à ouvrir au tap, d
 
 | `type` | `id` | Champs en plus | Événements (`event`) |
 |---|---|---|---|
-| `worker` | id de l’ouvrier | `prospect_id` | `worker.validated`, `worker.correction`, `worker.refused`, `worker.updated` |
+| `worker` | id de l’ouvrier | `prospect_id` | `worker.validated`, `worker.correction`, `worker.document_rejected` (pièce rejetée, avec son motif), `worker.refused`, `worker.updated` |
 | `earnings` | `null` | `month` (`AAAA-MM`, sauf commission confirmée) | `worker.validated` (commission confirmée), `payout.paid`, `adjustment.approved` |
 | `prospect` | id du prospect | — | `prospect.follow_up` (relance conseillée) |
 | `ranking` | `null` | — | `ranking.published`, `ranking.updated` |

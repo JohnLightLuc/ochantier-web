@@ -11,6 +11,7 @@ use App\Models\Document;
 use App\Models\VerificationReview;
 use App\Models\Worker;
 use App\Models\WorkerSanction;
+use App\Support\Commercial\CommercialNotifier;
 use App\Support\Commercial\ProspectDossier;
 use App\Support\Commercial\WorkerReviews;
 use App\Support\Documents\DocumentStore;
@@ -31,7 +32,7 @@ class WorkerVerification
      */
     public const REVIEWABLE = [WorkerVerificationStatus::Soumis, WorkerVerificationStatus::EnControle];
 
-    public function __construct(private WorkerReviews $reviews, private DocumentStore $documents) {}
+    public function __construct(private WorkerReviews $reviews, private DocumentStore $documents, private CommercialNotifier $notifier) {}
 
     /**
      * Pièces obligatoires pour la validation : pièce d’identité et photo d’identité. Clé => [libellé, pièce ou null].
@@ -112,9 +113,15 @@ class WorkerVerification
         return $this->decideDocument($worker, $document, $admin, DocumentVerificationStatus::Valide, null, $request);
     }
 
+    /**
+     * Rejette une pièce et prévient le commercial référent (centre de notifications et push).
+     */
     public function rejectDocument(Worker $worker, Document $document, Admin $admin, string $reason, Request $request): Document
     {
-        return $this->decideDocument($worker, $document, $admin, DocumentVerificationStatus::Rejete, $reason, $request);
+        $document = $this->decideDocument($worker, $document, $admin, DocumentVerificationStatus::Rejete, $reason, $request);
+        $this->notifier->documentRejected($worker, $document, $reason);
+
+        return $document;
     }
 
     /**

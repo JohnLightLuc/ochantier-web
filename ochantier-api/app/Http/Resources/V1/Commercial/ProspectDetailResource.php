@@ -3,6 +3,7 @@
 namespace App\Http\Resources\V1\Commercial;
 
 use App\Enums\DocumentAudience;
+use App\Enums\DocumentVerificationStatus;
 use App\Enums\ProspectStatus;
 use App\Http\Resources\V1\DocumentResource;
 use App\Models\Document;
@@ -105,6 +106,7 @@ class ProspectDetailResource extends ProspectResource
         return array_map(fn (array $slot) => [
             ...array_diff_key($slot, ['complete' => true, 'document' => true]),
             'state' => match (true) {
+                $slot['document']?->verification_status === DocumentVerificationStatus::Rejete => ['value' => 'rejete', 'label' => 'Rejeté'],
                 $slot['complete'] => ['value' => 'fourni', 'label' => 'Fourni'],
                 $slot['required'] => ['value' => 'manquant', 'label' => 'Manquant'],
                 default => ['value' => 'non_fourni', 'label' => 'Non fourni'],

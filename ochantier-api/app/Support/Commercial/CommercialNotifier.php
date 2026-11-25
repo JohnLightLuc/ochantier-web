@@ -8,6 +8,7 @@ use App\Enums\ProspectStatus;
 use App\Models\CommercialAdjustment;
 use App\Models\CommercialPayout;
 use App\Models\CommercialProfile;
+use App\Models\Document;
 use App\Models\Notification;
 use App\Models\Prospect;
 use App\Models\User;
@@ -29,6 +30,7 @@ class CommercialNotifier
      */
     public const EVENTS = [
         'worker.correction' => ['tab' => 'dossiers', 'alert' => 'corrections', 'priority' => Priority::Haute, 'sms' => true, 'cta' => 'Corriger le dossier'],
+        'worker.document_rejected' => ['tab' => 'dossiers', 'alert' => 'corrections', 'priority' => Priority::Haute, 'sms' => false, 'cta' => 'Voir le dossier'],
         'worker.validated' => ['tab' => 'dossiers', 'alert' => 'dossiers', 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir le dossier'],
         'worker.refused' => ['tab' => 'dossiers', 'alert' => 'dossiers', 'priority' => Priority::Normale, 'sms' => false, 'cta' => 'Voir le dossier'],
         'worker.updated' => ['tab' => 'dossiers', 'alert' => 'dossiers', 'priority' => Priority::Basse, 'sms' => false, 'cta' => 'Voir le dossier'],
@@ -68,6 +70,15 @@ class CommercialNotifier
     public function correctionRequested(Worker $worker, array $reasons): void
     {
         $this->notify($worker, 'worker.correction', 'Correction demandée', $this->name($worker).' — '.implode(' ; ', $reasons).'.', 'worker.correction:'.$worker->id.':'.now()->timestamp);
+    }
+
+    /**
+     * Pièce du dossier rejetée par le Back Office, avec son motif.
+     */
+    public function documentRejected(Worker $worker, Document $document, string $reason): void
+    {
+        $this->notify($worker, 'worker.document_rejected', 'Document rejeté',
+            $this->name($worker).' — '.$document->documentType->label.' : '.rtrim($reason, '. ').'.', 'worker.document_rejected:'.$document->id);
     }
 
     /**
