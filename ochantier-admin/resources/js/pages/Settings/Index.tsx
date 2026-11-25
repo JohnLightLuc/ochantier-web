@@ -4,6 +4,7 @@ import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { AlertList, Block, KeyValues } from '@/components/workers/blocks';
 import { useAdminUi } from '@/contexts/AdminUiContext';
+import { fcfa } from '@/lib/format';
 import { Head, router } from '@inertiajs/react';
 import { useState, type ReactNode } from 'react';
 
@@ -15,7 +16,7 @@ type Props = {
     groups: { title: string; fields: Field[] }[];
     pricing: { current: { code: string; label: string; value: number | null }[]; pending: Rate[]; history: Rate[] };
     matching: { version: number | null; weights: { key: string; label: string; value: number }[]; radius: number; radius_max: number; tolerance_max: number; reason: string | null };
-    trades: { id: string; code: string; label: string; active: boolean; workers: number }[];
+    trades: { id: string; code: string; label: string; active: boolean; workers: number; reference_rate: number | null; promoter_rate: number | null; promoter_rate_source: 'moyenne' | 'reference' | null }[];
     integrations: { runtime: { label: string; value: string; warning: boolean }[]; providers: { id: string; provider: string; service: string; environment: string; status: string; expires_on: string | null; last_tested_at: string | null; last_test_ok: boolean | null }[] };
     history: { id: string; label: string; old: unknown; new: unknown; reason: string | null; by: string | null; date: string | null }[];
     can: { update: boolean; approve: boolean; admins: boolean; audit: boolean };
@@ -92,7 +93,28 @@ export default function SettingsIndex({ groups, pricing, matching, trades, integ
         );
 
     const tradeForm = (t?: Props['trades'][number]) =>
-        setDialog(<FormDialog title={t ? `Renommer ${t.label}` : 'Ajouter un métier'} icon="handyman" okLabel="Enregistrer" url={t ? `/parametres/metiers/${t.id}` : '/parametres/metiers'} method={t ? 'put' : 'post'} initial={t ? { label: t.label } : {}} onClose={close} fields={[{ name: 'label', label: 'Métier', required: true, full: true }]} />);
+        setDialog(
+            <FormDialog
+                title={t ? `Modifier ${t.label}` : 'Ajouter un métier'}
+                icon="handyman"
+                okLabel="Enregistrer"
+                url={t ? `/parametres/metiers/${t.id}` : '/parametres/metiers'}
+                method={t ? 'put' : 'post'}
+                initial={t ? { label: t.label, reference_rate: t.reference_rate === null ? '' : String(t.reference_rate) } : {}}
+                onClose={close}
+                fields={[
+                    { name: 'label', label: 'Métier', required: true, full: true },
+                    {
+                        name: 'reference_rate',
+                        label: 'Tarif journalier de référence (FCFA)',
+                        type: 'number',
+                        full: true,
+                        placeholder: 'Ex. 25000',
+                        hint: 'Commission ouvrier incluse. Affiché au promoteur tant que moins de 3 ouvriers validés ont ce métier principal. Laissez vide pour ne pas proposer de tarif.',
+                    },
+                ]}
+            />,
+        );
 
     return (
         <>
@@ -159,17 +181,19 @@ export default function SettingsIndex({ groups, pricing, matching, trades, integ
 
                 <Block icon="handyman" title="Métiers" count={`${trades.filter((t) => t.active).length} proposés`} action={can.update ? { label: 'Ajouter', icon: 'add', onClick: () => tradeForm() } : null}>
                     <RelationTable
-                        columns={['Métier', 'Ouvriers', 'Statut', '']}
+                        columns={['Métier', 'Ouvriers', 'Tarif de référence', 'Tarif affiché au promoteur', 'Statut', '']}
                         empty={{ icon: 'handyman', title: 'Aucun métier', text: '' }}
                         rows={trades.map((t) => ({
                             key: t.id,
                             cells: [
                                 t.label,
                                 String(t.workers),
+                                t.reference_rate === null ? '—' : fcfa(t.reference_rate),
+                                t.promoter_rate === null ? '—' : `${fcfa(t.promoter_rate)} · ${t.promoter_rate_source === 'moyenne' ? 'moyenne constatée' : 'référence'}`,
                                 <StatusBadge label={t.active ? 'Proposé' : 'Retiré'} tone={t.active ? 'g' : 'n'} />,
                                 can.update ? (
                                     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                                        <Button label="Renommer" size="sm" variant="secondary" onClick={() => tradeForm(t)} />
+                                        <Button label="Modifier" size="sm" variant="secondary" onClick={() => tradeForm(t)} />
                                         <Button label={t.active ? 'Retirer' : 'Proposer'} size="sm" variant="secondary" onClick={() => router.post(`/parametres/metiers/${t.id}/statut`, {}, { preserveScroll: true })} />
                                     </div>
                                 ) : (

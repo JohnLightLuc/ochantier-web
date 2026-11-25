@@ -36,7 +36,7 @@ class SettingsTest extends TestCase
             'groups' => [['title' => 'Paiements', 'fields' => [['key' => 'payments.dual_validation_threshold', 'label' => 'Seuil', 'type' => 'int', 'min' => 1, 'max' => 2, 'unit' => 'FCFA', 'value' => 1000000]]]],
             'pricing' => ['current' => [['code' => 'Y', 'label' => 'Commission promoteur (Y)', 'value' => 8.0]], 'pending' => [['id' => self::RATE, 'code' => 'Y', 'label' => 'Commission promoteur (Y)', 'value' => 9.5, 'status' => ['value' => 'en_attente_approbation', 'label' => 'En attente'], 'effective_from' => '2026-12-01T00:00:00+00:00', 'effective_to' => null, 'reason' => 'Grille', 'by' => 'Super', 'by_id' => '2', 'approved_by' => null]], 'history' => []],
             'matching' => ['version' => 1, 'weights' => [['key' => 'metier', 'label' => 'Métier', 'value' => 25]], 'radius' => 20, 'radius_max' => 40, 'tolerance_max' => 25, 'reason' => null],
-            'trades' => [['id' => 't1', 'code' => 'macon', 'label' => 'Maçon', 'active' => true, 'workers' => 3]],
+            'trades' => [['id' => 't1', 'code' => 'macon', 'label' => 'Maçon', 'active' => true, 'workers' => 3, 'reference_rate' => 25000, 'promoter_rate' => 25000, 'promoter_rate_source' => 'reference']],
             'integrations' => ['runtime' => [['label' => 'Passerelle de paiement', 'value' => 'Simulée : aucun argent ne circule', 'warning' => true]], 'providers' => []],
             'history' => [],
         ]])]);
@@ -74,6 +74,21 @@ class SettingsTest extends TestCase
         $this->from('/parametres')->post('/parametres/matching', ['weight_metier' => '60', 'weight_note' => '40', 'radius' => '20', 'radius_max' => '40', 'tolerance_max' => '25', 'reason' => 'Réglage de test'])->assertRedirect('/parametres');
 
         Http::assertSent(fn (ClientRequest $request) => $request['weights'] === ['metier' => 60, 'note' => 40]);
+    }
+
+    public function test_the_reference_rate_of_a_trade_reaches_the_api_without_thousand_separators(): void
+    {
+        Http::fake([
+            self::API.'/settings/trades' => Http::response(['message' => 'Métier ajouté.', 'data' => []], 201),
+            self::API.'/settings/trades/*' => Http::response(['message' => 'Métier mis à jour.', 'data' => []]),
+        ]);
+        $trade = '01a21514-91c4-7339-b2d1-2c2f1efb9403';
+
+        $this->from('/parametres')->post('/parametres/metiers', ['label' => 'Étancheur', 'reference_rate' => '21 000'])->assertRedirect('/parametres');
+        Http::assertSent(fn (ClientRequest $request) => $request->method() === 'POST' && $request['label'] === 'Étancheur' && $request['reference_rate'] === '21000');
+
+        $this->from('/parametres')->put("/parametres/metiers/{$trade}", ['label' => 'Étancheur', 'reference_rate' => ''])->assertRedirect('/parametres');
+        Http::assertSent(fn (ClientRequest $request) => $request->method() === 'PATCH' && str_ends_with($request->url(), "/settings/trades/{$trade}") && array_key_exists('reference_rate', $request->data()) && $request['reference_rate'] === null);
     }
 
     public function test_old_sections_lead_to_the_page(): void

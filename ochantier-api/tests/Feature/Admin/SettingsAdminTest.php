@@ -156,6 +156,37 @@ class SettingsAdminTest extends PromoterTestCase
         $this->assertSame('Étancheur toiture', $trade->fresh()->label);
     }
 
+    public function test_the_reference_rate_of_a_trade_is_set_changed_and_removed_with_its_history(): void
+    {
+        $this->as($this->super)->postJson('/api/v1/admin/settings/trades', ['label' => 'Étancheur', 'reference_rate' => 500])
+            ->assertJsonValidationErrors(['reference_rate' => 'Le tarif de référence doit être d’au moins 1 000 FCFA.']);
+
+        $created = $this->postJson('/api/v1/admin/settings/trades', ['label' => 'Étancheur', 'reference_rate' => 21000])->assertCreated();
+        $trade = Trade::query()->where('code', 'etancheur')->sole();
+        $row = collect($created->json('data.trades'))->firstWhere('id', $trade->id);
+        $this->assertSame([21000, 21000, 'reference'], [$row['reference_rate'], $row['promoter_rate'], $row['promoter_rate_source']]);
+
+        // Le libellé seul ne touche pas au tarif.
+        $this->patchJson("/api/v1/admin/settings/trades/{$trade->id}", ['label' => 'Étancheur toiture'])->assertOk();
+        $this->assertSame(21000, Setting::query()->find('pricing.reference_daily_rates')->value['etancheur']);
+        $this->assertSame(21000, app(PricingRules::class)->referenceRates()->get($trade->id)['rate']);
+
+        $this->patchJson("/api/v1/admin/settings/trades/{$trade->id}", ['label' => 'Étancheur toiture', 'reference_rate' => 24000])
+            ->assertOk()
+            ->assertJsonPath('message', 'Métier mis à jour.')
+            ->assertJsonPath('data.history.0.label', 'Tarif de référence · Étancheur toiture')
+            ->assertJsonPath('data.history.0.old', "21\u{00A0}000\u{00A0}FCFA")
+            ->assertJsonPath('data.history.0.new', "24\u{00A0}000\u{00A0}FCFA");
+
+        $this->patchJson("/api/v1/admin/settings/trades/{$trade->id}", ['label' => 'Étancheur toiture', 'reference_rate' => null])
+            ->assertOk()
+            ->assertJsonPath('data.history.0.new', null);
+
+        $this->assertArrayNotHasKey('etancheur', Setting::query()->find('pricing.reference_daily_rates')->value);
+        $this->assertArrayHasKey('macon', Setting::query()->find('pricing.reference_daily_rates')->value);
+        $this->assertSame(3, SettingHistory::query()->where('setting_key', 'pricing.reference_daily_rates')->where('new_value->trade', 'etancheur')->count());
+    }
+
     public function test_integrations_show_the_real_state_without_secrets(): void
     {
         $response = $this->as($this->super)->getJson('/api/v1/admin/settings')->assertOk();

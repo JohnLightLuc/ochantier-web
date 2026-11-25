@@ -18,6 +18,21 @@ use Illuminate\Validation\Rule;
  */
 class SettingsController extends Controller
 {
+    /**
+     * Métier : libellé et tarif journalier de référence (FCFA, commission ouvrier incluse), facultatif.
+     */
+    private const TRADE_RULES = [
+        'label' => ['required', 'string', 'max:120'],
+        'reference_rate' => ['nullable', 'integer', 'min:1000', 'max:1000000'],
+    ];
+
+    private const TRADE_MESSAGES = [
+        'label.required' => 'Indiquez le métier.',
+        'reference_rate.integer' => 'Saisissez un montant en FCFA, sans espace ni décimale.',
+        'reference_rate.min' => 'Le tarif de référence doit être d’au moins 1 000 FCFA.',
+        'reference_rate.max' => 'Le tarif de référence ne peut pas dépasser 1 000 000 FCFA.',
+    ];
+
     public function __construct(private PlatformSettings $settings) {}
 
     public function show(): JsonResponse
@@ -77,18 +92,18 @@ class SettingsController extends Controller
 
     public function storeTrade(Request $request): JsonResponse
     {
-        $data = $request->validate(['label' => ['required', 'string', 'max:120']], ['label.required' => 'Indiquez le métier.']);
-        $this->settings->createTrade($data['label'], $request->user(), $request);
+        $data = $request->validate(self::TRADE_RULES, self::TRADE_MESSAGES);
+        $this->settings->createTrade($data['label'], $this->rate($data), $request->user(), $request);
 
         return ApiResponse::success($this->settings->overview(), 'Métier ajouté.', 201);
     }
 
     public function updateTrade(Request $request, string $tradeId): JsonResponse
     {
-        $data = $request->validate(['label' => ['required', 'string', 'max:120']], ['label.required' => 'Indiquez le métier.']);
-        $this->settings->renameTrade(Trade::query()->findOrFail($tradeId), $data['label'], $request->user(), $request);
+        $data = $request->validate(self::TRADE_RULES, self::TRADE_MESSAGES);
+        $this->settings->updateTrade(Trade::query()->findOrFail($tradeId), $data['label'], $this->rate($data), array_key_exists('reference_rate', $data), $request->user(), $request);
 
-        return ApiResponse::success($this->settings->overview(), 'Métier renommé.');
+        return ApiResponse::success($this->settings->overview(), 'Métier mis à jour.');
     }
 
     public function toggleTrade(Request $request, string $tradeId): JsonResponse
@@ -96,5 +111,13 @@ class SettingsController extends Controller
         $this->settings->toggleTrade(Trade::query()->findOrFail($tradeId), $request->user(), $request);
 
         return ApiResponse::success($this->settings->overview(), 'Métier mis à jour.');
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function rate(array $data): ?int
+    {
+        return isset($data['reference_rate']) && $data['reference_rate'] !== '' ? (int) $data['reference_rate'] : null;
     }
 }

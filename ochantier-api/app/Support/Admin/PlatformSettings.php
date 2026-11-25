@@ -12,6 +12,7 @@ use App\Models\PricingParameter;
 use App\Models\Setting;
 use App\Models\SettingHistory;
 use App\Models\Trade;
+use App\Support\Pricing\PricingRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -62,6 +63,11 @@ class PlatformSettings
         'support.working_hours' => ['Support', 'Heures de travail', 'text'],
     ];
 
+    /**
+     * Tarifs journaliers de référence par code de métier (FCFA, commission ouvrier incluse).
+     */
+    public const REFERENCE_RATES = 'pricing.reference_daily_rates';
+
     private const VARIABLES = ['X' => 'Acompte initial (X)', 'Y' => 'Commission promoteur (Y)', 'Z' => 'Commission ouvrier (Z)', 'R' => 'Seuil de paiement chantier (R)'];
 
     private const WEIGHTS = ['metier' => 'Métier', 'disponibilite' => 'Disponibilité', 'experience' => 'Expérience', 'proximite' => 'Proximité', 'cout' => 'Coût', 'qualite_profil' => 'Qualité du profil', 'note' => 'Note', 'historique' => 'Historique'];
@@ -86,14 +92,14 @@ class PlatformSettings
             ])->groupBy('group')->map(fn ($fields, string $group) => ['title' => $group, 'fields' => $fields->values()->all()])->values()->all(),
             'pricing' => $this->pricing(),
             'matching' => $this->matching(),
-            'trades' => Trade::query()->withCount('workerTrades as workers_count')->orderBy('label')->get()->map(fn (Trade $trade) => ['id' => $trade->id, 'code' => $trade->code, 'label' => $trade->label, 'active' => $trade->is_active, 'workers' => $trade->workers_count])->all(),
+            'trades' => $this->trades(),
             'integrations' => $this->integrations(),
-            'history' => SettingHistory::query()->with('changedByAdmin')->latest()->limit(30)->get()->map(fn (SettingHistory $row) => [
+            'history' => SettingHistory::query()->with('changedByAdmin')->latest()->latest('id')->limit(30)->get()->map(fn (SettingHistory $row) => [
                 'id' => $row->id,
                 'key' => $row->setting_key,
-                'label' => self::FIELDS[$row->setting_key][1] ?? $row->setting_key,
-                'old' => $row->old_value,
-                'new' => $row->new_value,
+                'label' => $this->historyLabel($row),
+                'old' => $this->historyValue($row, $row->old_value),
+                'new' => $this->historyValue($row, $row->new_value),
                 'reason' => $row->reason,
                 'by' => $row->changedByAdmin?->fullName(),
                 'date' => $row->created_at?->toIso8601String(),
@@ -207,22 +213,118 @@ class PlatformSettings
         });
     }
 
-    public function createTrade(string $label, Admin $admin, Request $request): Trade
+    public function createTrade(string $label, ?int $referenceRate, Admin $admin, Request $request): Trade
     {
         $code = Str::limit(Str::slug($label, '_'), 36, '') ?: 'metier';
         $this->ensure(! Trade::query()->where('code', $code)->exists(), 'Ce métier existe déjà.', 'label');
 
         $trade = Trade::query()->create(['code' => $code, 'label' => trim($label), 'sort_order' => (int) Trade::query()->max('sort_order') + 10, 'is_active' => true]);
         AdminAudit::record($admin, 'settings', 'settings.trade_created', $request, $trade, null, ['label' => $trade->label]);
+        $this->saveReferenceRate($trade, $referenceRate, $admin, $request);
 
         return $trade;
     }
 
-    public function renameTrade(Trade $trade, string $label, Admin $admin, Request $request): void
+    /**
+     * Libellé et tarif de référence d’un métier ; seuls les changements sont enregistrés. Sans `$changeRate`, le
+     * tarif de référence reste inchangé.
+     */
+    public function updateTrade(Trade $trade, string $label, ?int $referenceRate, bool $changeRate, Admin $admin, Request $request): void
     {
         $before = $trade->label;
-        $trade->update(['label' => trim($label)]);
-        AdminAudit::record($admin, 'settings', 'settings.trade_renamed', $request, $trade, ['label' => $before], ['label' => $trade->label]);
+
+        if ($before !== trim($label)) {
+            $trade->update(['label' => trim($label)]);
+            AdminAudit::record($admin, 'settings', 'settings.trade_renamed', $request, $trade, ['label' => $before], ['label' => $trade->label]);
+        }
+
+        if ($changeRate) {
+            $this->saveReferenceRate($trade, $referenceRate, $admin, $request);
+        }
+    }
+
+    /**
+     * Tarif journalier de référence d’un métier, affiché au promoteur tant que les tarifs constatés sont insuffisants
+     * (moins de PricingRules::MIN_WORKERS_FOR_AVERAGE ouvriers validés). Vide : le métier n’a plus de tarif de référence.
+     */
+    private function saveReferenceRate(Trade $trade, ?int $rate, Admin $admin, Request $request): void
+    {
+        DB::transaction(function () use ($trade, $rate, $admin, $request): void {
+            $setting = Setting::query()->lockForUpdate()->find(self::REFERENCE_RATES) ?? new Setting(['key' => self::REFERENCE_RATES, 'value' => []]);
+            $rates = (array) ($setting->value ?? []);
+            $old = isset($rates[$trade->code]) ? (int) $rates[$trade->code] : null;
+
+            if ($old === $rate) {
+                return;
+            }
+
+            if ($rate === null) {
+                unset($rates[$trade->code]);
+            } else {
+                $rates[$trade->code] = $rate;
+            }
+
+            $setting->fill(['value' => $rates, 'updated_by_admin_id' => $admin->getKey()])->save();
+            $history = SettingHistory::query()->create([
+                'setting_key' => self::REFERENCE_RATES,
+                'old_value' => ['trade' => $trade->code, 'rate' => $old],
+                'new_value' => ['trade' => $trade->code, 'rate' => $rate],
+                'changed_by_admin_id' => $admin->getKey(),
+            ]);
+            AdminAudit::record($admin, 'settings', 'settings.trade_rate_updated', $request, $trade, ['reference_rate' => $old], ['reference_rate' => $rate, 'history_id' => $history->id]);
+        });
+    }
+
+    /**
+     * Métiers avec leur tarif de référence et le tarif réellement affiché au promoteur (moyenne constatée ou référence).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function trades(): array
+    {
+        $references = (array) (Setting::query()->whereKey(self::REFERENCE_RATES)->value('value') ?? []);
+        $shown = app(PricingRules::class)->referenceRates();
+
+        return Trade::query()->withCount('workerTrades as workers_count')->orderBy('label')->get()->map(fn (Trade $trade) => [
+            'id' => $trade->id,
+            'code' => $trade->code,
+            'label' => $trade->label,
+            'active' => $trade->is_active,
+            'workers' => $trade->workers_count,
+            'reference_rate' => isset($references[$trade->code]) ? (int) $references[$trade->code] : null,
+            'promoter_rate' => $shown->get($trade->id)['rate'] ?? null,
+            'promoter_rate_source' => $shown->get($trade->id)['source'] ?? null,
+        ])->values()->all();
+    }
+
+    /**
+     * Un changement de tarif de référence ne porte que sur un métier (`trade` dans l’ancienne et la nouvelle valeur).
+     */
+    private function isTradeRate(SettingHistory $row): bool
+    {
+        return $row->setting_key === self::REFERENCE_RATES && isset($row->new_value['trade']);
+    }
+
+    private function historyLabel(SettingHistory $row): string
+    {
+        if ($this->isTradeRate($row)) {
+            $code = $row->new_value['trade'];
+
+            return 'Tarif de référence · '.(Trade::query()->where('code', $code)->value('label') ?? $code);
+        }
+
+        return self::FIELDS[$row->setting_key][1] ?? $row->setting_key;
+    }
+
+    private function historyValue(SettingHistory $row, mixed $value): mixed
+    {
+        if (! $this->isTradeRate($row)) {
+            return $value;
+        }
+
+        $rate = is_array($value) ? ($value['rate'] ?? null) : null;
+
+        return $rate === null ? null : number_format((int) $rate, 0, ',', "\u{00A0}")."\u{00A0}FCFA";
     }
 
     /**

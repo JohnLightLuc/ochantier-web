@@ -72,12 +72,12 @@ class SettingsController extends Controller
 
     public function storeTrade(Request $request): RedirectResponse
     {
-        return $this->act(fn () => $this->api->post('settings/trades', $request->only('label')));
+        return $this->act(fn () => $this->api->post('settings/trades', $this->trade($request)));
     }
 
     public function updateTrade(Request $request, string $trade): RedirectResponse
     {
-        return $this->act(fn () => $this->api->patch("settings/trades/{$trade}", $request->only('label')));
+        return $this->act(fn () => $this->api->patch("settings/trades/{$trade}", $this->trade($request)));
     }
 
     public function toggleTrade(string $trade): RedirectResponse
@@ -122,5 +122,17 @@ class SettingsController extends Controller
     private function moment(?string $date): ?string
     {
         return $date ? Carbon::parse($date)->setTimezone(config('app.timezone'))->format('Y-m-d H:i') : null;
+    }
+
+    /**
+     * Métier : libellé et tarif de référence (vide pour le retirer ; espaces de milliers acceptés).
+     *
+     * @return array{label: mixed, reference_rate: string|null}
+     */
+    private function trade(Request $request): array
+    {
+        $rate = preg_replace('/[\s\x{00A0}\x{202F}]+/u', '', (string) $request->input('reference_rate', ''));
+
+        return ['label' => $request->input('label'), 'reference_rate' => $rate === '' ? null : $rate];
     }
 }
