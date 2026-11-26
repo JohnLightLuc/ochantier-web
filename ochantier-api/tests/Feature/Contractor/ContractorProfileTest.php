@@ -5,6 +5,7 @@ namespace Tests\Feature\Contractor;
 use App\Enums\ContractorVerificationStatus;
 use App\Models\Contractor;
 use App\Models\Notification;
+use App\Models\Trade;
 use App\Models\User;
 use App\Models\VerificationReview;
 
@@ -92,6 +93,21 @@ class ContractorProfileTest extends ContractorTestCase
         $this->postJson('/api/v1/contractor/profile/submit', ['certify' => true])
             ->assertUnprocessable()
             ->assertJsonPath('errors.profile.0', 'Votre dossier est déjà en cours de vérification.');
+    }
+
+    public function test_a_contractor_can_choose_as_many_trades_as_they_want(): void
+    {
+        foreach (range(1, 12) as $index) {
+            Trade::query()->create(['code' => "metier_test_{$index}", 'label' => "Métier test {$index}", 'sort_order' => 1000 + $index, 'is_active' => true]);
+        }
+        $trades = Trade::query()->where('is_active', true)->pluck('id')->all();
+        $this->assertGreaterThan(20, count($trades));
+
+        $this->postJson('/api/v1/contractor/profile', ['kind' => 'independant', 'last_name' => 'Koffi'])->assertCreated();
+        $this->patchJson('/api/v1/contractor/profile', ['trade_ids' => $trades])->assertOk();
+
+        $this->assertCount(count($trades), Contractor::query()->sole()->trades);
+        $this->patchJson('/api/v1/contractor/profile', ['trade_ids' => []])->assertJsonValidationErrors(['trade_ids' => 'Choisissez au moins un métier.']);
     }
 
     public function test_an_incomplete_file_lists_what_is_missing(): void

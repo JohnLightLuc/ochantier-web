@@ -45,7 +45,7 @@ class UpdateContractorProfileRequest extends FormRequest
             'city_id' => ['sometimes', 'required', 'uuid', Rule::exists('cities', 'id')->where('is_active', true)],
             'address' => ['sometimes', 'required', 'string', 'max:255'],
 
-            'trade_ids' => ['sometimes', 'array', 'min:1', 'max:10'],
+            'trade_ids' => ['sometimes', 'array', 'min:1'],
             'trade_ids.*' => ['uuid', 'distinct', Rule::exists('trades', 'id')->where('is_active', true)],
             'zone_city_ids' => ['sometimes', 'array', 'max:20'],
             'zone_city_ids.*' => ['uuid', 'distinct', Rule::exists('cities', 'id')->where('is_active', true)],
