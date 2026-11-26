@@ -48,7 +48,7 @@ class MatchingRunner
      */
     public const KEPT = [SuggestionStatus::Contacte, SuggestionStatus::Accepte, SuggestionStatus::ProposePromoteur, SuggestionStatus::Selectionne];
 
-    public function __construct(private MatchingEngine $engine, private PricingRules $pricing, private ProposalPublisher $publisher) {}
+    public function __construct(private MatchingEngine $engine, private PricingRules $pricing, private ProposalPublisher $publisher, private WorkerOverlap $overlap) {}
 
     public function refusal(Offer $offer): ?string
     {
@@ -169,8 +169,10 @@ class MatchingRunner
     public function results(Offer $offer, Admin $admin): array
     {
         $staleAfter = (int) (Setting::query()->whereKey('matching.obsolete_after_days')->value('value') ?? 3);
+        $accepted = Suggestion::query()->with('need.trade')->where('status', SuggestionStatus::Accepte)
+            ->whereHas('need', fn ($query) => $query->where('offer_id', $offer->getKey())->whereIn('status', self::OPEN_NEEDS))->get();
 
-        return $offer->needs()->with(['trade', 'specialty'])->orderBy('reference')->get()->map(function (Need $need) use ($staleAfter, $admin) {
+        return $offer->needs()->with(['trade', 'specialty'])->orderBy('reference')->get()->map(function (Need $need) use ($staleAfter, $admin, $accepted) {
             $run = $need->matchingRuns()->where('run_type', '!=', MatchingRunType::Remplacement)->with('triggeredByAdmin')->latest('executed_at')->latest('id')->first();
 
             return [
@@ -183,7 +185,7 @@ class MatchingRunner
                 'daily_budget' => $need->indicative_daily_budget,
                 'status' => ['value' => $need->status->value, 'label' => $need->status->label()],
                 'last_run' => $run ? ['at' => $run->executed_at?->toIso8601String(), 'by' => $run->triggeredByAdmin?->fullName(), 'type' => $run->run_type?->value, 'stale' => $run->executed_at?->lt(now()->subDays($staleAfter)) ?? false] : null,
-                'suggestions' => $need->suggestions()->whereNotIn('status', [SuggestionStatus::Expire, SuggestionStatus::Ecarte])->whereHas('matchingRun', fn ($query) => $query->where('run_type', '!=', MatchingRunType::Remplacement))->with(self::SUGGESTION_WITH)->orderBy('rank')->orderByDesc('score')->get()->map(fn (Suggestion $suggestion) => $this->suggestion($suggestion))->values()->all(),
+                'suggestions' => $need->suggestions()->whereNotIn('status', [SuggestionStatus::Expire, SuggestionStatus::Ecarte])->whereHas('matchingRun', fn ($query) => $query->where('run_type', '!=', MatchingRunType::Remplacement))->with(self::SUGGESTION_WITH)->orderBy('rank')->orderByDesc('score')->get()->map(fn (Suggestion $suggestion) => $this->suggestion($suggestion, $accepted))->values()->all(),
                 'exclusions' => $run ? $this->exclusions($need, $run, $admin) : [],
             ];
         })->all();
@@ -242,10 +244,17 @@ class MatchingRunner
     /**
      * @return array<string, mixed>
      */
-    public function suggestion(Suggestion $suggestion): array
+    /**
+     * @param  Collection<int, Suggestion>|null  $accepted  Ouvriers d’accord sur les postes de l’offre, pour signaler celui
+     *                                                      déjà retenu sur un autre poste aux mêmes dates.
+     */
+    public function suggestion(Suggestion $suggestion, ?Collection $accepted = null): array
     {
         $worker = $suggestion->worker;
         $factors = $suggestion->score_factors ?? [];
+        $elsewhere = $accepted?->first(fn (Suggestion $other) => $other->worker_id === $suggestion->worker_id
+            && $other->need_id !== $suggestion->need_id
+            && $this->overlap->overlaps($suggestion->need, $other->need));
 
         return [
             'id' => $suggestion->id,
@@ -269,7 +278,8 @@ class MatchingRunner
             'worker_daily_rate' => $suggestion->worker_daily_rate,
             'promoter_daily_rate' => $suggestion->promoter_daily_rate,
             'criteria' => $factors['criteria'] ?? [],
-            'warnings' => $factors['warnings'] ?? [],
+            'warnings' => [...($factors['warnings'] ?? []), ...($elsewhere ? ['Déjà retenu sur le poste '.$this->overlap->postLabel($elsewhere->need).' aux mêmes dates'] : [])],
+            'retained_elsewhere' => $elsewhere ? ['need_id' => $elsewhere->need_id, 'reference' => $elsewhere->need->reference, 'trade' => $elsewhere->need->trade?->label] : null,
         ];
     }
 }

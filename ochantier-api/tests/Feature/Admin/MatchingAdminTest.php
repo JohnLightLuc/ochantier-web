@@ -6,6 +6,7 @@ use App\Enums\NeedStatus;
 use App\Enums\OfferStatus;
 use App\Enums\ProposalStatus;
 use App\Enums\SiteStatus;
+use App\Enums\SkillLevel;
 use App\Enums\SuggestionStatus;
 use App\Models\Admin;
 use App\Models\Assignment;
@@ -224,6 +225,83 @@ class MatchingAdminTest extends PromoterTestCase
 
         $this->assertSame(SiteStatus::Confirme, $this->site->fresh()->status);
         $this->assertSame(3, Assignment::query()->count());
+    }
+
+    /**
+     * Serge Aka, peintre, est aussi maçon : il remplit les conditions des deux postes du chantier, aux mêmes dates.
+     *
+     * @return array{0: Offer, 1: Suggestion, 2: Suggestion}
+     */
+    private function workerOnTwoPosts(): array
+    {
+        $offer = $this->openOffer();
+        $serge = Worker::query()->where('first_name', 'Serge')->firstOrFail();
+        $serge->workerTrades()->create(['trade_id' => $this->trade('macon')->id, 'is_primary' => false, 'years_experience' => 5, 'level' => SkillLevel::Confirme]);
+        $this->asAdmin()->postJson($this->url($offer, '/run'))->assertOk();
+        $onTrade = fn (string $trade) => Suggestion::query()->where('worker_id', $serge->id)->whereHas('need', fn ($query) => $query->where('trade_id', $this->trade($trade)->id))->sole();
+
+        return [$offer, $onTrade('peintre'), $onTrade('macon')];
+    }
+
+    public function test_a_worker_already_retained_on_a_post_cannot_agree_to_another_post_at_the_same_dates(): void
+    {
+        [$offer, $painter, $mason] = $this->workerOnTwoPosts();
+        $this->agree($painter->id);
+
+        $this->postJson("/api/v1/admin/matching/suggestions/{$mason->id}/response", ['channel' => 'appel', 'decision' => 'accepte'])
+            ->assertJsonValidationErrors(['offer' => 'Serge Aka est déjà retenu sur le poste Peintre ('.$painter->need->reference.') de ce chantier, aux mêmes dates. Un ouvrier ne peut tenir qu’un poste à la fois.']);
+        $this->postJson("/api/v1/admin/matching/suggestions/{$mason->id}/response", ['channel' => 'appel', 'decision' => 'refuse'])->assertOk();
+
+        $this->assertSame(SuggestionStatus::Refuse, $mason->fresh()->status);
+    }
+
+    public function test_the_matching_flags_a_worker_retained_on_another_post(): void
+    {
+        [$offer, $painter, $mason] = $this->workerOnTwoPosts();
+        $this->agree($painter->id);
+
+        $shown = collect($this->suggestions($offer))->firstWhere('id', $mason->id);
+
+        $this->assertSame(['need_id' => $painter->need_id, 'reference' => $painter->need->reference, 'trade' => 'Peintre'], $shown['retained_elsewhere']);
+        $this->assertContains('Déjà retenu sur le poste Peintre ('.$painter->need->reference.') aux mêmes dates', $shown['warnings']);
+        $this->assertNull(collect($this->suggestions($offer))->firstWhere('id', $painter->id)['retained_elsewhere']);
+    }
+
+    public function test_a_worker_agreeing_to_two_posts_is_proposed_once_and_the_promoter_can_accept(): void
+    {
+        [$offer, $painter, $mason] = $this->workerOnTwoPosts();
+        // Dossier antérieur au contrôle : l’ouvrier est déjà d’accord sur les deux postes.
+        $this->agree($painter->id);
+        $mason->forceFill(['status' => SuggestionStatus::Accepte])->save();
+        $kouame = collect($this->suggestions($offer))->first(fn (array $item) => $item['worker']['full_name'] === 'Kouamé Koffi');
+        $this->agree($kouame['id']);
+
+        $this->getJson($this->url($offer))->assertJsonPath('data.retained', 2);
+        $this->postJson($this->url($offer, '/send'))->assertOk();
+
+        $proposal = Proposal::query()->sole();
+        $this->assertSame(2, $proposal->proposed_count);
+        $this->assertSame(1, $proposal->suggestions()->where('worker_id', $painter->worker_id)->count());
+        $this->assertSame($painter->id, $proposal->suggestions()->where('worker_id', $painter->worker_id)->sole()->id);
+
+        $this->actingAsPromoter($this->promoter);
+        $this->postJson("/api/v1/promoter/proposals/{$proposal->id}/accept")->assertOk();
+    }
+
+    public function test_a_proposal_listing_a_worker_on_two_posts_explains_the_conflict_to_the_promoter(): void
+    {
+        [$offer, $painter, $mason] = $this->workerOnTwoPosts();
+        $this->agree($painter->id);
+        $this->postJson($this->url($offer, '/send'))->assertOk();
+        $proposal = Proposal::query()->sole();
+        // Proposition envoyée avant la correction : l’ouvrier y figure deux fois.
+        $mason->forceFill(['status' => SuggestionStatus::ProposePromoteur, 'proposal_id' => $proposal->id])->save();
+
+        $this->actingAsPromoter($this->promoter);
+        $this->postJson("/api/v1/promoter/proposals/{$proposal->id}/accept")
+            ->assertJsonValidationErrors(['proposal' => 'Serge Aka figure sur deux postes de ce chantier aux mêmes dates : le Back Office va corriger la proposition avant le paiement de l’acompte.']);
+
+        $this->assertSame(ProposalStatus::AValider, $proposal->fresh()->status);
     }
 
     public function test_a_partial_proposal_keeps_the_reserves_and_the_search_open(): void

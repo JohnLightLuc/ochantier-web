@@ -28,7 +28,7 @@ class WorkerConsent
 {
     private const OPEN = [SuggestionStatus::Suggere, SuggestionStatus::Contacte, SuggestionStatus::Accepte, SuggestionStatus::Refuse, SuggestionStatus::Indisponible];
 
-    public function __construct(private ProposalPublisher $publisher, private MatchingRunner $runner) {}
+    public function __construct(private ProposalPublisher $publisher, private MatchingRunner $runner, private WorkerOverlap $overlap) {}
 
     public function contact(Suggestion $suggestion, ContactChannel $channel, Admin $admin, Request $request): void
     {
@@ -46,6 +46,10 @@ class WorkerConsent
     public function respond(Suggestion $suggestion, ContactChannel $channel, WorkerResponseDecision $decision, ?string $conditions, Admin $admin, Request $request): void
     {
         $this->ensureOpen($suggestion);
+
+        if ($decision === WorkerResponseDecision::Accepte && ($other = $this->overlap->retainedElsewhere($suggestion))) {
+            throw ValidationException::withMessages(['offer' => trim($suggestion->worker->first_name.' '.$suggestion->worker->last_name).' est déjà retenu sur le poste '.$this->overlap->postLabel($other->need).' de ce chantier, aux mêmes dates. Un ouvrier ne peut tenir qu’un poste à la fois.']);
+        }
 
         DB::transaction(function () use ($suggestion, $channel, $decision, $conditions, $admin): void {
             $contact = $suggestion->workerOfferContacts()->where('status', ContactStatus::EnAttente)->latest('contacted_at')->first() ?? $this->openContact($suggestion, $channel, $admin);
@@ -73,16 +77,38 @@ class WorkerConsent
     }
 
     /**
-     * Ouvriers d’accord retenus, poste par poste, par rang : les suivants restent en réserve.
+     * Ouvriers d’accord retenus, poste par poste (par référence du besoin), par rang : les suivants restent en réserve.
+     * Un ouvrier d’accord sur plusieurs postes aux dates qui se chevauchent n’est retenu que sur celui où il a donné
+     * son accord en premier ; l’ouvrier d’accord suivant prend l’autre poste.
      *
      * @return Collection<int, Suggestion>
      */
     public function retained(Offer $offer): Collection
     {
-        return $offer->needs()->whereIn('status', MatchingRunner::OPEN_NEEDS)->get()->flatMap(fn (Need $need) => $need->suggestions()
+        $needs = $offer->needs()->whereIn('status', MatchingRunner::OPEN_NEEDS)->orderBy('reference')->get();
+        $accepted = Suggestion::query()
+            ->with(['need', 'workerResponses'])
+            ->whereIn('need_id', $needs->modelKeys())
             ->where('status', SuggestionStatus::Accepte)
             ->whereHas('worker', fn ($query) => $query->where('verification_status', WorkerVerificationStatus::Valide))
-            ->orderBy('rank')->orderByDesc('score')->take($need->headcount)->get())->values();
+            ->get();
+        $agreedAt = fn (Suggestion $suggestion) => $suggestion->workerResponses->where('decision', WorkerResponseDecision::Accepte)->min('responded_at') ?? $suggestion->updated_at;
+        $secondPost = fn (Suggestion $suggestion) => $accepted->contains(fn (Suggestion $other) => $other->worker_id === $suggestion->worker_id
+            && $other->need_id !== $suggestion->need_id
+            && $this->overlap->overlaps($other->need, $suggestion->need)
+            && [$agreedAt($other), $other->id] < [$agreedAt($suggestion), $suggestion->id]);
+
+        /** @var Collection<int, Suggestion> $retained */
+        $retained = collect();
+
+        foreach ($needs as $need) {
+            $retained = $retained->concat($accepted->where('need_id', $need->getKey())
+                ->reject($secondPost)
+                ->sortBy([['rank', 'asc'], ['score', 'desc']])
+                ->take($need->headcount));
+        }
+
+        return $retained->values();
     }
 
     public function send(Offer $offer, Admin $admin, Request $request): void

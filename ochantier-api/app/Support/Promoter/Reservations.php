@@ -18,6 +18,7 @@ use App\Models\Setting;
 use App\Models\Site;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Models\WorkerReservation;
 use App\Support\Contractor\ContractorTeam;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
@@ -253,7 +254,17 @@ class Reservations
                 throw $exception;
             }
 
-            throw ValidationException::withMessages(['proposal' => trim($suggestion->worker->first_name.' '.$suggestion->worker->last_name).' vient d’être réservé sur un autre chantier : une nouvelle proposition vous sera faite.']);
+            $name = trim($suggestion->worker->first_name.' '.$suggestion->worker->last_name);
+            $sameSite = WorkerReservation::query()
+                ->where('worker_id', $suggestion->worker_id)
+                ->where('status', WorkerReservationStatus::Active)
+                ->whereRaw('period && ?::daterange', [sprintf('[%s,%s]', $need->start_date->toDateString(), ($need->end_date ?? $need->start_date)->toDateString())])
+                ->whereHas('need', fn ($query) => $query->where('site_id', $need->site_id))
+                ->exists();
+
+            throw ValidationException::withMessages(['proposal' => $sameSite
+                ? $name.' figure sur deux postes de ce chantier aux mêmes dates : le Back Office va corriger la proposition avant le paiement de l’acompte.'
+                : $name.' vient d’être réservé sur un autre chantier : une nouvelle proposition vous sera faite.']);
         }
     }
 
