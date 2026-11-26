@@ -135,6 +135,24 @@ class QuoteRequestTest extends PromoterTestCase
         $this->assertContains(Offer::query()->sole()->quote_document_id, QuoteRequestTrade::query()->pluck('quote_document_id')->all());
     }
 
+    public function test_the_promoter_is_notified_once_every_trade_has_an_offer(): void
+    {
+        $site = $this->quoteRequest(['macon', 'peintre']);
+        $received = fn () => Notification::query()->where('recipient_id', $this->promoter->id)->where('event_code', 'quote.offers_received');
+
+        $this->bid($this->line($site, 'macon'), 'Koné Bâtiment', 20000, 4.5);
+        $this->assertFalse($received()->exists());
+
+        $this->bid($this->line($site, 'peintre'), 'Déco Plus', 15000, 4.2);
+        $this->bid($this->line($site, 'macon'), 'Traoré & Fils', 18000, 4.8);
+
+        $notification = $received()->sole();
+        $this->assertSame('Offres de devis reçues', $notification->title);
+        $this->assertSame('Villa Riviera : chaque corps de métier a reçu au moins une offre. Choisissez une offre par métier pour commander les devis.', $notification->body);
+        $this->assertEquals(['type' => 'quote_request', 'id' => $site['id']], $notification->data['target']);
+        $this->getJson("/api/v1/promoter/sites/{$site['id']}/quote-request")->assertJsonPath('data.ready_to_order', true);
+    }
+
     public function test_a_quote_request_can_be_cancelled_before_the_order(): void
     {
         $site = $this->quoteRequest(['macon']);

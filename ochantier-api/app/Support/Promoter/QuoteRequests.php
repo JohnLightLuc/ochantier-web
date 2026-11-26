@@ -212,7 +212,7 @@ class QuoteRequests
         $distance = DB::scalar('SELECT ST_Distance(c.location, s.location) / 1000 FROM contractors c, sites s WHERE c.id = ? AND s.id = ?', [$contractor->getKey(), $line->quoteRequest->site_id]);
         $prices = $this->prices($fee);
 
-        return $line->bids()->create([
+        $bid = $line->bids()->create([
             'contractor_id' => $contractor->getKey(),
             'amount' => $prices['total'],
             'fee_amount' => $prices['fee'],
@@ -225,6 +225,28 @@ class QuoteRequests
             'distance_km' => $distance !== null ? round((float) $distance, 1) : null,
             'status' => QuoteBidStatus::Proposee,
         ]);
+
+        DB::afterCommit(fn () => $this->notifyOffersReceived($line->quoteRequest));
+
+        return $bid;
+    }
+
+    /**
+     * « Offres de devis reçues » : prévient le promoteur, une seule fois par demande, dès que chaque corps de métier
+     * a au moins une offre (il peut alors choisir une offre par métier et commander les devis).
+     */
+    private function notifyOffersReceived(QuoteRequest $request): void
+    {
+        if ($request->status !== QuoteRequestStatus::Recherche || ($this->action($request)['value'] ?? null) !== 'choisir_devis') {
+            return;
+        }
+
+        $site = $request->site;
+        $trades = $request->trades()->count();
+
+        app(PromoterNotifier::class)->notify($site->promoterProfile, 'quote.offers_received', 'Offres de devis reçues',
+            $site->label.' : '.($trades > 1 ? 'chaque corps de métier a reçu au moins une offre' : 'une offre de devis est arrivée').'. Choisissez une offre par métier pour commander les devis.',
+            $site, ['type' => 'quote_request', 'id' => $site->id], $request, 'quote.offers_received:'.$request->id);
     }
 
     /**
