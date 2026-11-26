@@ -8,13 +8,16 @@ use App\Enums\ContractorVerificationStatus;
 use App\Enums\PaymentTransactionPurpose;
 use App\Enums\QuoteBidStatus;
 use App\Enums\SiteStatus;
+use App\Models\City;
 use App\Models\Contractor;
+use App\Models\Notification;
 use App\Models\Offer;
 use App\Models\PaymentTransaction;
 use App\Models\QuoteBid;
 use App\Models\QuoteRequest;
 use App\Models\QuoteRequestTrade;
 use App\Models\Site;
+use App\Models\User;
 use App\Support\Promoter\QuoteRequests;
 use App\Support\Promoter\QuoteSimulator;
 use Carbon\CarbonImmutable;
@@ -167,6 +170,80 @@ class QuoteRequestTest extends PromoterTestCase
      * @param  list<string>  $trades
      * @return array<string, mixed>
      */
+    /**
+     * Technicien actif d’Abidjan, maçon, avec son compte (destinataire des notifications).
+     */
+    private function abidjanMason(): Contractor
+    {
+        $contractor = Contractor::query()->create([
+            'reference' => sprintf('ENT-%05d', DB::scalar("SELECT nextval('contractor_reference_seq')")),
+            'kind' => ContractorKind::Independant,
+            'name' => 'Koné Bâtiment',
+            'user_id' => User::factory()->contractor()->create()->id,
+            'city_id' => City::query()->where('name', 'Abidjan')->value('id'),
+            'status' => ContractorStatus::Actif,
+            'verification_status' => ContractorVerificationStatus::Valide,
+        ]);
+        $contractor->trades()->attach($this->trade('macon')->id);
+
+        return $contractor;
+    }
+
+    /**
+     * Demande de devis d’un chantier localisé par GPS à Bingerville, sans commune envoyée par l’application.
+     *
+     * @return array<string, mixed>
+     */
+    private function quoteRequestFromGps(): array
+    {
+        $site = $this->postJson('/api/v1/promoter/sites', ['title' => 'Villa Bingerville'])->assertCreated()->json('data');
+        $this->patchJson("/api/v1/promoter/sites/{$site['id']}", ['address' => 'Blachon, Bingerville', 'location' => ['latitude' => 5.357129, 'longitude' => -3.876571]])->assertOk();
+        $this->putJson("/api/v1/promoter/sites/{$site['id']}/offer", ['type' => 'contractuelle', 'contract' => ['has_quote' => false, 'quote_request' => ['trade_ids' => [$this->trade('macon')->id]]]])->assertOk();
+        $this->postJson("/api/v1/promoter/sites/{$site['id']}/publish")->assertOk();
+
+        return $site;
+    }
+
+    public function test_the_commune_comes_from_the_gps_position_and_the_professionals_of_the_city_are_notified(): void
+    {
+        $contractor = $this->abidjanMason();
+
+        $site = $this->quoteRequestFromGps();
+
+        $this->assertSame('Bingerville', Site::query()->find($site['id'])->commune->name);
+        $this->assertTrue(Notification::query()->where('recipient_id', $contractor->user_id)->where('event_code', 'opportunity.quote')->exists());
+    }
+
+    public function test_a_site_without_commune_nor_gps_cannot_be_published(): void
+    {
+        $site = $this->postJson('/api/v1/promoter/sites', ['title' => 'Villa sans commune'])->assertCreated()->json('data');
+        $this->patchJson("/api/v1/promoter/sites/{$site['id']}", ['address' => 'Quelque part'])->assertOk();
+        $this->putJson("/api/v1/promoter/sites/{$site['id']}/offer", ['type' => 'contractuelle', 'contract' => ['has_quote' => false, 'quote_request' => ['trade_ids' => [$this->trade('macon')->id]]]])->assertOk();
+
+        $this->postJson("/api/v1/promoter/sites/{$site['id']}/publish")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['publication' => 'Indiquez la commune du chantier']);
+    }
+
+    public function test_the_command_fills_the_missing_commune_and_notifies_the_professionals(): void
+    {
+        $contractor = $this->abidjanMason();
+        $site = $this->quoteRequestFromGps();
+        // Chantier publié avant la correction : sans commune, personne n’a été prévenu.
+        Site::query()->whereKey($site['id'])->update(['commune_id' => null]);
+        Notification::query()->where('event_code', 'opportunity.quote')->delete();
+
+        $this->artisan('ochantier:fill-site-communes')->assertSuccessful();
+        $this->assertNull(Site::query()->find($site['id'])->commune_id);
+        $this->assertFalse(Notification::query()->where('event_code', 'opportunity.quote')->exists());
+
+        $this->artisan('ochantier:fill-site-communes', ['--apply' => true])->assertSuccessful();
+        $this->artisan('ochantier:fill-site-communes', ['--apply' => true])->assertSuccessful();
+
+        $this->assertSame('Bingerville', Site::query()->find($site['id'])->commune->name);
+        $this->assertSame(1, Notification::query()->where('recipient_id', $contractor->user_id)->where('event_code', 'opportunity.quote')->count());
+    }
+
     private function quoteRequest(array $trades): array
     {
         $site = $this->postJson('/api/v1/promoter/sites', ['title' => 'Villa Riviera'])->assertCreated()->json('data');

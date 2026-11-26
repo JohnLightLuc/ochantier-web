@@ -217,6 +217,8 @@ class OfferDraft
 
             if (blank($site->address)) {
                 $add('location', 'Indiquez la localisation');
+            } elseif (blank($site->commune_id)) {
+                $add('commune', 'Indiquez la commune du chantier');
             }
 
             if ($this->quoteTrades($site)->isEmpty()) {
@@ -244,6 +246,8 @@ class OfferDraft
 
         if (blank($site->address)) {
             $add('location', 'Indiquez la localisation');
+        } elseif (blank($site->commune_id)) {
+            $add('commune', 'Indiquez la commune du chantier');
         }
 
         if (! $site->planned_start_date || ! $site->planned_end_date) {

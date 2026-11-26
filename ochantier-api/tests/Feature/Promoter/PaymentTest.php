@@ -505,6 +505,7 @@ class PaymentTest extends PromoterTestCase
         $this->post("/api/v1/promoter/sites/{$site['id']}/photo", ['photo' => $this->image()], ['Accept' => 'application/json'])->assertOk();
         $this->patchJson("/api/v1/promoter/sites/{$site['id']}", [
             'address' => 'Angré, Abidjan',
+            'commune_id' => $this->commune(),
             'planned_start_date' => now()->addDays(5)->toDateString(),
             'planned_end_date' => now()->addDays(14)->toDateString(),
         ])->assertOk();

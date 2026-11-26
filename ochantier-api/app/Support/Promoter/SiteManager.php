@@ -73,7 +73,7 @@ class SiteManager
      */
     private const TEAM_STATUSES = [OrganizationMemberStatus::Actif, OrganizationMemberStatus::Invite];
 
-    public function __construct(private DocumentStore $documents, private MediaStore $media) {}
+    public function __construct(private DocumentStore $documents, private MediaStore $media, private SiteCommunes $communes) {}
 
     /**
      * Enregistre un brouillon de chantier (« Enregistrer le brouillon »).
@@ -94,6 +94,7 @@ class SiteManager
                 'lock_version' => 1,
             ]);
             $this->computeDuration($site)->save();
+            $this->communes->fill($site);
 
             $site->statusHistories()->create(['from_status' => null, 'to_status' => SiteStatus::Brouillon, 'actor_type' => $author->getMorphClass(), 'actor_id' => $author->getKey()]);
 
@@ -116,6 +117,7 @@ class SiteManager
         }
 
         $this->computeDuration($site->forceFill([...$this->attributes($data), 'lock_version' => $site->lock_version + 1]))->save();
+        $this->communes->fill($site);
 
         return $site->refresh();
     }
