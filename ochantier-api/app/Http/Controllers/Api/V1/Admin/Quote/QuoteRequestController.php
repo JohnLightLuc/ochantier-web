@@ -60,6 +60,15 @@ class QuoteRequestController extends Controller
         return $this->fiche($request, $line, 'Demande de devis annulée.');
     }
 
+    public function decideVisit(PromoterReasonRequest $request, string $line): JsonResponse
+    {
+        $data = $request->validate(['decision' => ['required', 'in:confirmer,annuler']], ['decision.required' => 'Confirmez ou annulez la visite.', 'decision.in' => 'Confirmez ou annulez la visite.']);
+        $confirmed = $data['decision'] === 'confirmer';
+        $this->operations->decideVisit($this->directory->find($line), $confirmed, $request->reason(), $request->user(), $request);
+
+        return $this->fiche($request, $line, $confirmed ? 'Visite confirmée : les frais de visite sont dus au professionnel.' : 'Visite annulée : le professionnel doit la refaire.');
+    }
+
     public function remind(Request $request, string $line): JsonResponse
     {
         $data = $request->validate(

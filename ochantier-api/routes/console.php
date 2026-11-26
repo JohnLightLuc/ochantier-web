@@ -25,3 +25,6 @@ Schedule::command('ochantier:commercial-reminders')->dailyAt('08:00');
 
 // Fin des suspensions d’ouvriers arrivées à leur date : l’ouvrier redevient validé.
 Schedule::command('ochantier:lift-worker-suspensions')->hourly();
+
+// Visites de devis déclarées faites sans réponse du promoteur dans le délai : confirmées d’office.
+Schedule::command('ochantier:confirm-quote-visits')->hourly();

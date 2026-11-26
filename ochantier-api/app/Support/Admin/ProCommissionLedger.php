@@ -129,7 +129,7 @@ class ProCommissionLedger
             ->where('b.status', 'choisie')
             ->whereNotNull('r.ordered_at')
             ->select('b.id', 'l.id as line_id', 'r.reference', 's.id as site_id', 's.label as site', 'c.id as contractor_id', 'c.name as contractor', 't.label as trade')
-            ->addSelect('b.amount', 'b.fee_amount', 'b.service_fee_amount', 'b.service_fee_percent', 'b.visit_status', 'tx.reference as payment_reference', 'r.ordered_at', 'tx.completed_at')
+            ->addSelect('b.amount', 'b.fee_amount', 'b.service_fee_amount', 'b.service_fee_percent', 'b.visit_status', 'b.visit_confirmation', 'tx.reference as payment_reference', 'r.ordered_at', 'tx.completed_at')
             ->selectRaw($this->promoterName('s').' as payer')
             ->get()
             ->map(fn (object $row) => $this->line(
@@ -148,7 +148,8 @@ class ProCommissionLedger
                 status: 'collectee',
                 date: $row->completed_at ?? $row->ordered_at,
                 payment: $row->payment_reference,
-                serviceDone: $row->visit_status === 'realisee',
+                // Frais de visite dus une fois la visite confirmée (par le promoteur, d’office ou par le Back Office).
+                serviceDone: $row->visit_status === 'realisee' && in_array($row->visit_confirmation, ['confirmee', 'automatique'], true),
             ));
     }
 

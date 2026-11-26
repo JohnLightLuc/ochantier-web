@@ -309,6 +309,34 @@ Quand un devis est réalisé, `trades[].quote` est rempli :
 
   Le bouton « Définir l’offre financière » ouvre le formulaire : il ne reste qu’à ajouter la photo et les dates si elles manquent, saisir le montant et publier (voir §3).
 
+### 4.6 Confirmer la visite du professionnel
+
+Quand le professionnel déclare la visite faite, le promoteur reçoit la notification **`quote.visit_done`** (« Visite réalisée à confirmer », cible `quote_request`). Dans la carte, chaque métier porte alors `visit.confirmation` :
+
+```json
+"confirmation": {
+  "status": { "value": "a_confirmer", "label": "À confirmer par le promoteur" },
+  "deadline": "2026-11-29T10:30:00+00:00",
+  "confirmed_at": null,
+  "contest_reason": null,
+  "can_confirm": true
+}
+```
+
+- `status.value` : `a_confirmer`, `confirmee`, `automatique` (« Confirmée d’office ») ou `contestee`.
+- Tant que `can_confirm` vaut `true`, afficher deux boutons : « Oui, la visite a eu lieu » et « Non, personne n’est venu ».
+
+`POST sites/{id}/quote-request/visits/{bid}/confirmation` (`bid` : `selected.id` du métier) :
+
+| Champ | Valeur |
+|---|---|
+| `confirmed` | `true` ou `false` |
+| `reason` | obligatoire si `confirmed = false` (5 à 500 caractères) |
+
+- **Oui** : la visite est confirmée, les frais de visite deviennent dus au professionnel. Message « Visite confirmée ».
+- **Non** : les frais restent bloqués et le Back Office examine le signalement. Message « Signalement envoyé : le Back Office va examiner la visite ». Sa décision arrive par la notification **`quote.visit_decided`** : visite confirmée, ou visite à refaire (le métier repasse à `visit.status = planifiee`).
+- **Sans réponse** sous 3 jours (réglage du Back Office), la visite est confirmée d’office (`automatique`).
+
 ---
 
 ## 5. Offres d’entrepreneurs (offre contractuelle publiée)

@@ -75,6 +75,15 @@ class QuoteRequestDetailResource extends Resource
                 'slot' => $selected->visit_slot,
                 'duration' => $selected->visit_duration,
                 'visited_at' => $selected->visited_at?->toIso8601String(),
+                'confirmation' => $selected->visit_status?->value === 'realisee' ? [
+                    'status' => $selected->visit_confirmation
+                        ? $this->status($selected->visit_confirmation)
+                        : ['value' => 'a_confirmer', 'label' => 'À confirmer par le promoteur'],
+                    'deadline' => $selected->visit_confirmation ? null : app(QuoteRequests::class)->confirmationDeadline($selected)->toIso8601String(),
+                    'confirmed_at' => $selected->visit_confirmed_at?->toIso8601String(),
+                    'contest_reason' => $selected->visit_contest_reason,
+                    'contested_at' => $selected->visit_contested_at?->toIso8601String(),
+                ] : null,
                 'reschedule' => $selected->reschedule_requested_at ? [
                     'date' => $this->date($selected->reschedule_date),
                     'slot' => $selected->reschedule_slot,
@@ -109,6 +118,7 @@ class QuoteRequestDetailResource extends Resource
                 'cancel' => $quoteRequest->status->value === 'recherche',
                 'remind_promoter' => in_array($status, QuoteRequestOperations::REMINDABLE['promoter'], true) && ($status !== 'ouverte' || $this->bids_count > 0),
                 'remind_contractor' => in_array($status, QuoteRequestOperations::REMINDABLE['contractor'], true) && $selected?->contractor !== null,
+                'decide_visit' => $selected?->visit_confirmation?->value === 'contestee',
             ],
         ];
     }

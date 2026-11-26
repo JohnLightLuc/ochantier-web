@@ -177,6 +177,7 @@ Route::middleware('auth:admin')->group(function () {
                 Route::post('extension', 'extend')->middleware('admin.can:offers.update')->name('extend');
                 Route::post('cancellation', 'cancel')->middleware('admin.can:offers.validate')->name('cancel');
                 Route::post('reminders', 'remind')->middleware('admin.can:offers.update')->name('remind');
+                Route::post('visit-decision', 'decideVisit')->middleware('admin.can:offers.validate')->name('visit-decision');
             });
         });
 

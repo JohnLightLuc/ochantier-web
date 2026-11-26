@@ -17,6 +17,7 @@ class QuotePresenter
         'ouverte' => 'b',
         'visite_programmee' => 'a',
         'report_propose' => 'o',
+        'visite_contestee' => 'r',
         'devis_en_preparation' => 'a',
         'devis_envoye' => 'p',
         'devis_recu' => 'g',
@@ -113,6 +114,14 @@ class QuotePresenter
                 'date' => trim(self::date($visit['date']).($visit['slot'] ? ' · '.$visit['slot'] : '')),
                 'duration' => $visit['duration'],
                 'visitedAt' => self::date($visit['visited_at']),
+                'confirmation' => ($c = $visit['confirmation'] ?? null) ? [
+                    'value' => $c['status']['value'],
+                    'label' => $c['status']['label'],
+                    'deadline' => self::date($c['deadline']),
+                    'confirmedAt' => self::date($c['confirmed_at']),
+                    'contestReason' => $c['contest_reason'],
+                    'contestedAt' => self::date($c['contested_at'] ?? null),
+                ] : null,
                 'reschedule' => $visit['reschedule'] ? [
                     'date' => trim(self::date($visit['reschedule']['date']).($visit['reschedule']['slot'] ? ' · '.$visit['reschedule']['slot'] : '')),
                     'reason' => $visit['reschedule']['reason'],
@@ -149,6 +158,7 @@ class QuotePresenter
                 'cancel' => (bool) $q['actions']['cancel'],
                 'remindPromoter' => (bool) $q['actions']['remind_promoter'],
                 'remindContractor' => (bool) $q['actions']['remind_contractor'],
+                'decideVisit' => (bool) ($q['actions']['decide_visit'] ?? false),
             ],
         ];
     }

@@ -23,6 +23,8 @@ class ContractorPayoutTest extends ContractorMarketTestCase
 
     private string $proposal;
 
+    private string $site;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -32,6 +34,7 @@ class ContractorPayoutTest extends ContractorMarketTestCase
         $this->approver = $this->adminTokenFor(Admin::factory()->role('finance')->create());
 
         $site = $this->quoteRequest('Villa Riviera', 'Cocody', ['electricien']);
+        $this->site = $site['id'];
         $this->proposal = $this->asContractor()->postJson('/api/v1/contractor/opportunities/quotes/'.$this->line($site, 'electricien')->id.'/proposal', ['fee_amount' => 25000, 'visit_date' => now()->addDays(3)->toDateString(), 'visit_slot' => '10:00 – 12:00'])->json('data.id');
         $this->asPromoter()->postJson('/api/v1/promoter/payments', ['quote_bid_ids' => [$this->proposal], 'operator_code' => 'orange_money', 'dial_code' => '225', 'phone_number' => '0712349999'], ['Idempotency-Key' => 'devis-versement'])->assertCreated();
     }
@@ -41,6 +44,9 @@ class ContractorPayoutTest extends ContractorMarketTestCase
         $this->as($this->preparer)->getJson('/api/v1/admin/contractor-payouts')->assertOk()->assertJsonPath('data.payable', []);
 
         $this->asContractor()->postJson("/api/v1/contractor/quote-proposals/{$this->proposal}/visit/done")->assertOk();
+        // Visite déclarée, pas encore confirmée par le promoteur : les frais ne sont pas encore dus.
+        $this->as($this->preparer)->getJson('/api/v1/admin/contractor-payouts')->assertJsonPath('data.payable', []);
+        $this->confirmVisit();
 
         $this->as($this->preparer)->getJson('/api/v1/admin/contractor-payouts')
             ->assertJsonPath('data.payable.0.contractor.name', 'Yao Serge Koffi')
@@ -93,6 +99,7 @@ class ContractorPayoutTest extends ContractorMarketTestCase
     public function test_a_rejected_payout_can_be_retried_or_cancelled(): void
     {
         $this->asContractor()->postJson("/api/v1/contractor/quote-proposals/{$this->proposal}/visit/done")->assertOk();
+        $this->confirmVisit();
         $operator = PaymentOperator::query()->where('code', 'orange_money')->value('id');
         $method = $this->as($this->preparer)->postJson('/api/v1/admin/contractors/'.$this->contractor->id.'/payment-method', ['operator_id' => $operator, 'dial_code' => '225', 'phone_number' => '0712340000'])->json('data.pending.id');
         $this->as($this->approver)->postJson('/api/v1/admin/contractors/'.$this->contractor->id.'/payment-method/'.$method.'/approve')->assertOk();
@@ -122,6 +129,11 @@ class ContractorPayoutTest extends ContractorMarketTestCase
 
         $this->withAccessToken($operations)->getJson('/api/v1/admin/contractor-payouts')->assertForbidden();
         $this->withAccessToken($operations)->postJson('/api/v1/admin/contractor-payouts', ['contractor_id' => $this->contractor->id])->assertForbidden();
+    }
+
+    private function confirmVisit(): void
+    {
+        $this->asPromoter()->postJson("/api/v1/promoter/sites/{$this->site}/quote-request/visits/{$this->proposal}/confirmation", ['confirmed' => true])->assertOk();
     }
 
     private function adminTokenFor(Admin $admin): string

@@ -43,6 +43,25 @@ export function useQuoteActions() {
                 />,
             ),
 
+        decideVisit: (q: Quote, decision: 'confirmer' | 'annuler') =>
+            setDialog(
+                <FormDialog
+                    title={decision === 'confirmer' ? 'Confirmer la visite ?' : 'Annuler la visite ?'}
+                    body={
+                        decision === 'confirmer'
+                            ? `La visite de ${q.contractor ?? 'le professionnel'} est confirmée malgré le signalement du promoteur : ses frais de visite deviennent dus. Le promoteur et le professionnel sont prévenus avec le motif.`
+                            : `La visite est considérée comme non réalisée : ${q.contractor ?? 'le professionnel'} doit la refaire puis la déclarer de nouveau, ses frais restent bloqués. Le promoteur et le professionnel sont prévenus avec le motif.`
+                    }
+                    icon={decision === 'confirmer' ? 'task_alt' : 'event_busy'}
+                    tone={decision === 'confirmer' ? undefined : 'danger'}
+                    okLabel={decision === 'confirmer' ? 'Confirmer la visite' : 'Annuler la visite'}
+                    url={`${base(q)}/visite`}
+                    extra={{ decision }}
+                    onClose={close}
+                    fields={[{ name: 'reason', label: 'Motif de la décision', type: 'textarea', required: true, full: true, placeholder: 'Ex. Photos de la visite fournies, échange avec le promoteur…' }]}
+                />,
+            ),
+
         cancel: (q: Quote) =>
             setDialog(
                 <ReasonDialog

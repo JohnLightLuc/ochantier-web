@@ -12,7 +12,7 @@ use Inertia\Inertia;
 
 /**
  * Décisions sur une demande de devis, envoyées à l’API : prolonger la date limite, annuler la demande, relancer le
- * promoteur ou le professionnel. Le message de l’API est affiché ; un refus devient une notification d’erreur.
+ * promoteur ou le professionnel, trancher une visite contestée. Le message de l’API est affiché ; un refus devient une notification d’erreur.
  */
 class QuoteRequestDecisionController extends Controller
 {
@@ -29,6 +29,14 @@ class QuoteRequestDecisionController extends Controller
         $category = trim((string) $request->input('category'));
 
         return $this->send(fn () => $this->api->post("quote-requests/{$quote}/cancellation", ['reason' => $category && $reason && $category !== 'Autre' ? "{$category} · {$reason}" : $reason]));
+    }
+
+    /**
+     * Visite contestée par le promoteur : « confirmer » (frais dus au professionnel) ou « annuler » (visite à refaire).
+     */
+    public function decideVisit(Request $request, string $quote): RedirectResponse
+    {
+        return $this->send(fn () => $this->api->post("quote-requests/{$quote}/visit-decision", ['decision' => $request->input('decision'), 'reason' => trim((string) $request->input('reason'))]));
     }
 
     public function remind(Request $request, string $quote): RedirectResponse

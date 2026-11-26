@@ -63,7 +63,7 @@ class QuoteRequestAdminTest extends ContractorMarketTestCase
             ->assertJsonPath('data.bids.0.is_shown', true)
             ->assertJsonPath('data.visit', null)
             ->assertJsonPath('data.payment', null)
-            ->assertJsonPath('data.actions', ['extend' => true, 'cancel' => true, 'remind_promoter' => true, 'remind_contractor' => false])
+            ->assertJsonPath('data.actions', ['extend' => true, 'cancel' => true, 'remind_promoter' => true, 'remind_contractor' => false, 'decide_visit' => false])
             ->assertJsonPath('data.timeline.0.what', 'a proposé une visite')
             ->assertJsonPath('data.timeline.1.what', 'a publié la demande de devis');
 
@@ -126,7 +126,7 @@ class QuoteRequestAdminTest extends ContractorMarketTestCase
             ->assertJsonPath('data.visit.status.value', 'planifiee')
             ->assertJsonPath('data.payment.amount', 27500)
             ->assertJsonPath('data.payment.status.value', 'reussie')
-            ->assertJsonPath('data.actions', ['extend' => false, 'cancel' => false, 'remind_promoter' => false, 'remind_contractor' => true]);
+            ->assertJsonPath('data.actions', ['extend' => false, 'cancel' => false, 'remind_promoter' => false, 'remind_contractor' => true, 'decide_visit' => false]);
 
         $this->asAdmin()->postJson('/api/v1/admin/quote-requests/'.$line->id.'/cancellation', ['reason' => 'Demande du promoteur.'])
             ->assertUnprocessable()

@@ -6,9 +6,11 @@ use App\Enums\QuoteBidStatus;
 use App\Enums\QuoteRequestStatus;
 use App\Enums\QuoteRequestTradeStatus;
 use App\Enums\QuoteVersionStatus;
+use App\Enums\QuoteVisitConfirmation;
 use App\Enums\QuoteVisitStatus;
 use App\Enums\SiteStatus;
 use App\Http\Resources\V1\DocumentResource;
+use App\Models\Admin;
 use App\Models\Contractor;
 use App\Models\DocumentType;
 use App\Models\PaymentTransaction;
@@ -393,9 +395,114 @@ class QuoteRequests
             throw ValidationException::withMessages(['visit' => $bid->visit_status === QuoteVisitStatus::Realisee ? 'La visite est déjà réalisée.' : 'Un report est en attente de la décision du promoteur.']);
         }
 
-        $bid->update(['visit_status' => QuoteVisitStatus::Realisee, 'visited_at' => now()]);
+        $bid->update(['visit_status' => QuoteVisitStatus::Realisee, 'visited_at' => now(), 'visit_confirmation' => null, 'visit_confirmed_at' => null]);
+
+        $line = $bid->quoteRequestTrade;
+        $site = $line->quoteRequest->site;
+        app(PromoterNotifier::class)->notify($site->promoterProfile, 'quote.visit_done', 'Visite réalisée à confirmer',
+            ($bid->contractor?->name ?? 'Le professionnel').' indique avoir fait la visite « '.$line->trade->label.' » de '.$site->label.'. Confirmez-la ou signalez qu’elle n’a pas eu lieu avant le '.$this->confirmationDeadline($bid)->format('d/m/Y').' ; sans réponse, elle sera confirmée.',
+            $site, ['type' => 'quote_request', 'id' => $site->id], $bid, 'quote.visit_done:'.$bid->id.':'.$bid->visited_at->timestamp);
 
         return $bid;
+    }
+
+    /**
+     * Jours laissés au promoteur pour confirmer une visite déclarée faite (réglage quotes.visit_confirmation_days).
+     */
+    public function confirmationDays(): int
+    {
+        return max(1, (int) (Setting::query()->whereKey('quotes.visit_confirmation_days')->value('value') ?? 3));
+    }
+
+    public function confirmationDeadline(QuoteBid $bid): CarbonImmutable
+    {
+        return CarbonImmutable::parse($bid->visited_at)->addDays($this->confirmationDays());
+    }
+
+    /**
+     * Le promoteur confirme la visite déclarée faite (les frais de visite sont dus au professionnel), ou la conteste
+     * avec un motif (les frais restent bloqués et le Back Office tranche).
+     */
+    public function confirmVisit(QuoteBid $bid, bool $confirmed, ?string $reason): QuoteBid
+    {
+        $this->ensureMission($bid);
+
+        if ($bid->visit_status !== QuoteVisitStatus::Realisee) {
+            throw ValidationException::withMessages(['visit' => 'Le professionnel n’a pas encore déclaré la visite faite.']);
+        }
+
+        if ($bid->visit_confirmation !== null) {
+            throw ValidationException::withMessages(['visit' => $bid->visit_confirmation === QuoteVisitConfirmation::Contestee
+                ? 'Vous avez signalé cette visite : le Back Office examine votre signalement.'
+                : 'Cette visite est déjà confirmée.']);
+        }
+
+        $bid->update($confirmed
+            ? ['visit_confirmation' => QuoteVisitConfirmation::Confirmee, 'visit_confirmed_at' => now()]
+            : ['visit_confirmation' => QuoteVisitConfirmation::Contestee, 'visit_contest_reason' => $reason, 'visit_contested_at' => now()]);
+
+        $site = $bid->quoteRequestTrade->quoteRequest->site;
+        app(ContractorNotifier::class)->proposalEvent($bid, $confirmed ? 'visit.confirmed' : 'visit.contested',
+            $confirmed ? 'Visite confirmée' : 'Visite contestée par le promoteur',
+            $confirmed
+                ? $site->label.' : le promoteur a confirmé votre visite. Vos frais de visite vous seront versés.'
+                : $site->label.' : le promoteur indique que la visite n’a pas eu lieu ('.rtrim((string) $reason, '. ').'). Vos frais de visite sont suspendus le temps que O’CHANTIER examine la situation.');
+
+        return $bid->refresh();
+    }
+
+    /**
+     * Visites déclarées faites sans réponse du promoteur dans le délai : confirmées d’office. Renvoie leur nombre.
+     */
+    public function confirmOverdueVisits(): int
+    {
+        $count = 0;
+
+        QuoteBid::query()
+            ->where('visit_status', QuoteVisitStatus::Realisee->value)
+            ->whereNull('visit_confirmation')
+            ->where('visited_at', '<=', now()->subDays($this->confirmationDays()))
+            ->with('quoteRequestTrade.quoteRequest.site')
+            ->each(function (QuoteBid $bid) use (&$count): void {
+                $bid->update(['visit_confirmation' => QuoteVisitConfirmation::Automatique, 'visit_confirmed_at' => now()]);
+                app(ContractorNotifier::class)->proposalEvent($bid, 'visit.confirmed', 'Visite confirmée',
+                    $bid->quoteRequestTrade->quoteRequest->site->label.' : sans signalement du promoteur, votre visite est confirmée. Vos frais de visite vous seront versés.');
+                $count++;
+            });
+
+        return $count;
+    }
+
+    /**
+     * Décision du Back Office sur une visite contestée : confirmée (les frais sont dus), ou annulée (la visite est à
+     * refaire et le professionnel devra de nouveau la déclarer). Le promoteur et le professionnel sont prévenus.
+     */
+    public function decideContestedVisit(QuoteBid $bid, bool $confirmed, string $reason, Admin $admin): QuoteBid
+    {
+        if ($bid->visit_confirmation !== QuoteVisitConfirmation::Contestee) {
+            throw ValidationException::withMessages(['visit' => 'Cette visite n’est pas contestée.']);
+        }
+
+        $bid->update($confirmed
+            ? ['visit_confirmation' => QuoteVisitConfirmation::Confirmee, 'visit_confirmed_at' => now(), 'visit_decided_by_admin_id' => $admin->getKey()]
+            : ['visit_status' => QuoteVisitStatus::Planifiee, 'visited_at' => null, 'visit_confirmation' => null, 'visit_confirmed_at' => null, 'visit_decided_by_admin_id' => $admin->getKey()]);
+
+        $line = $bid->quoteRequestTrade;
+        $site = $line->quoteRequest->site;
+        $detail = rtrim($reason, '. ').'.';
+        app(ContractorNotifier::class)->proposalEvent($bid, 'visit.contest_decided',
+            $confirmed ? 'Visite confirmée par O’CHANTIER' : 'Visite à refaire',
+            $confirmed
+                ? $site->label.' : après examen, votre visite est confirmée. Vos frais de visite vous seront versés. '.$detail
+                : $site->label.' : après examen, la visite est considérée comme non réalisée. Convenez d’une visite avec le promoteur puis déclarez-la de nouveau. '.$detail);
+        app(PromoterNotifier::class)->notify($site->promoterProfile, 'quote.visit_decided',
+            $confirmed ? 'Visite confirmée par O’CHANTIER' : 'Visite à refaire',
+            ($confirmed
+                ? 'Après examen de votre signalement, la visite « '.$line->trade->label.' » de '.$site->label.' est confirmée. '
+                : 'Après examen de votre signalement, la visite « '.$line->trade->label.' » de '.$site->label.' doit être refaite par le professionnel. ').$detail,
+            $site, ['type' => 'quote_request', 'id' => $site->id], $bid);
+
+        return $bid->refresh();
     }
 
     /**
@@ -617,7 +724,7 @@ class QuoteRequests
         }
 
         $bid = $line->selectedBid;
-        $bid->update(['visit_status' => QuoteVisitStatus::Realisee, 'visited_at' => $visitedOn]);
+        $bid->update(['visit_status' => QuoteVisitStatus::Realisee, 'visited_at' => $visitedOn, 'visit_confirmation' => QuoteVisitConfirmation::Confirmee, 'visit_confirmed_at' => now()]);
         $version = $this->updateVersion($this->draftVersion($bid), ['items' => $items, 'works_duration' => '15 jours']);
         $this->sendVersion($version, $bid->contractor ?? $bid->worker);
 
@@ -758,6 +865,15 @@ class QuoteRequests
             'slot' => $bid->visit_slot,
             'duration' => $bid->visit_duration,
             'visited_at' => $bid->visited_at?->toIso8601String(),
+            'confirmation' => $bid->visit_status === QuoteVisitStatus::Realisee ? [
+                'status' => $bid->visit_confirmation
+                    ? ['value' => $bid->visit_confirmation->value, 'label' => $bid->visit_confirmation->label()]
+                    : ['value' => 'a_confirmer', 'label' => 'À confirmer par le promoteur'],
+                'deadline' => $bid->visit_confirmation ? null : $this->confirmationDeadline($bid)->toIso8601String(),
+                'confirmed_at' => $bid->visit_confirmed_at?->toIso8601String(),
+                'contest_reason' => $bid->visit_contest_reason,
+                'can_confirm' => $bid->visit_confirmation === null,
+            ] : null,
             'reschedule' => $bid->visit_status === QuoteVisitStatus::ReportPropose ? [
                 'date' => $bid->reschedule_date?->toDateString(),
                 'slot' => $bid->reschedule_slot,

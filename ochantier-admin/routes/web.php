@@ -227,6 +227,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
             Route::post('/prolongation', [QuoteRequestDecisionController::class, 'extend'])->name('extend');
             Route::post('/annulation', [QuoteRequestDecisionController::class, 'cancel'])->name('cancel');
             Route::post('/relance', [QuoteRequestDecisionController::class, 'remind'])->name('remind');
+            Route::post('/visite', [QuoteRequestDecisionController::class, 'decideVisit'])->name('visit');
         });
     });
 

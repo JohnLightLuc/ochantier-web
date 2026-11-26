@@ -43,6 +43,7 @@ class PlatformSettings
         'quotes.response_hours' => ['Propositions', 'Délai de réponse à une demande de devis', 'int', 1, 720, 'h'],
         'contractor_offers.response_hours' => ['Propositions', 'Délai de réponse à une offre contractuelle', 'int', 1, 720, 'h'],
         'staffing.service_fee_percent' => ['Propositions', 'Frais de service des recherches d’effectifs (entrepreneurs)', 'int', 0, 50, '%'],
+        'quotes.visit_confirmation_days' => ['Propositions', 'Délai de confirmation d’une visite de devis par le promoteur (confirmée d’office ensuite)', 'int', 1, 30, 'jours'],
         'quotes.service_fee_percent' => ['Propositions', 'Frais de service sur les propositions de devis', 'int', 0, 50, '%'],
         'contractor_offers.commission_percent' => ['Propositions', 'Commission O’CHANTIER sur les offres contractuelles (figée à la publication)', 'int', 0, 50, '%'],
         'pro.compared_offers' => ['Propositions', 'Offres de professionnels montrées au promoteur', 'int', 1, 10, 'offres'],

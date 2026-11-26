@@ -76,12 +76,18 @@ export type Quote = QuoteRow & {
     orderedAt: string | null;
     promoterContact: { phone: string | null; email: string | null };
     bids: QuoteBid[];
-    visitInfo: { status: string; date: string; duration: string | null; visitedAt: string | null; reschedule: { date: string; reason: string | null; requestedAt: string | null } | null } | null;
+    visitInfo: {
+        status: string;
+        date: string;
+        duration: string | null;
+        visitedAt: string | null;
+        confirmation: { value: 'a_confirmer' | 'confirmee' | 'automatique' | 'contestee'; label: string; deadline: string | null; confirmedAt: string | null; contestReason: string | null; contestedAt: string | null } | null;
+        reschedule: { date: string; reason: string | null; requestedAt: string | null } | null } | null;
     finance: [string, string | null][];
     payment: { reference: string; status: Badge; amount: string | null; paidAt: string | null; shared: string | null } | null;
     versions: QuoteVersion[];
     timeline: WorkerActivity[];
-    can: { extend: boolean; cancel: boolean; remindPromoter: boolean; remindContractor: boolean };
+    can: { extend: boolean; cancel: boolean; remindPromoter: boolean; remindContractor: boolean; decideVisit: boolean };
 };
 
 export type QuoteShowProps = {

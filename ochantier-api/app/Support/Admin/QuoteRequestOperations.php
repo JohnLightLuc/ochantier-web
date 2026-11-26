@@ -76,6 +76,20 @@ class QuoteRequestOperations
      * Rappel au promoteur (choisir une proposition, répondre au report, accuser réception du devis) ou au
      * professionnel choisi (visite à faire, devis à envoyer). Un seul rappel par destinataire et par jour.
      */
+    /**
+     * Visite contestée par le promoteur : le Back Office la confirme (frais de visite dus au professionnel) ou
+     * l’annule (la visite est à refaire).
+     */
+    public function decideVisit(QuoteRequestTrade $line, bool $confirmed, string $reason, Admin $admin, Request $request): void
+    {
+        $bid = $line->selectedBid ?? throw ValidationException::withMessages(['visit' => 'Aucune visite commandée sur ce corps de métier.']);
+        $before = $bid->visit_confirmation?->value;
+        $this->quotes->decideContestedVisit($bid, $confirmed, $reason, $admin);
+
+        AdminAudit::record($admin, 'offers', $confirmed ? 'quote_request.visit_confirmed' : 'quote_request.visit_cancelled', $request, $line->quoteRequest,
+            ['visit_confirmation' => $before], ['line_id' => $line->getKey(), 'bid_id' => $bid->getKey(), 'reason' => $reason]);
+    }
+
     public function remind(QuoteRequestTrade $line, string $target, ?string $message, Admin $admin, Request $request): void
     {
         $status = $this->directory->status($line);

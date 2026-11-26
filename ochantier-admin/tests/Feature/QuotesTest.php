@@ -151,6 +151,30 @@ class QuotesTest extends TestCase
         Http::assertSent(fn (ClientRequest $r) => str_ends_with($r->url(), '/reminders') && $r->data() === ['target' => 'contractor']);
     }
 
+    public function test_a_contested_visit_is_shown_and_its_decision_reaches_the_api(): void
+    {
+        $detail = $this->detail();
+        $detail['visit'] = [...$detail['visit'], 'status' => ['value' => 'realisee', 'label' => 'Réalisée'], 'visited_at' => '2026-11-22T10:30:00+00:00', 'confirmation' => [
+            'status' => ['value' => 'contestee', 'label' => 'Contestée'], 'deadline' => null, 'confirmed_at' => null,
+            'contest_reason' => 'Personne n’est venu.', 'contested_at' => '2026-11-23T08:00:00+00:00',
+        ]];
+        $detail['actions'] = [...$detail['actions'], 'decide_visit' => true];
+        Http::fake([
+            self::API.'/quote-requests/'.self::ID.'/visit-decision' => Http::response(['message' => 'Visite annulée : le professionnel doit la refaire.', 'data' => []]),
+            self::API.'/quote-requests/'.self::ID => Http::response(['data' => $detail]),
+        ]);
+        $page = '/demandes-devis/'.self::ID;
+
+        $this->get($page)->assertOk()->assertInertia(fn (Assert $inertia) => $inertia
+            ->where('quote.visitInfo.confirmation.value', 'contestee')
+            ->where('quote.visitInfo.confirmation.contestReason', 'Personne n’est venu.')
+            ->where('quote.can.decideVisit', true));
+
+        $this->from($page)->post($page.'/visite', ['decision' => 'annuler', 'reason' => '  Le professionnel reconnaît ne pas être venu.  '])
+            ->assertSessionHas('inertia.flash_data.toast', 'Visite annulée : le professionnel doit la refaire.');
+        Http::assertSent(fn (ClientRequest $r) => str_ends_with($r->url(), '/visit-decision') && $r->data() === ['decision' => 'annuler', 'reason' => 'Le professionnel reconnaît ne pas être venu.']);
+    }
+
     public function test_the_buttons_follow_the_admin_permissions(): void
     {
         $this->signIn(['offers.read']);

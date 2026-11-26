@@ -71,6 +71,7 @@ class PlatformRulesSeeder extends Seeder
         'quotes.response_hours' => [72, 'Délai de réponse des techniciens à une demande de devis (heures).'],
         'contractor_offers.response_hours' => [72, 'Délai de réponse des entrepreneurs à une offre contractuelle (heures).'],
         'staffing.service_fee_percent' => [5, 'Frais de service d’une recherche d’effectifs d’entrepreneur, en % du coût total des ouvriers trouvés.'],
+        'quotes.visit_confirmation_days' => [3, 'Délai laissé au promoteur pour confirmer ou contester une visite de devis déclarée faite ; sans réponse, elle est confirmée d’office (jours).'],
         'quotes.service_fee_percent' => [10, 'Frais de service O’CHANTIER ajoutés aux frais de visite ou d’étude d’une proposition de devis (%).'],
         'support.phone' => ['+225 27 22 00 00 00', 'Numéro du support affiché dans le centre d’aide.'],
         'support.whatsapp' => ['+225 07 00 00 00 00', 'Numéro WhatsApp du support.'],

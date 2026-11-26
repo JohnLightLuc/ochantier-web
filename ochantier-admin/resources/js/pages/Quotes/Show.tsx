@@ -93,8 +93,25 @@ export default function QuoteShow({ quote: q, can }: QuoteShowProps) {
                                         ['Durée prévue', q.visitInfo.duration],
                                         ['Statut', q.visitInfo.status],
                                         ['Réalisée le', q.visitInfo.visitedAt],
+                                        ...(q.visitInfo.confirmation ? ([['Confirmation', q.visitInfo.confirmation.label]] as [string, string][]) : []),
+                                        ...(q.visitInfo.confirmation?.deadline ? ([['Confirmée d’office le', q.visitInfo.confirmation.deadline]] as [string, string][]) : []),
+                                        ...(q.visitInfo.confirmation?.confirmedAt ? ([['Confirmée le', q.visitInfo.confirmation.confirmedAt]] as [string, string][]) : []),
                                     ]}
                                 />
+                                {q.visitInfo.confirmation?.value === 'contestee' && (
+                                    <div role="alert" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', borderRadius: 'var(--radius-lg)', background: 'var(--c-danger-bg)', color: 'var(--c-danger-fg)', fontSize: 'var(--fs-md)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                                        <span>
+                                            <b>Visite contestée par le promoteur{q.visitInfo.confirmation.contestedAt ? ` le ${q.visitInfo.confirmation.contestedAt}` : ''}</b>
+                                            {q.visitInfo.confirmation.contestReason ? ` · « ${q.visitInfo.confirmation.contestReason} »` : ''}. Les frais de visite sont bloqués jusqu’à votre décision.
+                                        </span>
+                                        {can.validate && q.can.decideVisit && (
+                                            <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                                                <Button label="Confirmer la visite" icon="task_alt" size="sm" onClick={() => actions.decideVisit(q, 'confirmer')} />
+                                                <Button label="Annuler la visite" icon="event_busy" size="sm" variant="danger-soft" onClick={() => actions.decideVisit(q, 'annuler')} />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                                 {q.visitInfo.reschedule && (
                                     <div role="note" style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', borderRadius: 'var(--radius-lg)', background: 'var(--c-orange-bg)', color: 'var(--c-orange-fg)', fontSize: 'var(--fs-md)' }}>
                                         <b>Report proposé le {q.visitInfo.reschedule.requestedAt}</b> · nouvelle date {q.visitInfo.reschedule.date}

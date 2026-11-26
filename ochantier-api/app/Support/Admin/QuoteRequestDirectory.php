@@ -30,6 +30,7 @@ class QuoteRequestDirectory
         'ouverte' => 'Ouverte',
         'visite_programmee' => 'Visite programmée',
         'report_propose' => 'Report de visite proposé',
+        'visite_contestee' => 'Visite contestée',
         'devis_en_preparation' => 'Devis en préparation',
         'devis_envoye' => 'Devis envoyé',
         'devis_recu' => 'Devis reçu',
@@ -44,6 +45,7 @@ class QuoteRequestDirectory
     private const STATUS_SQL = "CASE WHEN qr.status = 'annule' THEN 'annulee'"
         ." WHEN quote_request_trades.status = 'recherche' AND qr.response_deadline < :now THEN 'expiree'"
         ." WHEN quote_request_trades.status = 'recherche' THEN 'ouverte'"
+        ." WHEN sb.visit_confirmation = 'contestee' THEN 'visite_contestee'"
         ." WHEN quote_request_trades.status = 'commande' AND sb.visit_status = 'report_propose' THEN 'report_propose'"
         ." WHEN quote_request_trades.status = 'commande' AND sb.visit_status = 'realisee' THEN 'devis_en_preparation'"
         ." WHEN quote_request_trades.status = 'commande' THEN 'visite_programmee'"

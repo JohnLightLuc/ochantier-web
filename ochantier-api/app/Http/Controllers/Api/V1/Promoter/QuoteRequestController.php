@@ -52,6 +52,25 @@ class QuoteRequestController extends Controller
     }
 
     /**
+     * Visite déclarée faite par le professionnel : « Oui, la visite a eu lieu » ou « Non, personne n’est venu » (motif).
+     */
+    public function confirmVisit(Request $request, Site $site, string $bid): JsonResponse
+    {
+        $data = $request->validate([
+            'confirmed' => ['required', 'boolean'],
+            'reason' => ['required_if:confirmed,false', 'nullable', 'string', 'min:5', 'max:500'],
+        ], [
+            'confirmed.required' => 'Indiquez si la visite a eu lieu.',
+            'reason.required_if' => 'Expliquez ce qui s’est passé : le Back Office examinera votre signalement.',
+            'reason.min' => 'Expliquez ce qui s’est passé en quelques mots.',
+        ]);
+        $confirmed = (bool) $data['confirmed'];
+        $this->quotes->confirmVisit($this->bid($site, $bid), $confirmed, $confirmed ? null : $data['reason']);
+
+        return ApiResponse::success($this->quotes->summary($this->quotes->current($site)), $confirmed ? 'Visite confirmée' : 'Signalement envoyé : le Back Office va examiner la visite');
+    }
+
+    /**
      * « Accuser réception » d’une version de devis envoyée.
      */
     public function acknowledge(Site $site, string $version): JsonResponse

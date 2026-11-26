@@ -204,7 +204,7 @@ Chaque notification porte un `target` qui indique l’écran à ouvrir au tap, d
 | `type` | `id` | Champs en plus | Événements (`event`) |
 |---|---|---|---|
 | `reservation` | id de l’offre (réservation) | `proposal_id` | `proposal.received` (ouvriers trouvés) |
-| `quote_request` | id du chantier | — | `quote.offers_received` (chaque corps de métier a au moins une offre : « Choisir les offres de devis »), `quote.reschedule_requested`, `quote.sent` (devis reçu) |
+| `quote_request` | id du chantier | — | `quote.offers_received` (chaque corps de métier a au moins une offre : « Choisir les offres de devis »), `quote.reschedule_requested`, `quote.visit_done` (visite à confirmer), `quote.visit_decided` (décision du Back Office sur une visite contestée), `quote.sent` (devis reçu) |
 | `replacement` | id du remplacement | — | `replacement.proposed` |
 | `transaction` | id de la transaction | — | `payment.succeeded` |
 | `payments` | `null` | `filter: "en_retard"` (retard uniquement) | `payment.due`, `payment.late`, `payment.regularisation` |

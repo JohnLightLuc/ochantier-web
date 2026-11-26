@@ -189,6 +189,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
                     Route::post('sites/{site}/publish', [SiteOfferController::class, 'publish'])->name('sites.publish');
                     Route::delete('sites/{site}/quote-request', [QuoteRequestController::class, 'destroy'])->name('sites.quote-request.destroy');
                     Route::post('sites/{site}/quote-request/visits/{bid}/reschedule', [QuoteRequestController::class, 'decideReschedule'])->name('sites.quote-request.visits.reschedule');
+                    Route::post('sites/{site}/quote-request/visits/{bid}/confirmation', [QuoteRequestController::class, 'confirmVisit'])->name('sites.quote-request.visits.confirm');
                     Route::post('sites/{site}/quote-request/quotes/{version}/acknowledge', [QuoteRequestController::class, 'acknowledge'])->name('sites.quote-request.quotes.acknowledge');
                     Route::post('sites/{site}/contractor-offers/{bid}/choose', [ContractorOfferController::class, 'choose'])->whereUuid('bid')->name('sites.contractor-offers.choose');
                     Route::post('sites/{site}/reservations', [ReservationController::class, 'store'])->name('sites.reservations.store');

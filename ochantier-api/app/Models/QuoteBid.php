@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\QuoteBidStatus;
+use App\Enums\QuoteVisitConfirmation;
 use App\Enums\QuoteVisitStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -27,6 +28,7 @@ class QuoteBid extends Model
         'quote_request_trade_id', 'worker_id', 'contractor_id', 'amount', 'fee_amount', 'service_fee_percent', 'service_fee_amount',
         'visit_date', 'visit_slot', 'visit_duration', 'comment', 'distance_km', 'status', 'withdrawn_at', 'visit_status',
         'visited_at', 'reschedule_date', 'reschedule_slot', 'reschedule_reason', 'reschedule_requested_at',
+        'visit_confirmation', 'visit_confirmed_at', 'visit_contest_reason', 'visit_contested_at', 'visit_decided_by_admin_id',
     ];
 
     /**
@@ -39,6 +41,9 @@ class QuoteBid extends Model
         return [
             'status' => QuoteBidStatus::class,
             'visit_status' => QuoteVisitStatus::class,
+            'visit_confirmation' => QuoteVisitConfirmation::class,
+            'visit_confirmed_at' => 'datetime',
+            'visit_contested_at' => 'datetime',
             'amount' => 'integer',
             'fee_amount' => 'integer',
             'service_fee_percent' => 'float',

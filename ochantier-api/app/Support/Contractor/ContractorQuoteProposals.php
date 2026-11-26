@@ -5,6 +5,7 @@ namespace App\Support\Contractor;
 use App\Enums\QuoteBidStatus;
 use App\Enums\QuoteRequestStatus;
 use App\Enums\QuoteVersionStatus;
+use App\Enums\QuoteVisitConfirmation;
 use App\Enums\QuoteVisitStatus;
 use App\Models\Contractor;
 use App\Models\QuoteBid;
@@ -192,6 +193,8 @@ class ContractorQuoteProposals
                 $bid->status === QuoteBidStatus::NonRetenue => 'Le promoteur a retenu une autre proposition. Cette fiche reste consultable.',
                 $bid->status === QuoteBidStatus::Retiree => 'Cette proposition n’est plus active. Elle reste consultable.',
                 $bid->status === QuoteBidStatus::Proposee => 'Le promoteur compare les meilleures propositions de chaque métier. La mission démarre après le paiement de sa commande.',
+                $ordered && $bid->visit_confirmation === QuoteVisitConfirmation::Contestee => 'Le promoteur indique que la visite n’a pas eu lieu. Vos frais de visite sont suspendus le temps que O’CHANTIER examine la situation.',
+                $ordered && $bid->visit_status === QuoteVisitStatus::Realisee && $bid->visit_confirmation === null => 'Visite déclarée : le promoteur a jusqu’au '.$this->quotes->confirmationDeadline($bid)->format('d/m/Y').' pour la confirmer. Sans réponse, elle sera confirmée et vos frais de visite deviendront dus.',
                 default => null,
             },
             'actions' => [
